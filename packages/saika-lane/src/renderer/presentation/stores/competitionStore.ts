@@ -31,6 +31,7 @@ interface CompetitionState {
     status: 'PAUSED' | 'RESUME_PENDING' | 'SIGHTING' | 'RUNNING_MATCH';
     remainingSeconds: number;
     unlimitedSightingShots: boolean;
+    remainingTimeVerified?: boolean;
   } | null;
   targetProfileId?: TargetScoringProfileId;
   scoringGaugeProfileId?: ScoringGaugeProfileId;

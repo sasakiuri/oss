@@ -2,10 +2,18 @@
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { bindCompetitionEvents } from '@/main/composition/bindCompetitionEvents';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { P25 } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import { LaneInterruptionRecord } from '@/main/modules/competition-interruption';
+import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import {
+  CompetitionInterruptionService,
+  LocalCompetitionInterruptionRepository,
+  LaneInterruptionRecord,
+} from '@/main/modules/competition-interruption';
+import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
+import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import {
   QualificationRecoveryService,
   SqliteQualificationRecoveryRepository,
@@ -19,6 +27,14 @@ import { SqliteTimedTargetSequenceRepository, TimedTargetSequenceService } from 
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
+import { ActiveRunStartup } from '@/main/startup/restoreActiveRun';
+
+import { buildSession } from '../../../../helpers/factories';
+import {
+  createMockStorage,
+  createMockSessionRepository,
+  createMockCommandBus,
+} from '../../../../helpers/mockDependencies';
 
 describe('QualificationRecoveryService', () => {
   let db: Database.Database;
@@ -107,6 +123,72 @@ describe('QualificationRecoveryService', () => {
       decidedAt: new Date('2026-09-03T00:00:00.000Z'),
     };
   }
+
+  it('cancels a restored running recovery through the existing PAUSED binding after restart', async () => {
+    await recovery.start(precisionCompletionInput());
+    timedTarget.dispose();
+    const events = new TypedEventBus();
+    const storage = createMockStorage();
+    const sessions = createMockSessionRepository();
+    vi.mocked(sessions.findById).mockResolvedValue(buildSession());
+    const pauses = new LocalCompetitionInterruptionRepository(storage);
+    pauses.save(interruption);
+    const timer = new LaneTimerService(competitionRepository, events, storage);
+    const restoredPauses = new CompetitionInterruptionService(
+      pauses,
+      competitionRepository,
+      timer,
+      createMockCommandBus(),
+      events,
+      sessions,
+    );
+    const restoredTiming = new TimedTargetSequenceService(new SqliteTimedTargetSequenceRepository(db), {
+      publish: (state) =>
+        events.emit({
+          type: 'TimedTargetSequenceChanged',
+          timestamp: Date.now(),
+          aggregateId: state.competitionId,
+          state,
+        }),
+    });
+    const restoredRecovery = new QualificationRecoveryService(
+      new SqliteQualificationRecoveryRepository(db),
+      competitionRepository,
+      restoredPauses,
+      restoredTiming,
+      events,
+    );
+    const unbind = bindCompetitionEvents(events, restoredTiming);
+    const membership = new DirectorMembership(storage, events);
+    membership.setCompetitionId(competition.id);
+    const startup = new ActiveRunStartup({
+      competitions: competitionRepository,
+      sessions,
+      membership,
+      timer,
+      interruptions: restoredPauses,
+      context: new SessionContextCache(events),
+      safetyStopped: () => false,
+      safetyCompetitionId: () => null,
+      transferPending: () => false,
+      createCompetition: vi.fn(),
+      setAsideActiveRun: vi.fn(),
+      restoreIndependentWorkflows: () => {
+        restoredTiming.restore();
+        restoredRecovery.restoreActive();
+      },
+      stopIndependentWorkflows: () => restoredTiming.dispose(),
+    });
+    expect(await startup.restore()).toMatchObject({ status: 'READY' });
+    expect(restoredTiming.getState(competition.id)?.phase).toBe('CANCELLED');
+    expect(restoredRecovery.getLatest(competition.id)?.status).toBe('CANCELLED');
+    expect(restoredPauses.get(competition.id)).toMatchObject({
+      status: 'PAUSED',
+      interruptionId: interruption.interruptionId,
+    });
+    restoredTiming.dispose();
+    unbind();
+  });
 
   it('starts an isolated 48-second-per-shot run and never changes the ordinary series', async () => {
     const changed: string[] = [];

@@ -49,6 +49,7 @@ export class RetainPublisher {
     private readonly excludeCompetitionShotReplay: (shotId: string) => boolean = () => false,
     private readonly qualificationMalfunctionSignalPublisher?: QualificationMalfunctionSignalPublisher,
     private readonly estComplaintSignalPublisher?: EstComplaintSignalPublisher,
+    private readonly canPublishCompetition: () => boolean = () => true,
   ) {
     this.mqttClient = mqttClient;
     this.storage = storage;
@@ -96,6 +97,7 @@ export class RetainPublisher {
 
     // Safety state is Lane-owned and must survive without competition membership.
     await this.safetyStatePublisher?.publishCurrentState();
+    if (!this.canPublishCompetition()) return;
     await this.rangeOfficerRequestPublisher?.publishCurrentState();
     await this.qualificationMalfunctionSignalPublisher?.publishCurrentState();
     await this.estComplaintSignalPublisher?.publishCurrentState();

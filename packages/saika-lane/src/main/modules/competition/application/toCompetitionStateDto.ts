@@ -24,6 +24,7 @@ export function toCompetitionStateDto(
           remainingSeconds: interruption.authorizedRemainingSeconds ?? interruption.capturedRemainingSeconds,
           unlimitedSightingShots: interruption.unlimitedSightingShots === true,
           restartHold: interruption.restartHold,
+          remainingTimeVerified: interruption.remainingTimeVerified,
         }
       : null,
     id: state.id,

@@ -29,7 +29,13 @@ const hasAppSettingsStore = existsSync(join(packageRoot, 'src/main/modules/setti
 function setupMainModuleMocks(): void {
   vi.doMock('@/main/startup/restoreActiveRun', () => ({
     ActiveRunStartup: class {
-      restore = vi.fn().mockResolvedValue({ status: 'READY' });
+      callbacks: Array<() => Promise<void>> = [];
+      afterReady = (callback: () => Promise<void>) => this.callbacks.push(callback);
+      snapshot = async () => ({ status: 'READY' });
+      restore = vi.fn(async () => {
+        for (const callback of this.callbacks) void callback();
+        return { status: 'READY' };
+      });
     },
   }));
 
@@ -277,13 +283,15 @@ describe('main.ts auto-connect with partial settings document', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(shared.commandExecute).toHaveBeenCalledWith(
-      { name: 'ConnectToTarget' },
-      expect.objectContaining({
-        portName: 'COM9',
-        manufacturer: 'KOHTO',
-        deviceId: 'MT201',
-      }),
+    await vi.waitFor(() =>
+      expect(shared.commandExecute).toHaveBeenCalledWith(
+        { name: 'ConnectToTarget' },
+        expect.objectContaining({
+          portName: 'COM9',
+          manufacturer: 'KOHTO',
+          deviceId: 'MT201',
+        }),
+      ),
     );
   });
 });

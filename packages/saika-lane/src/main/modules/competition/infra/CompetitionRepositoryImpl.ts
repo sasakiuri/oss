@@ -127,6 +127,10 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
     );
   }
 
+  async clearActivePointer(): Promise<void> {
+    this.storage.delete(CompetitionRepositoryImpl.ACTIVE_KEY);
+  }
+
   async delete(id: string): Promise<void> {
     return withRepositoryErrorHandling(
       async () => {

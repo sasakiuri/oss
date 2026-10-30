@@ -10,10 +10,13 @@ const StartupStateSchema = z.object({
   sessionId: z.string().nullable(),
   currentSeriesStartIndex: z.number().int().nonnegative(),
   canFinish: z.boolean(),
+  canSetAside: z.boolean().optional(),
+  canChooseType: z.boolean().optional(),
 });
 
 export const startupContract = defineContract('startup', {
   getStartupState: query(queryResponseSchema(StartupStateSchema), { channel: 'query:getStartupState' }),
+  setAsideSavedRun: command(commandDataResponseSchema(StartupStateSchema), { channel: 'command:setAsideSavedRun' }),
   retryStartup: command(commandDataResponseSchema(StartupStateSchema), { channel: 'command:retryStartup' }),
 });
 

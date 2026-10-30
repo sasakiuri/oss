@@ -120,17 +120,21 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     );
 
     // 5. Register IPC handlers
-    const requireLocalProgress = async () => {
+    const requireLocalProgress = async (create = false) => {
       const ready = await startup.snapshot();
       const active = await competitionRepository.findActive();
       const interruption = active ? competitionInterruptionControl.get(active.id) : null;
-      if (ready.status !== 'READY' || interruption?.status === 'PAUSED' || interruption?.status === 'RESUME_PENDING') {
+      if (
+        (ready.status !== 'READY' && !(create && ready.canChooseType && !active)) ||
+        interruption?.status === 'PAUSED' ||
+        interruption?.status === 'RESUME_PENDING'
+      ) {
         throw new Error('Restore or finish the saved run before starting again');
       }
     };
     const competitionHandlers: InferHandlers<typeof competitionContract> = {
       startCompetition: async (input) => {
-        await requireLocalProgress();
+        await requireLocalProgress(true);
         const result = await commandBus.execute(StartCompetitionToken, {
           competitionTypeId: input.competitionTypeId,
         });
@@ -162,11 +166,13 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
         });
       },
       finishCompetition: async (input) => {
+        await startup.snapshot();
         if (membership.snapshot.competitionId !== null || safetyStopControl.isStopped())
           throw new Error('Clear Director membership and the safety stop before finishing the saved run');
         await commandBus.execute(FinishCompetitionToken, {
           competitionId: input.competitionId,
         });
+        competitionInterruptionControl.clear(input.competitionId);
       },
       setAthleteTargetMode: async (input) => commandBus.execute(SetAthleteTargetModeToken, input),
       getCompetitionState: async (input) => {

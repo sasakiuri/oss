@@ -7,6 +7,7 @@ import * as useSessionModule from '@/renderer/presentation/hooks/useSession';
 import type { UseShotResult } from '@/renderer/presentation/hooks/useShot';
 import * as useShotModule from '@/renderer/presentation/hooks/useShot';
 import { MainScreen } from '@/renderer/presentation/screens/MainScreen';
+import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useConnectionNotificationStore } from '@/renderer/presentation/stores/connectionNotificationStore';
 import * as useConnectionStoreModule from '@/renderer/presentation/stores/connectionStore';
 import * as useSessionStoreModule from '@/renderer/presentation/stores/sessionStore';
@@ -145,6 +146,26 @@ vi.mock('@/renderer/presentation/components/SettingsModal', () => ({
 }));
 
 describe('MainScreen', () => {
+  it('shows unverified remaining time on the paused Lane screen', () => {
+    useCompetitionStore.setState({
+      interruption: {
+        interruptionId: 'restart',
+        status: 'PAUSED',
+        remainingSeconds: 4000,
+        unlimitedSightingShots: false,
+        remainingTimeVerified: false,
+      },
+    });
+    render(<MainScreen modeSwitchActions={modeSwitchActions} />);
+    expect(screen.getByText('Remaining time not verified — check the time before resuming')).toBeVisible();
+    act(() =>
+      useCompetitionStore.setState({
+        interruption: { ...useCompetitionStore.getState().interruption!, status: 'SIGHTING' },
+      }),
+    );
+    expect(screen.queryByText('Remaining time not verified — check the time before resuming')).not.toBeInTheDocument();
+    act(() => useCompetitionStore.setState({ interruption: null }));
+  });
   // Default mock values
   const defaultMockSession: UseSessionResult = {
     currentSessionId: null,

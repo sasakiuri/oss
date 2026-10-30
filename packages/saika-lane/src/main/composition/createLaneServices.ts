@@ -110,11 +110,12 @@ export function createLaneServices(
 
   // 3. Load modules (registers all command/query handlers)
   let safetyStopControl: LaneSafetyStopService | null = null;
+  let startup: ActiveRunStartup | null = null;
   const timerService = new LaneTimerService(
     competitionRepository,
     eventBus,
     storage,
-    () => safetyStopControl?.isStopped() !== true && !reserveTransferJournal.pending(),
+    () => startup?.isReady() === true && safetyStopControl?.isStopped() !== true && !reserveTransferJournal.pending(),
   );
   const competitionInterruptionRepository = new LocalCompetitionInterruptionRepository(storage);
   const competitionInterruptionControl = new CompetitionInterruptionService(
@@ -182,7 +183,8 @@ export function createLaneServices(
     eventBus,
   );
 
-  const startup = new ActiveRunStartup({
+  startup = new ActiveRunStartup({
+    setAsideActiveRun: () => competitionRepository.clearActivePointer(),
     competitions: competitionRepository,
     sessions: sessionRepository,
     membership,
@@ -196,6 +198,7 @@ export function createLaneServices(
       commandBus.execute(StartCompetitionToken, {
         competitionTypeId: settingsStore.getUserPreferences().competitionTypeId || 'BR60S',
       }),
+    stopIndependentWorkflows: () => timedTargetControl.dispose(),
     restoreIndependentWorkflows: () => {
       timedTargetControl.restore();
       qualificationRecoveryControl.restoreActive();

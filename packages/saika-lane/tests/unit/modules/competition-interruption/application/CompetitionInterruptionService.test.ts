@@ -20,6 +20,10 @@ import {
   createMockSessionRepository,
 } from '../../../../helpers/mockDependencies';
 
+vi.mock('@/main/shared-infra/logging/createLogger', () => ({
+  getLogger: () => ({ warn: vi.fn(), error: vi.fn(), debug: vi.fn(), info: vi.fn() }),
+}));
+
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const INTERRUPTION_ID = '22222222-2222-4222-8222-222222222222';
 
@@ -70,6 +74,25 @@ describe('CompetitionInterruptionService', () => {
       eventBus,
       sessions,
     );
+  });
+
+  it('saves restart capture evidence before deleting the saved clock', async () => {
+    const active = (await competitionRepository.findActive())!;
+    await service.holdAfterRestart(active, 200, false);
+    expect(stored).toMatchObject({ remainingTimeVerified: false });
+    expect(vi.mocked(repository.save).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(timerService.stop).mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('keeps the saved deadline if the hold record cannot be written', async () => {
+    vi.mocked(repository.save).mockImplementation(() => {
+      throw new Error('Disk failure');
+    });
+    await expect(service.holdAfterRestart((await competitionRepository.findActive())!, 200, true)).rejects.toThrow(
+      'Disk failure',
+    );
+    expect(timerService.stop).not.toHaveBeenCalled();
   });
 
   it('persists the exact Lane countdown when a pause is applied', async () => {

@@ -91,6 +91,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       capturedAt: current.capturedAt,
       capturedRemainingSeconds: current.capturedRemainingSeconds,
       capturedTotalSeconds: current.capturedTotalSeconds,
+      remainingTimeVerified: current.remainingTimeVerified,
       resumeAt: input.timerStartAt,
       authorizedRemainingSeconds: input.authorizedRemainingSeconds,
       unlimitedSightingShots: input.unlimitedSightingShots,
@@ -137,6 +138,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       capturedAt: pending.capturedAt,
       capturedRemainingSeconds: pending.capturedRemainingSeconds,
       capturedTotalSeconds: pending.capturedTotalSeconds,
+      remainingTimeVerified: pending.remainingTimeVerified,
       resumeAt: input.timerStartAt,
       authorizedRemainingSeconds: input.authorizedRemainingSeconds,
       unlimitedSightingShots: input.unlimitedSightingShots,
@@ -160,6 +162,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       capturedAt: current.capturedAt,
       capturedRemainingSeconds: current.capturedRemainingSeconds,
       capturedTotalSeconds: current.capturedTotalSeconds,
+      remainingTimeVerified: current.remainingTimeVerified,
       resumeAt: current.resumeAt ?? undefined,
       authorizedRemainingSeconds: current.authorizedRemainingSeconds ?? undefined,
       unlimitedSightingShots: current.unlimitedSightingShots ?? undefined,
@@ -180,7 +183,6 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
     const current = this.repository.findByCompetitionId(competition.id);
     const openCase = current?.status === 'PAUSED' || current?.status === 'RESUME_PENDING';
     const captured = current?.status === 'PAUSED' ? current.capturedRemainingSeconds : remainingSeconds;
-    this.timerService.stop();
     const record = LaneInterruptionRecord.create({
       competitionId: competition.id,
       interruptionId: openCase ? current.interruptionId : crypto.randomUUID(),
@@ -191,9 +193,11 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       capturedTotalSeconds:
         current?.status === 'PAUSED' ? current.capturedTotalSeconds : competition.timer.totalSeconds,
       restartHold: openCase ? current.restartHold : true,
+      remainingTimeVerified: current?.status === 'PAUSED' ? current.remainingTimeVerified : verified,
     });
     // Save the hold before the timer snapshot, so an interrupted write cannot restart the clock.
     this.repository.save(record);
+    this.timerService.stop();
     await this.competitionRepository.save(competition.replaceTimer(captured, record.capturedTotalSeconds));
     if (!verified && !openCase) {
       // The official receives a capture, never an automatically awarded duration.
@@ -203,6 +207,21 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       );
     }
     this.emit(record);
+  }
+
+  /** Re-emit the existing stop after timed recovery restoration, using its normal cancellation binding. */
+  restoreTimedPause(competitionId: string): void {
+    const current = this.repository.findByCompetitionId(competitionId);
+    if (!current || (current.status !== 'PAUSED' && current.status !== 'RESUME_PENDING')) return;
+    const paused = LaneInterruptionRecord.create({
+      ...current,
+      status: 'PAUSED',
+      resumeAt: undefined,
+      authorizedRemainingSeconds: undefined,
+      unlimitedSightingShots: undefined,
+    });
+    this.repository.save(paused);
+    this.emit(paused);
   }
 
   get(competitionId: string): LaneInterruptionRecord | null {
@@ -244,6 +263,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
       status: record.status,
       remainingSeconds: record.authorizedRemainingSeconds ?? record.capturedRemainingSeconds,
       unlimitedSightingShots: record.unlimitedSightingShots === true,
+      remainingTimeVerified: record.remainingTimeVerified,
     });
   }
 }

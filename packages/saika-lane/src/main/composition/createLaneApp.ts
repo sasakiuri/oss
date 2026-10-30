@@ -23,6 +23,14 @@ export function createLaneApp(mainWindow: BrowserWindow, paths: LaneApplicationP
   const { eventBus, ipcRouter, startup, timedTargetControl, settingsStore, usbManager, commandBus } = registry;
   const unbindCompetitionEvents = bindCompetitionEvents(eventBus, timedTargetControl);
   new ModuleLoader().load(laneModules, registry);
+  let rendererLoaded!: () => void;
+  const rendererReady = new Promise<void>((resolve) => {
+    rendererLoaded = resolve;
+  });
+  startup.afterReady(async () => {
+    await rendererReady;
+    scheduleAutoConnect(settingsStore, usbManager, commandBus, Promise.resolve(await startup.snapshot()));
+  });
   const initialize = () => startup.restore();
   const ready = initialize();
   ipcRouter.register(startupContract, {
@@ -30,12 +38,8 @@ export function createLaneApp(mainWindow: BrowserWindow, paths: LaneApplicationP
       await ready;
       return startup.snapshot();
     },
-    retryStartup: async () => {
-      const result = await initialize();
-      if (result.status === 'READY')
-        scheduleAutoConnect(settingsStore, usbManager, commandBus, Promise.resolve(result));
-      return result;
-    },
+    retryStartup: async () => initialize(),
+    setAsideSavedRun: async () => startup.setAsideSavedRun(),
   });
 
   const appUpdater = bindMainWindow(mainWindow, ipcRouter);
@@ -51,7 +55,7 @@ export function createLaneApp(mainWindow: BrowserWindow, paths: LaneApplicationP
   // Run renderer-load initialization from a single did-finish-load hook.
   mainWindow.webContents.once('did-finish-load', () => {
     focusStartupWindow(mainWindow);
-    scheduleAutoConnect(settingsStore, usbManager, commandBus, ready);
+    rendererLoaded();
     appUpdater.emitCurrentState();
     void appUpdater.checkForUpdates();
   });

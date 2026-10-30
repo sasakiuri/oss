@@ -57,6 +57,7 @@ async function fixture(joined = false, type = AR60) {
     await competitions.save(CompetitionState.create('new', session.id, type.config));
   });
   const deps = {
+    setAsideActiveRun: () => competitions.clearActivePointer(),
     competitions,
     sessions,
     membership,
@@ -67,12 +68,126 @@ async function fixture(joined = false, type = AR60) {
     safetyCompetitionId: (): string | null => null,
     transferPending: () => false,
     restoreIndependentWorkflows: vi.fn(),
+    stopIndependentWorkflows: vi.fn(),
     context: new SessionContextCache(events),
   };
   return { ...deps, deps, storage, session, active, startup: new ActiveRunStartup(deps) };
 }
 
 describe('active run startup', () => {
+  it.each([false, true])(
+    'leaves a joined AR60 completed sixth series waiting for Director expiry and finish (prior hold=%s)',
+    async (held) => {
+      const rig = await fixture(true);
+      if (held) await rig.interruptions.holdAfterRestart(rig.active, 4500, true);
+      let state = rig.active;
+      for (let series = 0; series < 6; series++) {
+        for (let shot = 0; shot < 10; shot++) state = state.recordShotInSeries();
+        if (series < 5) state = state.advanceToNextStage().startNextSeries();
+      }
+      await rig.competitions.save(state);
+      rig.storage.set('competitionClock', {
+        competitionId: state.id,
+        expiresAtMs: Date.now() + 600_000,
+        totalSeconds: 4500,
+        stageTimerIndex: 1,
+      });
+      expect(await rig.startup.restore()).toMatchObject({ status: 'READY' });
+      expect(rig.interruptions.get(state.id)).toBeNull();
+      expect(rig.timer.sample(state.id)).toBeNull();
+      await rig.timer.expire(state.id);
+      expect((await rig.competitions.findById(state.id))!.timer.isExpired).toBe(true);
+      await createFinishCompetitionHandler(
+        rig.competitions,
+        rig.sessions,
+        createMockEventBus(),
+      )({ competitionId: state.id });
+      expect((await rig.competitions.findById(state.id))!.phase).toBe('FINISHED');
+    },
+  );
+
+  it('returns READY snapshots without re-running workflows, stopping a live timer or auto-connecting again', async () => {
+    const rig = await fixture(true);
+    const connect = vi.fn().mockResolvedValue(undefined);
+    rig.startup.afterReady(connect);
+    await rig.startup.restore();
+    const caseId = 'official';
+    await rig.interruptions.pause({ competitionId: rig.active.id, interruptionId: caseId, pausedAt: new Date() });
+    await rig.interruptions.resume({
+      competitionId: rig.active.id,
+      interruptionId: caseId,
+      timerStartAt: new Date(),
+      authorizedRemainingSeconds: 100,
+      unlimitedSightingShots: false,
+    });
+    expect(await rig.startup.restore()).toMatchObject({ status: 'READY' });
+    expect(rig.interruptions.get(rig.active.id)).toMatchObject({ status: 'RUNNING_MATCH' });
+    expect(rig.timer.sample(rig.active.id)?.running).toBe(true);
+    expect(connect).toHaveBeenCalledTimes(1);
+    expect(rig.restoreIndependentWorkflows).toHaveBeenCalledTimes(1);
+    rig.timer.stop();
+  });
+
+  it.each(['workflow', 'context'])('does not arm a standalone clock if the later %s restore fails', async (step) => {
+    const rig = await fixture();
+    const clock = {
+      competitionId: rig.active.id,
+      expiresAtMs: Date.now() + 1000,
+      totalSeconds: 4500,
+      stageTimerIndex: 1,
+    };
+    rig.storage.set('competitionClock', clock);
+    if (step === 'workflow')
+      rig.restoreIndependentWorkflows.mockImplementation(() => {
+        throw new Error('restore failed');
+      });
+    else vi.spyOn(rig.context, 'bootstrap').mockRejectedValueOnce(new Error('context failed'));
+    expect(await rig.startup.restore()).toMatchObject({ status: 'ERROR' });
+    expect(rig.startup.isReady()).toBe(false);
+    expect(rig.timer.sample(rig.active.id)).toBeNull();
+    await vi.advanceTimersByTimeAsync(2000);
+    expect((await rig.competitions.findById(rig.active.id))!.timer.isExpired).toBe(false);
+    expect(rig.storage.get('competitionClock')).toEqual(clock);
+    expect(rig.stopIndependentWorkflows).toHaveBeenCalled();
+  });
+
+  it('lets an operator set aside an unreadable pointer without deleting any saved data', async () => {
+    const rig = await fixture(true);
+    rig.storage.set('competition:active', 'missing');
+    expect(await rig.startup.restore()).toMatchObject({ status: 'ERROR', canSetAside: false });
+    await expect(rig.startup.setAsideSavedRun()).rejects.toThrow();
+    rig.membership.setCompetitionId(null);
+    expect(await rig.startup.snapshot()).toMatchObject({ canSetAside: true });
+    const saved = rig.storage.get('competition:run');
+    await rig.startup.setAsideSavedRun();
+    expect(rig.storage.get('competition:active')).toBeUndefined();
+    expect(rig.storage.get('competition:run')).toEqual(saved);
+    expect(rig.sessions.delete).not.toHaveBeenCalled();
+  });
+
+  it('offers set aside when the saved session or config cannot be read', async () => {
+    const rig = await fixture();
+    vi.mocked(rig.sessions.findById).mockResolvedValue(null);
+    expect(await rig.startup.restore()).toMatchObject({ status: 'ERROR', canSetAside: true, canFinish: false });
+    vi.mocked(rig.sessions.findById).mockResolvedValue(rig.session);
+    const saved = rig.storage.get<Record<string, unknown>>('competition:run')!;
+    rig.storage.set('competition:run', { ...saved, config: null });
+    expect(await rig.startup.restore()).toMatchObject({ status: 'ERROR', canSetAside: true });
+    await rig.startup.setAsideSavedRun();
+    expect(rig.storage.get('competition:run')).toEqual({ ...saved, config: null });
+  });
+
+  it('exposes unknown saved type recovery without creating a fallback run', async () => {
+    const rig = await fixture();
+    await rig.competitions.delete(rig.active.id);
+    rig.createCompetition.mockRejectedValue(
+      Object.assign(new Error('Unknown competition type'), { code: 'UNKNOWN_COMPETITION_TYPE' }),
+    );
+    expect(await rig.startup.restore()).toMatchObject({ status: 'ERROR', canChooseType: true });
+    expect(rig.createCompetition).toHaveBeenCalledTimes(1);
+    expect(await rig.competitions.findActive()).toBeNull();
+  });
+
   it.each([false, true])('restores AR60 between series without replacing its run (joined=%s)', async (joined) => {
     const rig = await fixture(joined);
     let waiting = rig.active;
@@ -154,6 +269,21 @@ describe('active run startup', () => {
     expect(rig.restoreIndependentWorkflows).toHaveBeenCalledOnce();
   });
 
+  it('keeps a prior restart hold with no verification evidence visibly unverified', async () => {
+    const rig = await fixture(true);
+    await rig.startup.restore();
+    const key = 'competitionInterruption:run';
+    const saved = { ...rig.storage.get<Record<string, unknown>>(key)! };
+    delete saved.remainingTimeVerified;
+    rig.storage.set(key, saved);
+    expect(await new ActiveRunStartup(rig.deps).restore()).toMatchObject({ status: 'READY' });
+    expect(rig.interruptions.get(rig.active.id)).toMatchObject({
+      status: 'PAUSED',
+      restartHold: true,
+      remainingTimeVerified: false,
+    });
+  });
+
   it('holds an unverified joined clock without a deadline', async () => {
     const rig = await fixture(true);
     expect(await rig.startup.restore()).toMatchObject({ status: 'READY' });
@@ -161,6 +291,7 @@ describe('active run startup', () => {
       status: 'PAUSED',
       capturedRemainingSeconds: 4500,
       restartHold: true,
+      remainingTimeVerified: false,
     });
   });
 
@@ -182,7 +313,7 @@ describe('active run startup', () => {
     );
     expect(rig.sessions.delete).not.toHaveBeenCalled();
     await restarted.restore();
-    expect(rig.createCompetition).toHaveBeenCalledTimes(1);
+    expect(rig.createCompetition).not.toHaveBeenCalled();
   });
 
   it('keeps damaged membership A / active B visible until cleanup, then restores B standalone (MAJOR-2)', async () => {

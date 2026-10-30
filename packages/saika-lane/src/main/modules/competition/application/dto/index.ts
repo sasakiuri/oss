@@ -16,6 +16,7 @@ export interface CompetitionStateDto {
     remainingSeconds: number;
     unlimitedSightingShots: boolean;
     restartHold: boolean;
+    remainingTimeVerified?: boolean;
   } | null;
   athleteTargetControl: {
     officialSighting: boolean;

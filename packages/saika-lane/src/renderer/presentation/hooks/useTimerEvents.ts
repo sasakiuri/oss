@@ -38,6 +38,7 @@ export function useTimerEvents(): void {
         status: data.status,
         remainingSeconds: data.remainingSeconds,
         unlimitedSightingShots: data.unlimitedSightingShots,
+        remainingTimeVerified: data.remainingTimeVerified,
       });
       setTimerRunning(data.status === 'SIGHTING' || data.status === 'RUNNING_MATCH');
     });

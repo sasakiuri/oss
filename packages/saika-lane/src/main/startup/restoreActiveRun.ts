@@ -2,7 +2,7 @@
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { SavedLaneClock, LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { CompetitionInterruptionService } from '@/main/modules/competition-interruption/application/CompetitionInterruptionService';
 import type { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
@@ -20,12 +20,16 @@ interface RestoreActiveRunDeps {
   safetyCompetitionId: () => string | null;
   transferPending: () => boolean;
   createCompetition: () => Promise<unknown>;
+  setAsideActiveRun: () => Promise<void>;
   restoreIndependentWorkflows: () => void;
+  stopIndependentWorkflows: () => void;
   context: SessionContextCache;
 }
 
 /** Main owns the startup decision. Renderer emptiness never creates or replaces a run. */
 export class ActiveRunStartup {
+  private unreadableSavedRun = false;
+  private unknownCompetitionType = false;
   private readonly readyCallbacks: Array<() => Promise<void>> = [];
   private inFlight: Promise<StartupStateDto> | null = null;
   private state: StartupStateDto = {
@@ -43,7 +47,23 @@ export class ActiveRunStartup {
     this.readyCallbacks.push(callback);
   }
 
+  isReady(): boolean {
+    return this.state.status === 'READY';
+  }
+
+  async setAsideSavedRun(): Promise<StartupStateDto> {
+    const state = await this.snapshot();
+    if (state.status !== 'ERROR' || !state.canSetAside || !this.recoveryAllowed())
+      throw new Error('The saved run cannot be set aside while another owner controls it');
+    await this.deps.setAsideActiveRun();
+    this.unreadableSavedRun = false;
+    this.state = { ...this.state, competitionId: null, sessionId: null, canSetAside: false, canFinish: false };
+    return this.snapshot();
+  }
+
   restore(): Promise<StartupStateDto> {
+    if (this.inFlight) return this.inFlight;
+    if (this.isReady()) return this.snapshot();
     this.inFlight ??= this.restoreInternal()
       .then((state) => {
         if (state.status === 'READY') {
@@ -64,9 +84,24 @@ export class ActiveRunStartup {
 
   async snapshot(): Promise<StartupStateDto> {
     if (this.inFlight) await this.inFlight;
-    if (this.state.status === 'ERROR') return { ...this.state, canFinish: this.canFinish() };
+    if (this.state.status === 'ERROR')
+      return {
+        ...this.state,
+        canFinish: !this.unreadableSavedRun && this.canFinish(),
+        canSetAside: this.unreadableSavedRun && this.recoveryAllowed(),
+        canChooseType: this.unknownCompetitionType && this.recoveryAllowed(),
+      };
     const active = await this.deps.competitions.findActive();
-    return active ? this.describe(active, null) : { ...this.state, canFinish: this.canFinish() };
+    const saved =
+      active ?? (this.state.competitionId ? await this.deps.competitions.findById(this.state.competitionId) : null);
+    if (saved) this.state = await this.describe(saved, null);
+    return this.state;
+  }
+
+  private recoveryAllowed(): boolean {
+    return (
+      this.deps.membership.snapshot.competitionId === null && !this.deps.safetyStopped() && !this.deps.transferPending()
+    );
   }
 
   private canFinish(): boolean {
@@ -104,9 +139,14 @@ export class ActiveRunStartup {
 
   private async restoreInternal(): Promise<StartupStateDto> {
     const { competitions, sessions, membership, timer, interruptions } = this.deps;
+    let clockToRestore: SavedLaneClock | null = null;
+    let clockArmed = false;
+    this.unknownCompetitionType = false;
+    this.unreadableSavedRun = true;
     this.state = { ...this.state, error: null, competitionId: null, sessionId: null, canFinish: false };
     try {
       let active = await competitions.findActive();
+      this.unreadableSavedRun = false;
       const joined = membership.snapshot.competitionId;
       if (!active && this.deps.transferPending())
         throw new Error('Complete the pending reserve transfer before restoring the run');
@@ -122,13 +162,16 @@ export class ActiveRunStartup {
         active = await competitions.findActive();
       }
       if (!active) throw new Error('The startup competition was not saved');
+      this.unreadableSavedRun = true;
+      this.state = { ...this.state, competitionId: active.id, sessionId: active.sessionId };
       // Access the saved configuration before returning any partial projection.
       if (!active.currentStageConfig || !active.currentSeriesConfig)
         throw new Error('The saved competition configuration cannot be reconstructed');
-      this.state = await this.describe(active, null);
+      this.state = { ...(await this.describe(active, null)), status: 'ERROR' };
+      this.unreadableSavedRun = false;
       if (joined && joined !== active.id)
         throw new Error(
-          'Director membership names a different competition. Clear that membership in Director, then Retry.',
+          'Director membership names a different competition. Connect MQTT to clear the mismatched membership, then Retry.',
         );
       const session = await sessions.findById(active.sessionId);
       if (!session) throw new Error(`Saved session ${active.sessionId} is missing`);
@@ -143,9 +186,19 @@ export class ActiveRunStartup {
       const clock = timer.savedClock(active);
       const timedSeries = !!active.currentSeriesConfig.timedTargetProgramId;
       const clockEligible = active.canUpdateTimer() && active.timer.totalSeconds > 0 && !active.timer.isExpired;
+      const stageComplete =
+        active.phase === 'SERIES_COMPLETE' && active.currentSeriesIndex + 1 >= active.currentStageConfig.series.length;
       if (this.deps.safetyStopped() || this.deps.transferPending()) {
         timer.stop();
-      } else if (joined && !timedSeries && active.canUpdateTimer() && (clockEligible || interruption)) {
+      } else if (joined && stageComplete) {
+        interruptions.clear(active.id);
+      } else if (
+        joined &&
+        !timedSeries &&
+        !stageComplete &&
+        active.canUpdateTimer() &&
+        (clockEligible || interruption)
+      ) {
         const remaining = clock
           ? Math.max(0, Math.ceil((clock.expiresAtMs - Date.now()) / 1000))
           : active.timer.remainingSeconds;
@@ -153,21 +206,32 @@ export class ActiveRunStartup {
       } else if (interruption?.status === 'PAUSED' || interruption?.status === 'RESUME_PENDING') {
         // Membership loss leaves a stopped standalone run, never a local resume grant.
         timer.stop();
-      } else if (clockEligible && !timedSeries) {
+      } else if (clockEligible && !timedSeries && !joined) {
         if (!clock)
           throw new Error('The running standalone clock has no saved deadline. Finish the saved run to start again.');
-        await timer.restore(clock);
+        clockToRestore = clock;
       }
       this.deps.restoreIndependentWorkflows();
+      if (timedSeries) interruptions.restoreTimedPause(active.id);
       await this.deps.context.bootstrap(sessions, competitions, interruptions);
       this.state = await this.describe((await competitions.findById(active.id))!, null);
+      // All reconstruction has completed before any standalone clock can run.
+      if (clockToRestore) {
+        clockArmed = true;
+        await timer.restore(clockToRestore);
+      }
     } catch (error) {
+      if (clockArmed) timer.stop();
+      this.deps.stopIndependentWorkflows();
+      this.unknownCompetitionType = (error as { code?: string }).code === 'UNKNOWN_COMPETITION_TYPE';
       // Do not remove a recoverable deadline merely because membership/configuration needs repair.
       this.state = {
         ...this.state,
         status: 'ERROR',
         error: error instanceof Error ? error.message : String(error),
-        canFinish: this.canFinish(),
+        canFinish: !this.unreadableSavedRun && this.canFinish(),
+        canSetAside: this.unreadableSavedRun && this.recoveryAllowed(),
+        canChooseType: this.unknownCompetitionType && this.recoveryAllowed(),
       };
     }
     return this.state;
