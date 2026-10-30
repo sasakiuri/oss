@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { GetShotHistoryInput } from '@/main/composition/tokens';
+import { previousPositionLabel } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IShotObservationRepository } from '@/main/modules/shot-observation/domain/IShotObservationRepository';
@@ -36,6 +37,7 @@ export function createGetShotHistoryHandler(
           isRecorded: shot.mode.isMatch(), // Only match shots are recorded
           receivedAt: shot.receivedAt.toISOString(),
           reportedMode: observation?.reportedMode ?? null,
+          competitionContext: shot.competitionContext ?? null,
         };
       }),
     );
@@ -50,9 +52,11 @@ export function createGetShotHistoryHandler(
           deviceScoreX10: evidence.deviceScoreX10,
           reportedMode: evidence.reportedMode,
           detail: evidence.detail,
-          previousPosition: context
-            ? (competition?.config.stages[context.stageIndex]?.series[context.seriesIndex - 1]?.position ?? null)
-            : null,
+          previousPositionLabel: previousPositionLabel(
+            context ? competition?.config.stages[context.stageIndex] : undefined,
+            context?.seriesIndex ?? 0,
+          ),
+          competitionContext: context,
         };
       }),
     );

@@ -15,10 +15,14 @@ export function athleteCompetition(type: CompetitionTypeDefinition = R3P60): Com
 }
 
 export function selectAthlete(state: CompetitionState, mode: 'SIGHTING' | 'MATCH'): CompetitionState {
-  return state.selectAthleteTargetMode({
-    competitionId: state.id,
-    stageIndex: state.currentStageIndex,
-    seriesIndex: state.currentSeriesIndex,
-    mode,
-  });
+  return state.selectAthleteTargetMode(
+    {
+      competitionId: state.id,
+      stageIndex: state.currentStageIndex,
+      seriesIndex: state.currentSeriesIndex,
+      mode,
+    },
+    null,
+    [],
+  );
 }

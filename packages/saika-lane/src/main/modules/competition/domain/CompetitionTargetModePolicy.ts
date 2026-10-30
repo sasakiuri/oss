@@ -2,7 +2,11 @@
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 
-import { resolveCompetitionShotMode, type ReportedShotMode } from './CompetitionShotModePolicy';
+import {
+  isAthleteTargetSwitchSeries,
+  resolveCompetitionShotMode,
+  type ReportedShotMode,
+} from './CompetitionShotModePolicy';
 import type { CompetitionState } from './CompetitionState';
 
 export interface CompetitionTargetMode {
@@ -44,9 +48,7 @@ export function resolveCompetitionTargetMode(
   const observed = observations.at(-1);
   const sightingRequired =
     state.phase === 'ACTIVE' &&
-    stage.scored &&
-    series.targetModeControl === 'ATHLETE' &&
-    series.purpose !== 'POSITION_CHANGE_AND_SIGHTING' &&
+    isAthleteTargetSwitchSeries(stage, series) &&
     state.seriesShotCount === 0 &&
     !officialSighting &&
     state.athleteTargetMode == null &&
@@ -71,12 +73,13 @@ export function resolveCompetitionTargetMode(
             officialSighting,
             sightingAllowed:
               !officialSighting &&
-              resolveCompetitionShotMode(stage, series, 'SIGHTING', state.seriesShotCount, 'SIGHTING').mode ===
-                'SIGHTING',
+              resolveCompetitionShotMode(stage, series, 'SIGHTING', state.seriesShotCount, 'SIGHTING', sightingRequired)
+                .mode === 'SIGHTING',
             matchAllowed:
               !officialSighting &&
               !sightingRequired &&
-              resolveCompetitionShotMode(stage, series, 'MATCH', state.seriesShotCount, 'MATCH').mode === 'MATCH',
+              resolveCompetitionShotMode(stage, series, 'MATCH', state.seriesShotCount, 'MATCH', sightingRequired)
+                .mode === 'MATCH',
             matchUnavailableReason: sightingRequired ? 'SIGHTING_REQUIRED' : null,
             selected: state.athleteTargetMode ?? null,
             effective,

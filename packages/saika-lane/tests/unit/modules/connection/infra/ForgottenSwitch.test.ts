@@ -183,7 +183,11 @@ describe('forgotten position-change target switch', () => {
         rig.competitions,
       )({ sessionId: rig.session.id });
       expect(history.nullifiedExtras).toEqual([
-        expect.objectContaining({ previousPosition: 'KNEELING', reportedMode: 'MATCH', deviceScoreX10: 100 }),
+        expect.objectContaining({
+          previousPositionLabel: 'previous Kneeling position',
+          reportedMode: 'MATCH',
+          deviceScoreX10: 100,
+        }),
       ]);
       expect(history.nullifiedExtras[0]!.detail).toContain('ISSF 6.10.4(c) / 7.7.3');
       await rig.fire();
@@ -199,6 +203,51 @@ describe('forgotten position-change target switch', () => {
       expect((await rig.control()).athleteTargetControl!.sightingAllowed).toBe(false);
     },
   );
+
+  it('keeps one nullified outcome and visibly reports a failed Sighting reset save', async () => {
+    const rig = await setup();
+    await enterProne(rig);
+    const notification = vi.fn(),
+      modeChanged = vi.fn();
+    rig.events.on('PositionExtraNullified', notification);
+    rig.events.on('AthleteTargetModeChanged', modeChanged);
+    vi.mocked(rig.competitions.save).mockRejectedValueOnce(new Error('Selection write failed'));
+    await rig.fire();
+    const extras = await rig.observations.findBySessionAndOutcome(rig.session.id, 'NULLIFIED_POSITION_EXTRA');
+    expect(extras).toHaveLength(1);
+    expect(await rig.observations.findOutcomes(extras[0]!.observationId)).toEqual([
+      expect.objectContaining({ type: 'NULLIFIED_POSITION_EXTRA' }),
+    ]);
+    expect(notification).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        resetError: expect.stringContaining('Sighting reset failed'),
+      }),
+    );
+    expect(modeChanged).not.toHaveBeenCalled();
+    expect(rig.state.athleteTargetMode).toBeUndefined();
+    expect((await rig.read()).shotCount).toBe(20);
+    await rig.select('SIGHTING');
+    expect(rig.state.athleteTargetMode).toBe('SIGHTING');
+  });
+
+  it('recovers an unfinished reset when refreshing the cache for reconnect without adding evidence', async () => {
+    const rig = await setup();
+    await enterProne(rig);
+    vi.mocked(rig.competitions.save).mockRejectedValueOnce(new Error('Selection save failed'));
+    await rig.fire();
+    const recovered = vi.fn();
+    rig.events.on('PositionExtraNullified', recovered);
+    const context = new SessionContextCache(rig.events, rig.observations);
+    await context.bootstrap(rig.sessions, rig.competitions);
+    expect(context.getContext().mode.value).toBe('SIGHTING');
+    expect(rig.state.athleteTargetMode).toBe('SIGHTING');
+    expect(recovered).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ competitionId: rig.state.id }));
+    const extras = await rig.observations.findBySessionAndOutcome(rig.session.id, 'NULLIFIED_POSITION_EXTRA');
+    expect(extras).toHaveLength(1);
+    expect(await rig.observations.findOutcomes(extras[0]!.observationId)).toHaveLength(1);
+    await context.bootstrap(rig.sessions, rig.competitions);
+    expect(recovered).toHaveBeenCalledOnce();
+  });
 
   it('awaits the last K2 progress before queued frames: one extra, then only sighters', async () => {
     const rig = await setup();
@@ -288,7 +337,7 @@ describe('forgotten position-change target switch', () => {
     const storage = createMockStorage();
     await new CompetitionRepositoryImpl(storage).save(rig.state);
     const restored = (await new CompetitionRepositoryImpl(storage).findActive())!;
-    const cache = new SessionContextCache(rig.events);
+    const cache = new SessionContextCache(rig.events, rig.observations);
     await cache.bootstrap(rig.sessions, new CompetitionRepositoryImpl(storage));
     expect(cache.getContext().mode.value).toBe('SIGHTING');
     expect(

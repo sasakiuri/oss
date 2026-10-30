@@ -33,6 +33,7 @@ export interface ShotRecordedEvent extends DomainEvent {
 export interface PositionExtraNullifiedEvent extends DomainEvent {
   readonly type: 'PositionExtraNullified';
   readonly competitionId: string;
+  readonly resetError?: string;
 }
 
 export interface ShotRecordingFailedEvent extends DomainEvent {

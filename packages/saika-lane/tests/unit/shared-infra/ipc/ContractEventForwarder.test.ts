@@ -375,6 +375,25 @@ describe('ContractEventForwarder', () => {
       );
     });
 
+    it('keeps reset failure details on the nullified-observation notification', () => {
+      forwarder.start();
+      getFirstHandler(
+        eventBus,
+        'PositionExtraNullified',
+      )({
+        type: 'PositionExtraNullified',
+        aggregateId: 'session-1',
+        competitionId: 'comp-1',
+        timestamp: now,
+        resetError: 'Sighting reset failed.',
+      });
+      expect(mainWindow.webContents.send).toHaveBeenCalledWith(eventsContract.channels.positionExtraNullified, {
+        sessionId: 'session-1',
+        competitionId: 'comp-1',
+        resetError: 'Sighting reset failed.',
+      });
+    });
+
     it('forwards ShotRecorded to event:shotRecorded', () => {
       forwarder.start();
       const shot = createTestShot();
@@ -394,6 +413,7 @@ describe('ContractEventForwarder', () => {
           innerTen: false,
           timestamp: '2026-02-18T10:00:00.000Z',
           receivedAt: shot.receivedAt.toISOString(),
+          competitionContext: null,
           reportedMode: null,
           mode: 'MATCH',
           isRecorded: true,

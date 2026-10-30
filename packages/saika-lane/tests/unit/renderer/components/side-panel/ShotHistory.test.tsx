@@ -19,7 +19,14 @@ describe('ShotHistory', () => {
   });
 
   it('merges extras by receipt time, preserves ordinary ordinals and shows raw mode on later sighters', () => {
-    const shots = [{ ...createShot(21, 90), receivedAt: '2026-10-30T01:00:02Z', reportedMode: 'MATCH' as const }];
+    const shots = [
+      {
+        ...createShot(21, 90),
+        receivedAt: '2026-10-30T01:00:02Z',
+        reportedMode: 'MATCH' as const,
+        competitionContext: { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2 },
+      },
+    ];
     const { container } = render(
       <ShotHistory
         shots={shots}
@@ -29,7 +36,8 @@ describe('ShotHistory', () => {
             receivedAt: '2026-10-30T01:00:01Z',
             reportedMode: 'MATCH',
             deviceScoreX10: 100,
-            previousPosition: 'PRONE',
+            previousPositionLabel: 'previous Prone position',
+            competitionContext: { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2 },
             detail: 'ISSF 6.10.4(c) / 7.7.3',
           },
         ]}
@@ -37,8 +45,73 @@ describe('ShotHistory', () => {
     );
     expect(screen.getByText(/Nullified extra — previous Prone position/)).toBeVisible();
     expect(screen.getByLabelText('No shot ordinal')).toHaveTextContent('—');
-    expect(screen.getAllByText(/Device mode: MATCH/)).toHaveLength(2);
+    expect(screen.getAllByText(/Reported mode: MATCH/)).toHaveLength(2);
     expect(container.textContent!.indexOf('21')).toBeLessThan(container.textContent!.indexOf('Nullified extra'));
+  });
+
+  it.each([
+    undefined,
+    null,
+    { competitionId: 'other', stageIndex: 1, seriesIndex: 2 },
+    { competitionId: 'comp-1', stageIndex: 0, seriesIndex: 2 },
+    { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 3 },
+  ])('keeps reported modes out of unrelated series and training rows: %s', (competitionContext) => {
+    render(
+      <ShotHistory
+        shots={[{ ...createShot(1, 97), competitionContext, reportedMode: 'MATCH' }]}
+        nullifiedExtras={[
+          {
+            id: 'extra',
+            receivedAt: '2026-10-30T01:00:01Z',
+            reportedMode: 'MATCH',
+            deviceScoreX10: 100,
+            previousPositionLabel: 'previous Prone position',
+            detail: null,
+            competitionContext: { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2 },
+          },
+        ]}
+      />,
+    );
+    expect(screen.getAllByText(/Reported mode: MATCH/)).toHaveLength(1);
+  });
+
+  it('does not show reported mode without a nullified extra in the series', () => {
+    render(
+      <ShotHistory
+        shots={[
+          {
+            ...createShot(1, 97),
+            reportedMode: 'MATCH',
+            competitionContext: { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2 },
+          },
+        ]}
+      />,
+    );
+    expect(screen.queryByText(/Reported mode:/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['RING', '9'],
+    ['DECIMAL', '9.7'],
+  ] as const)('formats an extra device value using %s scoring', (acc, value) => {
+    render(
+      <ShotHistory
+        shots={[]}
+        acc={acc}
+        nullifiedExtras={[
+          {
+            id: 'extra',
+            receivedAt: '2026-10-30T01:00:01Z',
+            reportedMode: null,
+            deviceScoreX10: 97,
+            previousPositionLabel: 'previous Prone position',
+            detail: null,
+            competitionContext: null,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Device value: ' + value + ' · Reported mode: Unknown')).toBeVisible();
   });
 
   it('displays a single shot correctly', () => {

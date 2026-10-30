@@ -45,7 +45,9 @@ describe('CompetitionEvidencePanel', () => {
       />,
     );
     expect(screen.getByText(/Nullified extra \(previous position\) · ISSF 6.10.4\(c\) \/ 7.7.3/)).toBeInTheDocument();
-    expect(screen.getAllByText('Device mode: MATCH')).toHaveLength(2);
+    expect(screen.getByText('Target observation evidence (2)')).toBeInTheDocument();
+    expect(screen.queryByText(/Target observation review/)).not.toBeInTheDocument();
+    expect(screen.getAllByText('Reported mode: MATCH')).toHaveLength(2);
     expect(screen.getAllByText(/Recorded target observation/)).toHaveLength(1);
   });
 });

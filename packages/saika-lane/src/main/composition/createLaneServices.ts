@@ -39,6 +39,7 @@ import {
 import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
 import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore';
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
+import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import {
   BoundedShotTimingPolicy,
@@ -80,8 +81,8 @@ export function createLaneServices(
   settingsStore.getAll();
   const eventBus = new TypedEventBus();
   const membership = new DirectorMembership(storage, eventBus);
-  const sessionContextCache = new SessionContextCache(eventBus);
   const db = createSqliteDb(join(userDataPath, 'saika-lane.db'));
+  const sessionContextCache = new SessionContextCache(eventBus, new SqliteShotObservationRepository(db));
   const sessionRepository = new SqliteSessionRepository(db);
   const connectionRepository = new ConnectionRepositoryImpl(storage);
   const competitionRepository = new CompetitionRepositoryImpl(storage);

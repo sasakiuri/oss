@@ -24,6 +24,7 @@ import {
   createMockCompetitionRepository,
   createMockEventBus,
   createMockSessionRepository,
+  createMockShotObservationRepository,
 } from '../../../../helpers/mockDependencies';
 
 describe('SessionContextCache', () => {
@@ -36,7 +37,7 @@ describe('SessionContextCache', () => {
     eventBus = createMockEventBus();
     sessionRepository = createMockSessionRepository();
     competitionRepository = createMockCompetitionRepository();
-    cache = new SessionContextCache(eventBus);
+    cache = new SessionContextCache(eventBus, createMockShotObservationRepository());
   });
 
   describe('getContext', () => {

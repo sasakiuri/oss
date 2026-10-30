@@ -21,6 +21,7 @@ interface SessionState {
   shots: ShotDto[];
   nullifiedExtras: NullifiedExtraDto[];
   recordingError: string | null;
+  targetResetError: string | null;
   nullificationMessage: string | null;
   /** First shot index of the current preparation or locally started series. */
   currentSeriesStartIndex: number;
@@ -82,6 +83,7 @@ const initialState: SessionState = {
   shots: [],
   nullifiedExtras: [],
   recordingError: null,
+  targetResetError: null,
   nullificationMessage: null,
   currentSeriesStartIndex: 0,
   preparationShotNumberResetIndices: [],
@@ -99,7 +101,13 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
     set((state) =>
       state.currentSessionId === sessionId
         ? {}
-        : { currentSessionId: sessionId, nullifiedExtras: [], recordingError: null, nullificationMessage: null },
+        : {
+            currentSessionId: sessionId,
+            nullifiedExtras: [],
+            recordingError: null,
+            targetResetError: null,
+            nullificationMessage: null,
+          },
     );
   },
 
@@ -167,6 +175,7 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
       shots: [],
       nullifiedExtras: [],
       recordingError: null,
+      targetResetError: null,
       nullificationMessage: null,
       currentSeriesStartIndex: 0,
       preparationShotNumberResetIndices: [],

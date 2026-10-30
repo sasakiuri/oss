@@ -36,11 +36,11 @@ export function CompetitionEvidencePanel({
       {reviewObservations.length > 0 && (
         <details className="mt-4 border-l-2 border-vscode-warning bg-vscode-warning/5 px-3 py-2.5">
           <summary className="cursor-pointer text-xs font-semibold text-vscode-warning">
-            Target observation review ({reviewObservations.length})
+            Target observation evidence ({reviewObservations.length})
           </summary>
           <p className="mt-2 text-xs leading-5 text-vscode-text-muted">
             These observations cannot be edited. Unscored observations are excluded from totals. Recorded observations
-            in a series with a nullified extra are shown with their device mode for official review.
+            in a series with a nullified extra are shown with their reported mode for official review.
           </p>
           <ul className="mt-2 grid max-h-64 gap-2 overflow-auto">
             {reviewObservations.map((evidence) => {
@@ -56,7 +56,7 @@ export function CompetitionEvidencePanel({
                         : evidence.outcome.replaceAll('_', ' ')}
                   </p>
                   <ObservationTimestamps evidence={evidence} />
-                  <p>Device mode: {evidence.reportedMode ?? 'Unknown'}</p>
+                  <p>Reported mode: {evidence.reportedMode ?? 'Unknown'}</p>
                   <p className="text-vscode-dimmed">
                     Stage {evidence.competition?.stageIndex ?? '—'} · series {evidence.competition?.seriesIndex ?? '—'}{' '}
                     · observation {evidence.observationId.slice(0, 8)}

@@ -2,7 +2,11 @@
 /** Dispatches received shots to the active session after checking competition state. */
 
 import { RecordShotToken } from '@/main/composition/tokens';
-import { resolveCompetitionShotMode } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
+import {
+  isAthleteTargetSwitchSeries,
+  previousPositionLabel,
+  resolveCompetitionShotMode,
+} from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
@@ -70,11 +74,13 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
       rawFrameHex: shotData.raw?.toString('hex'),
     });
     let observationAppended = false;
+    let outcomeFinalized = false;
     let competitionContext: ShotObservationCompetitionContext | null = null;
     const finalizeObservation = async (props: Parameters<typeof createShotObservationOutcome>[0]): Promise<void> => {
       const outcome = createShotObservationOutcome(props);
       const evidence = createShotObservationEvidence(observation, outcome, competitionContext);
       await shotObservationRepository.appendOutcomeWithEvidence(outcome, evidence);
+      outcomeFinalized = true;
       try {
         onObservationFinalized?.(evidence.evidenceId);
       } catch (notificationError) {
@@ -204,50 +210,54 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
           targetMode!.sightingRequired,
         );
         if (decision.nullify) {
-          const previousPosition =
-            activeCompetition.currentStageConfig.series[activeCompetition.currentSeriesIndex - 1]?.position;
-          const positionLabel =
-            previousPosition === 'KNEELING'
-              ? 'Kneeling'
-              : previousPosition === 'PRONE'
-                ? 'Prone'
-                : previousPosition === 'STANDING'
-                  ? 'Standing'
-                  : 'unknown';
           await finalizeObservation({
             observationId: observation.id,
             type: 'NULLIFIED_POSITION_EXTRA',
             sessionId: activeSession.id,
-            detail: `Nullified extra — previous ${positionLabel} position · ISSF 6.10.4(c) / 7.7.3`,
+            detail: `Nullified extra — ${previousPositionLabel(activeCompetition.currentStageConfig, activeCompetition.currentSeriesIndex)} · ISSF 6.10.4(c) / 7.7.3`,
           });
-          // Re-read after journaling; a reset must never overwrite a newer clock or series.
-          const current = await competitionRepository.findById(activeCompetition.id);
-          if (!current) throw new Error('Competition disappeared before the Sighting reset');
-          const reset = current.resetAthleteTargetToSighting({
-            competitionId: activeCompetition.id,
-            stageIndex: activeCompetition.currentStageIndex,
-            seriesIndex: activeCompetition.currentSeriesIndex,
-          });
-          await competitionRepository.save(reset);
-          eventBus.emit({
-            type: 'AthleteTargetModeChanged',
-            aggregateId: reset.id,
-            timestamp: Date.now(),
-            newMode: Mode.sighting(),
-          });
-          eventBus.emit({
-            type: 'PositionExtraNullified',
-            aggregateId: activeSession.id,
-            timestamp: Date.now(),
-            competitionId: reset.id,
-          });
+          try {
+            // Re-read after journaling; a reset must never overwrite a newer clock or series.
+            const current = await competitionRepository.findById(activeCompetition.id);
+            if (!current) throw new Error('Competition disappeared before the Sighting reset');
+            const reset = current.resetAthleteTargetToSighting({
+              competitionId: activeCompetition.id,
+              stageIndex: activeCompetition.currentStageIndex,
+              seriesIndex: activeCompetition.currentSeriesIndex,
+            });
+            await competitionRepository.save(reset);
+            eventBus.emit({
+              type: 'AthleteTargetModeChanged',
+              aggregateId: reset.id,
+              timestamp: Date.now(),
+              newMode: Mode.sighting(),
+            });
+            eventBus.emit({
+              type: 'PositionExtraNullified',
+              aggregateId: activeSession.id,
+              timestamp: Date.now(),
+              competitionId: reset.id,
+            });
+          } catch (error) {
+            // The extra is already final. A reset failure must not create another routing outcome.
+            logger.error('Failed to reset Sighting after nullifying an extra', 'usb', {
+              error: error instanceof Error ? error.message : String(error),
+            });
+            eventBus.emit({
+              type: 'PositionExtraNullified',
+              aggregateId: activeSession.id,
+              timestamp: Date.now(),
+              competitionId: activeCompetition.id,
+              resetError: 'Extra shot nullified. The Sighting reset failed. Contact a Range Officer.',
+            });
+          }
           return;
         }
         effectiveMode = Mode.fromValue(decision.mode);
-        athleteModeObserved =
-          activeCompetition.currentStageConfig.scored &&
-          activeCompetition.currentSeriesConfig.targetModeControl === 'ATHLETE' &&
-          activeCompetition.currentSeriesConfig.purpose !== 'POSITION_CHANGE_AND_SIGHTING';
+        athleteModeObserved = isAthleteTargetSwitchSeries(
+          activeCompetition.currentStageConfig,
+          activeCompetition.currentSeriesConfig,
+        );
       } else if (shotData.mode !== undefined) {
         effectiveMode = Mode.fromValue(shotData.mode);
       }
@@ -296,7 +306,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
         y: shotData.y,
       });
     } catch (error) {
-      if (observationAppended) {
+      if (observationAppended && !outcomeFinalized) {
         try {
           await finalizeObservation({
             observationId: observation.id,

@@ -17,6 +17,12 @@ import { DisciplineSchema } from '../schemas/common';
 
 const SessionModeSchema = z.union([z.literal('SIGHTING'), z.literal('MATCH')]);
 
+export const ShotCompetitionContextSchema = z.object({
+  competitionId: z.string(),
+  stageIndex: z.number(),
+  seriesIndex: z.number(),
+});
+
 // ============================================================
 // Command input schemas
 // ============================================================
@@ -83,6 +89,7 @@ const ShotDtoSchema = z.object({
   isRecorded: z.boolean(),
   receivedAt: z.string().optional(),
   reportedMode: SessionModeSchema.nullable().optional(),
+  competitionContext: ShotCompetitionContextSchema.nullable().optional(),
 });
 
 const NullifiedExtraDtoSchema = z.object({
@@ -90,7 +97,8 @@ const NullifiedExtraDtoSchema = z.object({
   receivedAt: z.string(),
   deviceScoreX10: z.number().nullable(),
   reportedMode: SessionModeSchema.nullable(),
-  previousPosition: z.enum(['KNEELING', 'PRONE', 'STANDING']).nullable(),
+  previousPositionLabel: z.string(),
+  competitionContext: ShotCompetitionContextSchema.nullable(),
   detail: z.string().nullable(),
 });
 

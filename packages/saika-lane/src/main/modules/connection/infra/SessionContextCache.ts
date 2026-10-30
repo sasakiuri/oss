@@ -10,6 +10,7 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';
+import type { IShotObservationRepository } from '@/main/modules/shot-observation/domain/IShotObservationRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
@@ -18,7 +19,10 @@ export class SessionContextCache {
   private cachedMode: Mode | null = null;
   private modeRevision = 0;
 
-  constructor(private readonly eventBus: IEventBus) {}
+  constructor(
+    private readonly eventBus: IEventBus,
+    private readonly observations: Pick<IShotObservationRepository, 'findBySessionAndOutcome'>,
+  ) {}
 
   /**
    * Get the current session context
@@ -44,11 +48,49 @@ export class SessionContextCache {
     interruptions?: Pick<ICompetitionInterruptionControl, 'get'>,
   ): Promise<Mode | null> {
     const initialModeRevision = ++this.modeRevision;
-    const activeCompetition = (await competitionRepository?.findActive()) ?? null;
+    let resetRecovered = false;
+    let activeCompetition = (await competitionRepository?.findActive()) ?? null;
     const activeSession = activeCompetition
       ? await sessionRepository.findById(activeCompetition.sessionId)
       : await sessionRepository.findActive();
     if (activeCompetition && !activeSession) throw ErrorCatalog.createError('SESSION_NOT_FOUND');
+
+    if (
+      activeCompetition &&
+      activeSession &&
+      competitionRepository &&
+      resolveCompetitionTargetMode(
+        activeCompetition,
+        activeSession.allShots,
+        interruptions?.get(activeCompetition.id) ?? null,
+      ).sightingRequired
+    ) {
+      const extras = await this.observations.findBySessionAndOutcome(activeSession.id, 'NULLIFIED_POSITION_EXTRA');
+      if (
+        extras.some(
+          (extra) =>
+            extra.competition?.competitionId === activeCompetition!.id &&
+            extra.competition.stageIndex === activeCompetition!.currentStageIndex &&
+            extra.competition.seriesIndex === activeCompetition!.currentSeriesIndex,
+        )
+      ) {
+        // Retry only a reset whose durable observation belongs to this still-unswitched series.
+        const current = await competitionRepository.findById(activeCompetition.id);
+        if (
+          current &&
+          resolveCompetitionTargetMode(current, activeSession.allShots, interruptions?.get(current.id) ?? null)
+            .sightingRequired
+        ) {
+          activeCompetition = current.resetAthleteTargetToSighting({
+            competitionId: current.id,
+            stageIndex: activeCompetition.currentStageIndex,
+            seriesIndex: activeCompetition.currentSeriesIndex,
+          });
+          await competitionRepository.save(activeCompetition);
+          resetRecovered = true;
+        }
+      }
+    }
 
     if (activeSession) {
       // An event may have populated a newer session while repository reads were
@@ -68,6 +110,13 @@ export class SessionContextCache {
               ).effective,
             )
           : activeSession.mode;
+        if (resetRecovered && activeCompetition)
+          this.eventBus.emit({
+            type: 'PositionExtraNullified',
+            aggregateId: activeSession.id,
+            competitionId: activeCompetition.id,
+            timestamp: Date.now(),
+          });
         return this.cachedMode;
       }
     }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect } from 'react';
 
+import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
 import { useAudioPlayback } from './useAudioPlayback';
@@ -26,10 +27,17 @@ export function useShotEvents(): void {
     });
     const unsubExtra = window.electronAPI.on.positionExtraNullified((event) => {
       if (event.sessionId === useSessionStore.getState().currentSessionId)
-        useSessionStore.setState({ nullificationMessage: 'Extra shot nullified. Target reset to Sighting.' });
+        useSessionStore.setState({
+          nullificationMessage: event.resetError ? null : 'Extra shot nullified. Target reset to Sighting.',
+          targetResetError: event.resetError ?? null,
+        });
     });
     const unsubError = window.electronAPI.on.error((event) => {
       if (event.code === 'SHOT_PROGRESS_FAILED') useSessionStore.setState({ recordingError: event.userMessage });
+    });
+    const unsubProgress = window.electronAPI.on.competitionProgressChanged((event) => {
+      if (event.competitionId === useCompetitionStore.getState().competitionId)
+        useSessionStore.setState({ nullificationMessage: null });
     });
 
     return () => {
@@ -37,6 +45,7 @@ export function useShotEvents(): void {
       unsubShot();
       unsubExtra();
       unsubError();
+      unsubProgress();
     };
   }, [addShot, playShotSound]);
 }

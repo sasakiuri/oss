@@ -26,6 +26,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
   const mode = useSessionStore((s) => s.mode);
   const shots = useSessionStore((s) => s.shots);
   const nullifiedExtras = useSessionStore((s) => s.nullifiedExtras);
+  const targetResetError = useSessionStore((s) => s.targetResetError);
   const recordingError = useSessionStore((s) => s.recordingError);
   const nullificationMessage = useSessionStore((s) => s.nullificationMessage);
   const preparationShotNumberResetIndices = useSessionStore((s) => s.preparationShotNumberResetIndices);
@@ -123,6 +124,11 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
         {recordingError && (
           <p role="alert" className="px-3 py-2 text-red-300">
             {recordingError}
+          </p>
+        )}
+        {targetResetError && (
+          <p role="alert" className="px-3 py-2 text-red-300">
+            {targetResetError}
           </p>
         )}
         {nullificationMessage && (
