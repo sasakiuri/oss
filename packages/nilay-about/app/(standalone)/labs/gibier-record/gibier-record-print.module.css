@@ -8,25 +8,25 @@
 
 @media print {
   @page {
-    size: A4 portrait;
+    size: a4 portrait;
     margin: 10mm;
   }
 
   .sheet {
     display: block;
-    color: #000;
-    background: #fff;
-    font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', 'Meiryo', sans-serif;
+    font-family: 'Noto Sans JP', 'Hiragino Sans', 'Yu Gothic', Meiryo, sans-serif;
     font-size: 8.5pt;
     line-height: 1.35;
+    color: #000;
+    background: #fff;
   }
 }
 
 .head {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
   gap: 4mm;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 2mm;
 }
 
@@ -40,16 +40,16 @@
 }
 
 .signature {
-  border-collapse: collapse;
   flex-shrink: 0;
+  border-collapse: collapse;
 }
 
 .signature th,
 .signature td {
-  border: 0.3mm solid #000;
   width: 28mm;
-  text-align: center;
   font-weight: 400;
+  text-align: center;
+  border: 0.3mm solid #000;
 }
 
 .signature td {
@@ -73,10 +73,10 @@
 
 .table th,
 .table td {
-  border: 0.3mm solid #000;
   padding: 0.8mm 1.5mm;
   vertical-align: top;
   text-align: left;
+  border: 0.3mm solid #000;
 }
 
 .table th {
@@ -85,9 +85,9 @@
 }
 
 .caption {
-  caption-side: top;
-  text-align: left;
   padding: 1mm 0;
+  text-align: left;
+  caption-side: top;
 }
 
 .answer {
@@ -117,9 +117,9 @@
 
 /* Large enough for a phone to read off paper: 25 mm across, quiet zone included. */
 .qr {
+  flex-shrink: 0;
   width: 25mm;
   height: 25mm;
-  flex-shrink: 0;
 }
 
 /* The photos start on a page of their own, so the form keeps to its one A4 sheet. */

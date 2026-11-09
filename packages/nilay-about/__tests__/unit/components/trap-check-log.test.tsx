@@ -106,9 +106,7 @@ describe('the trap check log', () => {
     expect(
       within(card).getByText(/最後の見回りから 1 日 2 時間 0 分。間隔を 2 時間 0 分 超えています。/),
     ).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByText('設置中 1 基のうち 1 基が、見回り間隔 24 時間を過ぎています。')).toBeInTheDocument(),
-    );
+    expect(await screen.findByText('設置中 1 基のうち 1 基が、見回り間隔 24 時間を過ぎています。')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText(/見回り間隔/), { target: { value: '26' } });
     expect(within(card).queryByText('【間隔超過】')).toBeNull();

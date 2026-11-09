@@ -15,7 +15,8 @@ export default defineConfig({
     exclude: ['node_modules', '.next', 'dist', 'out'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      thresholds: { lines: 83, statements: 82, branches: 76, functions: 78 },
+      reporter: ['text', 'json', 'json-summary', 'html'],
       include: ['app/**/*.{ts,tsx}', 'components/**/*.{ts,tsx}', 'lib/**/*.ts', 'features/**/*.{ts,tsx}'],
       exclude: ['**/*.test.{ts,tsx}', '**/*.d.ts', '**/*.config.*'],
     },

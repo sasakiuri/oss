@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { render } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
   TallTargetSheet,
@@ -22,7 +22,9 @@ const text: TallTargetSheetText = {
 // 30 MOA at 100 m.
 const layout = tallTargetLayout(872.6867790758789)!;
 // The assertions below reach page 3, so the layout must carry at least that many.
-expect(layout.pages.length).toBeGreaterThanOrEqual(3);
+beforeAll(() => {
+  expect(layout.pages.length).toBeGreaterThanOrEqual(3);
+});
 const firstPage = layout.pages[0]!;
 const secondPage = layout.pages[1]!;
 const thirdPage = layout.pages[2]!;
@@ -69,7 +71,7 @@ describe('the printed tall target', () => {
       join(process.cwd(), 'app/(standalone)/labs/click-verification/tall-target-print.module.css'),
       'utf8',
     );
-    expect(css).toMatch(/@page\s*{\s*size:\s*A4 portrait;\s*margin:\s*0;\s*}/);
+    expect(css).toMatch(/@page\s*{\s*size:\s*A4 portrait;\s*margin:\s*0;\s*}/i);
     expect(css).toMatch(/\.page\s*{[^}]*width:\s*210mm;[^}]*height:\s*297mm;[^}]*break-after:\s*page;/);
   });
 });

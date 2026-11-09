@@ -83,7 +83,7 @@ describe('what a string of velocities costs at distance', () => {
     expect(screen.getByText('±20 % には 53 発必要です（現在 10 発）。')).toBeInTheDocument();
     await user.clear(screen.getByLabelText('標準偏差の目標精度', { exact: false }));
     await user.type(screen.getByLabelText('標準偏差の目標精度', { exact: false }), '5');
-    await waitFor(() => expect(screen.getByText(/200 発を超えるため、実射では決まりません。/)).toBeInTheDocument());
+    expect(await screen.findByText(/200 発を超えるため、実射では決まりません。/)).toBeInTheDocument();
   });
 
   it('parts the shots even at the zero distance, and widens with the range', async () => {
@@ -103,7 +103,7 @@ describe('what a string of velocities costs at distance', () => {
     await settle();
     await user.clear(screen.getByLabelText('初速の記録', { exact: false }));
     await user.type(screen.getByLabelText('初速の記録', { exact: false }), '800 805 fps');
-    await waitFor(() => expect(screen.getByText('読み取れない値: fps')).toBeInTheDocument());
+    expect(await screen.findByText('読み取れない値: fps')).toBeInTheDocument();
     expect(screen.getByText('2 件を読み取りました（60 件まで）。', { exact: false })).toBeInTheDocument();
   });
 

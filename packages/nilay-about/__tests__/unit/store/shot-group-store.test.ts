@@ -23,7 +23,7 @@ const store = () => useShotGroupStore.getState();
  */
 const openSections = async (...titles: RegExp[]) => {
   for (const title of titles) {
-    const heading = await waitFor(() => screen.getByRole('heading', { name: title }));
+    const heading = await screen.findByRole('heading', { name: title });
     const toggle = within(heading).getByRole('button');
     if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
   }
@@ -87,7 +87,7 @@ describe('shot group measurements', () => {
   });
   it('offers the automatic reading only once a photo and a bullet diameter are there', async () => {
     render(createElement(ShotGroupClient));
-    await waitFor(() => screen.getByRole('button', { name: '写真から自動で検出' }));
+    await screen.findByRole('button', { name: '写真から自動で検出' });
     expect(screen.getByRole('button', { name: '写真から自動で検出' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'カメラで撮影する' })).toBeEnabled();
     expect(screen.getByText(/実寸の基準（手順 2）・弾径（手順 3）が必要です/)).toBeInTheDocument();
@@ -407,7 +407,7 @@ describe('shot group measurements', () => {
   });
   it('does not claim a photo is loaded before it has been read', async () => {
     render(createElement(ShotGroupClient));
-    await waitFor(() => screen.getByRole('heading', { name: '1. 写真を読み込む' }));
+    await screen.findByRole('heading', { name: '1. 写真を読み込む' });
     const status = screen.getAllByRole('status').find((node) => node.textContent === '写真なし');
     expect(status).toBeDefined();
     // jsdom never decodes an image, so the page stays in the state between choosing a file and reading it.
@@ -420,7 +420,7 @@ describe('shot group measurements', () => {
   });
   it('clears the photo when the header reset is used, not only the store', async () => {
     render(createElement(ShotGroupClient));
-    await waitFor(() => screen.getByRole('heading', { name: '1. 写真を読み込む' }));
+    await screen.findByRole('heading', { name: '1. 写真を読み込む' });
     const status = screen.getAllByRole('status').find((node) => node.textContent === '写真なし');
     expect(status).toBeDefined();
     vi.stubGlobal('URL', { createObjectURL: () => 'blob:test', revokeObjectURL: () => {} });
@@ -501,9 +501,11 @@ describe('shot group measurements', () => {
     act(() => {
       useShotGroupStore.getState().addImpactAtOffset({ x: 0, y: 0 });
     });
-    await waitFor(() => expect(screen.getByText(/群の大きさは 2 発目から求まります。/)).toBeInTheDocument(), {
-      timeout: 2000,
-    });
+    expect(
+      await screen.findByText(/群の大きさは 2 発目から求まります。/, undefined, {
+        timeout: 2000,
+      }),
+    ).toBeInTheDocument();
     expect(screen.getAllByText(notice)).toHaveLength(2);
   });
 });

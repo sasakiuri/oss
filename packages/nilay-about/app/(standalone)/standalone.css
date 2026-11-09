@@ -6,34 +6,34 @@
 
   /* Primary colors */
   --md-sys-color-primary: #1a73e8;
-  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-on-primary: #fff;
   --md-sys-color-primary-container: #d3e3fd;
   --md-sys-color-on-primary-container: #041e49;
 
   /* Secondary colors */
   --md-sys-color-secondary: #5f6368;
-  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-on-secondary: #fff;
   --md-sys-color-secondary-container: #e8eaed;
   --md-sys-color-on-secondary-container: #1f1f1f;
 
   /* Tertiary colors */
   --md-sys-color-tertiary: #1e8e3e;
-  --md-sys-color-on-tertiary: #ffffff;
+  --md-sys-color-on-tertiary: #fff;
   --md-sys-color-tertiary-container: #ceead6;
   --md-sys-color-on-tertiary-container: #0d3c18;
 
   /* Error colors */
   --md-sys-color-error: #d93025;
-  --md-sys-color-on-error: #ffffff;
+  --md-sys-color-on-error: #fff;
   --md-sys-color-error-container: #f9dedc;
   --md-sys-color-on-error-container: #410e0b;
 
   /* Surface colors (M3 surface levels) */
-  --md-sys-color-surface: #ffffff;
+  --md-sys-color-surface: #fff;
   --md-sys-color-on-surface: #1f1f1f;
   --md-sys-color-surface-variant: #e1e3e1;
   --md-sys-color-on-surface-variant: #444746;
-  --md-sys-color-surface-container-lowest: #ffffff;
+  --md-sys-color-surface-container-lowest: #fff;
   --md-sys-color-surface-container-low: #f7f8f8;
   --md-sys-color-surface-container: #f1f3f1;
   --md-sys-color-surface-container-high: #ebedeb;
@@ -49,23 +49,22 @@
   --md-sys-color-inverse-primary: #a8c7fa;
 
   /* Scrim */
-  --md-sys-color-scrim: #000000;
+  --md-sys-color-scrim: #000;
 
   /* Shadow */
-  --md-sys-color-shadow: #000000;
+  --md-sys-color-shadow: #000;
 
   /*
    * Material Design 3 Typography Scale
    */
+
   /* Display */
   --md-sys-typescale-display-large-size: 57px;
   --md-sys-typescale-display-large-line-height: 64px;
   --md-sys-typescale-display-large-weight: 400;
-
   --md-sys-typescale-display-medium-size: 45px;
   --md-sys-typescale-display-medium-line-height: 52px;
   --md-sys-typescale-display-medium-weight: 400;
-
   --md-sys-typescale-display-small-size: 36px;
   --md-sys-typescale-display-small-line-height: 44px;
   --md-sys-typescale-display-small-weight: 400;
@@ -74,11 +73,9 @@
   --md-sys-typescale-headline-large-size: 32px;
   --md-sys-typescale-headline-large-line-height: 40px;
   --md-sys-typescale-headline-large-weight: 400;
-
   --md-sys-typescale-headline-medium-size: 28px;
   --md-sys-typescale-headline-medium-line-height: 36px;
   --md-sys-typescale-headline-medium-weight: 400;
-
   --md-sys-typescale-headline-small-size: 24px;
   --md-sys-typescale-headline-small-line-height: 32px;
   --md-sys-typescale-headline-small-weight: 400;
@@ -87,11 +84,9 @@
   --md-sys-typescale-title-large-size: 22px;
   --md-sys-typescale-title-large-line-height: 28px;
   --md-sys-typescale-title-large-weight: 400;
-
   --md-sys-typescale-title-medium-size: 16px;
   --md-sys-typescale-title-medium-line-height: 24px;
   --md-sys-typescale-title-medium-weight: 500;
-
   --md-sys-typescale-title-small-size: 14px;
   --md-sys-typescale-title-small-line-height: 20px;
   --md-sys-typescale-title-small-weight: 500;
@@ -100,11 +95,9 @@
   --md-sys-typescale-body-large-size: 16px;
   --md-sys-typescale-body-large-line-height: 24px;
   --md-sys-typescale-body-large-weight: 400;
-
   --md-sys-typescale-body-medium-size: 14px;
   --md-sys-typescale-body-medium-line-height: 20px;
   --md-sys-typescale-body-medium-weight: 400;
-
   --md-sys-typescale-body-small-size: 12px;
   --md-sys-typescale-body-small-line-height: 16px;
   --md-sys-typescale-body-small-weight: 400;
@@ -113,11 +106,9 @@
   --md-sys-typescale-label-large-size: 14px;
   --md-sys-typescale-label-large-line-height: 20px;
   --md-sys-typescale-label-large-weight: 500;
-
   --md-sys-typescale-label-medium-size: 12px;
   --md-sys-typescale-label-medium-line-height: 16px;
   --md-sys-typescale-label-medium-weight: 500;
-
   --md-sys-typescale-label-small-size: 11px;
   --md-sys-typescale-label-small-line-height: 16px;
   --md-sys-typescale-label-small-weight: 500;
@@ -137,11 +128,11 @@
    * Material Design 3 Elevation (using box-shadow)
    */
   --md-sys-elevation-level0: none;
-  --md-sys-elevation-level1: 0px 1px 2px rgba(0, 0, 0, 0.3), 0px 1px 3px 1px rgba(0, 0, 0, 0.15);
-  --md-sys-elevation-level2: 0px 1px 2px rgba(0, 0, 0, 0.3), 0px 2px 6px 2px rgba(0, 0, 0, 0.15);
-  --md-sys-elevation-level3: 0px 4px 8px 3px rgba(0, 0, 0, 0.15), 0px 1px 3px rgba(0, 0, 0, 0.3);
-  --md-sys-elevation-level4: 0px 6px 10px 4px rgba(0, 0, 0, 0.15), 0px 2px 3px rgba(0, 0, 0, 0.3);
-  --md-sys-elevation-level5: 0px 8px 12px 6px rgba(0, 0, 0, 0.15), 0px 4px 4px rgba(0, 0, 0, 0.3);
+  --md-sys-elevation-level1: 0px 1px 2px rgb(0 0 0 / 30%), 0px 1px 3px 1px rgb(0 0 0 / 15%);
+  --md-sys-elevation-level2: 0px 1px 2px rgb(0 0 0 / 30%), 0px 2px 6px 2px rgb(0 0 0 / 15%);
+  --md-sys-elevation-level3: 0px 4px 8px 3px rgb(0 0 0 / 15%), 0px 1px 3px rgb(0 0 0 / 30%);
+  --md-sys-elevation-level4: 0px 6px 10px 4px rgb(0 0 0 / 15%), 0px 2px 3px rgb(0 0 0 / 30%);
+  --md-sys-elevation-level5: 0px 8px 12px 6px rgb(0 0 0 / 15%), 0px 4px 4px rgb(0 0 0 / 30%);
 }
 
 @theme inline {
@@ -219,11 +210,13 @@
     --ring: var(--md-sys-color-primary);
     --destructive: var(--md-sys-color-error);
     --destructive-foreground: var(--md-sys-color-on-error);
-    background: var(--background);
-    color: var(--foreground);
+
     font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans JP', 'Segoe UI', sans-serif;
     line-height: 1.6;
+    color: var(--foreground);
+    background: var(--background);
   }
+
   /* Lands a jump link below the bar that is pinned over the page. The bar is 65-67px, and a tool
      with jump links adds 53px more; 9rem clears the tallest of them by some 24px, which is the
      margin iOS wants, since it resolves this against a layout viewport that moves as the URL bar
@@ -232,45 +225,55 @@
   html:has(.standalone-app) {
     scroll-padding-top: 9rem;
   }
+
   body:has(.standalone-app) header:not(.standalone-app *),
   body:has(.standalone-app) footer:not(.standalone-app *) {
     display: none;
   }
+
   .standalone-app :is(h1, h2, h3, h4, p, ul, ol) {
     margin: 0;
   }
+
   .standalone-app :is(ul, ol) {
     padding: 0;
     list-style: none;
   }
+
   .standalone-app li {
     margin: 0;
   }
+
   .standalone-app a {
     color: var(--primary);
     text-decoration: none;
   }
+
   .standalone-app a:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 4px;
   }
+
   .standalone-app button {
+    min-width: 48px;
+    min-height: 48px;
+    padding: 0 24px;
     font: inherit;
     font-size: 0.875rem;
-    border: 0;
-    background: transparent;
-    padding: 0 24px;
-    min-height: 48px;
-    min-width: 48px;
     cursor: pointer;
+    background: transparent;
+    border: 0;
   }
+
   .standalone-app button:disabled {
     cursor: not-allowed;
   }
+
   .standalone-app button:focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 3px;
   }
+
   .standalone-app
     :is(
       input[type='text'],
@@ -281,49 +284,57 @@
       select,
       textarea
     ) {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px;
     font: inherit;
     color: var(--foreground);
     background: var(--background);
     border: 1px solid var(--md-sys-color-outline);
     border-radius: 8px;
-    padding: 12px;
-    min-height: 48px;
-    width: 100%;
   }
+
   .standalone-app :is(input, select, textarea):focus-visible {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
   }
+
   .standalone-app [aria-invalid='true'] {
     border-color: var(--destructive);
   }
+
   .standalone-app :is(input, select, textarea):disabled {
-    opacity: 0.55;
     cursor: not-allowed;
+    opacity: 0.55;
   }
+
   .standalone-app input[type='checkbox'] {
+    flex-shrink: 0;
     width: 20px;
     height: 20px;
-    flex-shrink: 0;
     accent-color: var(--primary);
   }
+
   .standalone-app input:not([type='checkbox']):read-only {
     background: var(--md-sys-color-surface-container);
   }
+
   .standalone-app summary {
-    cursor: pointer;
     min-height: 48px;
     padding-block: 12px;
+    cursor: pointer;
   }
+
   .standalone-app [role='menu'] {
     z-index: 50;
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
   .standalone-app *,
   .standalone-app *::before,
   .standalone-app *::after {
-    animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
