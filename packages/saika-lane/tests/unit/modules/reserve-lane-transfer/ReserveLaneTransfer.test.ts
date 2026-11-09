@@ -182,6 +182,7 @@ describe('reserve Lane state transfer', () => {
     await target.sessions.save(progressed);
     await new ReserveLaneTransferService(target.journal, target.port, () => targetId).execute(competitionId, activate);
     expect((await target.sessions.findById(source.original.id))!.shotCount).toBe(2);
+    expect(target.pause).toHaveBeenCalledOnce();
     expect(() => target.db.exec('DELETE FROM reserve_lane_transfer_events')).toThrow(/append-only/);
   });
 

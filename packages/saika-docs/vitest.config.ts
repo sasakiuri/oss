@@ -26,7 +26,7 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'lcov', 'html', 'json', 'json-summary'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.d.ts', 'src/shared/api/generated.ts'],
+      exclude: ['src/**/*.d.ts', 'src/shared/api/generated.ts', 'src/**/*.stories.{ts,tsx}'],
       thresholds: {
         lines: 40,
         statements: 39,

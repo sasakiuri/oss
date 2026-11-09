@@ -343,6 +343,50 @@ test("CI bootstrap rejects derived metadata drift without changing tracked input
   );
 });
 
+test("consumer styles use prepared shared rules and preserve workspace overrides", (t) => {
+  const { root, app } = fixture(t);
+  const manifest = JSON.parse(readFileSync(resolve(root, "package.json")));
+  manifest.repoTooling = {
+    linkedDependencies: ["@sasakiuri/stylelint-config"],
+  };
+  writeFileSync(resolve(root, "package.json"), JSON.stringify(manifest));
+  const run = (command) =>
+    spawnSync(
+      process.execPath,
+      [resolve(upstreamRoot, "packages/repo-tooling/cli.mjs"), command],
+      {
+        cwd: root,
+        env: { ...process.env, CI: "", HUSKY: "0" },
+        encoding: "utf8",
+      },
+    );
+  const prepared = run("prepare");
+  assert.equal(prepared.status, 0, prepared.stderr);
+  writeFileSync(
+    resolve(root, "stylelint.config.mjs"),
+    'export default { extends: ["@sasakiuri/stylelint-config"] };\n',
+  );
+  writeFileSync(
+    resolve(app, "stylelint.config.mjs"),
+    'export default { extends: ["../../stylelint.config.mjs"], rules: { "color-hex-length": "long" } };\n',
+  );
+  const rootStyle = resolve(root, "site.css");
+  const appStyle = resolve(app, "site.css");
+  writeFileSync(rootStyle, ".site { color: #fff; }\n");
+  writeFileSync(appStyle, ".site { color: #ffffff; }\n");
+  const valid = run("lint:styles");
+  assert.equal(valid.status, 0, valid.stderr + valid.stdout);
+
+  writeFileSync(rootStyle, ".site { color: #ffffff; }\n");
+  const invalid = run("lint:styles");
+  assert.equal(invalid.status, 2, invalid.stderr + invalid.stdout);
+  assert.match(invalid.stdout + invalid.stderr, /color-hex-length/);
+  const fixed = run("fix:styles");
+  assert.equal(fixed.status, 0, fixed.stderr + fixed.stdout);
+  assert.match(readFileSync(rootStyle, "utf8"), /color: #fff;/);
+  assert.match(readFileSync(appStyle, "utf8"), /color: #ffffff;/);
+});
+
 test("prepare repairs stale module links and derives local peer-dependent tool versions", (t) => {
   const { root, app } = fixture(t);
   const manifest = {

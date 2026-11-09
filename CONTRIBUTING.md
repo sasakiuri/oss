@@ -80,8 +80,9 @@ npx turbo test --concurrency=1 -- --maxWorkers=2
 
 Runtime coverage includes files not reached by tests. Each workspace defines
 its own measured thresholds; keep those gates when updating test tooling.
-Docs measures all `src` TypeScript except generated API types and declarations,
-while retaining higher thresholds on its previously verified boundaries.
+Docs measures all `src` TypeScript except generated API types, declarations,
+and Storybook stories, while retaining higher thresholds on its previously
+verified boundaries. Storybook stories use the separate Storybook checks.
 Reports include text, HTML, JSON, and a JSON summary.
 Vista runs main-process tests in Node.js and renderer tests in jsdom.
 
