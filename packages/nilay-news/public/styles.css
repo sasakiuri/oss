@@ -983,7 +983,6 @@ select {
   align-items: center;
   justify-content: space-between;
   padding: 10px 0;
-  padding-bottom: 14px;
   margin-top: -18px;
   margin-bottom: 18px;
   background: #fff;
@@ -1269,11 +1268,9 @@ select {
 
 .settings-card {
   padding: 20px 0;
-  padding-top: 18px;
   overflow-wrap: anywhere;
   background: #fff;
   border: 0;
-  border-top: 1px solid var(--line);
   border-radius: 0;
 }
 

@@ -300,6 +300,14 @@ test("uses each workspace's resolved scope and includes untested Docs runtime co
     true,
   );
   assert.equal(scope.includes(resolve(docs, "src/app/page.tsx")), true);
+  assert.equal(scope.includes(resolve(docs, "src/shared/ui/button.tsx")), true);
+  for (const story of [
+    "src/shared/ui/button.stories.tsx",
+    "src/shared/ui/dialog.stories.tsx",
+    "src/features/reference/components.stories.tsx",
+  ]) {
+    assert.equal(scope.includes(resolve(docs, story)), false, story);
+  }
   assert.equal(
     scope.includes(resolve(docs, "src/shared/api/generated.ts")),
     false,

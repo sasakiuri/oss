@@ -4,174 +4,174 @@
  */
 
 export interface paths {
-  '/api/catalog/': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/catalog/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List published documentation */
+        get: operations["getCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** List published documentation */
-    get: operations['getCatalog'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/health/': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/health/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check service health */
+        get: operations["getHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Check service health */
-    get: operations['getHealth'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/api/vitals/': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/api/vitals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a same-origin browser performance metric
+         * @description When telemetry is disabled, returns 204 without reading the request. When enabled, requires a matching Origin and a valid JSON metric of at most 2048 bytes.
+         */
+        post: operations["reportWebVital"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Record a same-origin browser performance metric
-     * @description When telemetry is disabled, returns 204 without reading the request. When enabled, requires a matching Origin and a valid JSON metric of at most 2048 bytes.
-     */
-    post: operations['reportWebVital'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    CatalogItem: {
-      id: string;
-      title: string;
-      href: string;
-      description: string;
+    schemas: {
+        CatalogItem: {
+            id: string;
+            title: string;
+            href: string;
+            description: string;
+        };
+        Health: {
+            /** @enum {string} */
+            status: "ok";
+        };
+        Problem: {
+            title: string;
+            status: number;
+            code?: string;
+        };
     };
-    Health: {
-      /** @enum {string} */
-      status: 'ok';
-    };
-    Problem: {
-      title: string;
-      status: number;
-      code?: string;
-    };
-  };
-  responses: never;
-  parameters: never;
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    responses: never;
+    parameters: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  getCatalog: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    getCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Document catalog */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogItem"][];
+                };
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Document catalog */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    getHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['CatalogItem'][];
+        requestBody?: never;
+        responses: {
+            /** @description Health status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Health"];
+                };
+            };
         };
-      };
     };
-  };
-  getHealth: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    reportWebVital: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    name: "CLS" | "FCP" | "INP" | "LCP" | "TTFB";
+                    value: number;
+                    /** @enum {string} */
+                    rating: "good" | "needs-improvement" | "poor";
+                    id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Metric accepted, or telemetry disabled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Malformed, invalid, oversized, or unreadable metric */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        title: "Invalid metric";
+                    };
+                };
+            };
+            /** @description Missing or mismatched Origin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Health status */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['Health'];
-        };
-      };
-    };
-  };
-  reportWebVital: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': {
-          /** @enum {string} */
-          name: 'CLS' | 'FCP' | 'INP' | 'LCP' | 'TTFB';
-          value: number;
-          /** @enum {string} */
-          rating: 'good' | 'needs-improvement' | 'poor';
-          id: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Metric accepted, or telemetry disabled */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Malformed, invalid, oversized, or unreadable metric */
-      400: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': {
-            /** @constant */
-            title: 'Invalid metric';
-          };
-        };
-      };
-      /** @description Missing or mismatched Origin */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
 }

@@ -83,3 +83,16 @@ Formatting respects each directory’s Prettier configuration and ignore files;
 workspace overrides. Document checks cover root Markdown, `docs`, and workspace
 README, DEVELOPMENT, and CONTRIBUTING files, checking titles, local targets,
 and heading anchors. `.local` work notes are excluded.
+
+Consumers with CSS or SCSS must provide a Stylelint configuration before
+running `lint`, `check`, or `qa`. Add `@sasakiuri/stylelint-config` to the root
+manifest's `repoTooling.linkedDependencies`, run `repo-tooling prepare`, and
+create `stylelint.config.mjs` at the consumer root:
+
+```js
+export default { extends: ["@sasakiuri/stylelint-config"] };
+```
+
+Workspace configurations can extend that root configuration and declare local
+overrides. The CLI uses Stylelint's normal configuration discovery; it does not
+replace local configurations or skip unconfigured stylesheets.
