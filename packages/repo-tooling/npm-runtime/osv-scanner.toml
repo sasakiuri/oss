@@ -1,0 +1,13 @@
+# Advisories in dependencies that npm 11.21.2 bundles. Bundled packages cannot be
+# overridden, and no npm release bundles fixed glob or minimatch yet. The expiry
+# makes the Security workflow fail again so the npm version is revisited.
+
+[[IgnoredVulns]]
+id = "GHSA-3g3m-2fjr-6pw4"
+ignoreUntil = 2026-12-09T00:00:00Z
+reason = "npm 11.21.2 bundles glob 13.0.6; no npm release bundles a fixed version yet."
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2026-12-09T00:00:00Z
+reason = "npm 11.21.2 bundles minimatch 10.2.5; no npm release bundles a fixed version yet."

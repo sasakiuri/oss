@@ -22,13 +22,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Read upstream npm version
-        id: runtime
-        run: echo "npm=$(node -p 'require("./package.json").volta.npm')" >> "$GITHUB_OUTPUT"
       - name: Install upstream package manager
-        env:
-          NPM_VERSION: ${{ steps.runtime.outputs.npm }}
-        run: npm install --global "npm@$NPM_VERSION" # zizmor: ignore[adhoc-packages]
+        uses: ./.github/actions/setup-npm
       - run: npm ci --ignore-scripts
       - name: Validate title with shared commitlint policy
         env:

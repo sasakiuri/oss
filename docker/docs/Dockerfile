@@ -1,7 +1,9 @@
-FROM node:24.16.0-bookworm-slim AS dependencies
+FROM node:24.16.0-bookworm-slim@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203 AS dependencies
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 HUSKY=0
-RUN npm install --global npm@11.21.2
+COPY packages/repo-tooling/npm-runtime/package*.json /opt/npm-runtime/
+RUN npm ci --prefix /opt/npm-runtime --ignore-scripts --no-audit --no-fund
+ENV PATH="/opt/npm-runtime/node_modules/.bin:${PATH}"
 COPY package.json package-lock.json .npmrc ./
 # Workspace directories must retain their names for npm's lockfile resolution.
 COPY packages/ ./packages/
@@ -35,7 +37,7 @@ ARG DOCS_SOFT_BREAKS=0
 ENV DOCS_OUTPUT=standalone
 RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN npm run build --workspace=@sasakiuri/saika-docs
 
-FROM node:24.16.0-bookworm-slim AS production
+FROM node:24.16.0-bookworm-slim@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203 AS production
 WORKDIR /app
 ARG NEXT_PUBLIC_BASE_PATH=
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
