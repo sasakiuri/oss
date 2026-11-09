@@ -2,7 +2,8 @@
 
 [![CI](https://github.com/sasakiuri/oss/actions/workflows/ci.yml/badge.svg?branch=1.x)](https://github.com/sasakiuri/oss/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![codecov](https://codecov.io/gh/sasakiuri/oss/branch/1.x/graph/badge.svg)](https://codecov.io/gh/sasakiuri/oss) [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/sasakiuri/oss/badge)](https://scorecard.dev/viewer/?uri=github.com/sasakiuri/oss)
 
-Open-source monorepo for **Saika Lane**, **Saika Director**, **Saika Vista**, **Saika Docs**, and shared configuration packages.
+Open-source monorepo for **Saika** shooting-sports apps and documentation,
+**Nilay** websites and news management, and shared libraries and tooling.
 
 Saika Lane connects to electronic targets over USB/serial to display shots, calculate
 scores and save session records. Saika Director manages competitions, assigns athletes
@@ -11,20 +12,24 @@ on venue monitors, with local and remote screens managed from one operator PC.
 
 ## Packages
 
-| Package                                                 | Description                                                                          |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| [`@sasakiuri/saika-lane`](packages/saika-lane/)         | Electronic target display system (Electron + React + TypeScript)                     |
-| [`@sasakiuri/saika-director`](packages/saika-director/) | MQTT competition controller (Electron + React + TypeScript)                          |
-| [`@sasakiuri/saika-vista`](packages/saika-vista/)       | Offline spectator screens and multi-PC display management                            |
-| [`@sasakiuri/saika-docs`](packages/saika-docs/)         | Japanese manuals and documentation site                                              |
-| [`@sasakiuri/saika-protocol`](packages/saika-protocol/) | Shared MQTT schemas, message types, and topic builders                               |
-| [`@sasakiuri/saika-rules`](packages/saika-rules/)       | Versioned competition rules and capability validation                                |
-| [`@sasakiuri/saika-updater`](packages/saika-updater/)   | Shared application update state and installer coordination                           |
-| `@sasakiuri/eslint-config`                              | Shared ESLint configuration                                                          |
-| `@sasakiuri/prettier-config`                            | Shared Prettier configuration                                                        |
-| `@sasakiuri/stylelint-config`                           | Shared Stylelint configuration                                                       |
-| [`@sasakiuri/repo-tooling`](packages/repo-tooling/)     | Checkout tooling and quality policies for companion repositories (private workspace) |
-| `@sasakiuri/typescript-config`                          | Shared TypeScript configuration                                                      |
+| Package                                                       | Description                                                                          |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`@sasakiuri/nilay-about`](packages/nilay-about/)             | Nilay's service website and Labs tools                                               |
+| [`@sasakiuri/nilay-knowledge`](packages/nilay-knowledge/)     | Shooting and hunting information website                                             |
+| [`@sasakiuri/nilay-news`](packages/nilay-news/)               | Japanese news collection, review, and publishing through Buffer                      |
+| [`@sasakiuri/saika-lane`](packages/saika-lane/)               | Electronic target display system (Electron + React + TypeScript)                     |
+| [`@sasakiuri/saika-director`](packages/saika-director/)       | MQTT competition controller (Electron + React + TypeScript)                          |
+| [`@sasakiuri/saika-vista`](packages/saika-vista/)             | Offline spectator screens and multi-PC display management                            |
+| [`@sasakiuri/saika-docs`](packages/saika-docs/)               | Japanese manuals and documentation site                                              |
+| [`@sasakiuri/saika-protocol`](packages/saika-protocol/)       | Shared MQTT schemas, message types, and topic builders                               |
+| [`@sasakiuri/saika-rules`](packages/saika-rules/)             | Versioned competition rules and capability validation                                |
+| [`@sasakiuri/saika-updater`](packages/saika-updater/)         | Shared application update state and installer coordination                           |
+| `@sasakiuri/eslint-config`                                    | Shared ESLint configuration                                                          |
+| [`@sasakiuri/lighthouse-config`](packages/lighthouse-config/) | Shared Lighthouse CI configuration                                                   |
+| `@sasakiuri/prettier-config`                                  | Shared Prettier configuration                                                        |
+| `@sasakiuri/stylelint-config`                                 | Shared Stylelint configuration                                                       |
+| [`@sasakiuri/repo-tooling`](packages/repo-tooling/)           | Checkout tooling and quality policies for companion repositories (private workspace) |
+| `@sasakiuri/typescript-config`                                | Shared TypeScript configuration                                                      |
 
 Lane, Director, Vista, and Docs share a version. A single `v<version>` tag builds the
 three desktop applications, and one GitHub Release contains their installers and
@@ -48,22 +53,33 @@ cd oss
 npm ci
 
 # Start development
-npx turbo dev
+npm run dev
 
 # Build all packages
-npx turbo build
+npm run build
 
-# Run tests
-npx turbo test
+# Build native modules for Node.js and run tests
+npm rebuild better-sqlite3
+npm test
+
+# Restore native modules for Electron development and E2E tests
+npm run postinstall
 
 # Run repository checks or the full local quality suite
 npm run check
 npm run qa
 
+# Restore native modules for Electron after the full quality suite
+npm run postinstall
+
 # Lint and fix
-npx turbo lint
-npx turbo fix
+npm run lint
+npm run fix
 ```
+
+Run `npm run postinstall` after tests or `npm run qa`, even if either fails,
+before returning to Electron development or E2E tests. See
+[Contributing](CONTRIBUTING.md#repository-checks) for what the checks cover.
 
 ## Documentation
 

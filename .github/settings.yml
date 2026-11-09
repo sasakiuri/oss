@@ -5,12 +5,13 @@
 #
 # Changes to this file on the default branch will be synced to GitHub automatically.
 # Do NOT add a `labels` section — labels are managed by sync-labels.yml + labels.json.
+# cspell:words nextjs
 
 repository:
   name: oss
-  description: "Open-source monorepo for Saika Lane (electronic target display system for shooting ranges) and shared configuration packages."
+  description: "Open-source monorepo for Saika shooting-sports apps and documentation, Nilay websites and news management, and shared libraries and tooling."
   homepage: https://github.com/sasakiuri/oss
-  topics: electron, typescript, shooting-sports, serial-port, mqtt, monorepo, eslint-config, prettier-config
+  topics: cloudflare-workers, competition-management, electron, electronic-targets, hunting, monorepo, mqtt, news-aggregation, nextjs, nilay, react, saika, serial-port, shooting-sports, typescript
   private: false
   has_issues: true
   has_projects: false
