@@ -12,10 +12,12 @@ concurrency:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   gitleaks:
+    permissions:
+      contents: read
+      security-events: write
     runs-on: ubuntu-latest
 
     steps:

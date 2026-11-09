@@ -9,6 +9,8 @@ concurrency:
   group: version-${{ github.ref }}
   cancel-in-progress: false
 
+permissions: {}
+
 jobs:
   version:
     runs-on: ubuntu-latest

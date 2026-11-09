@@ -13,11 +13,13 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  security-events: write
   contents: read
 
 jobs:
   analyze:
+    permissions:
+      security-events: write
+      contents: read
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
 

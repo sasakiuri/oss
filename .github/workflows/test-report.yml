@@ -6,13 +6,14 @@ on:
     workflows: [CI]
     types: [completed]
 
-permissions:
-  contents: read
-  checks: write
-  actions: read
+permissions: {}
 
 jobs:
   report:
+    permissions:
+      contents: read
+      checks: write
+      actions: read
     if: github.event.workflow_run.conclusion != 'cancelled'
     runs-on: ubuntu-latest
 
