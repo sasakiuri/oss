@@ -21,7 +21,7 @@
   "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
   "engines": {
     "node": "24.x",
-    "npm": ">=11.20.0"
+    "npm": ">=11.21.2"
   },
   "type": "module",
   "repository": {
@@ -112,9 +112,9 @@
   },
   "volta": {
     "node": "24.16.0",
-    "npm": "11.20.0"
+    "npm": "11.21.2"
   },
-  "packageManager": "npm@11.20.0",
+  "packageManager": "npm@11.21.2",
   "overrides": {
     "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3",
     "tar": ">=7.5.22",
