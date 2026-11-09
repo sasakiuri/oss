@@ -30,6 +30,8 @@ jobs:
           ignore-install-scripts: "true"
       - name: Validate shared tooling
         run: node --test packages/repo-tooling/tests/*.test.mjs packages/eslint-config/tests/*.test.mjs
+      - name: Test scheduled workflow alerts
+        run: node --test scripts/scheduled-failure-alert.test.mjs
       - name: Check formatting, styles, and repository documentation
         run: npm run lint:repository
       - name: Check spelling
