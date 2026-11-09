@@ -23,6 +23,7 @@
   "postCreateCommand": "npm ci --ignore-scripts",
   "remoteUser": "node",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": ".."
   }
 }

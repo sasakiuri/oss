@@ -1,0 +1,34 @@
+name: "Setup npm"
+description: "Install the repository's npm version using its integrity lockfile"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install locked npm runtime
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        runtime_dir="$(node -p 'require("node:path").resolve(process.env.ACTION_PATH, "../../../packages/repo-tooling/npm-runtime")')"
+        npm ci --prefix "$runtime_dir" --ignore-scripts --no-audit --no-fund
+        RUNTIME_DIR="$runtime_dir" GLOBAL_ROOT="$(npm root --global)" node <<'JS'
+        // Replace the global npm, as a global npm install would, so the npm and
+        // npx launchers shipped with Node.js keep handling arguments natively
+        // (a generated .bin PowerShell shim drops "--" on Windows).
+        const { cpSync, rmSync } = require("node:fs");
+        const { join } = require("node:path");
+        const target = join(process.env.GLOBAL_ROOT, "npm");
+        rmSync(target, { recursive: true, force: true });
+        cpSync(join(process.env.RUNTIME_DIR, "node_modules", "npm"), target, {
+          recursive: true,
+        });
+        JS
+
+    - name: Verify npm version
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        expected_version="$(node -p 'require(require("node:path").resolve(process.env.ACTION_PATH, "../../../package.json")).volta.npm')"
+        npm --version
+        test "$(npm --version)" = "$expected_version"

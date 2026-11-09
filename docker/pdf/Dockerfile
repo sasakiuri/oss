@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG PANDOC_VERSION=3.1.11.1
 ARG PANDOC_SHA256=ab0ac0aa1c3f9b23243d14e43023e06cbce51a52420aba17d27bd0d9c28f73ac
@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certifi
     && echo "${PANDOC_SHA256}  /tmp/pandoc.deb" | sha256sum -c - \
     && dpkg -i /tmp/pandoc.deb && rm /tmp/pandoc.deb \
     && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir weasyprint==69.0
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.txt
 ARG TECTONIC_VERSION=0.15.0
 ARG TECTONIC_SHA256=875fbbc9ab48560d7776088c608e0beee49197b57ab4a2f6c5385b2c661c842f
 RUN curl -fL --retry 3 "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%40${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-x86_64-unknown-linux-gnu.tar.gz" -o /tmp/tectonic.tar.gz \

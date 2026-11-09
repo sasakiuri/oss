@@ -32,8 +32,8 @@ jobs:
           ignore-install-scripts: "true"
       - name: Validate shared tooling
         run: node --test packages/repo-tooling/tests/*.test.mjs packages/eslint-config/tests/*.test.mjs
-      - name: Test scheduled workflow alerts
-        run: node --test scripts/scheduled-failure-alert.test.mjs
+      - name: Test npm bootstrap and scheduled workflow alerts
+        run: node --test scripts/npm-runtime.test.mjs scripts/scheduled-failure-alert.test.mjs
       - name: Check formatting, styles, and repository documentation
         run: npm run lint:repository
       - name: Check spelling
@@ -132,7 +132,7 @@ jobs:
         with:
           node-version: "24.16.0"
           cache: npm
-      - run: npm install --global npm@11.21.2 # zizmor: ignore[adhoc-packages]
+      - uses: ./.github/actions/setup-npm
       - run: npm ci --ignore-scripts
       - run: npm run knip
 

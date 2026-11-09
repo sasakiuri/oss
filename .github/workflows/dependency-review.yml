@@ -21,7 +21,7 @@ jobs:
         with:
           node-version: "24.16.0"
           cache: npm
-      - run: npm install --global npm@11.21.2 # zizmor: ignore[adhoc-packages]
+      - uses: ./.github/actions/setup-npm
       - run: npm ci --ignore-scripts
       - name: Audit actual package identities and test security guards
         run: |

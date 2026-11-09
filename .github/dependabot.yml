@@ -88,10 +88,25 @@ updates:
     directories:
       - /docker/docs
       - /docker/pdf
+      - /.devcontainer
     schedule:
       interval: weekly
       day: monday
       time: "02:00"
       timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
+  - package-ecosystem: pip
+    directory: /docker/pdf
+    schedule:
+      interval: weekly
+      day: monday
+      time: "02:00"
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 10
+    labels:
+      - "Cat: Dependencies 🤖"
+    commit-message:
+      prefix: "chore(root):"
     cooldown:
       default-days: 7

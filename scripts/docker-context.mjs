@@ -51,6 +51,8 @@ for (const entry of await readdir("packages", { withFileTypes: true })) {
 for (const source of [
   ...rootFiles,
   ...packageSources,
+  // The docs image installs npm from this lockfile before the workspace.
+  "packages/repo-tooling/npm-runtime",
   "scripts",
   "docker/docs",
 ]) {
