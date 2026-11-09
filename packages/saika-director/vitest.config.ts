@@ -19,7 +19,6 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
     exclude: ['e2e/**', 'node_modules/**'],
-    passWithNoTests: true,
     reporters: ['default', 'junit'],
     outputFile: {
       junit: 'test-results/vitest-junit.xml',
@@ -27,7 +26,7 @@ export default defineConfig({
     coverage: {
       provider: 'istanbul',
       include: ['src/**/*.{ts,tsx}'],
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'json-summary', 'html'],
       exclude: [
         'node_modules/',
         'dist/',

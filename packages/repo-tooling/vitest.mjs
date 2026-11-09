@@ -21,7 +21,7 @@ export async function createWebsiteVitestConfig(root, { react } = {}) {
       exclude: ["node_modules", ".next", "dist", "out"],
       coverage: {
         provider: "v8",
-        reporter: ["text", "json", "html"],
+        reporter: ["text", "json", "json-summary", "html"],
         include: [
           "app/**/*.{ts,tsx}",
           "components/**/*.{ts,tsx}",

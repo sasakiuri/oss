@@ -32,8 +32,7 @@ describe('buildEventBridge', () => {
     handler(null, { value: 42 });
     handler(null, { value: 'ready', ignored: true });
 
-    expect(callback).toHaveBeenCalledOnce();
-    expect(callback).toHaveBeenCalledWith({ value: 'ready' });
+    expect(callback).toHaveBeenCalledExactlyOnceWith({ value: 'ready' });
     expect(consoleError).toHaveBeenCalledOnce();
   });
 });

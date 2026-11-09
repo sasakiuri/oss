@@ -6,6 +6,23 @@ export default {
   files: ["**/*.test.{ts,tsx}"],
   plugins: { vitest },
   rules: {
+    ...vitest.configs.recommended.rules,
+    "vitest/expect-expect": [
+      "error",
+      { assertFunctionNames: ["expect", "expect*", "assert"] },
+    ],
+    "vitest/no-standalone-expect": [
+      "error",
+      {
+        additionalTestBlockFunctions: [
+          "beforeEach",
+          "afterEach",
+          "beforeAll",
+          "afterAll",
+          "vi.waitFor",
+        ],
+      },
+    ],
     "vitest/no-focused-tests": "error",
     "vitest/no-disabled-tests": "error",
     "vitest/no-conditional-expect": ["error", { expectAssertions: true }],

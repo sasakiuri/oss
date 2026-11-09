@@ -184,10 +184,41 @@ test("callers can scope the Vitest preset when another framework uses .test.ts",
   );
   assert.equal(
     lint(
-      "import { it } from 'vitest'; it.only('unit', () => {});",
+      "import { it, expect } from 'vitest'; it.only('unit', () => { expect(true).toBe(true); });",
       [preset],
       "tests/unit/check.test.ts",
     )[0].ruleId,
     "vitest/no-focused-tests",
+  );
+});
+
+test("tests must assert, including recognized assertion helpers", () => {
+  assert.equal(
+    lint("import { it } from 'vitest'; it('empty', () => {});")[0].ruleId,
+    "vitest/expect-expect",
+  );
+  assert.deepEqual(
+    lint(`
+    import { it, beforeEach, expect, vi } from 'vitest';
+    function expectReady(value) { expect(value).toBe(true); }
+    beforeEach(() => { expect(true).toBe(true); });
+    it('helper', () => { expectReady(true); });
+    it('poll', async () => { await vi.waitFor(() => expect(true).toBe(true)); });
+  `),
+    [],
+  );
+});
+
+test("Testing Library rules do not mistake application helpers for library utilities", () => {
+  assert.deepEqual(
+    lint(
+      `
+    import { debug, fireEvent } from './application';
+    import { it, expect } from 'vitest';
+    it('application event', () => { debug('event'); fireEvent(); expect(true).toBe(true); });
+  `,
+      [vitest, testingLibrary],
+    ),
+    [],
   );
 });

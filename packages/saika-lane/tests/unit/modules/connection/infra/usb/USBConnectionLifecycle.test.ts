@@ -410,7 +410,7 @@ describe('USBConnectionLifecycle', () => {
       });
 
       // Should not throw
-      await lifecycle.disconnect();
+      await expect(lifecycle.disconnect()).resolves.toBeUndefined();
     });
 
     it('should not reconnect when an explicit disconnect supersedes automatic recovery', async () => {

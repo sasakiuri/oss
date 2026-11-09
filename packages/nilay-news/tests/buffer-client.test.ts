@@ -62,7 +62,7 @@ describe("BufferClient", () => {
     const client = new BufferClient("secret-key", "channel-123", transport);
     expect(client.configured).toBe(true);
     expect(client.channel).toBe("channel-123");
-    await client.verifyAccount();
+    await expect(client.verifyAccount()).resolves.toBeUndefined();
     expect(sent(transport).request.query).toContain("allowedActions");
     // The daily posting limit is read in the same single request.
     expect(sent(transport).request.query).toContain(
@@ -124,11 +124,13 @@ describe("BufferClient", () => {
   });
 
   it("accepts the account name case-insensitively without the @ prefix", async () => {
-    await new BufferClient(
-      "key",
-      "channel-123",
-      replying(account({ name: "nilaynews" })),
-    ).verifyAccount();
+    await expect(
+      new BufferClient(
+        "key",
+        "channel-123",
+        replying(account({ name: "nilaynews" })),
+      ).verifyAccount(),
+    ).resolves.toBeUndefined();
   });
 
   it.each([
@@ -203,7 +205,7 @@ describe("BufferClient", () => {
       "channel-123",
       replying({ ...account(), errors: [] }),
     );
-    await client.verifyAccount();
+    await expect(client.verifyAccount()).resolves.toBeUndefined();
   });
 
   it.each([
@@ -347,19 +349,23 @@ describe("BufferClient", () => {
     '  "a" ;  r=8 ; t=1 ,"b";r=250;t=2;pk=:c2VjcmV0:  ',
     'window; r=10; t=5, "day"; r=8; t=0',
   ])("accepts the rate budget %s", async (header) => {
-    await new BufferClient(
-      "key",
-      "channel-123",
-      rated(header, account()),
-    ).verifyAccount();
+    await expect(
+      new BufferClient(
+        "key",
+        "channel-123",
+        rated(header, account()),
+      ).verifyAccount(),
+    ).resolves.toBeUndefined();
   });
 
   it("accepts a response without a RateLimit header", async () => {
-    await new BufferClient(
-      "key",
-      "channel-123",
-      rated(undefined, account()),
-    ).verifyAccount();
+    await expect(
+      new BufferClient(
+        "key",
+        "channel-123",
+        rated(undefined, account()),
+      ).verifyAccount(),
+    ).resolves.toBeUndefined();
   });
 
   it.each([

@@ -282,7 +282,7 @@ test("reads rename destinations and unusual paths while ignoring pure deletions 
   );
 });
 
-test("uses each workspace's resolved Vitest scope, including Docs' deliberate partial coverage", async () => {
+test("uses each workspace's resolved scope and includes untested Docs runtime code", async () => {
   const root = resolve(import.meta.dirname, "..");
   const docs = resolve(root, "packages/saika-docs");
   const scope = await coverageScope(docs);
@@ -299,7 +299,11 @@ test("uses each workspace's resolved Vitest scope, including Docs' deliberate pa
     scope.includes(resolve(docs, "src/shared/telemetry/redact.ts")),
     true,
   );
-  assert.equal(scope.includes(resolve(docs, "src/app/page.tsx")), false);
+  assert.equal(scope.includes(resolve(docs, "src/app/page.tsx")), true);
+  assert.equal(
+    scope.includes(resolve(docs, "src/shared/api/generated.ts")),
+    false,
+  );
   assert.equal(
     scope.includes(resolve(docs, "tests/unit/auth-contract.test.ts")),
     false,
@@ -414,7 +418,7 @@ test("the CLI enforces the threshold and missing reports for a committed workspa
   f.save();
   result = run();
   assert.equal(result.status, 1, result.stdout + result.stderr);
-  assert.match(result.stdout, /50.00% \(1\/2\); required 80%/u);
+  assert.match(result.stdout, /50.00% \(1\/2\); required 90%/u);
   assert.match(result.stderr, /Uncovered: packages\/example\/src\/code.ts:2/u);
   result = run("--minimum", "50");
   assert.equal(result.status, 0, result.stdout + result.stderr);

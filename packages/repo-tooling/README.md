@@ -51,10 +51,12 @@ Issue and pull request templates come from this checkout's `.github` directory.
 commit scopes as package choices; CI rejects drift and installation rejects
 unmanaged issue templates. Contact links stay with the public checkout, and the
 changeset reminder applies only where `.changeset/config.json` exists.
-`repo-tooling labels:sync [--dry-run]` applies `.github/labels.json` and one
-`Package:` label per commit scope through `gh`, then deletes other `Cat:`,
-`Package:` and `Status:` labels, which also removes them from issues and pull
-requests.
+`repo-tooling labels:sync [--dry-run] [--prune]` applies `.github/labels.json`
+and one `Package:` label per commit scope through `gh`. Existing labels are
+preserved by default. Preview removals with `--dry-run --prune`; explicit
+`--prune` deletes obsolete `Cat:`, `Package:` and `Status:` labels and their
+issue and pull request assignments. Pull requests preview this plan; the manual
+workflow exposes a separate prune input.
 
 Imported module links are relative on POSIX so sibling checkouts remain portable
 across host and container paths. Windows uses directory junctions; regenerate
@@ -74,3 +76,10 @@ the container platform before mounting that checkout read-only into the containe
 Consumer Turbo tasks always run with `--force`: files from the external tooling
 checkout are not included in a consumer-only cache key. Bundlers can use the
 exported `toolingWorkspaceRoot` to resolve both checkouts.
+
+Repository checks include `format:check`, `lint:styles`, and `lint:docs`.
+Formatting respects each directory’s Prettier configuration and ignore files;
+`format:write` applies it. CSS uses the shared Stylelint rules with explicit
+workspace overrides. Document checks cover root Markdown, `docs`, and workspace
+README, DEVELOPMENT, and CONTRIBUTING files, checking titles, local targets,
+and heading anchors. `.local` work notes are excluded.

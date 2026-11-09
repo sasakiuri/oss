@@ -78,6 +78,7 @@ test("workflow output names and aggregate dependencies carry real plans to the g
     );
     const applicable = {
       changes: true,
+      repository: true,
       text: plan.text,
       infrastructure: plan.infrastructure,
       knip: plan.knip,
@@ -147,6 +148,7 @@ function needsFor({
   const os = runnersFor(selected);
   const matrix = e2eMatrix(selected, os);
   return {
+    repository: { result: "success" },
     changes: {
       result: "success",
       outputs: {

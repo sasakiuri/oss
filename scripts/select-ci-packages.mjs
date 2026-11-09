@@ -429,10 +429,28 @@ export function planForRevision(base, head, cwd = process.cwd()) {
   return selectCiPackages(files, current, previous, lockfile);
 }
 
+export function planForEvent(eventName, event, head, cwd = process.cwd()) {
+  if (eventName === "pull_request")
+    return planForRevision(event.pull_request?.base?.sha, head, cwd);
+  if (!["push", "workflow_dispatch", "schedule"].includes(eventName))
+    throw new Error(`Unsupported CI event: ${eventName}`);
+  if (!/^[a-f0-9]{40}$/.test(head ?? ""))
+    throw new Error("Expected an explicit head commit SHA.");
+  return {
+    ...selectCiPackages(["package.json"], readGitWorkspaces(head, cwd)),
+    infrastructure: true,
+    knip: true,
+    reasons: [`Full verification for ${eventName}.`],
+  };
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
-  const base = event.pull_request?.base?.sha ?? event.before;
-  const plan = planForRevision(base, process.env.GITHUB_SHA);
+  const plan = planForEvent(
+    process.env.GITHUB_EVENT_NAME,
+    event,
+    process.env.GITHUB_SHA,
+  );
   if (!process.env.GITHUB_OUTPUT) throw new Error("GITHUB_OUTPUT is required.");
   for (const [key, value] of Object.entries(plan)) {
     appendFileSync(

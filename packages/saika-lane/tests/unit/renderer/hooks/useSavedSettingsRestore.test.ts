@@ -55,14 +55,13 @@ describe('useSavedSettingsRestore', () => {
     renderHook(() => useSavedSettingsRestore());
 
     await waitFor(() => {
-      const entries = useLogStore.getState().entries;
-      expect(entries).toHaveLength(1);
-      const entry = entries[0]!;
-      expect(entry.level).toBe('error');
-      expect(entry.message).toContain('Failed to load user preferences:');
-      expect(entry.message).toContain('storage failure');
-      expect(entry.source).toBe('renderer');
+      expect(useLogStore.getState().entries).toHaveLength(1);
     });
+    const entry = useLogStore.getState().entries[0]!;
+    expect(entry.level).toBe('error');
+    expect(entry.message).toContain('Failed to load user preferences:');
+    expect(entry.message).toContain('storage failure');
+    expect(entry.source).toBe('renderer');
   });
 
   it('applies saved audioVolume to sessionStore', async () => {

@@ -175,14 +175,13 @@ describe('reserve Lane state transfer', () => {
       athleteTargetMode: null,
       timer: { remainingSeconds: 240 },
     });
-    expect(target.pause).toHaveBeenCalledWith(expect.objectContaining({ interruptionId: request.id }));
+    expect(target.pause).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ interruptionId: request.id }));
     const transferred = (await target.sessions.findById(source.original.id))!;
     expect(transferred.allShots).toEqual(source.original.allShots);
     const progressed = transferred.recordShot(null, new Score(90), new Date());
     await target.sessions.save(progressed);
     await new ReserveLaneTransferService(target.journal, target.port, () => targetId).execute(competitionId, activate);
     expect((await target.sessions.findById(source.original.id))!.shotCount).toBe(2);
-    expect(target.pause).toHaveBeenCalledOnce();
     expect(() => target.db.exec('DELETE FROM reserve_lane_transfer_events')).toThrow(/append-only/);
   });
 

@@ -210,7 +210,7 @@ describe('championship editor save state', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Increase Firing points:' }));
     await act(async () => saveCompleted.resolve());
 
-    await waitFor(() => expect(screen.getByText('Firing point 2')).toBeInTheDocument());
+    expect(await screen.findByText('Firing point 2')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
   });
 });

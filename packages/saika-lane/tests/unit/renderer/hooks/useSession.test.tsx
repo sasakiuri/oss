@@ -188,15 +188,9 @@ describe('useSession', () => {
       expect(useSessionStore.getState().currentSeriesStartIndex).toBe(2);
     });
 
-    beforeEach(async () => {
-      // Set up session started state before each test
-      mockStartSession.mockResolvedValue({ sessionId: 'session-123' });
-
-      const { result, unmount } = renderHook(() => useSession());
-      await act(async () => {
-        await result.current.startSession('AIR_RIFLE_10M');
-      });
-      unmount();
+    beforeEach(() => {
+      useSessionStore.getState().setSessionId('session-123');
+      useSessionStore.getState().setDiscipline('AIR_RIFLE_10M');
     });
 
     it('succeeds in switching mode', async () => {
@@ -312,15 +306,9 @@ describe('useSession', () => {
   });
 
   describe('resetSession', () => {
-    beforeEach(async () => {
-      // Set up session started state before each test
-      mockStartSession.mockResolvedValue({ sessionId: 'session-123' });
-
-      const { result, unmount } = renderHook(() => useSession());
-      await act(async () => {
-        await result.current.startSession('AIR_RIFLE_10M');
-      });
-      unmount();
+    beforeEach(() => {
+      useSessionStore.getState().setSessionId('session-123');
+      useSessionStore.getState().setDiscipline('AIR_RIFLE_10M');
     });
 
     it('succeeds in resetting session', async () => {

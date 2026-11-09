@@ -96,9 +96,11 @@ function runGh(root, arguments_) {
   return result.stdout;
 }
 
-// Creates and updates every defined label, then deletes managed-prefix labels
-// that are no longer defined. Deleting a label removes it from issues and PRs.
-export function syncLabels(root, { dryRun = false, gh = runGh } = {}) {
+// Deletion is opt-in because it also removes assignments from issues and PRs.
+export function syncLabels(
+  root,
+  { dryRun = false, prune = false, gh = runGh } = {},
+) {
   const desired = createLabels(root);
   const current = new Map(
     JSON.parse(
@@ -152,6 +154,7 @@ export function syncLabels(root, { dryRun = false, gh = runGh } = {}) {
   const defined = new Set(desired.map((label) => label.name.toLowerCase()));
   for (const { name } of current.values())
     if (
+      prune &&
       managedLabelPrefixes.some((prefix) =>
         name.toLowerCase().startsWith(prefix.toLowerCase()),
       ) &&

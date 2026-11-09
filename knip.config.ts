@@ -44,7 +44,6 @@ const config: KnipConfig = {
     ".": {
       entry: ["*.config.{js,mjs,cjs,ts}"],
       ignoreDependencies: [
-        "stylelint", // Pins the shared config peer; Docs executes the CLI.
         "textlint-rule-*", // Textlint loads rules from configuration.
         "vitest", // Coverage checks resolve each workspace's own Vitest version.
       ],

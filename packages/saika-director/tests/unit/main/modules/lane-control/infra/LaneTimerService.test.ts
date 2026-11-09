@@ -32,12 +32,23 @@ describe('LaneTimerService', () => {
 
   describe('startTimer', () => {
     it('reinitializes lastTickTime when called again with the same laneId', () => {
+      const lane = {
+        timer: { isExpired: false, remainingSeconds: 50, totalSeconds: 50 },
+        phase: 'ACTIVE',
+        remainingTime: 50,
+        tickTimer: vi.fn(),
+      };
+      lane.tickTimer.mockReturnValue(lane);
+      vi.mocked(mockRepository.findById).mockReturnValue(lane as any);
       service.startTimer('lane-1');
 
       vi.advanceTimersByTime(500);
 
       service.startTimer('lane-1');
-
+      vi.advanceTimersByTime(500);
+      expect(lane.tickTimer).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1000);
+      expect(lane.tickTimer).toHaveBeenCalledExactlyOnceWith(1);
       service.stopTimer('lane-1');
     });
 

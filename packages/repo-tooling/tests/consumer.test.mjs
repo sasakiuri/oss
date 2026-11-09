@@ -211,7 +211,7 @@ test("workspace staged checks exclude the same files from generic formatting", (
     ](),
     [
       'npm run lint --workspace "private-app"',
-      'repo-tooling run --cwd "packages/private.app" prettier --check .',
+      'repo-tooling run --cwd "packages/private.app" prettier --check . --ignore-path "../../.gitignore" --ignore-path "../../.prettierignore" --ignore-path ".gitignore" --ignore-path ".prettierignore"',
     ],
   );
   const configFile = resolve(root, "config with spaces.mjs");
@@ -219,6 +219,47 @@ test("workspace staged checks exclude the same files from generic formatting", (
   symlinkSync(configFile, resolve(root, "upstream-policy.mjs"));
   assert.deepEqual(generic([resolve(root, "upstream-policy.mjs")]), []);
   assert.match(generic([configFile])[0], /"[^"\n]*config with spaces\.mjs"/);
+});
+
+test("fallback formatting ignores generated reports and retains workspace exclusions", (t) => {
+  const { root, app } = fixture(t);
+  const manifest = JSON.parse(
+    readFileSync(resolve(app, "package.json"), "utf8"),
+  );
+  writeFileSync(
+    resolve(app, "package.json"),
+    JSON.stringify(manifest, null, 2) + "\n",
+  );
+  writeFileSync(resolve(root, ".gitignore"), "coverage/\n");
+  writeFileSync(resolve(root, ".prettierignore"), "**/generated.js\n");
+  writeFileSync(resolve(app, ".gitignore"), "stats.html\n");
+  writeFileSync(
+    resolve(app, "stats.html"),
+    "<body><p>generated stats</p></body>",
+  );
+  writeFileSync(resolve(app, ".prettierignore"), "fixture.js\n");
+  mkdirSync(resolve(app, "coverage"));
+  for (const file of ["coverage/report.js", "generated.js", "fixture.js"])
+    writeFileSync(resolve(app, file), "invalid {");
+  writeFileSync(resolve(app, "source.js"), "export {};\n");
+  const config = createLintStagedConfig(root);
+  const command =
+    config[
+      "packages/private.app/**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,scss,yml,yaml}"
+    ]()[1];
+  const options = [...command.matchAll(/--ignore-path ("[^"]+")/g)].flatMap(
+    (match) => ["--ignore-path", JSON.parse(match[1])],
+  );
+  const check = () =>
+    spawnSync(
+      process.execPath,
+      [resolveBinary("prettier", upstreamRoot), "--check", ".", ...options],
+      { cwd: app, encoding: "utf8" },
+    );
+  const clean = check();
+  assert.equal(clean.status, 0, clean.stdout + clean.stderr);
+  writeFileSync(resolve(app, "source.js"), "const value=1");
+  assert.equal(check().status, 1);
 });
 
 test("actual lint-staged parses workspace options and runs every configured check", async (t) => {

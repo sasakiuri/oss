@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { EventEmitter } from 'node:events';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { UpdaterService, type AutoUpdaterLike, type UpdaterServiceOptions } from '../src/UpdaterService';
 
@@ -270,5 +270,274 @@ describe('UpdaterService', () => {
     expect(loadAutoUpdater).toHaveBeenCalledTimes(2);
     expect(autoUpdater.setFeedURL).toHaveBeenCalledTimes(2);
     expect(autoUpdater.checkForUpdates).toHaveBeenCalledOnce();
+  });
+});
+
+describe('update state transitions and metadata', () => {
+  afterEach(() => vi.useRealTimers());
+
+  const emptyMetadata = {
+    targetVersion: null,
+    releaseName: null,
+    releaseDate: null,
+    releaseNotes: null,
+    downloadPercent: null,
+    transferredBytes: null,
+    totalBytes: null,
+    bytesPerSecond: null,
+  };
+
+  it.each([true, false])('publishes a complete initial state (packaged: %s)', (isPackaged) => {
+    const { service, onStateChange } = setup({ isPackaged });
+    const state = {
+      ...emptyMetadata,
+      status: isPackaged ? 'idle' : 'unsupported',
+      currentVersion: '0.3.0',
+      lastCheckedAt: null,
+      errorMessage: isPackaged ? null : 'Auto-update is available only in packaged releases.',
+      canCheckForUpdates: isPackaged,
+      canInstallUpdate: false,
+    };
+    expect(service.getState()).toEqual(state);
+    service.emitCurrentState();
+    expect(onStateChange).toHaveBeenCalledExactlyOnceWith(state);
+  });
+
+  it('publishes progress, installation readiness and the no-update reset', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-02T03:04:05Z'));
+    const now = new Date().toISOString();
+    const log = vi.fn();
+    const { service, autoUpdater, onStateChange } = setup({ log });
+    await service.checkForUpdates();
+    autoUpdater.emit('checking-for-update');
+    expect(service.getState()).toEqual({
+      ...emptyMetadata,
+      status: 'checking',
+      currentVersion: '0.3.0',
+      lastCheckedAt: null,
+      errorMessage: null,
+      canCheckForUpdates: false,
+      canInstallUpdate: false,
+    });
+    expect(log).toHaveBeenLastCalledWith('info', 'Updater: checking for updates.');
+    autoUpdater.emit('update-available', {
+      version: '0.4.0',
+      releaseName: 'Release',
+      releaseDate: new Date('2026-01-01Z'),
+      releaseNotes: ' Notes ',
+    });
+    const available = {
+      ...emptyMetadata,
+      status: 'available',
+      currentVersion: '0.3.0',
+      targetVersion: '0.4.0',
+      releaseName: 'Release',
+      releaseDate: '2026-01-01T00:00:00.000Z',
+      releaseNotes: 'Notes',
+      lastCheckedAt: now,
+      errorMessage: null,
+      canCheckForUpdates: false,
+      canInstallUpdate: false,
+    };
+    expect(service.getState()).toEqual(available);
+    expect(log).toHaveBeenLastCalledWith('info', 'Updater: update available (0.4.0).');
+    autoUpdater.emit('download-progress', { percent: 25, transferred: 100, total: 400, bytesPerSecond: 50 });
+    expect(service.getState()).toEqual({
+      ...available,
+      status: 'downloading',
+      downloadPercent: 25,
+      transferredBytes: 100,
+      totalBytes: 400,
+      bytesPerSecond: 50,
+    });
+    await service.checkForUpdates();
+    expect(autoUpdater.checkForUpdates).toHaveBeenCalledOnce();
+    autoUpdater.emit('update-downloaded', { version: '0.4.0' });
+    const downloaded = {
+      ...available,
+      status: 'downloaded',
+      downloadPercent: 100,
+      transferredBytes: 400,
+      totalBytes: 400,
+      bytesPerSecond: 50,
+      canInstallUpdate: true,
+    };
+    expect(service.getState()).toEqual(downloaded);
+    expect(log).toHaveBeenLastCalledWith('info', 'Updater: update downloaded (0.4.0).');
+    expect(onStateChange).toHaveBeenLastCalledWith(downloaded);
+    expect(await service.checkForUpdates()).toEqual(downloaded);
+    expect(autoUpdater.checkForUpdates).toHaveBeenCalledOnce();
+    autoUpdater.emit('update-not-available');
+    expect(service.getState()).toEqual({
+      ...emptyMetadata,
+      status: 'no-update',
+      currentVersion: '0.3.0',
+      lastCheckedAt: now,
+      errorMessage: null,
+      canCheckForUpdates: true,
+      canInstallUpdate: false,
+    });
+    expect(log).toHaveBeenLastCalledWith('info', 'Updater: application is up to date.');
+  });
+
+  it.each([
+    [undefined, null],
+    [null, null],
+    ['', null],
+    ['  ', null],
+    [' text ', 'text'],
+    [{ note: 'ignored' }, null],
+    [[], null],
+    [[null, 12, {}, { note: 42, version: 42 }, { version: 'v1' }, { note: '' }, '  '], null],
+    [
+      [
+        ' first ',
+        { note: ' second ', version: ' v2 ' },
+        { note: ' third ' },
+        { note: ' fourth ', version: 2 },
+        { note: ' fifth ', version: '' },
+      ],
+      'first\n\nv2\nsecond\n\nthird\n\nfourth\n\nfifth',
+    ],
+  ])('normalizes release notes %j', async (releaseNotes, expected) => {
+    const { service, autoUpdater } = setup();
+    await service.checkForUpdates();
+    autoUpdater.emit('update-available', { version: '0.4.0', releaseNotes });
+    expect(service.getState().releaseNotes).toBe(expected);
+  });
+
+  it.each([undefined, null, '', '  ', '2026-01-01'])('normalizes release date %j', async (releaseDate) => {
+    const { service, autoUpdater } = setup();
+    await service.checkForUpdates();
+    autoUpdater.emit('update-available', { version: '0.4.0', releaseDate });
+    expect(service.getState().releaseDate).toBe(releaseDate === '2026-01-01' ? releaseDate : null);
+    expect(service.getState().releaseName).toBeNull();
+  });
+
+  it('uses downloaded metadata when supplied and preserves transferred bytes without a total', async () => {
+    const { service, autoUpdater } = setup();
+    await service.checkForUpdates();
+    autoUpdater.emit('download-progress', { percent: 10, transferred: 5, total: null, bytesPerSecond: 1 });
+    autoUpdater.emit('update-downloaded', {
+      version: '0.4.0',
+      releaseName: 'Final',
+      releaseDate: '2026-01-02',
+      releaseNotes: 'Final notes',
+    });
+    expect(service.getState()).toMatchObject({
+      releaseName: 'Final',
+      releaseDate: '2026-01-02',
+      releaseNotes: 'Final notes',
+      transferredBytes: 5,
+    });
+  });
+
+  it.each([new Error('broken'), 'network error', new Error(' '), ' ', {}, null])(
+    'reports check failures and clears stale progress (%j)',
+    async (failure) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01Z'));
+      const log = vi.fn();
+      const { service, autoUpdater } = setup({ log });
+      autoUpdater.checkForUpdates.mockRejectedValueOnce(failure);
+      const expected =
+        failure instanceof Error && failure.message.trim()
+          ? failure.message
+          : typeof failure === 'string' && failure.trim()
+            ? failure
+            : 'Unknown updater error';
+      expect(await service.checkForUpdates()).toEqual({
+        ...emptyMetadata,
+        status: 'error',
+        currentVersion: '0.3.0',
+        lastCheckedAt: '2026-01-01T00:00:00.000Z',
+        errorMessage: expected,
+        canCheckForUpdates: true,
+        canInstallUpdate: false,
+      });
+      expect(log).toHaveBeenLastCalledWith('warn', 'Updater: failed to complete update operation.', {
+        error: expected,
+      });
+      expect(await service.checkForUpdates()).toMatchObject({ status: 'checking', errorMessage: null });
+    },
+  );
+
+  it('coalesces pending checks and attaches event handlers only once after retries', async () => {
+    const { service, autoUpdater, loadAutoUpdater } = setup();
+    let resolveCheck!: () => void;
+    autoUpdater.checkForUpdates.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveCheck = resolve;
+        }),
+    );
+    const first = service.checkForUpdates();
+    const second = service.checkForUpdates();
+    await vi.waitFor(() => expect(autoUpdater.checkForUpdates).toHaveBeenCalledOnce());
+    resolveCheck();
+    expect(await first).toEqual(await second);
+    expect(await service.checkForUpdates()).toMatchObject({ status: 'checking' });
+    autoUpdater.emit('update-not-available');
+    await service.checkForUpdates();
+    expect(loadAutoUpdater).toHaveBeenCalledOnce();
+    expect(autoUpdater.listenerCount('update-available')).toBe(1);
+    expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects unsupported custom feeds before checking and permits a loader retry', async () => {
+    const brokenUpdater = new FakeAutoUpdater();
+    Reflect.deleteProperty(brokenUpdater, 'setFeedURL');
+    const loadAutoUpdater = vi
+      .fn()
+      .mockResolvedValueOnce({ autoUpdater: brokenUpdater })
+      .mockRejectedValueOnce(new Error('load failed'));
+    const { service } = setup({ metadataNamespace: 'vista', loadAutoUpdater });
+    expect(await service.checkForUpdates()).toMatchObject({
+      status: 'error',
+      errorMessage: 'The updater does not support a custom update provider.',
+    });
+    expect(brokenUpdater.checkForUpdates).not.toHaveBeenCalled();
+    expect(await service.checkForUpdates()).toMatchObject({ status: 'error', errorMessage: 'load failed' });
+  });
+});
+
+describe('update operation boundaries', () => {
+  it('waits for an update before installing and accepts an empty download result', async () => {
+    const { service, autoUpdater } = setup();
+    autoUpdater.checkForUpdates.mockResolvedValueOnce({ downloadPromise: null });
+    expect(await service.checkForUpdates()).toMatchObject({ status: 'checking', canCheckForUpdates: false });
+    await expect(service.quitAndInstall()).rejects.toThrow('No downloaded update is ready to install.');
+    expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled();
+    autoUpdater.emit('update-not-available');
+    autoUpdater.checkForUpdates.mockResolvedValueOnce({});
+    expect(await service.checkForUpdates()).toMatchObject({ status: 'checking', errorMessage: null });
+  });
+
+  it.each(['12.34.56-rc.1', '1.2.3-rc'])('uses the release-candidate feed for %s', async (currentVersion) => {
+    const { service, autoUpdater } = setup({ currentVersion });
+    await service.checkForUpdates();
+    expect(autoUpdater.setFeedURL).toHaveBeenCalledOnce();
+  });
+
+  it('allows notifications without a logging or state observer', async () => {
+    const { service, autoUpdater } = setup({ onStateChange: undefined, log: undefined });
+    await service.checkForUpdates();
+    autoUpdater.emit('checking-for-update');
+    expect(service.getState().status).toBe('checking');
+  });
+
+  it('reports a distinct installer rejection after an emitted error', async () => {
+    const log = vi.fn();
+    const { service, autoUpdater } = setup({ log });
+    await downloadUpdate(service, autoUpdater);
+    log.mockClear();
+    autoUpdater.quitAndInstall.mockImplementationOnce(() => {
+      autoUpdater.emit('error', new Error('native error'));
+      throw new Error('launcher error');
+    });
+    await expect(service.quitAndInstall()).rejects.toThrow('launcher error');
+    expect(log).toHaveBeenCalledTimes(2);
+    expect(service.getState()).toMatchObject({ errorMessage: 'launcher error', canInstallUpdate: true });
   });
 });

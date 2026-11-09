@@ -262,12 +262,12 @@ export async function main(argv) {
       base: { type: "string" },
       head: { type: "string", default: "HEAD" },
       packages: { type: "string" },
-      minimum: { type: "string", default: "80" },
+      minimum: { type: "string", default: "90" },
     },
   });
   if (!values.base?.trim())
     throw new Error(
-      "Usage: node scripts/coverage-diff-check.mjs --base REF [--packages JSON] [--minimum 80]",
+      "Usage: node scripts/coverage-diff-check.mjs --base REF [--packages JSON] [--minimum 90]",
     );
   const minimum = Number(values.minimum);
   if (

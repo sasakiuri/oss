@@ -1,0 +1,5 @@
+# These static GET handlers accept no input and have no application-level 4xx response.
+contracts/openapi.json:
+  operation-4xx-response:
+    - '#/paths/~1api~1catalog~1/get/responses'
+    - '#/paths/~1api~1health~1/get/responses'

@@ -1,6 +1,11 @@
 name: Sync Labels
 
 on:
+  pull_request:
+    paths:
+      - .github/labels.json
+      - .github/workflows/sync-labels.yml
+      - packages/**
   push:
     branches: [1.x]
     paths:
@@ -8,16 +13,41 @@ on:
       - .github/workflows/sync-labels.yml
       - packages/**
   workflow_dispatch:
+    inputs:
+      prune:
+        description: Delete retired managed labels and their issue assignments
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 concurrency:
-  group: sync-labels
+  group: sync-labels-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
+  preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+      - name: Preview label updates and deletion candidates
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: node packages/repo-tooling/cli.mjs labels:sync --dry-run --prune
   sync:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -37,4 +67,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-        run: node packages/repo-tooling/cli.mjs labels:sync
+          PRUNE: ${{ github.event_name == 'workflow_dispatch' && inputs.prune }}
+        run: |
+          args=()
+          if [ "$PRUNE" = true ]; then args+=(--prune); fi
+          node packages/repo-tooling/cli.mjs labels:sync "${args[@]}"

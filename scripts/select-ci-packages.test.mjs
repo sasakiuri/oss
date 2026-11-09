@@ -10,6 +10,7 @@ import {
   affectedByLockfile,
   platformRunners,
   planForRevision,
+  planForEvent,
   readGitWorkspaces,
   selectCiPackages,
 } from "./select-ci-packages.mjs";
@@ -20,6 +21,35 @@ const select = (files, packages = current, previous = packages) =>
   selectCiPackages(files, packages, previous);
 const names = (plan) =>
   plan.packages.map((item) => item.replace("@sasakiuri/", "")).sort();
+
+test("mainline, manual and scheduled checks cover every workspace even after cancelled runs", () => {
+  const head = execFileSync("git", ["rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim();
+  for (const event of ["push", "workflow_dispatch", "schedule"]) {
+    const plan = planForEvent(event, { before: head }, head);
+    assert.equal(plan.docs, true);
+    assert.equal(plan.knowledge, true);
+    assert.equal(plan.about, true);
+    assert.equal(plan.infrastructure, true);
+    assert.equal(plan.knip, true);
+    assert.equal(plan.text, true);
+    assert.ok(plan.packages.includes(name("saika-lane")));
+    assert.ok(plan.packages.includes(name("saika-director")));
+  }
+  assert.equal(
+    planForEvent(
+      "pull_request",
+      { pull_request: { base: { sha: head } } },
+      head,
+    ).ci,
+    false,
+  );
+  assert.throws(
+    () => planForEvent("unknown", {}, head),
+    /Unsupported CI event/,
+  );
+});
 
 test("an application change selects only that application", () => {
   const plan = select(["packages/saika-lane/src/main.ts"]);
