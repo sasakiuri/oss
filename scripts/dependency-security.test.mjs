@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { test } from "node:test";
 
 // Exercise the actual dependency used by the installed style and glob tooling.
@@ -15,6 +18,108 @@ const docsRequire = createRequire(
 const jestRequire = createRequire(docsRequire.resolve("jest-config"));
 const merge = jestRequire("deepmerge");
 const katex = createRequire(docsRequire.resolve("rehype-katex"))("katex");
+const laneRequire = createRequire(
+  new URL("../packages/saika-lane/package.json", import.meta.url),
+);
+const appBuilderRequire = createRequire(
+  createRequire(laneRequire.resolve("electron-builder")).resolve(
+    "app-builder-lib",
+  ),
+);
+const eslintConfigRequire = createRequire(
+  new URL("../packages/eslint-config/package.json", import.meta.url),
+);
+const typescriptEstreeRequire = createRequire(
+  createRequire(eslintConfigRequire.resolve("typescript-eslint")).resolve(
+    "@typescript-eslint/typescript-estree",
+  ),
+);
+
+function makeDirectoryTree(root, depth) {
+  if (depth === 0) return;
+  for (const name of ["d0", "d1", "d2", "d3"]) {
+    const directory = join(root, name);
+    fs.mkdirSync(directory);
+    makeDirectoryTree(directory, depth - 1);
+  }
+}
+
+test("Jest file discovery matches files and stops reading directories after an abort", async () => {
+  const { glob, globSync } = jestRequire("glob");
+  const root = fs.mkdtempSync(join(tmpdir(), "glob-abort-"));
+  try {
+    makeDirectoryTree(root, 3);
+    assert.deepEqual(globSync("d0/d1/*", { cwd: root, posix: true }).sort(), [
+      "d0/d1/d0",
+      "d0/d1/d1",
+      "d0/d1/d2",
+      "d0/d1/d3",
+    ]);
+
+    let reads = 0;
+    let pendingReads = 0;
+    let onReadsSettled = () => {};
+    const controller = new AbortController();
+    const readdir = (...args) => {
+      const callback = args.pop();
+      reads += 1;
+      pendingReads += 1;
+      controller.abort(new Error("stop walking"));
+      fs.readdir(...args, (...result) => {
+        pendingReads -= 1;
+        callback(...result);
+        if (pendingReads === 0) onReadsSettled();
+      });
+    };
+    await assert.rejects(
+      glob("**", {
+        cwd: root,
+        signal: controller.signal,
+        fs: { ...fs, readdir },
+      }),
+      /stop walking/,
+    );
+    const readsAtRejection = reads;
+    // Let every started read call back; a walk that ignores the abort reads further directories from those callbacks.
+    for (;;) {
+      while (pendingReads > 0) {
+        await new Promise((resolve) => {
+          onReadsSettled = resolve;
+        });
+      }
+      const readsBeforeTurn = reads;
+      await new Promise((resolve) => setImmediate(resolve));
+      if (pendingReads === 0 && reads === readsBeforeTurn) break;
+    }
+    assert.equal(reads, readsAtRejection);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("packaging and lint pattern matching keep ordinary results and bound '**/..' expansion", () => {
+  const amplified =
+    Array.from({ length: 16 }, (_, index) => `x${index}/**/..`).join("/") +
+    "/y";
+  for (const { Minimatch } of [
+    appBuilderRequire("minimatch"),
+    typescriptEstreeRequire("minimatch"),
+  ]) {
+    // electron-builder matches its file patterns with `dot: true`.
+    const files = new Minimatch("dist/**/*", { dot: true });
+    assert.equal(files.match("dist/main/.env"), true);
+    assert.equal(files.match("dist", true), true);
+    assert.equal(files.match("src/main.ts"), false);
+    const excluded = new Minimatch("!**/node_modules/**", { dot: true });
+    assert.equal(excluded.negate, true);
+    assert.equal(excluded.match("app/node_modules/pkg/index.js"), false);
+    assert.equal(excluded.match("app/dist/index.js"), true);
+    assert.throws(
+      () => new Minimatch(amplified, { optimizationLevel: 2 }),
+      /too many patterns/,
+    );
+  }
+});
 
 test("Jest globals merge nested settings and concatenate arrays without mutating inputs", () => {
   const preset = { settings: { enabled: true, tags: ["preset"] } };
