@@ -53,6 +53,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish",
+    "dependency-tree:check": "node scripts/check-dependency-tree.mjs",
     "license-check": "licensee --errors-only",
     "license-report": "node scripts/generate-third-party-licenses.mjs",
     "license-report:check": "node scripts/generate-third-party-licenses.mjs --check",

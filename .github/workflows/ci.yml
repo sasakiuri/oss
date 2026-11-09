@@ -164,6 +164,11 @@ jobs:
       - name: Test dependency security regressions
         run: node --test scripts/dependency-security.test.mjs
 
+      - name: Check dependency tree
+        run: |
+          node --test scripts/check-dependency-tree.test.mjs
+          npm run dependency-tree:check
+
       - name: Lint
         run: npm run ci:packages -- lint
 
