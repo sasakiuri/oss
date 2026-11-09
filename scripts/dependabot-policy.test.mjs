@@ -101,3 +101,19 @@ test("the npm lockfile has one update policy and eligible groups exclude product
   for (const update of configuration.updates)
     assert.equal(update.cooldown["default-days"], 7);
 });
+
+test("major GitHub Actions updates open one pull request per action", () => {
+  const configuration = yaml.load(
+    readFileSync(new URL("../.github/dependabot.yml", import.meta.url), "utf8"),
+  );
+  const actions = configuration.updates.filter(
+    (update) => update["package-ecosystem"] === "github-actions",
+  );
+  assert.equal(actions.length, 1);
+  for (const [name, group] of Object.entries(actions[0].groups ?? {})) {
+    assert.ok(
+      !(group["update-types"] ?? ["major", "minor", "patch"]).includes("major"),
+      `${name} must not group major updates`,
+    );
+  }
+});
