@@ -2,15 +2,20 @@
   "name": "@sasakiuri/oss",
   "version": "1.0.0",
   "private": true,
-  "description": "Monorepo for Saika Lane, Saika Director, Saika Vista, Saika Docs, and shared configurations",
+  "description": "Open-source monorepo for Saika shooting-sports apps and documentation, Nilay websites and news management, and shared libraries and tooling.",
   "keywords": [
     "saika-lane",
     "saika-director",
     "saika-vista",
     "saika-docs",
+    "nilay-about",
+    "nilay-knowledge",
+    "nilay-news",
     "electronic-target",
     "shooting",
-    "monorepo"
+    "monorepo",
+    "shared-libraries",
+    "developer-tools"
   ],
   "license": "MIT",
   "author": "sasakiuri <sasakiuri@users.noreply.github.com>",
