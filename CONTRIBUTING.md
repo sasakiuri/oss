@@ -78,29 +78,36 @@ On machines with limited resources, bound workspace and test-worker parallelism:
 npx turbo test --concurrency=1 -- --maxWorkers=2
 ```
 
-Lane, Director, Vista, and Updater coverage includes all source files, including files not reached
-by tests. Keep that scope and the existing thresholds when updating test tooling.
+Runtime coverage includes files not reached by tests. Each workspace defines
+its own measured thresholds; keep those gates when updating test tooling.
+Docs measures all `src` TypeScript except generated API types and declarations,
+while retaining higher thresholds on its previously verified boundaries.
+Reports include text, HTML, JSON, and a JSON summary.
 Vista runs main-process tests in Node.js and renderer tests in jsdom.
 
 Vitest and React Testing Library checks use the optional presets from
-`@sasakiuri/eslint-config`. CI rejects focused tests, conditional assertions without
+`@sasakiuri/eslint-config`. CI rejects focused or assertion-free tests, lint warnings, conditional assertions without
 an explicit nonzero `expect.assertions(n)` count, and Playwright tests that
 pass only after a retry. Fix asynchronous assertions and flaky behavior before
 merging; a successful retry is useful diagnostic evidence.
 
-PRs require at least 80% coverage of changed executable lines within each
+PRs require at least 90% coverage of changed executable lines within each
 workspace's configured Vitest coverage scope. Generate `test:coverage` reports
 at the checked-out revision, then run `npm run coverage:diff -- --base origin/1.x`.
 The comparison uses committed changes from the merge base; uncommitted edits
 are not included. Missing measurements for changed runtime files fail the check.
 Workspaces without a `test:coverage` script are reported as outside its scope.
 
-Rules and Protocol also mutation-test their selected scoring, rule selection,
-and recovery logic on Linux CI, requiring a mutation score of at least 95%:
+Rules, Protocol, and Updater mutation-test their selected rules, communication
+contracts, recovery, and update logic on Linux CI. Docs checks authentication,
+HTTP helpers, and security configuration in its deep quality workflow.
+Each requires a mutation score of at least 95%:
 
 ```bash
 npm run test:mutation -w @sasakiuri/saika-rules
 npm run test:mutation -w @sasakiuri/saika-protocol
+npm run test:mutation -w @sasakiuri/saika-updater
+npm run test:mutation -w @sasakiuri/saika-docs
 ```
 
 Run `make lint-infra` (or `npm run lint:infra`) with Docker to check Shell,
@@ -139,8 +146,11 @@ Changes to `knip.config.ts` run the repository-wide unused-code check without
 selecting application builds or tests. When combined with application changes,
 only the affected applications and their dependents run their normal checks.
 
-Text and tooling checks run when documents, their configuration, dependencies,
-or the checked tools change. Infrastructure checks run when workflows, Actions,
+Repository formatting, CSS, document links, spelling, and tooling tests run
+on every CI invocation. Pull requests also validate every commit in the PR
+range. Change-based package selection applies to pull requests; mainline pushes,
+manual runs, and the weekly schedule select all workspaces and infrastructure
+checks, including Actions security checks. Infrastructure checks run when workflows, Actions,
 shell scripts, Dockerfiles, their lint configuration, or the infrastructure lint
 tool change. Security checks remain enabled. `CI Required` rejects failed
 detection, failed applicable checks, and unexpected skips. The Changes job
@@ -197,8 +207,10 @@ manuals in `saika-docs` when behavior or screen labels change.
 This project uses **ESLint 9** and **Prettier 3** with shared configurations. Run the following to lint and auto-fix:
 
 ```bash
-npm run lint     # Check workspace code and repository text
-npm run fix      # Auto-fix lint + formatting
+npm run lint          # Check repository formatting, CSS, documents, text, and workspace code
+npm run format:write  # Apply repository-wide Prettier formatting
+npm run fix:styles    # Apply safe Stylelint fixes
+npm run fix           # Auto-fix workspace lint + formatting
 ```
 
 Japanese prose uses a half-width space between Japanese characters and English

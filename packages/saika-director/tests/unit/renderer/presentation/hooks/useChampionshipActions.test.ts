@@ -141,8 +141,7 @@ describe('useChampionshipActions', () => {
         await request;
       });
 
-      expect(mockStoreState.setSelectedChampionship).toHaveBeenCalledOnce();
-      expect(mockStoreState.setSelectedChampionship).toHaveBeenCalledWith(null);
+      expect(mockStoreState.setSelectedChampionship).toHaveBeenCalledExactlyOnceWith(null);
     });
 
     it('does not apply a response received after unmounting', async () => {

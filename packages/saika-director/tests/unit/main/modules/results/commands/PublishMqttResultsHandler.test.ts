@@ -171,8 +171,9 @@ describe('PublishMqttResultsHandler', () => {
     });
 
     expect(response).toEqual({ savedCount: 1, errors: [] });
-    expect(repository.replaceByCompetitionId).toHaveBeenCalledOnce();
-    expect(repository.replaceByCompetitionId).toHaveBeenCalledWith(EVENT_ID, 2, COMPETITION_ID, [expect.anything()]);
+    expect(repository.replaceByCompetitionId).toHaveBeenCalledExactlyOnceWith(EVENT_ID, 2, COMPETITION_ID, [
+      expect.anything(),
+    ]);
     const saved = vi.mocked(repository.replaceByCompetitionId).mock.calls[0]![3][0]!;
     expect(saved).toMatchObject({
       playerName: 'Canonical Athlete',

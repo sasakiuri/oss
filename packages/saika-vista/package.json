@@ -21,7 +21,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . && npm run lint:language",
+    "lint": "eslint . --max-warnings 0 && npm run lint:language",
     "lint:language": "node ../../scripts/check-english-only.mjs .",
     "fix": "eslint --fix . && prettier --write .",
     "test": "vitest run",

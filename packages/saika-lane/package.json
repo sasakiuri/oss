@@ -44,7 +44,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "prelint": "npm run lint:language",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "lint:language": "node ../../scripts/check-english-only.mjs .",
     "fix": "eslint --fix . && prettier --write .",
     "preview": "vite preview",

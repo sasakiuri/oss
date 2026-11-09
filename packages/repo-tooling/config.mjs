@@ -105,10 +105,18 @@ export function createLintStagedConfig(root) {
       `${directory}/**/*.{ts,tsx,js,jsx,mjs,cjs,json,md,css,scss,yml,yaml}`
     ] = () => {
       const commands = [`npm run lint --workspace ${quote(manifest.name)}`];
+      const ignorePaths = [
+        relative(resolve(root, directory), resolve(root, ".gitignore")),
+        relative(resolve(root, directory), resolve(root, ".prettierignore")),
+        ".gitignore",
+        ".prettierignore",
+      ]
+        .map((file) => `--ignore-path ${quote(file.split(sep).join("/"))}`)
+        .join(" ");
       commands.push(
         manifest.scripts["lint:prettier"]
           ? `npm run lint:prettier --workspace ${quote(manifest.name)}`
-          : `repo-tooling run --cwd ${quote(directory)} prettier --check .`,
+          : `repo-tooling run --cwd ${quote(directory)} prettier --check . ${ignorePaths}`,
       );
       if (manifest.scripts.typecheck)
         commands.push(`npm run typecheck --workspace ${quote(manifest.name)}`);
@@ -202,8 +210,12 @@ export function createCspellConfig(root) {
     files: local.files ?? [
       "README.md",
       "AGENTS.md",
+      "docs/**/*.md",
       ...workspaceDirectories(root).map(
         (directory) => `${directory}/**/*.{ts,tsx,mjs}`,
+      ),
+      ...workspaceDirectories(root).map(
+        (directory) => `${directory}/{README,DEVELOPMENT,CONTRIBUTING}.md`,
       ),
     ],
   };

@@ -149,7 +149,7 @@ test("label sync changes only managed labels and supports dry runs", (t) => {
       return arguments_[1] === "list" ? JSON.stringify(current) : "";
     };
     t.mock.method(console, "log", () => {});
-    const operations = syncLabels(root, { dryRun, gh });
+    const operations = syncLabels(root, { dryRun, prune: true, gh });
     return { calls: calls.slice(1), operations };
   };
   const applied = run(false);
@@ -180,6 +180,26 @@ test("label sync changes only managed labels and supports dry runs", (t) => {
   assert.deepEqual(planned.calls, []);
 });
 
+test("ordinary sync retains retired labels and their assignments", (t) => {
+  const root = fixture(t);
+  const current = [
+    ...createLabels(root),
+    { name: "Package: retired 📦", color: "ffffff", description: "" },
+  ];
+  const calls = [];
+  t.mock.method(console, "log", () => {});
+  const gh = (_root, args) => {
+    calls.push(args);
+    return JSON.stringify(current);
+  };
+  assert.deepEqual(syncLabels(root, { gh }), []);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(syncLabels(root, { gh, dryRun: true, prune: true }), [
+    ["delete", "Package: retired 📦"],
+  ]);
+  assert.equal(calls.length, 2);
+});
+
 test("label sync renames case variants without recreating their assignments", (t) => {
   const root = fixture(t);
   const desired = createLabels(root);
@@ -203,7 +223,7 @@ test("label sync renames case variants without recreating their assignments", (t
     return arguments_[1] === "list" ? JSON.stringify(current) : "";
   };
   t.mock.method(console, "log", () => {});
-  assert.deepEqual(syncLabels(root, { gh }), [
+  assert.deepEqual(syncLabels(root, { gh, prune: true }), [
     ["update", packageLabel.name],
     ["delete", "PACKAGE: retired 📦"],
   ]);

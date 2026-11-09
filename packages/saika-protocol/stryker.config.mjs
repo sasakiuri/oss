@@ -7,7 +7,7 @@ export default {
   htmlReporter: { fileName: 'coverage/mutation/index.html' },
   jsonReporter: { fileName: 'coverage/mutation/mutation.json' },
   // Recovery authorization must preserve firing limits across the wire.
-  mutate: ['src/QualificationRecovery.ts'],
+  mutate: ['src/QualificationRecovery.ts', 'src/Acknowledgement.ts'],
   thresholds: { break: 95, high: 100, low: 95 },
   vitest: { configFile: 'vitest.mutation.config.ts', related: false },
   ignorePatterns: ['dist', 'reports', 'coverage'],

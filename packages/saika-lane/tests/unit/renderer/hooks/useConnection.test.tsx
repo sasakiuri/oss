@@ -136,14 +136,8 @@ describe('useConnection', () => {
   });
 
   describe('disconnect', () => {
-    beforeEach(async () => {
-      // Set up connected state before each test
-      mockConnect.mockResolvedValue({ connectionId: 'conn-123' });
-
-      const { result } = renderHook(() => useConnection());
-      await act(async () => {
-        await result.current.connect('/dev/ttyUSB0', 'SIUS');
-      });
+    beforeEach(() => {
+      useConnectionStore.getState().setConnection('conn-123', '/dev/ttyUSB0', 'SIUS');
     });
 
     it('succeeds in disconnecting', async () => {

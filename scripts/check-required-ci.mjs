@@ -81,6 +81,7 @@ export function requiredChecksPass(needs, workspaces) {
     return false;
   }
   return (
+    needs.repository?.result === "success" &&
     needs.text?.result === (outputs.text === "true" ? "success" : "skipped") &&
     needs.infrastructure?.result ===
       (outputs.infrastructure === "true" ? "success" : "skipped") &&

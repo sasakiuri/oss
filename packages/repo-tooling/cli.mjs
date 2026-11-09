@@ -209,6 +209,7 @@ async function execute(script, arguments_) {
     script === "check" ||
     script === "qa" ||
     script === "lint" ||
+    script === "lint:repository" ||
     script === "fix"
   ) {
     validateInstalledDependencies();
@@ -259,6 +260,38 @@ async function execute(script, arguments_) {
     );
     return (await lintText({ root, fix: script === "fix:text" })) ? 1 : 0;
   }
+  if (["format:check", "format:write"].includes(script)) {
+    const { formatRepository } = await import("./format.mjs");
+    return formatRepository(root, { write: script === "format:write" });
+  }
+  if (script === "lint:docs") {
+    const { checkDocuments } = await import("./documents.mjs");
+    const errors = checkDocuments(root);
+    if (errors.length) console.error(errors.join("\n"));
+    else
+      console.log(
+        "Repository document titles, local links, and headings verified.",
+      );
+    return errors.length ? 1 : 0;
+  }
+  if (["lint:styles", "fix:styles"].includes(script)) {
+    const { repositoryFiles } = await import("./files.mjs");
+    const files = repositoryFiles(root).filter((file) =>
+      /\.(css|scss)$/.test(file),
+    );
+    return files.length
+      ? runTool(
+          "stylelint",
+          [
+            ...files,
+            "--max-warnings",
+            "0",
+            ...(script === "fix:styles" ? ["--fix"] : []),
+          ],
+          { cwd: root },
+        )
+      : 0;
+  }
   if (script === "lint:infra") {
     const { lintInfrastructure } = await import(
       pathToFileURL(resolve(upstreamRoot, "scripts/lint-infra.mjs"))
@@ -285,10 +318,15 @@ async function execute(script, arguments_) {
     });
   }
   if (script === "labels:sync") {
-    const unknown = arguments_.filter((argument) => argument !== "--dry-run");
+    const unknown = arguments_.filter(
+      (argument) => !["--dry-run", "--prune"].includes(argument),
+    );
     if (unknown.length)
       throw new Error(`Unknown labels:sync option: ${unknown.join(" ")}`);
-    syncLabels(root, { dryRun: arguments_.includes("--dry-run") });
+    syncLabels(root, {
+      dryRun: arguments_.includes("--dry-run"),
+      prune: arguments_.includes("--prune"),
+    });
     return 0;
   }
   if (script === "contracts:check") {
@@ -369,7 +407,7 @@ async function execute(script, arguments_) {
     return execute("run", ["licensee", "--errors-only", ...arguments_]);
   if (script === "help") {
     console.log(
-      "repo-tooling install [--ci] | prepare | run <binary> [args] | check | qa | boundaries | labels:sync [--dry-run]",
+      "repo-tooling install [--ci] | prepare | run <binary> [args] | check | qa | boundaries | labels:sync [--dry-run] [--prune]",
     );
     return 0;
   }

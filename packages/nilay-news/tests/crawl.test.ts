@@ -508,14 +508,15 @@ describe("CachedFetch", () => {
       dailyAtJst: "11:00",
       minCollectionMinutes: 1440,
     });
-    const deferral = (promise: Promise<unknown>) =>
-      promise.then(
+    function deferral(promise: Promise<unknown>) {
+      return promise.then(
         () => null,
         (error: unknown) => {
           expect(error).toBeInstanceOf(CrawlDeferred);
           return (error as CrawlDeferred).until;
         },
       );
+    }
 
     it("starts at 11:00 JST and never drifts after a late run", async () => {
       testClock.set(ELEVEN - 1);

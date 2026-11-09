@@ -22,7 +22,8 @@
               }
             }
           }
-        }
+        },
+        "summary": "List published documentation"
       }
     },
     "/api/health/": {
@@ -38,6 +39,70 @@
                 }
               }
             }
+          }
+        },
+        "summary": "Check service health"
+      }
+    },
+    "/api/vitals/": {
+      "post": {
+        "operationId": "reportWebVital",
+        "summary": "Record a same-origin browser performance metric",
+        "description": "When telemetry is disabled, returns 204 without reading the request. When enabled, requires a matching Origin and a valid JSON metric of at most 2048 bytes.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "value", "rating", "id"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "enum": ["CLS", "FCP", "INP", "LCP", "TTFB"]
+                  },
+                  "value": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "rating": {
+                    "type": "string",
+                    "enum": ["good", "needs-improvement", "poor"]
+                  },
+                  "id": {
+                    "type": "string",
+                    "maxLength": 100
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Metric accepted, or telemetry disabled"
+          },
+          "400": {
+            "description": "Malformed, invalid, oversized, or unreadable metric",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["title"],
+                  "properties": {
+                    "title": {
+                      "type": "string",
+                      "const": "Invalid metric"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Missing or mismatched Origin"
           }
         }
       }

@@ -6,10 +6,11 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/**/*.test.ts'],
     coverage: {
+      thresholds: { lines: 92, statements: 88, branches: 82, functions: 100 },
       provider: 'v8',
       include: ['src/**/*.ts'],
       exclude: ['src/**/*.d.ts'],
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'json-summary', 'html'],
     },
   },
 });

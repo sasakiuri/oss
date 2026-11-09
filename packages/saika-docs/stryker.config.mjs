@@ -4,7 +4,7 @@ const config = {
   testRunner: 'vitest',
   plugins: ['@stryker-mutator/vitest-runner'],
   reporters: ['clear-text', 'html', 'json'],
-  mutate: ['src/shared/api/auth.ts'],
+  mutate: ['src/shared/api/auth.ts', 'src/shared/api/http.ts', 'src/shared/config/security.ts'],
   thresholds: { break: 95, high: 100, low: 95 },
   vitest: { configFile: 'vitest.mutation.config.ts', related: false },
   ignorePatterns: [
