@@ -67,14 +67,12 @@ updates:
       - "Cat: Dependencies 🤖"
     commit-message:
       prefix: "chore(root):"
+    # Major action updates stay ungrouped so one failing update cannot block the others.
     groups:
       actions-compatible:
         update-types:
           - minor
           - patch
-      major-updates:
-        update-types:
-          - major
     cooldown:
       default-days: 7
   - package-ecosystem: docker-compose
