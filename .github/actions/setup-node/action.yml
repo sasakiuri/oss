@@ -62,10 +62,10 @@ runs:
     # Bootstrap the exact package manager before installing the lockfile.
     - name: Pin npm
       run: | # zizmor: ignore[adhoc-packages]
-        if [ "$(npm --version)" != "11.20.0" ]; then
-          npm install --global npm@11.20.0
+        if [ "$(npm --version)" != "11.21.2" ]; then
+          npm install --global npm@11.21.2
         fi
-        test "$(npm --version)" = "11.20.0"
+        test "$(npm --version)" = "11.21.2"
       shell: bash
 
     - name: Install dependencies

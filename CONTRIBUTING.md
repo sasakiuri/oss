@@ -7,7 +7,7 @@ Development setup, code conventions, checks, and contribution workflow for the S
 ### Prerequisites
 
 - **Node.js** 24.16.0 ([Volta](https://volta.sh/) recommended)
-- **npm** 11.20.0
+- **npm** 11.21.2
 - For `saika-lane`: Visual Studio Build Tools with "Desktop development with C++" workload (required for native modules like `serialport`)
 - Shell scripts in `scripts/` require **Bash** (Linux / macOS / WSL)
 
