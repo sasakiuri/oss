@@ -168,13 +168,11 @@ describe('fitting a trajectory to the groups that were fired', { timeout: 30_000
     await settle();
     // A field cleared while the table is full: there are rows, and nothing to work them out with.
     await user.clear(screen.getByLabelText('ゼロイン距離', { exact: false }));
-    await waitFor(() =>
-      expect(
-        screen.getByText('この弾が入力した距離まで届かないか、計算できない値です。', {
-          exact: false,
-        }),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      await screen.findByText('この弾が入力した距離まで届かないか、計算できない値です。', {
+        exact: false,
+      }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('射距離と落差を 1 行以上入力してください。')).not.toBeInTheDocument();
   });
 

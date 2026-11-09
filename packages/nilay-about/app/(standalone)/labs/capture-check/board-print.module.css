@@ -5,15 +5,15 @@
 
 @media print {
   @page {
-    size: A4 landscape;
+    size: a4 landscape;
     margin: 0;
   }
 
   .sheet {
-    display: block;
     position: fixed;
     top: 0;
     left: 0;
+    display: block;
     width: 297mm;
     height: 210mm;
     overflow: hidden;

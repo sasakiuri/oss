@@ -70,7 +70,7 @@ describe('the document the language is written on', () => {
         <LanguageToggle />
       </LanguageBoundary>,
     );
-    await waitFor(() => expect(screen.getByText('Language:')).toBeInTheDocument());
+    expect(await screen.findByText('Language:')).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('en');
   });
 

@@ -22,7 +22,7 @@ const store = () => useShotPatternStore.getState();
 const openSections = async (...titles: RegExp[]) => {
   for (const title of titles) {
     await waitFor(() => expect(document.querySelector('[aria-busy="true"]')).toBeNull());
-    const heading = await waitFor(() => screen.getByRole('heading', { name: title }));
+    const heading = await screen.findByRole('heading', { name: title });
     const toggle = within(heading).getByRole('button');
     if (toggle.getAttribute('aria-expanded') === 'false') fireEvent.click(toggle);
   }
@@ -378,7 +378,7 @@ describe('shot pattern measurements', () => {
     });
     await waitFor(() => expect(screen.getAllByText(notice)).toHaveLength(2), { timeout: 2000 });
     // The spoken summary, not the label of the figure that shows the same count.
-    await waitFor(() => expect(screen.getByText(/円内の着弾 \d+ 点/)).toBeInTheDocument(), { timeout: 2000 });
+    expect(await screen.findByText(/円内の着弾 \d+ 点/, undefined, { timeout: 2000 })).toBeInTheDocument();
   });
   it('ignores saved data that is not a valid set of measurements', async () => {
     for (const state of [

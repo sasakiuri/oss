@@ -161,7 +161,7 @@ describe('the snare gauge', () => {
     // Checked straight after the event, as the browser lays out the print right then.
     expect(printedCircle()).toHaveAttribute('r', '60');
     expect(useSnareGaugeStore.getState().gaugeMm).toBe(120);
-    await waitFor(() => expect(screen.getByText(/印刷する内容を 12 cm のゲージに切り替えました/)).toBeInTheDocument());
+    expect(await screen.findByText(/印刷する内容を 12 cm のゲージに切り替えました/)).toBeInTheDocument();
   });
 
   it('leaves a gauge that still applies alone when the browser prints', async () => {

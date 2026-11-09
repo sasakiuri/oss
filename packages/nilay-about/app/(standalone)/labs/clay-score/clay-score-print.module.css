@@ -8,16 +8,16 @@
 
 @media print {
   @page {
-    size: A4 portrait;
+    size: a4 portrait;
     margin: 0;
   }
 
   /* The app layout adds padding, so the sheet is pinned to the paper corner and fits one page. */
   .sheet {
-    display: block;
     position: fixed;
     top: 0;
     left: 0;
+    display: block;
     width: 210mm;
     height: 297mm;
     overflow: hidden;
