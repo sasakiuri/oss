@@ -4,11 +4,12 @@ on:
   pull_request:
     types: [closed]
 
-permissions:
-  actions: write
+permissions: {}
 
 jobs:
   cleanup:
+    permissions:
+      actions: write
     runs-on: ubuntu-latest
     steps:
       - name: Cleanup caches for closed PR
