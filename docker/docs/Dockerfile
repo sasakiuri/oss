@@ -1,4 +1,4 @@
-FROM node:24.16.0-bookworm-slim@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203 AS dependencies
+FROM node:26.12.1-bookworm-slim@sha256:88e480776c6149ff1d098cd304f44bf18057fb5d284a3329b78162d29821e28c AS dependencies
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1 HUSKY=0
 COPY packages/repo-tooling/npm-runtime/package*.json /opt/npm-runtime/
@@ -37,7 +37,7 @@ ARG DOCS_SOFT_BREAKS=0
 ENV DOCS_OUTPUT=standalone
 RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN npm run build --workspace=@sasakiuri/saika-docs
 
-FROM node:24.16.0-bookworm-slim@sha256:2c87ef9bd3c6a3bd4b472b4bec2ce9d16354b0c574f736c476489d09f560a203 AS production
+FROM node:26.12.1-bookworm-slim@sha256:88e480776c6149ff1d098cd304f44bf18057fb5d284a3329b78162d29821e28c AS production
 WORKDIR /app
 ARG NEXT_PUBLIC_BASE_PATH=
 ENV NEXT_PUBLIC_BASE_PATH=${NEXT_PUBLIC_BASE_PATH}
