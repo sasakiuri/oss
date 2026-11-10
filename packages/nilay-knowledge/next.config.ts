@@ -40,6 +40,9 @@ const nextConfig: NextConfig = {
   images: {
     localPatterns: [{ pathname: '/content/**' }],
     qualities: [65, 75],
+    // Published images keep their content under the same URL, so keep each optimized
+    // variant for 31 days instead of re-transforming it after the 4-hour default.
+    minimumCacheTTL: 2_678_400,
   },
   trailingSlash: true,
   async headers() {

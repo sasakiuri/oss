@@ -1,6 +1,6 @@
 # Nilay Knowledge
 
-<!-- cspell:words NFKC licence frontmatter BudouX cmdk nuqs -->
+<!-- cspell:words NFKC licence frontmatter BudouX cmdk nuqs srcimg -->
 
 `@sasakiuri/nilay-knowledge` is the Next.js website at <https://knowledge.nilay.jp>.
 
@@ -46,6 +46,9 @@ Articles, news and their assets live only in `content/`. The Node.js route at
 `/content/...` serves these files directly, retaining existing image, PDF, document
 and Markdown URLs. There is no second `public/content/` tree to edit or synchronize.
 The deployment must include `content/`; the route's output tracing includes it.
+Optimized images are cached for 31 days (`images.minimumCacheTTL`), and the cache
+survives deployments. Publish a changed image under a new filename; if an existing file
+must change in place, invalidate it with `vercel cache invalidate --srcimg /content/...`.
 Use `npm run new:article --workspace=@sasakiuri/nilay-knowledge -- "Title"` or
 `npm run new:news --workspace=@sasakiuri/nilay-knowledge -- "Title"` to create entries.
 The creation commands reserve a new directory before writing, add a numeric suffix
