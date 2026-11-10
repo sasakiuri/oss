@@ -1,10 +1,37 @@
 // SPDX-License-Identifier: MIT
 import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync, realpathSync } from "node:fs";
-import { resolve, isAbsolute } from "node:path";
+import { resolve, relative, isAbsolute, win32 } from "node:path";
 import { readJson } from "./runtime.mjs";
 
+function repositoryPath(path) {
+  return (
+    typeof path === "string" &&
+    !path.includes("\\") &&
+    !path.includes("\0") &&
+    !isAbsolute(path) &&
+    !win32.isAbsolute(path) &&
+    !/^[a-z]:/i.test(path) &&
+    path.split("/").every((part) => part && part !== "." && part !== "..")
+  );
+}
+
+function contractDirectories(manifest, required) {
+  const directories = manifest.repoTooling?.eventContractDirectories;
+  if (directories === undefined && !required) return [];
+  if (
+    !Array.isArray(directories) ||
+    directories.length === 0 ||
+    !directories.every(repositoryPath)
+  )
+    throw new Error(
+      "repoTooling.eventContractDirectories must list repository-relative directories.",
+    );
+  return directories;
+}
+
 export function checkEventContracts(root, base) {
+  root = resolve(root);
   if (
     typeof base !== "string" ||
     ![40, 64].includes(base.length) ||
@@ -13,25 +40,10 @@ export function checkEventContracts(root, base) {
     throw new Error(
       "Pass --base with the full base commit hash (or set BASE_SHA).",
     );
-  const directories = readJson(resolve(root, "package.json")).repoTooling
-    ?.eventContractDirectories;
-  if (
-    !Array.isArray(directories) ||
-    directories.length === 0 ||
-    directories.some(
-      (directory) =>
-        typeof directory !== "string" ||
-        directory.includes("\\") ||
-        directory.includes("\0") ||
-        isAbsolute(directory) ||
-        directory
-          .split("/")
-          .some((part) => !part || part === "." || part === ".."),
-    )
-  )
-    throw new Error(
-      "repoTooling.eventContractDirectories must list repository-relative directories.",
-    );
+  const directories = contractDirectories(
+    readJson(resolve(root, "package.json")),
+    true,
+  );
   const git = (...args) =>
     execFileSync("git", args, {
       cwd: root,
@@ -47,10 +59,33 @@ export function checkEventContracts(root, base) {
   } catch {
     throw new Error(`Base commit is unavailable or is not a commit: ${base}`);
   }
-  const entries = git("ls-tree", "-r", "-z", "--full-tree", base)
-    .toString("utf8")
-    .split("\0")
-    .filter(Boolean);
+  let tree;
+  try {
+    tree = new TextDecoder("utf-8", { fatal: true }).decode(
+      git("ls-tree", "-r", "-z", "--full-tree", base),
+    );
+  } catch {
+    throw new Error(
+      "Base tree is unavailable or contains invalid UTF-8 paths.",
+    );
+  }
+  const entries = tree.split("\0").filter(Boolean);
+  const manifest = entries.find(
+    (entry) => entry.slice(entry.indexOf("\t") + 1) === "package.json",
+  );
+  if (manifest) {
+    const [mode, type, object] = manifest
+      .slice(0, manifest.indexOf("\t"))
+      .split(" ");
+    if (type !== "blob" || !/^100[0-7]{3}$/.test(mode))
+      throw new Error("Base package.json must be a regular file.");
+    directories.push(
+      ...contractDirectories(
+        JSON.parse(git("cat-file", "blob", object)),
+        false,
+      ),
+    );
+  }
   const changed = [];
   let checked = 0;
   for (const entry of entries) {
@@ -61,11 +96,23 @@ export function checkEventContracts(root, base) {
       !directories.some((directory) => file.startsWith(`${directory}/`))
     )
       continue;
+    if (!repositoryPath(file))
+      throw new Error(
+        `Unsafe repository path in base event contracts: ${file}`,
+      );
     ++checked;
     const [mode, type, object] = entry.slice(0, separator).split(" ");
     let matches = false;
     try {
       const filename = resolve(root, file);
+      const withinRoot = relative(root, filename);
+      if (
+        withinRoot === ".." ||
+        withinRoot.startsWith(`..${win32.sep}`) ||
+        withinRoot.startsWith("../") ||
+        isAbsolute(withinRoot)
+      )
+        throw new Error(`Event contract resolves outside repository: ${file}`);
       const canonical = realpathSync(filename);
       matches =
         type === "blob" &&

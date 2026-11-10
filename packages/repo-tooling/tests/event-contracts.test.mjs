@@ -106,6 +106,115 @@ test("new files, non-JSON files and paths outside configured directories are ign
   assert.match(result.stdout, /1 existing/);
 });
 
+for (const change of ["deleted", "renamed"]) {
+  test(`base directories remain protected when configuration moves: ${change}`, (t) => {
+    const { root, write, run } = fixture(t);
+    write(
+      "package.json",
+      JSON.stringify({ repoTooling: { eventContractDirectories: ["other"] } }),
+    );
+    const file = resolve(root, "contracts/events/accepted.v1.json");
+    if (change === "deleted") rmSync(file);
+    else renameSync(file, resolve(root, "other/accepted.v1.json"));
+    const result = run();
+    assert.equal(result.status, 1, result.stdout);
+    assert.match(result.stderr, /contracts\/events\/accepted.v1.json/);
+  });
+}
+
+test("both base and current directories are checked", (t) => {
+  const { write, run } = fixture(t);
+  write(
+    "package.json",
+    JSON.stringify({ repoTooling: { eventContractDirectories: ["other"] } }),
+  );
+  const result = run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /2 existing/);
+});
+
+for (const missing of ["manifest", "configuration"]) {
+  test(`a base without ${missing} allows introducing the check`, (t) => {
+    const { root, write, git, run } = fixture(t);
+    if (missing === "manifest") rmSync(resolve(root, "package.json"));
+    else write("package.json", "{}");
+    git("add", ".");
+    git("commit", "-qm", "before configuration");
+    const base = git("rev-parse", "HEAD");
+    write(
+      "package.json",
+      JSON.stringify({
+        repoTooling: { eventContractDirectories: ["contracts/events"] },
+      }),
+    );
+    assert.equal(run(["--base", base]).status, 0);
+    write("contracts/events/accepted.v1.json", "changed");
+    assert.equal(run(["--base", base]).status, 1);
+  });
+}
+
+test(
+  "invalid UTF-8 Git paths cannot be masked by a replacement-character filename",
+  {
+    skip: process.platform === "win32",
+  },
+  (t) => {
+    const { root, write, git, run } = fixture(t);
+    const file = Buffer.concat([
+      Buffer.from(`${root}/contracts/events/`),
+      Buffer.from([0x80]),
+      Buffer.from(".json"),
+    ]);
+    writeFileSync(file, "{}");
+    git("add", ".");
+    git("commit", "-qm", "invalid path bytes");
+    const base = git("rev-parse", "HEAD");
+    rmSync(file);
+    write("contracts/events/\uFFFD.json", "{}");
+    const result = run(["--base", base]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /invalid UTF-8 paths/);
+  },
+);
+
+test(
+  "backslash traversal in a base contract is rejected before filesystem lookup",
+  {
+    skip: process.platform === "win32",
+  },
+  (t) => {
+    const { write, git, run } = fixture(t);
+    write("contracts/events/..\\..\\..\\outside.json", "{}");
+    git("add", ".");
+    git("commit", "-qm", "ambiguous path");
+    const result = run(["--base", git("rev-parse", "HEAD")]);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Unsafe repository path/);
+  },
+);
+
+test("invalid base configuration is rejected even when current configuration is valid", (t) => {
+  const { write, git, run } = fixture(t);
+  write(
+    "package.json",
+    JSON.stringify({
+      repoTooling: { eventContractDirectories: ["../outside"] },
+    }),
+  );
+  git("add", ".");
+  git("commit", "-qm", "invalid base configuration");
+  const base = git("rev-parse", "HEAD");
+  write(
+    "package.json",
+    JSON.stringify({
+      repoTooling: { eventContractDirectories: ["contracts/events"] },
+    }),
+  );
+  const result = run(["--base", base]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /eventContractDirectories/);
+});
+
 test("multiple configured directories and unusual filenames are checked", (t) => {
   const { write, git, run } = fixture(t);
   write(
@@ -171,6 +280,10 @@ for (const directories of [
   ["/absolute"],
   ["contracts/../other"],
   ["contracts\\events"],
+  ["C:contracts/events"],
+  ["C:/contracts/events"],
+  ["//server/contracts"],
+  ["contracts/./events"],
   ["."],
 ]) {
   test(`invalid directory configuration is rejected: ${JSON.stringify(directories)}`, (t) => {
