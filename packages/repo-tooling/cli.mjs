@@ -16,6 +16,7 @@ import { resolve, dirname, delimiter, relative } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
+import { parseArgs } from "node:util";
 import {
   upstreamRoot,
   upstreamManifest,
@@ -336,6 +337,25 @@ async function execute(script, arguments_) {
     }
     return 0;
   }
+  if (script === "contracts:events") {
+    const { values } = parseArgs({
+      args: arguments_,
+      options: { base: { type: "string" } },
+    });
+    const { checkEventContracts } = await import("./event-contracts.mjs");
+    const { checked, changed } = checkEventContracts(
+      root,
+      values.base ?? process.env.BASE_SHA,
+    );
+    if (changed.length) {
+      console.error(
+        `Event contracts were changed or removed. Add a new version instead:\n${changed.join("\n")}`,
+      );
+      return 1;
+    }
+    console.log(`${checked} existing event contracts are unchanged.`);
+    return 0;
+  }
   if (script === "test:coverage")
     return npm(["run", "test:coverage", "--workspaces", "--if-present"]);
   if (script === "test:tooling") {
@@ -407,7 +427,7 @@ async function execute(script, arguments_) {
     return execute("run", ["licensee", "--errors-only", ...arguments_]);
   if (script === "help") {
     console.log(
-      "repo-tooling install [--ci] | prepare | run <binary> [args] | check | qa | boundaries | labels:sync [--dry-run] [--prune]",
+      "repo-tooling install [--ci] | prepare | run <binary> [args] | check | qa | boundaries | contracts:events [--base <full-hash>] | labels:sync [--dry-run] [--prune]",
     );
     return 0;
   }
