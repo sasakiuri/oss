@@ -96,3 +96,29 @@ export default { extends: ["@sasakiuri/stylelint-config"] };
 Workspace configurations can extend that root configuration and declare local
 overrides. The CLI uses Stylelint's normal configuration discovery; it does not
 replace local configurations or skip unconfigured stylesheets.
+
+Event contracts can be checked with `repo-tooling contracts:events --base <full-hash>`.
+Declare their directories in the consuming repository's root manifest:
+
+```json
+{
+  "repoTooling": {
+    "eventContractDirectories": ["packages/example/contracts/events"]
+  }
+}
+```
+
+The command compares every `.json` file that existed in those directories at
+the base commit with its working-tree bytes. Modification, deletion, and renaming
+fail; new files are allowed so a new version can use a new filename. Files outside
+those directories and non-JSON files are ignored. Symlinks are rejected for
+existing contracts. Directory names must be repository-relative, without dot
+segments or trailing slashes.
+
+Use a full lowercase SHA-1 or SHA-256 commit hash with `--base`, or set `BASE_SHA`.
+An explicit argument takes precedence. A missing, invalid, or unavailable base
+fails. CI must fetch the base commit and pass the pull request's base SHA or the
+push event's before SHA. For a newly created branch without a before commit,
+choose an explicit existing baseline. The command is separate from `check`, so
+ordinary local checks do not need a comparison base. Git runs without a shell;
+contract comparison does not parse or normalize JSON.
