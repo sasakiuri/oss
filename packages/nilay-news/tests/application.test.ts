@@ -1356,7 +1356,7 @@ describe("automatic job fairness", () => {
   });
 });
 
-describe("analysis work order and read deferral", () => {
+describe("analysis work order", () => {
   it.each(["automatic", "all"])(
     "keeps the newest bounded target set for %s work",
     async (mode) => {
@@ -1494,201 +1494,6 @@ describe("analysis work order and read deferral", () => {
       running: false,
       error: null,
     });
-  });
-
-  it.each(["automatic", "all", "manual"])(
-    "defers a contended %s read without losing progress, pausing or notifying",
-    async (mode) => {
-      const notifier = notices();
-      const { app, repo, driver, analyze, advance, ids } = await autoSetup(
-        ["01", "02", "03"],
-        { maxAnalysisItemsPerTick: 1, notifier },
-      );
-      if (mode === "automatic")
-        await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
-      else await app.start("analyze", mode === "all" ? null : ids);
-      await app.scheduled();
-      const before = await repo.getJob();
-      const original = driver.batch.bind(driver);
-      let raced = 0;
-      let contended = true;
-      driver.batch = async (statements) => {
-        if (
-          contended &&
-          statements.some(([sql]) =>
-            sql.includes("'$._listSearch','$.provenance'"),
-          )
-        ) {
-          raced++;
-          await original([
-            ["UPDATE news_meta SET revision=revision+1 WHERE id=1", []],
-          ]);
-        }
-        return original(statements);
-      };
-      for (let tick = 1; tick <= 2; tick++) {
-        await app.scheduled();
-        expect(raced).toBe(tick * 3);
-        expect(await repo.getJob()).toMatchObject({
-          id: before.id,
-          workIds: before.workIds,
-          progress: 1,
-          total: 3,
-          failed: 0,
-          running: true,
-          token: null,
-          leaseUntil: 0,
-          error: null,
-          warning: null,
-        });
-        expect(analyze).toHaveBeenCalledTimes(1);
-        expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
-        expect(notifier.report).not.toHaveBeenCalled();
-        advance(60);
-      }
-      contended = false;
-      await app.scheduled();
-      await app.scheduled();
-      expect(analyze.mock.calls.map(([article]) => article.id)).toEqual(
-        before.workIds,
-      );
-      expect(await repo.getJob()).toMatchObject({
-        id: before.id,
-        progress: 3,
-        failed: 0,
-        running: false,
-        error: null,
-      });
-      expect(notifier.report).not.toHaveBeenCalled();
-    },
-  );
-});
-
-describe("consecutive analysis read deferrals", () => {
-  it("finishes a persistently contended manual job with its progress and results intact", async () => {
-    const notifier = notices();
-    const { app, repo, driver, analyze, advance, now, ids } = await autoSetup(
-      ["01"],
-      { maxAnalysisItemsPerTick: 1, notifier },
-    );
-    await seedArticles(repo, [
-      {
-        ...articleFixture({
-          id: "undated",
-          url: "https://example.org/undated",
-          title: "公開日時未確認の記事",
-          discoveredAt: published(0),
-        }),
-      },
-    ]);
-    await app.start("analyze", [...ids, "undated"]);
-    await app.scheduled();
-    const before = await repo.getJob();
-    const result = await repo.article(ids[0]!);
-    const original = driver.batch.bind(driver);
-    let raced = 0;
-    driver.batch = async (statements) => {
-      if (
-        statements.some(([sql]) =>
-          sql.includes("'$._listSearch','$.provenance'"),
-        )
-      ) {
-        raced++;
-        await original([
-          ["UPDATE news_meta SET revision=revision+1 WHERE id=1", []],
-        ]);
-      }
-      return original(statements);
-    };
-    for (let tick = 1; tick <= 3; tick++) {
-      advance(60);
-      // A new runner must resume the persisted counter, not an in-memory one.
-      const resumed = new Application(repo, app.jev, app.buffer, {
-        clock: now,
-        notifier: notifier as unknown as Notifier,
-        maxAnalysisItemsPerTick: 1,
-      });
-      await resumed.scheduled();
-      expect(raced).toBe(tick * 3);
-      expect(await repo.getJob()).toMatchObject({
-        id: before.id,
-        workIds: before.workIds,
-        progress: 1,
-        total: 2,
-        failed: 0,
-        running: tick < 3,
-        token: null,
-        leaseUntil: 0,
-        error: null,
-        readDeferrals: tick,
-      });
-    }
-    expect(await repo.getJob()).toMatchObject({
-      warning:
-        "記事の更新が続いたため仕分けを終了しました。未処理の記事を再実行してください",
-      lastFinishedAt: isoSeconds(now()),
-    });
-    expect(await repo.article(ids[0]!)).toEqual(result);
-    expect((await repo.article("undated")).analysisStatus).toBe("pending");
-    expect(analyze).toHaveBeenCalledTimes(1);
-    expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
-    expect(notifier.report).not.toHaveBeenCalled();
-    await app.start("analyze", ["undated"]);
-    expect(await repo.getJob()).toMatchObject({ running: true, warning: null });
-    expect((await repo.getJob()).id).not.toBe(before.id);
-  });
-
-  it("resets consecutive read deferrals after one item advances", async () => {
-    const notifier = notices();
-    const { app, repo, driver, analyze, advance, ids } = await autoSetup(
-      ["01", "02", "03"],
-      { maxAnalysisItemsPerTick: 1, notifier },
-    );
-    await app.start("analyze", ids);
-    await app.scheduled();
-    const original = driver.batch.bind(driver);
-    let contended = true;
-    driver.batch = async (statements) => {
-      if (
-        contended &&
-        statements.some(([sql]) =>
-          sql.includes("'$._listSearch','$.provenance'"),
-        )
-      ) {
-        await original([
-          ["UPDATE news_meta SET revision=revision+1 WHERE id=1", []],
-        ]);
-      }
-      return original(statements);
-    };
-    for (const progress of [1, 2]) {
-      contended = true;
-      for (let tick = 1; tick <= 2; tick++) {
-        advance(60);
-        await app.scheduled();
-        expect(await repo.getJob()).toMatchObject({
-          progress,
-          readDeferrals: tick,
-          running: true,
-          failed: 0,
-          warning: null,
-          error: null,
-        });
-      }
-      contended = false;
-      await app.scheduled();
-      expect(await repo.getJob()).toMatchObject({
-        progress: progress + 1,
-        readDeferrals: 0,
-        running: progress < 2,
-        failed: 0,
-        warning: null,
-        error: null,
-      });
-    }
-    expect(analyze.mock.calls.map(([article]) => article.id)).toEqual(ids);
-    expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
-    expect(notifier.report).not.toHaveBeenCalled();
   });
 });
 
@@ -2906,7 +2711,7 @@ describe("publication freshness", () => {
   });
 
   it.each(["uncertain", "duplicate"] as const)(
-    "does not propagate an unposted %s relation to later coverage",
+    "skips an unposted %s comparison whose reference is missing",
     async (relation) => {
       const calls: string[] = [];
       const transport: FetchBytes = async (url, options) => {

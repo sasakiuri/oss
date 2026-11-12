@@ -112,12 +112,8 @@ export interface NewsRepository {
     limit: number,
     failed?: boolean,
   ): Promise<Article[]>;
-  /**
-   * Posted or currently eligible comparisons in the existing time window,
-   * excluding unrelated articles unless saved, approved or posted. Settings
-   * and eligibility share a revision; timestamp is the analysis task's clock.
-   */
-  relationPool(article: Article, timestamp: number): Promise<Article[]>;
+  /** Earlier coverage and posted articles in the bounded comparison window. */
+  relationPool(article: Article): Promise<Article[]>;
   /** Posted articles listed within the preceding week of this one or later. */
   postedArticles(article: Article): Promise<Article[]>;
   /** Whether another article without a source key has this URL and was posted or attempted. */

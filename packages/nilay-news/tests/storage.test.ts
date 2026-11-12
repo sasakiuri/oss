@@ -1379,7 +1379,7 @@ describe("database round trips", () => {
     const target = await byName("target");
     const names = (articles: Article[]) =>
       articles.map((article) => article.url.split("/").at(-1)).sort();
-    expect(names(await repo.relationPool(target, testClock.now()))).toEqual([
+    expect(names(await repo.relationPool(target))).toEqual([
       "candidate",
       "posted",
       "saved",
