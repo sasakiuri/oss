@@ -319,27 +319,28 @@ describe("Jev decisions", () => {
   test.each([
     [
       "exactly at the threshold",
-      { relevant: 0.85, insufficient: 0.15 },
+      { relevant: 0.75, insufficient: 0.25 },
       "candidate",
     ],
+    ["above the threshold", { relevant: 0.8, insufficient: 0.2 }, "candidate"],
     [
       "split at the threshold",
-      { relevant: 0.5, policy: 0.35, unrelated: 0.15 },
+      { relevant: 0.5, policy: 0.25, unrelated: 0.25 },
       "candidate",
     ],
     [
       "just below the threshold",
-      { relevant: 0.849, insufficient: 0.151 },
+      { relevant: 0.749, insufficient: 0.251 },
       "review",
     ],
     [
       "a rounded total over 1 normalized down",
-      { relevant: 0.86, insufficient: 0.16 },
+      { relevant: 0.76, insufficient: 0.26 },
       "review",
     ],
     [
       "a rounded total over 1 still at the threshold",
-      { relevant: 0.867, insufficient: 0.153 },
+      { relevant: 0.765, insufficient: 0.255 },
       "candidate",
     ],
     [
@@ -430,6 +431,12 @@ describe("Jev decisions", () => {
       REASONS.insufficient,
     ],
     [
+      { unrelated: 0.75, relevant: 0.25 },
+      "irrelevant",
+      0.75,
+      `対象外の可能性が高い（確度低）：${REASONS.unrelated}`,
+    ],
+    [
       { unrelated: 0.849, relevant: 0.151 },
       "irrelevant",
       0.849,
@@ -467,10 +474,10 @@ describe("Jev decisions", () => {
     expect(
       await analyzed(
         withClassification(
-          classified({ relevant: 0.8, unrelated: 0.2 }, "relevant"),
+          classified({ relevant: 0.7, unrelated: 0.3 }, "relevant"),
         ),
       ),
-    ).toMatchObject({ decision: "review", probability: 0.8 });
+    ).toMatchObject({ decision: "review", probability: 0.7 });
   });
 
   test("the retired four-question protocol is rejected, not translated", async () => {

@@ -4,7 +4,7 @@ export const DECISION_VERSIONS = {
   classificationPrompt: "3",
   relationshipPrompt: "1",
   criteria: "3",
-  routing: "4",
+  routing: "5",
 } as const;
 export const TOPICS = {
   "狩猟・猟銃": "狩猟、猟友会、銃の所持、狩猟に関わる事故や事件",
