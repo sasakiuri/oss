@@ -5,6 +5,24 @@ import { dateText, messageText } from "./time.js";
 import { buckets, phaseLabels } from "./labels.js";
 import { setView, clearFilters } from "./actions.js";
 
+function postingDescription(state) {
+  if (!state) return "自動投稿の状態を確認中です。";
+  let description = state.settings.autoPost
+    ? "自動投稿は有効です。"
+    : "自動投稿は停止中です。設定で有効にするまで送信されません。";
+  if (state.settings.autoPost && state.publication.nextAt) {
+    const time = dateText(state.publication.nextAt * 1000, true).split(" ")[1];
+    description += `次回の送信は ${time} 以降です。`;
+  }
+  if (
+    state.publication.posts.some((post) =>
+      ["publishing", "submitted", "unknown", "failed"].includes(post.status),
+    )
+  )
+    description += "未解決の投稿があるため、新しい送信は止まっています。";
+  return description;
+}
+
 export function renderHeader() {
   const state = model.state;
   const busy = !!state?.job.running || model.requestPending || !state;
@@ -24,18 +42,23 @@ export function renderHeader() {
   const pageTitle =
     model.view === "settings"
       ? "収集元と設定"
-      : buckets.find((bucket) => bucket.id === model.view)?.label || "受信箱";
+      : buckets.find((bucket) => bucket.id === model.view)?.label ||
+        "自動投稿の対象";
   $("page-title").textContent = pageTitle;
   const descriptions = {
+    queued: postingDescription(state),
     inbox: "",
     saved: "",
     approved: "内容と重複を確認し、投稿を承認した記事です。",
-    review: "内容・関連性の確認待ちです。",
+    review:
+      "対象かどうか、または重複かどうかの判断を保留し、自動で止めた記事です。",
     pending: "Jev の仕分けを待っている記事と、仕分けに失敗した記事です。",
     dates: "公開日時を確認できない記事は、自動投稿の対象外です。",
     expired: "自動処理の対象期間を過ぎた記事です。",
     posted: "",
-    dismissed: "見送った記事と、仕分けで対象外になった記事です。",
+    dismissed: "手動で見送った記事です。",
+    duplicate: "重複と判定し、自動で止めた記事です。",
+    irrelevant: "選定基準で自動的に対象外となった記事です。",
     settings: "",
   };
   $("page-description").textContent = descriptions[model.view] || "";
@@ -97,13 +120,18 @@ export function renderNavigation() {
       );
       node.append(
         el("span", "", bucket.label),
-        el("span", "nav-count", model.state?.stats.buckets[bucket.id] || 0),
+        el(
+          "span",
+          `nav-count${bucket.id === "queued" ? " nav-count-emphasis" : ""}`,
+          model.state?.stats.buckets[bucket.id] || 0,
+        ),
       );
       if (bucket.id === model.view) node.setAttribute("aria-current", "page");
       const label = {
         0: "記事",
-        3: "確認が必要な記事",
-        6: "アーカイブ",
+        2: "自動で止めた記事",
+        5: "手動で分けた記事",
+        8: "その他",
       }[index];
       return label ? [el("span", "nav-section-label", label), node] : [node];
     }),

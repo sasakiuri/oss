@@ -162,13 +162,20 @@ export function appendArticlePublication(panel, article) {
   const actions = el("div", "detail-actions");
   if (article.reviewStatus !== "approved" && canReview(article, "approved")) {
     const approve = button(
-      "内容・重複を確認して投稿を承認",
+      "重複確認を省いて投稿対象にする",
       "button button-primary",
       () => review(article, "approved"),
       "detail-approve",
     );
     approve.disabled = model.requestPending;
     actions.append(approve);
+    panel.append(
+      el(
+        "p",
+        "form-help",
+        "自動判定で止まった記事を救済する例外操作です。対象かどうかの判定と投稿直前の重複確認を省きます。自動投稿が停止中なら送信されません。公開日時・送信時間などの条件は適用されます。",
+      ),
+    );
   }
   if (article.postDraft && !postingBlocked) {
     const intent = new URL("https://x.com/intent/tweet");

@@ -1,8 +1,8 @@
 {
-  "fixtureVersion": 3,
+  "fixtureVersion": 4,
   "synthetic": true,
   "curation": "Agent-authored proposed labels; no human review has been recorded.",
-  "rubric": "日本国内の狩猟、銃、射撃競技、野生鳥類・哺乳類の被害と管理、ジビエ、関連する行政情報を対象とする。創作、対象外の生物、日本国外の出来事、特別な事情のないクマの出没・目撃の記事を除く。",
+  "rubric": "日本国内の狩猟、銃、射撃競技、野生鳥類・哺乳類の被害と管理、ジビエ、関連する行政情報を対象とする。創作、対象外の生物、日本国外の出来事、特別な事情のないクマの出没・目撃の記事を除く。射撃場・銃砲店など対象分野の施設の火災・事故も対象とする。",
   "cases": [
     {
       "id": "bear",
@@ -572,6 +572,39 @@
         "title": "福岡県でクマの目撃情報 九州では異例",
         "excerpt": "県は専門家と現地を調査する。",
         "url": "https://example.org/rare-region",
+        "publishedAt": "2026-09-30T00:00:00Z",
+        "discoveredAt": "2026-09-30T00:00:00Z",
+        "sourceName": "Synthetic fixture",
+        "sourceIds": ["fixture"],
+        "reviewStatus": "unread",
+        "analysisStatus": "pending"
+      },
+      "others": [],
+      "expected": {
+        "decision": "candidate",
+        "relation": null,
+        "comparisonArticleId": null,
+        "sourceCandidate": false
+      },
+      "mock": {
+        "classification": "relevant",
+        "probability": 0.95,
+        "relations": {}
+      }
+    },
+    {
+      "id": "shooting-range-fire",
+      "humanReview": {
+        "status": "pending",
+        "reviewer": null,
+        "reviewedAt": null
+      },
+      "rationale": "対象分野の施設で起きた火災。銃による発火や負傷の記述がなくても候補に含める。",
+      "article": {
+        "id": "shooting-range-fire",
+        "title": "県内の射撃場で火災、施設の一部が焼ける",
+        "excerpt": "射撃場の建物で火災が発生し、消防が消火した。けが人はいなかった。",
+        "url": "https://example.org/shooting-range-fire",
         "publishedAt": "2026-09-30T00:00:00Z",
         "discoveredAt": "2026-09-30T00:00:00Z",
         "sourceName": "Synthetic fixture",

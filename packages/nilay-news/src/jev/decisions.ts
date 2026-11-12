@@ -7,6 +7,7 @@ import { REASONS } from "./questions.ts";
 
 export const ROUTING_POLICY = {
   classificationThreshold: 0.85,
+  irrelevantThreshold: 0.5,
   relationThreshold: 0.9,
   comparisonLimit: 3,
   comparisonOverlap: 0.2,
@@ -107,8 +108,17 @@ export function route(distribution: Record<string, number>): {
     group[1] > best[1] ? group : best,
   );
   const label = strongest(probabilities, GROUPS[top]);
-  if (top !== "review" && probability >= THRESHOLD)
-    return { decision: top, probability, reason: REASONS[label] ?? label };
+  const threshold =
+    top === "irrelevant" ? ROUTING_POLICY.irrelevantThreshold : THRESHOLD;
+  if (top !== "review" && probability >= threshold)
+    return {
+      decision: top,
+      probability,
+      reason:
+        top === "irrelevant" && probability < THRESHOLD
+          ? `対象外の可能性が高い（確度低）：${REASONS[label] ?? label}`
+          : (REASONS[label] ?? label),
+    };
   return {
     decision: "review",
     probability,

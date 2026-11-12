@@ -16,7 +16,7 @@ import { DAY_SECONDS, jstDay, JST_OFFSET } from "../time.ts";
 
 import { publicArticle } from "./article-content.ts";
 import {
-  bucketsSQL,
+  bucketPredicates,
   eligibleSQL,
   querySQL,
   statsSQL,
@@ -30,6 +30,9 @@ export const RELATION_WINDOW_DAYS = 7;
 
 /** Most comparison candidates read for one article, posted ones first. */
 const RELATION_POOL_LIMIT = 2000;
+
+/** Includes the initial read; client snapshots are never retried. */
+const READ_ATTEMPTS = 3;
 
 export class ArticleReader {
   private readonly context: StorageContext;
@@ -67,89 +70,136 @@ export class ArticleReader {
   }
 
   async articlePage(query: ArticleQuery, now: number): Promise<ArticlePage> {
-    const { where, order, values, limit, offset } = querySQL(query);
-    const snapshotClock = query.snapshot
-      ? Number(query.snapshot.split(":")[1])
-      : now;
-    if (
-      !Number.isFinite(snapshotClock) ||
-      snapshotClock > now ||
-      now - snapshotClock >= 30
-    )
-      throw new ArticlePageConflictError();
-    const result = await this.context.driver.batch([
-      ["SELECT revision FROM news_meta WHERE id=1", []],
-      [
-        `WITH clock AS (SELECT ? AS now) SELECT count(*) AS total FROM news_articles a,clock WHERE ${where}`,
-        [snapshotClock, ...values],
-      ],
-      [
-        `WITH clock AS (SELECT ? AS now) SELECT json_remove(a.data,'$.body','$.attachments','$.metadata','$.provenance','$.relationProvenance','$.postScreening','$._listSearch') AS data,json_extract(a.data,'$.metadata.publicationPrecision') AS precision FROM news_articles a,clock WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?`,
-        [snapshotClock, ...values, limit, offset],
-      ],
-    ]);
-    const snapshot = `${numberColumn(result[0]?.results[0], "revision")}:${snapshotClock}`;
-    if (query.snapshot && query.snapshot !== snapshot)
-      throw new ArticlePageConflictError();
-    return {
-      articles: (result[2]?.results ?? []).map((row) => {
-        const article = publicArticle(decode<Article>(textColumn(row, "data")));
-        if (row.precision)
-          article.metadata = { publicationPrecision: String(row.precision) };
-        return article;
-      }),
-      total: numberColumn(result[1]?.results[0], "total"),
-      offset,
-      limit,
-      snapshot,
-    };
+    for (let attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
+      const [revision, state] = await this.context.transactions.snapshot([
+        "state",
+      ]);
+      const settings = settingsOf(state.state);
+      const { where, order, values, limit, offset } = querySQL(
+        query,
+        settings.postSelection,
+      );
+      const snapshotClock = query.snapshot
+        ? Number(query.snapshot.split(":")[1])
+        : now;
+      if (
+        !Number.isFinite(snapshotClock) ||
+        snapshotClock > now ||
+        now - snapshotClock >= 30
+      )
+        throw new ArticlePageConflictError();
+      const result = await this.context.driver.batch([
+        ["SELECT revision FROM news_meta WHERE id=1", []],
+        [
+          `WITH clock AS (SELECT ? AS now) SELECT count(*) AS total FROM news_articles a,clock WHERE ${where}`,
+          [snapshotClock, ...values],
+        ],
+        [
+          `WITH clock AS (SELECT ? AS now), page AS MATERIALIZED (
+            SELECT a.id,a.data,CASE WHEN (${eligibleSQL(settings.postSelection)}) THEN 1 ELSE 0 END AS autoPost
+            FROM news_articles a,clock WHERE ${where} ORDER BY ${order} LIMIT ? OFFSET ?
+          ) SELECT json_remove(a.data,'$.body','$.attachments','$.metadata','$.provenance','$.relationProvenance','$.postScreening','$._listSearch') AS data,
+            json_extract(a.data,'$.metadata.publicationPrecision') AS precision,a.autoPost,
+            related.id AS relatedId,json_extract(related.data,'$.title') AS relatedTitle,
+            CASE WHEN json_extract(related.data,'$.reviewStatus')='posted' OR EXISTS (
+              SELECT 1 FROM news_posts p WHERE p.id=related.id AND json_extract(p.data,'$.status')='posted'
+            ) THEN 1 ELSE 0 END AS relatedPosted
+            FROM page a LEFT JOIN news_articles related ON related.id=json_extract(a.data,'$.relatedArticleId'),clock ORDER BY ${order}`,
+          [snapshotClock, ...values, limit, offset],
+        ],
+      ]);
+      // Never attach a newer revision to predicates built from older settings.
+      if (numberColumn(result[0]?.results[0], "revision") !== revision) {
+        if (query.snapshot) throw new ArticlePageConflictError();
+        continue;
+      }
+      const snapshot = `${revision}:${snapshotClock}`;
+      if (query.snapshot && query.snapshot !== snapshot)
+        throw new ArticlePageConflictError();
+      return {
+        articles: (result[2]?.results ?? []).map((row) => {
+          const article = publicArticle(
+            decode<Article>(textColumn(row, "data")),
+          );
+          if (row.precision)
+            article.metadata = { publicationPrecision: String(row.precision) };
+          return {
+            ...article,
+            autoPost: numberColumn(row, "autoPost") === 1,
+            relatedSummary: row.relatedId
+              ? {
+                  id: textColumn(row, "relatedId"),
+                  title: textColumn(row, "relatedTitle"),
+                  posted: numberColumn(row, "relatedPosted") === 1,
+                }
+              : null,
+          };
+        }),
+        total: numberColumn(result[1]?.results[0], "total"),
+        offset,
+        limit,
+        snapshot,
+      };
+    }
+    throw new ArticlePageConflictError();
   }
 
   async articleCounts(now: number): Promise<ArticleCounts> {
-    const [, state] = await this.context.transactions.snapshot(["state"]);
-    const settings = settingsOf(state.state);
-    const predicates = {
-      ...statsSQL,
-      queued: eligibleSQL(settings.postSelection),
-      ...Object.fromEntries(
-        Object.entries(bucketsSQL).map(([key, value]) => [
-          `bucket_${key}`,
-          value,
-        ]),
-      ),
-    };
-    const result = await this.context.driver.batch([
-      [
-        `WITH clock AS (SELECT ? AS now) SELECT count(*) AS total,${Object.entries(
-          predicates,
-        )
-          .map(
-            ([key, value]) =>
-              `COALESCE(sum(CASE WHEN (${value}) THEN 1 ELSE 0 END),0) AS ${key}`,
+    for (let attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
+      const [revision, state] = await this.context.transactions.snapshot([
+        "state",
+      ]);
+      const settings = settingsOf(state.state);
+      const buckets = bucketPredicates(settings.postSelection);
+      const predicates = {
+        ...statsSQL,
+        queued: eligibleSQL(settings.postSelection),
+        ...Object.fromEntries(
+          Object.entries(buckets).map(([key, value]) => [
+            `bucket_${key}`,
+            value,
+          ]),
+        ),
+      };
+      const result = await this.context.driver.batch([
+        ["SELECT revision FROM news_meta WHERE id=1", []],
+        [
+          `WITH clock AS (SELECT ? AS now) SELECT count(*) AS total,${Object.entries(
+            predicates,
           )
-          .join(",")} FROM news_articles a,clock`,
-        [now],
-      ],
-      [
-        "SELECT DISTINCT json_extract(data,'$.topic') AS topic FROM news_articles WHERE json_extract(data,'$.topic') IS NOT NULL AND json_extract(data,'$.topic')<>'' ORDER BY topic LIMIT 100",
-        [],
-      ],
-    ]);
-    const row = result[0]?.results[0];
-    return {
-      total: numberColumn(row, "total"),
-      pending: numberColumn(row, "pending"),
-      expired: numberColumn(row, "expired"),
-      dateReview: numberColumn(row, "dateReview"),
-      queued: numberColumn(row, "queued"),
-      topics: (result[1]?.results ?? []).map((row) => textColumn(row, "topic")),
-      buckets: Object.fromEntries(
-        Object.keys(bucketsSQL).map((key) => [
-          key,
-          numberColumn(row, `bucket_${key}`),
-        ]),
-      ),
-    };
+            .map(
+              ([key, value]) =>
+                `COALESCE(sum(CASE WHEN (${value}) THEN 1 ELSE 0 END),0) AS ${key}`,
+            )
+            .join(",")} FROM news_articles a,clock`,
+          [now],
+        ],
+        [
+          "SELECT DISTINCT json_extract(data,'$.topic') AS topic FROM news_articles WHERE json_extract(data,'$.topic') IS NOT NULL AND json_extract(data,'$.topic')<>'' ORDER BY topic LIMIT 100",
+          [],
+        ],
+      ]);
+      if (numberColumn(result[0]?.results[0], "revision") !== revision)
+        continue;
+      const row = result[1]?.results[0];
+      return {
+        total: numberColumn(row, "total"),
+        pending: numberColumn(row, "pending"),
+        expired: numberColumn(row, "expired"),
+        dateReview: numberColumn(row, "dateReview"),
+        queued: numberColumn(row, "queued"),
+        topics: (result[2]?.results ?? []).map((row) =>
+          textColumn(row, "topic"),
+        ),
+        buckets: Object.fromEntries(
+          Object.keys(buckets).map((key) => [
+            key,
+            numberColumn(row, `bucket_${key}`),
+          ]),
+        ),
+      };
+    }
+    throw new ArticlePageConflictError();
   }
 
   async postedUrl(articleId: string, url: string): Promise<boolean> {

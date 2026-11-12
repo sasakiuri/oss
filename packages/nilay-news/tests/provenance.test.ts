@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { Application } from "../src/application.ts";
 import { Jev } from "../src/jev/client.ts";
+import { GROUPS, ROUTING_POLICY } from "../src/jev/decisions.ts";
 import {
   budgetedEvaluationTransport,
   evaluate,
@@ -47,11 +48,22 @@ describe("decision provenance", () => {
       resolvedModel: "jev-fixture-v1",
       promptVersion: "3",
       criteriaVersion: "3",
-      routingPolicyVersion: "3",
+      routingPolicyVersion: "4",
       modelInputHash: await sha256(exact),
       rubricHash: await sha256(fixtures.rubric),
       analyzedAt: "1970-01-01T00:16:40+00:00",
     });
+    expect(result.provenance?.routingPolicyHash).toBe(
+      await sha256(JSON.stringify({ ...ROUTING_POLICY, groups: GROUPS })),
+    );
+    const previousPolicy = Object.fromEntries(
+      Object.entries(ROUTING_POLICY).filter(
+        ([key]) => key !== "irrelevantThreshold",
+      ),
+    );
+    expect(result.provenance?.routingPolicyHash).not.toBe(
+      await sha256(JSON.stringify({ ...previousPolicy, groups: GROUPS })),
+    );
     const unknown = await new Jev(
       "key",
       "jev-requested",

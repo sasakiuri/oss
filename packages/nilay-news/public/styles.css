@@ -247,7 +247,16 @@ summary:focus-visible {
   border-radius: 0;
 }
 
-.active .nav-count {
+.nav-count.nav-count-emphasis {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.nav-count:not(.nav-count-emphasis) {
+  color: var(--muted);
+}
+
+.active .nav-count.nav-count-emphasis {
   color: var(--accent);
   background: transparent;
 }
@@ -815,7 +824,6 @@ select {
   gap: 6px;
   align-items: center;
   min-height: 21px;
-  padding-right: 61px;
   margin-bottom: 5px;
 }
 
@@ -900,10 +908,16 @@ select {
   color: #b0b8a9;
 }
 
-.bookmark-button {
-  position: absolute;
-  top: 9px;
-  right: 9px;
+.article-row-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 6px;
+}
+
+.bookmark-button,
+.dismiss-button {
   min-height: 36px;
   padding: 7px 9px;
   font-size: 12px;
@@ -1855,8 +1869,8 @@ select {
     font-size: 10px;
   }
 
-  .bookmark-button {
-    right: 4px;
+  .bookmark-button,
+  .dismiss-button {
     min-width: 44px;
     min-height: 40px;
     font-size: 11px;
@@ -2128,4 +2142,11 @@ select {
     padding-top: 10px;
     padding-bottom: 4px;
   }
+}
+
+.article-outcome {
+  margin: 6px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }

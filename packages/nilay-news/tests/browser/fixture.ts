@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { Analysis } from "../../src/domain.ts";
 import { Jev } from "../../src/jev/client.ts";
 import { choiceAnswer } from "../../src/jev/evaluation.ts";
 import { evidenceHash } from "../../src/jev/evidence.ts";
@@ -83,6 +84,74 @@ export default {
           "Fixture screening did not produce a saved model decision",
         );
       return Response.json({ saved });
+    }
+    if (path === "/fixture/autopilot" && request.method === "POST") {
+      const repo = await createD1Repository(env.DB, [source], testClock.now);
+      const articles = (
+        await repo.articlePage({ bucket: "all", limit: 12 }, testClock.now())
+      ).articles;
+      if (articles.length !== 12) throw new Error("Seed twelve articles first");
+      const results: (Analysis | null)[] = [
+        { analysisStatus: "done", decision: "candidate" },
+        {
+          analysisStatus: "done",
+          decision: "candidate",
+          relation: "duplicate",
+          relatedArticleId: articles[9]!.id,
+        },
+        {
+          analysisStatus: "done",
+          decision: "candidate",
+          relation: "uncertain",
+          relatedArticleId: articles[0]!.id,
+        },
+        { analysisStatus: "done", decision: "review" },
+        {
+          analysisStatus: "done",
+          decision: "irrelevant",
+          reason:
+            "対象外の可能性が高い（確度低）：選定基準で対象外とされる話題",
+        },
+        {
+          analysisStatus: "done",
+          decision: "candidate",
+          relation: "duplicate",
+          relatedArticleId: "removed-comparison",
+        },
+        { analysisStatus: "done", decision: "irrelevant" },
+        {
+          analysisStatus: "done",
+          decision: "candidate",
+          relation: "duplicate",
+        },
+        null,
+        null,
+        null,
+        {
+          analysisStatus: "done",
+          decision: "candidate",
+          relation: "duplicate",
+          relatedArticleId: articles[10]!.id,
+        },
+      ];
+      for (const [index, result] of results.entries()) {
+        const article = await repo.article(articles[index]!.id);
+        if (result)
+          await repo.analyzeResult(
+            article.id,
+            await evidenceHash(article),
+            (await repo.settings()).rubric,
+            result,
+          );
+      }
+      for (const [index, status] of [
+        [6, "saved"],
+        [7, "approved"],
+        [8, "dismissed"],
+        [9, "posted"],
+      ] as const)
+        await repo.review(articles[index]!.id, status);
+      return Response.json({ ids: articles.map((article) => article.id) });
     }
     if (path === "/fixture/seed") {
       const input: unknown = await request.json();

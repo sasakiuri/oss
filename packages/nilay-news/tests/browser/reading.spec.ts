@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 async function openFirst(page: Page) {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   await page.locator(".article-select").first().click();
   await expect(page.locator("#detail-panel")).toContainText("Fixture body 0");
@@ -17,6 +18,7 @@ test.beforeEach(async ({ request }) => {
 
 test("articles appear near the top of the screen", async ({ page }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   const first = await page.locator(".article-row").first().boundingBox();
   expect(first).not.toBeNull();
@@ -46,6 +48,7 @@ test("closing details returns to the article and list scroll position", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   const article = page.locator(".article-select").nth(8);
   await article.scrollIntoViewIfNeeded();
@@ -172,6 +175,7 @@ test("processing the final article returns to an actionable empty list", async (
     (await request.post("/fixture/seed", { data: { count: 1 } })).ok(),
   ).toBe(true);
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(1);
   await page.locator(".article-select").click();
   await expect(page.locator("#detail-panel")).toContainText("Fixture body 0");
@@ -215,6 +219,7 @@ test("reader navigation crosses page boundaries in both directions", async ({
     (await request.post("/fixture/seed", { data: { count: 51 } })).ok(),
   ).toBe(true);
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(50);
   await page.locator(".article-select").nth(49).click();
   await expect(page.locator("#detail-panel")).toContainText("Fixture body 49");
@@ -238,6 +243,7 @@ test("removing a one-article final page keeps the reader at the adjacent article
     (await request.post("/fixture/seed", { data: { count: 51 } })).ok(),
   ).toBe(true);
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(50);
   await page.getByRole("button", { name: "次のページ", exact: true }).click();
   await expect(page.locator(".article-row")).toHaveCount(1);
@@ -260,7 +266,7 @@ test("settings retain the list navigation after resizing a selected desktop read
     page.getByRole("button", { name: "投稿設定を保存", exact: true }),
   ).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: /^受信箱 12$/ }).click();
+  await page.getByRole("button", { name: /^すべての新着 12$/ }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   await expect(page.locator(".article-column")).toBeVisible();
 });
@@ -273,6 +279,7 @@ test("an obsolete next-page request cannot jump to the beginning of a refreshed 
     (await request.post("/fixture/seed", { data: { count: 51 } })).ok(),
   ).toBe(true);
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(50);
   await page.locator(".article-select").nth(49).click();
   await expect(page.locator("#detail-panel")).toContainText("Fixture body 49");
