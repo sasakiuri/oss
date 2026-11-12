@@ -36,13 +36,14 @@ export function analysisComparisons(
   }
   return {
     get: (id: string) => articles.get(id),
-    async resolve(candidate: Article): Promise<Article | null> {
+    async resolve(candidate: Article): Promise<Article> {
       let comparison = candidate;
       let current = candidate;
       const visited = new Set<string>([target.id]);
       for (let links = 0; ; links++) {
         signal.throwIfAborted();
-        if (visited.has(current.id)) return null;
+        // An incomplete path keeps the original lexical match, even after a redirect.
+        if (visited.has(current.id)) return candidate;
         visited.add(current.id);
         // Preserve posted shortlist slots and explicit publication approval.
         if (
@@ -51,9 +52,9 @@ export function analysisComparisons(
           (current.relation !== "duplicate" && current.relation !== "uncertain")
         )
           return comparison;
-        if (links === LINK_LIMIT || !current.relatedArticleId) return null;
+        if (links === LINK_LIMIT || !current.relatedArticleId) return candidate;
         const next = await load(current.relatedArticleId);
-        if (!next) return null;
+        if (!next) return candidate;
         if (current.relation === "uncertain") comparison = next;
         current = next;
       }
