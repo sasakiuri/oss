@@ -9,6 +9,7 @@ import type { Notifier } from "../notifications.ts";
 import type { NewsRepository } from "../repository.ts";
 import { truncate } from "../text.ts";
 
+import { analysisComparisons } from "./analysis-comparisons.ts";
 import { REPEATED_FAILURES, RubricChanged, type ActiveJob } from "./types.ts";
 
 /** Classifies one article and validates its evidence again when saving. */
@@ -72,9 +73,14 @@ export class AnalysisTask {
       )
     )
       return;
-    const relatedArticles = (
-      await repository.relationPool(article, this.clock())
-    ).filter(
+    const pool = await repository.relationPool(article);
+    const comparisons = analysisComparisons(
+      article,
+      pool,
+      (id) => repository.article(id),
+      signal,
+    );
+    const relatedArticles = pool.filter(
       (item) =>
         item.reviewStatus === "posted" || chronological(item, article) < 0,
     );
@@ -95,6 +101,7 @@ export class AnalysisTask {
         job.rubric,
         relatedArticles,
         signal,
+        comparisons.resolve,
       );
       signal.throwIfAborted();
       await this.notifier.recover("jev", "Jev による仕分けが復旧しました");
@@ -126,9 +133,9 @@ export class AnalysisTask {
       };
     }
     signal.throwIfAborted();
-    const related = relatedArticles.find(
-      (item) => item.id === result.relatedArticleId,
-    );
+    const related = result.relatedArticleId
+      ? comparisons.get(result.relatedArticleId)
+      : null;
     const relationHash = related ? await evidenceHash(related) : null;
     let stored: boolean;
     try {

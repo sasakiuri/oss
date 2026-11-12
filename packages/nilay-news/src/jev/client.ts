@@ -25,6 +25,8 @@ import {
 import { relatedCandidates } from "./related.ts";
 import { JevTransport } from "./transport.ts";
 
+type ResolveComparison = (article: Article) => Promise<Article | null>;
+
 export class Jev {
   readonly key: string;
   readonly model: string;
@@ -46,6 +48,7 @@ export class Jev {
     rubric: string,
     others: readonly Article[],
     signal?: AbortSignal,
+    resolve?: ResolveComparison,
   ): Promise<Analysis> {
     if (!this.key) throw new UserError("Jev の API キーが未設定です");
     const observation = await this.api.request(
@@ -81,7 +84,7 @@ export class Jev {
     if (decision === "irrelevant") return result;
     return {
       ...result,
-      ...(await this.relate(article, rubric, others, signal)),
+      ...(await this.relate(article, rubric, others, signal, resolve)),
     };
   }
 
@@ -90,6 +93,7 @@ export class Jev {
     rubric: string,
     others: readonly Article[],
     signal?: AbortSignal,
+    resolve?: ResolveComparison,
   ): Promise<
     Pick<Analysis, "relatedArticleId" | "relation" | "relationProvenance">
   > {
@@ -102,7 +106,12 @@ export class Jev {
       relation: null,
       relationProvenance: [],
     };
-    for (const other of relatedCandidates(article, others)) {
+    const compared = new Set<string>([article.id]);
+    for (const candidate of relatedCandidates(article, others)) {
+      signal?.throwIfAborted();
+      const other = resolve ? await resolve(candidate) : candidate;
+      if (!other || compared.has(other.id)) continue;
+      compared.add(other.id);
       const comparison = { id: other.id, evidence: modelEvidence(other) };
       const observation = await this.api.request(
         {

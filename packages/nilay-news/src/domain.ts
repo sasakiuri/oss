@@ -101,8 +101,6 @@ export interface Job {
   created?: number;
   limited?: number;
   deferred?: number;
-  /** Consecutive comparison-read deferrals since the last item advanced. */
-  readDeferrals?: number;
   /** Epoch of the fixed daily JST slot an automatic daily collection serves. */
   dailyCollectionAt?: number;
 }

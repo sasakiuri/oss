@@ -2,7 +2,7 @@
 import { chronological } from "../article-order.ts";
 import { withDeadline } from "../deadline.ts";
 import type { Clock, Job } from "../domain.ts";
-import { ArticleReadConflictError, UserError } from "../errors.ts";
+import { UserError } from "../errors.ts";
 import type { Jev } from "../jev/client.ts";
 import type { Notifier } from "../notifications.ts";
 import type { NewsRepository } from "../repository.ts";
@@ -29,12 +29,6 @@ const ANALYSIS_ITEMS_PER_TICK = 10;
  * collection.
  */
 const ANALYSIS_SECONDS_PER_TICK = 45;
-/**
- * Allow transient write bursts to clear across ticks, but stop after three
- * consecutive deferrals so a manual job cannot hold the queue indefinitely.
- * Each deferred tick has already exhausted the comparison read's retries.
- */
-const MAX_READ_DEFERRALS = 3;
 /** Owns job claiming, deadlines, progress and scheduling between items. */
 export class JobRunner {
   private readonly repository: NewsRepository;
@@ -295,24 +289,6 @@ export class JobRunner {
       try {
         await this.analysis.run(active, token, itemId, signal);
       } catch (error) {
-        if (error instanceof ArticleReadConflictError) {
-          const readDeferrals = (active.readDeferrals ?? 0) + 1;
-          if (readDeferrals >= MAX_READ_DEFERRALS) {
-            await repository.finishJob(token, {
-              readDeferrals,
-              phase: "同時更新のため終了",
-              warning:
-                "記事の更新が続いたため仕分けを終了しました。未処理の記事を再実行してください",
-              lastFinishedAt: isoSeconds(this.clock()),
-            });
-          } else {
-            await repository.releaseJob(token, {
-              readDeferrals,
-              phase: "記事の更新が続いているため次の処理を待機中",
-            });
-          }
-          return "stop";
-        }
         if (!(error instanceof RubricChanged)) throw error;
         // The next run queues the remaining articles under the new criteria,
         // so automation neither pauses nor reports this as a failure.
@@ -336,7 +312,6 @@ export class JobRunner {
       created,
       limited,
       deferred,
-      ...(active.kind === "analyze" ? { readDeferrals: 0 } : {}),
     };
     if (
       progress === active.total ||
