@@ -11,24 +11,33 @@ import type { Job } from "../src/domain.ts";
 import { UserError } from "../src/errors.ts";
 import { Jev } from "../src/jev/client.ts";
 import { evidenceHash } from "../src/jev/evidence.ts";
+import { REASONS, TOPICS, PRIORITY, RELATIONS } from "../src/jev/questions.ts";
 import { FetchError } from "../src/net/http.ts";
 import type { FetchBytes } from "../src/net/types.ts";
 import type { Notifier } from "../src/notifications.ts";
 import { BufferClient } from "../src/publishing/buffer-client.ts";
 import { draft } from "../src/publishing/draft.ts";
 import { PostError } from "../src/publishing/errors.ts";
+import { Publisher } from "../src/publishing/publisher.ts";
 import type { SourceConfig } from "../src/sources/types.ts";
 import { utf8 } from "../src/text.ts";
 import { isoSeconds } from "../src/time.ts";
 
-import { channel, limit, account } from "./helpers/buffer.ts";
+import {
+  channel,
+  limit,
+  account,
+  fakePublishingClient,
+} from "./helpers/buffer.ts";
 import { fakeClock } from "./helpers/clock.ts";
 import {
   START,
   published,
   rssSource,
   collectedItem,
+  articleFixture,
 } from "./helpers/fixtures.ts";
+import { selected } from "./helpers/jev.ts";
 import { beforeCommit } from "./helpers/races.ts";
 import {
   testRepository,
@@ -847,7 +856,7 @@ describe("automatic classification", () => {
     expect(await repo.stateVersion()).toBe(version);
   });
 
-  it("sends only pending articles, newest first, in bounded batches", async () => {
+  it("selects the newest pending articles and processes each bounded batch oldest first", async () => {
     const days = Array.from({ length: 28 }, (_, index) =>
       String(28 - index).padStart(2, "0"),
     );
@@ -874,7 +883,9 @@ describe("automatic classification", () => {
     expect(job.articleIds).toEqual(expected);
     for (let run = 0; run < 25; run += 1) await app.scheduled();
     expect(analyzed()).toEqual(
-      [...expected, ...ids.slice(20, 26)].map((id) => ids.indexOf(id)),
+      [...[...expected].reverse(), ...ids.slice(20, 26).reverse()].map((id) =>
+        ids.indexOf(id),
+      ),
     );
     expect(analyzed()).not.toContain(26);
     expect(analyzed()).not.toContain(27);
@@ -978,7 +989,7 @@ describe("automatic classification", () => {
 
   it("pauses one interval after failures and never retries failed articles", async () => {
     const notifier = notices();
-    // Newest first, so index order.
+    // Index 0 is newest; processing starts at the oldest selected article.
     const { app, repo, analyze, advance, ids, analyzed, now } = await autoSetup(
       ["05", "04", "03", "02", "01"],
       { notifier },
@@ -1006,8 +1017,8 @@ describe("automatic classification", () => {
       decision: "candidate",
     });
     for (let run = 0; run < 3; run += 1) await app.scheduled();
-    expect(analyzed()).toEqual([0, 1, 2, 3, 4]);
-    expect(await repo.getJob()).toMatchObject({ articleIds: [ids[3], ids[4]] });
+    expect(analyzed()).toEqual([4, 3, 2, 1, 0]);
+    expect(await repo.getJob()).toMatchObject({ articleIds: [ids[0], ids[1]] });
     expect(
       (await repo.articles()).filter(
         (article) => article.analysisStatus === "error",
@@ -1208,7 +1219,7 @@ describe("automatic classification races and replays", () => {
   ] as const)(
     "never pays twice after a crash following %s",
     async (_name, status, failures) => {
-      // Newest first, so index order.
+      // Index 1 is older and is processed first.
       const { app, repo, analyze, advance, ids, now } = await autoSetup([
         "02",
         "01",
@@ -1221,7 +1232,7 @@ describe("automatic classification races and replays", () => {
       vi.spyOn(repo, "finishJob").mockRejectedValueOnce(new Error("crash"));
       const crashedAt = now();
       await expect(app.scheduled()).rejects.toThrow("crash");
-      expect(await repo.article(ids[0]!)).toMatchObject({
+      expect(await repo.article(ids[1]!)).toMatchObject({
         analysisStatus: status,
       });
       expect(await repo.getJob()).toMatchObject({ running: true, progress: 0 });
@@ -1232,7 +1243,7 @@ describe("automatic classification races and replays", () => {
       expect(analyze).toHaveBeenCalledTimes(failures ? 1 : 2);
       await app.scheduled();
       expect(analyze).toHaveBeenCalledTimes(2);
-      expect(analyze.mock.calls[1]?.[0].id).toBe(ids[1]);
+      expect(analyze.mock.calls[1]?.[0].id).toBe(ids[0]);
       const job = await repo.getJob();
       expect(job).toMatchObject({
         running: false,
@@ -1345,6 +1356,342 @@ describe("automatic job fairness", () => {
   });
 });
 
+describe("analysis work order and read deferral", () => {
+  it.each(["automatic", "all"])(
+    "keeps the newest bounded target set for %s work",
+    async (mode) => {
+      const { app, repo, driver, analyze } = await analyzeSetup(0, {
+        maxAnalysisItemsPerTick: 1,
+      });
+      const ids = Array.from({ length: 105 }, (_, index) =>
+        String(index).padStart(3, "0"),
+      );
+      await seedArticles(
+        repo,
+        ids.map((id, index) => ({
+          ...articleFixture({
+            id,
+            title: id,
+            url: `https://example.org/${id}`,
+            body: "Unneeded ordering payload",
+            publishedAt: published(-3600 - index),
+            discoveredAt: published(-60),
+          }),
+        })),
+      );
+      const projections: Record<string, unknown>[][] = [];
+      const original = driver.batch.bind(driver);
+      driver.batch = async (statements) => {
+        const result = await original(statements);
+        statements.forEach(([sql], index) => {
+          if (sql.includes("AS publishedAt"))
+            projections.push(result[index]!.results);
+        });
+        return result;
+      };
+      if (mode === "automatic")
+        await repo.updateSettings({ autoAnalyze: true, pollMinutes: 20 });
+      else await app.start("analyze");
+      await app.scheduled();
+      const limit = mode === "automatic" ? 20 : 100;
+      const expected = ids.slice(0, limit).reverse();
+      expect((await repo.getJob()).workIds).toEqual(expected);
+      expect((await repo.getJob()).total).toBe(limit);
+      expect(analyze.mock.calls.map(([article]) => article.id)).toEqual([
+        expected[0],
+      ]);
+      expect(projections.map((rows) => rows.length)).toEqual(
+        mode === "automatic" ? [20] : [],
+      );
+      expect(
+        projections
+          .flat()
+          .every(
+            (row) =>
+              Object.keys(row).sort().join(",") ===
+              "discoveredAt,id,publishedAt",
+          ),
+      ).toBe(true);
+    },
+  );
+
+  it.each(["automatic", "all", "manual"])(
+    "persists chronological ties once for %s work",
+    async (mode) => {
+      const { app, repo, driver, analyze } = await analyzeSetup(0, {
+        maxAnalysisItemsPerTick: 1,
+      });
+      await seedArticles(
+        repo,
+        ["b", "a", "c", "d"].map((id) => ({
+          ...articleFixture({
+            id,
+            title: id,
+            url: `https://example.org/${id}`,
+            publishedAt: published(id === "d" ? -7200 : -3600),
+            discoveredAt: published(id === "c" ? -200 : -100),
+          }),
+        })),
+      );
+      const requested = ["b", "d", "a", "c"];
+      if (mode === "automatic")
+        await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+      else await app.start("analyze", mode === "all" ? null : requested);
+      await app.scheduled();
+      const expected = mode === "manual" ? requested : ["d", "c", "a", "b"];
+      const first = await repo.getJob();
+      expect(first.workIds).toEqual(expected);
+      expect(first.progress).toBe(1);
+      expect(analyze.mock.calls[0]![0].id).toBe(expected[0]);
+      // A saved batch must not be reordered when its articles change between ticks.
+      driver.db
+        .prepare(
+          "UPDATE news_articles SET data=json_set(data,'$.discoveredAt',?) WHERE id='b'",
+        )
+        .run(published(-1000));
+      await app.scheduled();
+      expect((await repo.getJob()).workIds).toEqual(expected);
+      expect(analyze.mock.calls[1]![0].id).toBe(expected[1]);
+    },
+  );
+
+  it("resumes an old saved newest-first work list without resetting its progress", async () => {
+    const { app, repo, driver, analyze, ids } = await autoSetup(
+      ["03", "02", "01"],
+      { maxAnalysisItemsPerTick: 1 },
+    );
+    await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+    const job = (await repo.queueAutomaticJob(true))!;
+    driver.db.prepare("UPDATE news_state SET data=? WHERE id='job'").run(
+      JSON.stringify({
+        ...job,
+        workIds: ids,
+        total: 3,
+        progress: 1,
+        rubric: (await repo.settings()).rubric,
+        failed: 0,
+        created: 0,
+        limited: 0,
+        deferred: 0,
+      }),
+    );
+    await app.scheduled();
+    expect(await repo.getJob()).toMatchObject({
+      id: job.id,
+      workIds: ids,
+      progress: 2,
+      running: true,
+    });
+    await app.scheduled();
+    expect(analyze.mock.calls.map(([article]) => article.id)).toEqual([
+      ids[1],
+      ids[2],
+    ]);
+    expect(await repo.getJob()).toMatchObject({
+      id: job.id,
+      workIds: ids,
+      progress: 3,
+      running: false,
+      error: null,
+    });
+  });
+
+  it.each(["automatic", "all", "manual"])(
+    "defers a contended %s read without losing progress, pausing or notifying",
+    async (mode) => {
+      const notifier = notices();
+      const { app, repo, driver, analyze, advance, ids } = await autoSetup(
+        ["01", "02", "03"],
+        { maxAnalysisItemsPerTick: 1, notifier },
+      );
+      if (mode === "automatic")
+        await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+      else await app.start("analyze", mode === "all" ? null : ids);
+      await app.scheduled();
+      const before = await repo.getJob();
+      const original = driver.batch.bind(driver);
+      let raced = 0;
+      let contended = true;
+      driver.batch = async (statements) => {
+        if (
+          contended &&
+          statements.some(([sql]) =>
+            sql.includes("'$._listSearch','$.provenance'"),
+          )
+        ) {
+          raced++;
+          await original([
+            ["UPDATE news_meta SET revision=revision+1 WHERE id=1", []],
+          ]);
+        }
+        return original(statements);
+      };
+      for (let tick = 1; tick <= 2; tick++) {
+        await app.scheduled();
+        expect(raced).toBe(tick * 3);
+        expect(await repo.getJob()).toMatchObject({
+          id: before.id,
+          workIds: before.workIds,
+          progress: 1,
+          total: 3,
+          failed: 0,
+          running: true,
+          token: null,
+          leaseUntil: 0,
+          error: null,
+          warning: null,
+        });
+        expect(analyze).toHaveBeenCalledTimes(1);
+        expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
+        expect(notifier.report).not.toHaveBeenCalled();
+        advance(60);
+      }
+      contended = false;
+      await app.scheduled();
+      await app.scheduled();
+      expect(analyze.mock.calls.map(([article]) => article.id)).toEqual(
+        before.workIds,
+      );
+      expect(await repo.getJob()).toMatchObject({
+        id: before.id,
+        progress: 3,
+        failed: 0,
+        running: false,
+        error: null,
+      });
+      expect(notifier.report).not.toHaveBeenCalled();
+    },
+  );
+});
+
+describe("consecutive analysis read deferrals", () => {
+  it("finishes a persistently contended manual job with its progress and results intact", async () => {
+    const notifier = notices();
+    const { app, repo, driver, analyze, advance, now, ids } = await autoSetup(
+      ["01"],
+      { maxAnalysisItemsPerTick: 1, notifier },
+    );
+    await seedArticles(repo, [
+      {
+        ...articleFixture({
+          id: "undated",
+          url: "https://example.org/undated",
+          title: "公開日時未確認の記事",
+          discoveredAt: published(0),
+        }),
+      },
+    ]);
+    await app.start("analyze", [...ids, "undated"]);
+    await app.scheduled();
+    const before = await repo.getJob();
+    const result = await repo.article(ids[0]!);
+    const original = driver.batch.bind(driver);
+    let raced = 0;
+    driver.batch = async (statements) => {
+      if (
+        statements.some(([sql]) =>
+          sql.includes("'$._listSearch','$.provenance'"),
+        )
+      ) {
+        raced++;
+        await original([
+          ["UPDATE news_meta SET revision=revision+1 WHERE id=1", []],
+        ]);
+      }
+      return original(statements);
+    };
+    for (let tick = 1; tick <= 3; tick++) {
+      advance(60);
+      // A new runner must resume the persisted counter, not an in-memory one.
+      const resumed = new Application(repo, app.jev, app.buffer, {
+        clock: now,
+        notifier: notifier as unknown as Notifier,
+        maxAnalysisItemsPerTick: 1,
+      });
+      await resumed.scheduled();
+      expect(raced).toBe(tick * 3);
+      expect(await repo.getJob()).toMatchObject({
+        id: before.id,
+        workIds: before.workIds,
+        progress: 1,
+        total: 2,
+        failed: 0,
+        running: tick < 3,
+        token: null,
+        leaseUntil: 0,
+        error: null,
+        readDeferrals: tick,
+      });
+    }
+    expect(await repo.getJob()).toMatchObject({
+      warning:
+        "記事の更新が続いたため仕分けを終了しました。未処理の記事を再実行してください",
+      lastFinishedAt: isoSeconds(now()),
+    });
+    expect(await repo.article(ids[0]!)).toEqual(result);
+    expect((await repo.article("undated")).analysisStatus).toBe("pending");
+    expect(analyze).toHaveBeenCalledTimes(1);
+    expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
+    expect(notifier.report).not.toHaveBeenCalled();
+    await app.start("analyze", ["undated"]);
+    expect(await repo.getJob()).toMatchObject({ running: true, warning: null });
+    expect((await repo.getJob()).id).not.toBe(before.id);
+  });
+
+  it("resets consecutive read deferrals after one item advances", async () => {
+    const notifier = notices();
+    const { app, repo, driver, analyze, advance, ids } = await autoSetup(
+      ["01", "02", "03"],
+      { maxAnalysisItemsPerTick: 1, notifier },
+    );
+    await app.start("analyze", ids);
+    await app.scheduled();
+    const original = driver.batch.bind(driver);
+    let contended = true;
+    driver.batch = async (statements) => {
+      if (
+        contended &&
+        statements.some(([sql]) =>
+          sql.includes("'$._listSearch','$.provenance'"),
+        )
+      ) {
+        await original([
+          ["UPDATE news_meta SET revision=revision+1 WHERE id=1", []],
+        ]);
+      }
+      return original(statements);
+    };
+    for (const progress of [1, 2]) {
+      contended = true;
+      for (let tick = 1; tick <= 2; tick++) {
+        advance(60);
+        await app.scheduled();
+        expect(await repo.getJob()).toMatchObject({
+          progress,
+          readDeferrals: tick,
+          running: true,
+          failed: 0,
+          warning: null,
+          error: null,
+        });
+      }
+      contended = false;
+      await app.scheduled();
+      expect(await repo.getJob()).toMatchObject({
+        progress: progress + 1,
+        readDeferrals: 0,
+        running: progress < 2,
+        failed: 0,
+        warning: null,
+        error: null,
+      });
+    }
+    expect(analyze.mock.calls.map(([article]) => article.id)).toEqual(ids);
+    expect(await repo.getRecord("scheduler", "analysis")).toBeNull();
+    expect(notifier.report).not.toHaveBeenCalled();
+  });
+});
+
 describe("slice deadline", () => {
   it("does not report failure when the slice released the job before the deadline write", async () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
@@ -1420,7 +1767,7 @@ describe("slice deadline", () => {
 });
 
 describe("bounded classification per invocation (production default 10 items / 45 s)", () => {
-  /** Descending days: index 0 is the newest, so classification follows index order. */
+  /** Descending publication dates: index 0 is the newest. */
   const days = (count: number) =>
     Array.from({ length: count }, (_, index) =>
       String(count - index).padStart(2, "0"),
@@ -1441,11 +1788,11 @@ describe("bounded classification per invocation (production default 10 items / 4
       ).toThrow(RangeError);
   });
 
-  it("classifies exactly 10 of 25 pending articles per invocation, newest first", async () => {
+  it("classifies exactly 10 of 25 selected articles per invocation, oldest first", async () => {
     const { app, repo, analyzed } = await autoSetup(days(25));
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
     await app.scheduled();
-    expect(analyzed()).toEqual(days(10).map((_, index) => index));
+    expect(analyzed()).toEqual(days(10).map((_, index) => 24 - index));
     expect(await repo.getJob()).toMatchObject({
       kind: "analyze",
       automatic: true,
@@ -1461,7 +1808,7 @@ describe("bounded classification per invocation (production default 10 items / 4
     expect(analyzed()).toHaveLength(20);
     expect(await pending(repo)).toBe(5);
     await app.scheduled();
-    expect(analyzed()).toEqual(days(25).map((_, index) => index));
+    expect(analyzed()).toEqual(days(25).map((_, index) => 24 - index));
     expect(await repo.getJob()).toMatchObject({
       running: false,
       progress: 25,
@@ -1558,7 +1905,7 @@ describe("bounded classification per invocation (production default 10 items / 4
     await app.scheduled();
     expect(analyze).toHaveBeenCalledTimes(1);
     expect(aborted).toBe(false);
-    expect(await repo.article(ids[0]!)).toMatchObject({
+    expect(await repo.article(ids[2]!)).toMatchObject({
       analysisStatus: "done",
     });
     expect(await repo.getJob()).toMatchObject({
@@ -1576,7 +1923,7 @@ describe("bounded classification per invocation (production default 10 items / 4
       .mockRejectedValueOnce(new Error("upstream"));
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
     await app.scheduled();
-    expect(analyzed()).toEqual([0, 1]);
+    expect(analyzed()).toEqual([5, 4]);
     expect(await repo.getJob()).toMatchObject({
       running: true,
       token: null,
@@ -1585,13 +1932,13 @@ describe("bounded classification per invocation (production default 10 items / 4
     });
     // The failed article is not sent again; the batch resumes after it.
     await app.scheduled();
-    expect(analyzed()).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(analyzed()).toEqual([5, 4, 3, 2, 1, 0]);
     expect(await repo.getJob()).toMatchObject({
       running: false,
       failed: 1,
       phase: "一部未完了",
     });
-    expect((await repo.article(ids[1]!)).analysisStatus).toBe("error");
+    expect((await repo.article(ids[4]!)).analysisStatus).toBe("error");
   });
 
   it("ends the invocation when a batch finishes with an earlier failure", async () => {
@@ -1679,7 +2026,7 @@ describe("bounded classification per invocation (production default 10 items / 4
     ).toBe(12);
     expect(
       analyze.mock.calls.map(([article]) => ids.indexOf(article.id)),
-    ).toEqual(days(12).map((_, index) => index));
+    ).toEqual(days(12).map((_, index) => 11 - index));
   });
 
   it("stops without another paid call when the rubric changes mid-invocation", async () => {
@@ -1715,7 +2062,7 @@ describe("bounded classification per invocation (production default 10 items / 4
 
   it("stops when an article changes during its classification and keeps manual review", async () => {
     const { app, repo, analyze, ids } = await autoSetup(days(5));
-    await repo.review(ids[0]!, "saved");
+    await repo.review(ids[4]!, "saved");
     await repo.review(ids[2]!, "dismissed");
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
     const store = repo.analyzeResult.bind(repo);
@@ -1729,10 +2076,10 @@ describe("bounded classification per invocation (production default 10 items / 4
       progress: 1,
       error: expect.stringContaining("記事が変更された"),
     });
-    expect((await repo.article(ids[0]!)).reviewStatus).toBe("saved");
+    expect((await repo.article(ids[4]!)).reviewStatus).toBe("saved");
     expect((await repo.article(ids[2]!)).reviewStatus).toBe("dismissed");
-    expect((await repo.article(ids[0]!)).analysisStatus).toBe("done");
-    expect((await repo.article(ids[1]!)).analysisStatus).toBe("pending");
+    expect((await repo.article(ids[4]!)).analysisStatus).toBe("done");
+    expect((await repo.article(ids[3]!)).analysisStatus).toBe("pending");
   });
 
   it("does not start while automatic classification is paused or disabled", async () => {
@@ -1846,7 +2193,7 @@ describe("bounded classification per invocation (production default 10 items / 4
 });
 
 describe("invocation boundaries between classification items", () => {
-  /** Descending days: index 0 is the newest, so classification follows index order. */
+  /** Descending publication dates: index 0 is the newest. */
   const days = (count: number) =>
     Array.from({ length: count }, (_, index) =>
       String(count - index).padStart(2, "0"),
@@ -1927,7 +2274,7 @@ describe("invocation boundaries between classification items", () => {
     // The next invocation continues without a resumption notice.
     await app.scheduled();
     expect(analyze.mock.calls.map(([article]) => article.id)).toEqual(
-      ids.slice(0, 11),
+      [...ids].reverse().slice(0, 11),
     );
     expect(notifier.report.mock.calls.map(([key]) => key)).not.toContain("job");
   });
@@ -2027,8 +2374,8 @@ describe("invocation boundaries between classification items", () => {
     expect(analyze.mock.calls.map(([article]) => article.id)).toEqual([
       ids[3],
       ids[2],
-      ids[0],
       ids[1],
+      ids[0],
     ]);
     expect(await repo.getJob()).toMatchObject({
       automatic: true,
@@ -2424,7 +2771,7 @@ describe("publication freshness", () => {
     expect((await repo.getJob()).error).toBeNull();
   });
 
-  it("classifies everything fresh newest first, but explicit selections as requested", async () => {
+  it("classifies the selected fresh articles oldest first, but explicit selections as requested", async () => {
     const { app, repo, analyze, advance, ids } = await autoSetup([
       "01",
       "03",
@@ -2439,9 +2786,9 @@ describe("publication freshness", () => {
     await app.start("analyze");
     await app.scheduled();
     expect(analyze.mock.calls.map(([article]) => article.id)).toEqual([
-      ids[1],
-      ids[2],
       ids[0],
+      ids[2],
+      ids[1],
     ]);
     // A person may still classify an undated or old article deliberately.
     advance(DAY);
@@ -2458,21 +2805,165 @@ describe("publication freshness", () => {
     expect(await repo.postCandidates()).toEqual([]);
   });
 
-  it("still offers earlier articles, not later ones, as related candidates", async () => {
+  it.each(["automatic", "all"])(
+    "deduplicates one topic within an %s batch and publishes only one article",
+    async (mode) => {
+      const calls: string[] = [];
+      const transport: FetchBytes = async (url, options) => {
+        const request = JSON.parse(new TextDecoder().decode(options?.body));
+        const comparing = !!request.questions.relation;
+        calls.push(comparing ? "relation" : "classification");
+        return {
+          url,
+          contentType: "application/json",
+          data: utf8(
+            JSON.stringify({
+              answers: comparing
+                ? {
+                    relation: selected("duplicate", Object.keys(RELATIONS)),
+                  }
+                : {
+                    classification: selected("relevant", Object.keys(REASONS)),
+                    topic: selected("鳥獣被害・管理", Object.keys(TOPICS)),
+                    priority: selected("1", Object.keys(PRIORITY)),
+                  },
+            }),
+          ),
+        };
+      };
+      const jev = new Jev("test", "jev-latest", transport);
+      const { app, repo, advance, now } = await setup([source], { jev });
+      await repo.ingest(
+        source,
+        Array.from({ length: 3 }, (_, i) => ({
+          ...item,
+          url: `${item.url}/copy/${i}`,
+          publishedAt: published(-7200 + i * 60),
+        })),
+      );
+      if (mode === "automatic")
+        await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
+      else await app.start("analyze");
+      await app.scheduled();
+      const articles = await repo.articles(3);
+      expect(articles.filter(({ relation }) => relation === null)).toEqual([
+        expect.objectContaining({
+          url: `${item.url}/copy/0`,
+          decision: "candidate",
+        }),
+      ]);
+      expect(
+        articles.filter(({ relation }) => relation === "duplicate"),
+      ).toHaveLength(2);
+      expect(await repo.postCandidates()).toHaveLength(1);
+      expect(calls).toEqual([
+        "classification",
+        "classification",
+        "relation",
+        "classification",
+        "relation",
+      ]);
+      await repo.updateSettings({ autoPost: true });
+      advance(3601);
+      const client = fakePublishingClient(vi.fn);
+      const publisher = new Publisher(repo, client, now, jev);
+      await publisher.tick();
+      await publisher.tick();
+      expect(client.post).toHaveBeenCalledTimes(1);
+      expect((await repo.publicationState()).posts).toEqual([
+        expect.objectContaining({
+          articleId: articles.find(({ url }) => url.endsWith("/copy/0"))!.id,
+          status: "posted",
+        }),
+      ]);
+      expect(calls).toHaveLength(5);
+    },
+  );
+
+  it("offers previously eligible earlier coverage but not later unposted articles", async () => {
     const { app, repo, analyze, ids } = await autoSetup(["01", "02", "03"]);
+    const earlier = await repo.article(ids[0]!);
+    await repo.analyzeResult(
+      earlier.id,
+      await evidenceHash(earlier),
+      (await repo.settings()).rubric,
+      {
+        analysisStatus: "done",
+        decision: "candidate",
+      },
+    );
     await repo.updateSettings({ autoAnalyze: true, pollMinutes: 240 });
     await app.scheduled();
-    const calls = analyze.mock.calls.map(([article, , earlier]) => [
-      ids.indexOf(article.id),
-      earlier.map(({ id }) => ids.indexOf(id)).sort(),
-    ]);
-    // Newest first, each compared only with what was published before it.
-    expect(calls).toEqual([
-      [2, [0, 1]],
+    expect(
+      analyze.mock.calls.map(([article, , others]) => [
+        ids.indexOf(article.id),
+        others.map(({ id }) => ids.indexOf(id)),
+      ]),
+    ).toEqual([
       [1, [0]],
-      [0, []],
+      [2, [1, 0]],
     ]);
   });
+
+  it.each(["uncertain", "duplicate"] as const)(
+    "does not propagate an unposted %s relation to later coverage",
+    async (relation) => {
+      const calls: string[] = [];
+      const transport: FetchBytes = async (url, options) => {
+        const request = JSON.parse(new TextDecoder().decode(options?.body));
+        const comparing = !!request.questions.relation;
+        calls.push(comparing ? "relation" : "classification");
+        return {
+          url,
+          contentType: "application/json",
+          data: utf8(
+            JSON.stringify({
+              answers: comparing
+                ? {
+                    relation: selected("duplicate", Object.keys(RELATIONS)),
+                  }
+                : {
+                    classification: selected("relevant", Object.keys(REASONS)),
+                    topic: selected("鳥獣被害・管理", Object.keys(TOPICS)),
+                    priority: selected("1", Object.keys(PRIORITY)),
+                  },
+            }),
+          ),
+        };
+      };
+      const { app, repo } = await setup([source], {
+        jev: new Jev("test", "jev-latest", transport),
+      });
+      await repo.ingest(source, [
+        { ...item, url: `${item.url}/earlier`, publishedAt: published(-7200) },
+        { ...item, url: `${item.url}/later`, publishedAt: published(-3600) },
+      ]);
+      const articles = await repo.articles(2);
+      const earlier = articles.find(({ url }) => url.endsWith("/earlier"))!;
+      const later = articles.find(({ url }) => url.endsWith("/later"))!;
+      await repo.analyzeResult(
+        earlier.id,
+        await evidenceHash(earlier),
+        (await repo.settings()).rubric,
+        {
+          analysisStatus: "done",
+          decision: "candidate",
+          relation,
+        },
+      );
+      await app.start("analyze", [later.id]);
+      await app.scheduled();
+      expect(await repo.article(later.id)).toMatchObject({
+        analysisStatus: "done",
+        decision: "candidate",
+        relation: null,
+        relatedArticleId: null,
+      });
+      expect(calls).toEqual(["classification"]);
+      expect((await repo.article(earlier.id)).relation).toBe(relation);
+      expect((await repo.getJob()).error).toBeNull();
+    },
+  );
 
   it("compares late-arriving older coverage with a newer article already posted", async () => {
     const { app, repo, analyze, ids } = await autoSetup(["03"]);

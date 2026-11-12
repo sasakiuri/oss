@@ -24,6 +24,13 @@ export class ArticlePageConflictError extends UserError {
   }
 }
 
+/** Concurrent article updates exhausted a bounded read; the job can retry next tick. */
+export class ArticleReadConflictError extends UserError {
+  constructor() {
+    super("同時更新が続いています。時間をおいて再実行してください");
+  }
+}
+
 /** A missing article or source; the HTTP boundary maps it to 404. */
 export class NotFoundError extends Error {
   constructor(message: string) {

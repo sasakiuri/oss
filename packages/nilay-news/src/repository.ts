@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { ArticleOrder } from "./article-order.ts";
 import type {
   Analysis,
   Article,
@@ -98,6 +99,8 @@ export interface NewsRepository {
   ingest(source: SourceConfig, items: CollectedItem[]): Promise<number>;
   articles(limit?: number, offset?: number): Promise<Article[]>;
   article(articleId: string): Promise<Article>;
+  /** Ordering fields of the listed IDs that still exist. */
+  articleOrder(articleIds: readonly string[]): Promise<ArticleOrder[]>;
   /** The listed IDs that still exist. */
   existingArticleIds(articleIds: readonly string[]): Promise<Set<string>>;
   /**
@@ -110,11 +113,11 @@ export interface NewsRepository {
     failed?: boolean,
   ): Promise<Article[]>;
   /**
-   * Comparison pool of a classification: other articles listed within the
-   * preceding week of this one or later, leaving out articles settled as
-   * unrelated unless saved, approved or posted.
+   * Posted or currently eligible comparisons in the existing time window,
+   * excluding unrelated articles unless saved, approved or posted. Settings
+   * and eligibility share a revision; timestamp is the analysis task's clock.
    */
-  relationPool(article: Article): Promise<Article[]>;
+  relationPool(article: Article, timestamp: number): Promise<Article[]>;
   /** Posted articles listed within the preceding week of this one or later. */
   postedArticles(article: Article): Promise<Article[]>;
   /** Whether another article without a source key has this URL and was posted or attempted. */
