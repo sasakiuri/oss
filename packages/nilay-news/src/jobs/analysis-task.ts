@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { chronological } from "../article-order.ts";
 import type { Analysis, Article, Clock } from "../domain.ts";
 import { NotFoundError, UserError } from "../errors.ts";
 import { isFreshPublication } from "../freshness.ts";
@@ -9,18 +10,6 @@ import type { NewsRepository } from "../repository.ts";
 import { truncate } from "../text.ts";
 
 import { REPEATED_FAILURES, RubricChanged, type ActiveJob } from "./types.ts";
-
-function chronological(a: Article, b: Article): number {
-  for (const [left, right] of [
-    [a.publishedAt || a.discoveredAt, b.publishedAt || b.discoveredAt],
-    [a.discoveredAt, b.discoveredAt],
-    [a.id, b.id],
-  ]) {
-    if (left !== undefined && right !== undefined && left !== right)
-      return left < right ? -1 : 1;
-  }
-  return 0;
-}
 
 /** Classifies one article and validates its evidence again when saving. */
 export class AnalysisTask {
@@ -83,7 +72,9 @@ export class AnalysisTask {
       )
     )
       return;
-    const relatedArticles = (await repository.relationPool(article)).filter(
+    const relatedArticles = (
+      await repository.relationPool(article, this.clock())
+    ).filter(
       (item) =>
         item.reviewStatus === "posted" || chronological(item, article) < 0,
     );

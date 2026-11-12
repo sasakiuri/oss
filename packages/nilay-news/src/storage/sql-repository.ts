@@ -167,6 +167,12 @@ export class SQLRepository implements NewsRepository {
     return this.articleReader.postedArticles(...args);
   }
 
+  articleOrder(
+    ...args: Parameters<NewsRepository["articleOrder"]>
+  ): ReturnType<NewsRepository["articleOrder"]> {
+    return this.articleReader.articleOrder(...args);
+  }
+
   existingArticleIds(
     ...args: Parameters<NewsRepository["existingArticleIds"]>
   ): ReturnType<NewsRepository["existingArticleIds"]> {

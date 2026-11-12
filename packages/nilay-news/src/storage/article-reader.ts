@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 /** Bounded article queries, list snapshots, counts, and comparison retrieval. */
+import type { ArticleOrder } from "../article-order.ts";
 import type { Article } from "../domain.ts";
 import {
   ArticlePageConflictError,
+  ArticleReadConflictError,
   NotFoundError,
   UserError,
 } from "../errors.ts";
@@ -22,6 +24,7 @@ import {
   statsSQL,
 } from "./article-query.ts";
 import { decode, encode, numberColumn, textColumn } from "./row-codec.ts";
+import type { SQLStatement } from "./sql.ts";
 import { settingsOf } from "./state.ts";
 import type { StorageContext } from "./transaction-store.ts";
 
@@ -33,6 +36,10 @@ const RELATION_POOL_LIMIT = 2000;
 
 /** Includes the initial read; client snapshots are never retried. */
 const READ_ATTEMPTS = 3;
+
+const POSTED_ARTICLE_SQL =
+  "(json_extract(a.data,'$.reviewStatus')='posted' OR EXISTS " +
+  "(SELECT 1 FROM news_posts p WHERE p.id=a.id AND json_extract(p.data,'$.status')='posted'))";
 
 export class ArticleReader {
   private readonly context: StorageContext;
@@ -229,59 +236,90 @@ export class ArticleReader {
     return Boolean(result[0]?.results.length);
   }
 
-  /**
-   * Comparison pool of a classification: other articles listed within the
-   * preceding week of this one, or posted since, leaving out articles settled
-   * as unrelated unless saved, approved or posted. Callers apply the
-   * chronological rule.
-   */
-  async relationPool(article: Article): Promise<Article[]> {
-    return this.recentArticles(
-      article,
-      "NOT (json_extract(a.data,'$.analysisStatus')='done' AND json_extract(a.data,'$.decision')='irrelevant' " +
-        "AND json_extract(a.data,'$.reviewStatus') NOT IN ('posted','saved','approved'))",
-    );
+  /** Posted or currently eligible comparisons, still excluding unrelated unsaved articles. */
+  async relationPool(article: Article, now: number): Promise<Article[]> {
+    for (let attempt = 0; attempt < READ_ATTEMPTS; attempt++) {
+      const [revision, state] = await this.context.transactions.snapshot([
+        "state",
+      ]);
+      const settings = settingsOf(state.state);
+      // Source-designated irrelevant articles can be eligible, so keep the old exclusion.
+      const condition =
+        "NOT (json_extract(a.data,'$.analysisStatus')='done' AND json_extract(a.data,'$.decision')='irrelevant' " +
+        "AND json_extract(a.data,'$.reviewStatus') NOT IN ('posted','saved','approved')) " +
+        `AND (${POSTED_ARTICLE_SQL} OR (${eligibleSQL(settings.postSelection)}))`;
+      const result = await this.context.driver.batch([
+        ["SELECT revision FROM news_meta WHERE id=1", []],
+        this.recentArticlesQuery(article, condition, now),
+      ]);
+      if (numberColumn(result[0]?.results[0], "revision") !== revision)
+        continue;
+      return (result[1]?.results ?? []).map((row) =>
+        publicArticle(decode<Article>(textColumn(row, "data"))),
+      );
+    }
+    throw new ArticleReadConflictError();
   }
 
   /** Posted articles, by review or post record, listed within the preceding week of this one or later. */
   async postedArticles(article: Article): Promise<Article[]> {
-    return this.recentArticles(
-      article,
-      "(json_extract(a.data,'$.reviewStatus')='posted' OR EXISTS " +
-        "(SELECT 1 FROM news_posts p WHERE p.id=a.id AND json_extract(p.data,'$.status')='posted'))",
+    const result = await this.context.driver.batch([
+      this.recentArticlesQuery(
+        article,
+        POSTED_ARTICLE_SQL,
+        this.context.clock(),
+      ),
+    ]);
+    return (result[0]?.results ?? []).map((row) =>
+      publicArticle(decode<Article>(textColumn(row, "data"))),
     );
   }
 
   /**
    * Bounded by time and count: posted articles, then earlier ones, newest
    * first; a day of margin covers the string-ordered chronological rule. Fields comparisons
-   * never read are left out.
+   * never read are left out. The existing ordering and time exception use reviewStatus.
    */
-  private async recentArticles(
+  private recentArticlesQuery(
     article: Article,
     condition: string,
-  ): Promise<Article[]> {
+    now: number,
+  ): SQLStatement {
     const listed =
       (Date.parse(article.publishedAt || article.discoveredAt) || 0) / 1000;
     const posted = "json_extract(a.data,'$.reviewStatus')='posted'";
     const order = "json_extract(a.data,'$._listOrder')";
+    return [
+      "WITH clock AS (SELECT ? AS now) " +
+        "SELECT json_remove(a.data,'$._listSearch','$.provenance','$.relationProvenance','$.postScreening') AS data " +
+        `FROM news_articles a,clock WHERE a.id<>? AND ${order}>=? AND (${order}<=? OR ${posted}) AND ${condition} ` +
+        `ORDER BY ${posted} DESC,${order}<=? DESC,${order} DESC,a.id LIMIT ?`,
+      [
+        now,
+        article.id,
+        listed - RELATION_WINDOW_DAYS * 86400,
+        listed + 86400,
+        listed,
+        RELATION_POOL_LIMIT,
+      ],
+    ];
+  }
+
+  /** Only ordering fields of existing requested IDs, without article bodies. */
+  async articleOrder(articleIds: readonly string[]): Promise<ArticleOrder[]> {
     const result = await this.context.driver.batch([
       [
-        "SELECT json_remove(a.data,'$._listSearch','$.provenance','$.relationProvenance','$.postScreening') AS data " +
-          `FROM news_articles a WHERE a.id<>? AND ${order}>=? AND (${order}<=? OR ${posted}) AND ${condition} ` +
-          `ORDER BY ${posted} DESC,${order}<=? DESC,${order} DESC,a.id LIMIT ?`,
-        [
-          article.id,
-          listed - RELATION_WINDOW_DAYS * 86400,
-          listed + 86400,
-          listed,
-          RELATION_POOL_LIMIT,
-        ],
+        "SELECT id,json_extract(data,'$.publishedAt') AS publishedAt,json_extract(data,'$.discoveredAt') AS discoveredAt " +
+          "FROM news_articles WHERE id IN (SELECT value FROM json_each(?))",
+        [encode(articleIds)],
       ],
     ]);
-    return (result[0]?.results ?? []).map((row) =>
-      publicArticle(decode<Article>(textColumn(row, "data"))),
-    );
+    return (result[0]?.results ?? []).map((row) => ({
+      id: textColumn(row, "id"),
+      publishedAt:
+        row.publishedAt === null ? null : textColumn(row, "publishedAt"),
+      discoveredAt: textColumn(row, "discoveredAt"),
+    }));
   }
 
   /** The listed IDs that still exist. */
