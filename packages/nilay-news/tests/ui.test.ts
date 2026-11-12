@@ -99,6 +99,7 @@ interface Ui {
   messageText: (text: unknown) => unknown;
   renderArticle: (article: object) => FakeNode;
   renderDetail: () => void;
+  renderHeader: () => void;
   loadDetail: (
     id: string,
     shouldRender?: boolean,
@@ -137,6 +138,7 @@ const script = buildSync({
       export { renderPreflight, preflightCurrent } from "./ui/publication-settings.js";
       export { dateText, messageText } from "./ui/time.js";
       export { renderArticle } from "./ui/list.js";
+      export { renderHeader } from "./ui/header.js";
       export { renderBulkActions } from "./ui/selection.js";
       export { renderDetail } from "./ui/detail.js";
       export { loadDetail } from "./ui/inbox.js";
@@ -495,7 +497,7 @@ describe("source-rule candidates in the inbox", () => {
     expect(bucket({ ...pending, analysisStatus: "pending" })).toEqual([
       "inbox",
     ]);
-    expect(bucket(ordinary)).toEqual(["dismissed"]);
+    expect(bucket(ordinary)).toEqual(["irrelevant"]);
     expect(bucket({ ...ruled, reviewStatus: "dismissed" })).toEqual([
       "dismissed",
     ]);
@@ -549,7 +551,7 @@ describe("actionable content review", () => {
     };
     expect(
       ui.buckets.filter((bucket) => bucket.match(article)).map(({ id }) => id),
-    ).toEqual(["inbox", "review"]);
+    ).toEqual(["review", "inbox"]);
     expect(ui.articleTags(article).map((tag) => tag.textContent)).toEqual([
       "候補",
       "重複を要確認",
@@ -566,8 +568,8 @@ describe("actionable content review", () => {
     const groups = (patch: object) =>
       ui.buckets.filter((b) => b.match({ ...BASE, ...patch })).map((b) => b.id);
     expect(groups({ decision: "review", analysisStatus: "done" })).toEqual([
-      "inbox",
       "review",
+      "inbox",
     ]);
     expect(groups({ analysisStatus: "pending" })).toEqual(["inbox", "pending"]);
     expect(groups({ analysisStatus: "error" })).toEqual(["inbox", "pending"]);
@@ -851,5 +853,76 @@ it("shows publication screening separately from the original classification reco
   expect(labels).toContain("送信入力 SHA-256: screening-input");
   expect(labels).toContain(
     "比較記事 posted / 比較入力 SHA-256: comparison-input",
+  );
+});
+
+describe("automatic posting presentation", () => {
+  it.each(["unread", "saved", "approved"])(
+    "shows server eligibility for %s rows while retaining status tags",
+    (reviewStatus) => {
+      const ui = load();
+      const article = {
+        ...BASE,
+        id: "eligible",
+        title: "投稿対象",
+        reviewStatus,
+        autoPost: true,
+      };
+      ui.model.state = { articles: [article], publication: { posts: [] } };
+      expect(texts(ui.renderArticle(article))).toContain("自動投稿の対象");
+      const tags = {
+        unread: [],
+        saved: ["保存済み"],
+        approved: ["投稿承認済み"],
+      }[reviewStatus]!;
+      expect(texts(ui.renderArticle(article))).toEqual(
+        expect.arrayContaining(tags),
+      );
+      expect(
+        texts(ui.renderArticle({ ...article, autoPost: false })),
+      ).not.toContain("自動投稿の対象");
+    },
+  );
+
+  it.each([
+    [
+      true,
+      Date.UTC(2026, 10, 12, 7, 5) / 1000,
+      "自動投稿は有効です。次回の送信は 16:05 以降です。",
+    ],
+    [true, 0, "自動投稿は有効です。"],
+    [
+      false,
+      Date.UTC(2026, 10, 12, 7, 5) / 1000,
+      "自動投稿は停止中です。設定で有効にするまで送信されません。",
+    ],
+    [false, 0, "自動投稿は停止中です。設定で有効にするまで送信されません。"],
+  ])(
+    "keeps the page explanation concise (%s, %s)",
+    (autoPost, nextAt, expected) => {
+      const ui = load();
+      ui.model.state = {
+        sources: [],
+        job: {},
+        stats: { pending: 0 },
+        settings: { autoPost },
+        publication: { nextAt, posts: [] },
+      };
+      ui.renderHeader();
+      expect(ui.element("page-description").textContent).toBe(expected);
+      for (const status of ["publishing", "submitted", "unknown", "failed"]) {
+        ui.model.state = {
+          sources: [],
+          job: {},
+          stats: { pending: 0 },
+          settings: { autoPost },
+          publication: { nextAt, posts: [{ status }] },
+        };
+        ui.renderHeader();
+        expect(ui.element("page-description").textContent).toBe(
+          `${expected}未解決の投稿があるため、新しい送信は止まっています。`,
+        );
+      }
+    },
   );
 });

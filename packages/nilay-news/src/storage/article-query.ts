@@ -20,7 +20,9 @@ export const bucketsSQL: Record<string, string> = {
   dates: `${unread} AND (${field("_publicationSeconds")} IS NULL OR ${field("_publicationSeconds")}>clock.now)`,
   expired: `${unread} AND (${stale})`,
   posted: `${field("reviewStatus")}='posted'`,
-  dismissed: `${field("reviewStatus")}='dismissed' OR (${unread} AND (${freshSQL}) AND NOT (${source}) AND ${field("decision")}='irrelevant')`,
+  duplicate: `${unread} AND (${freshSQL}) AND NOT (${source}) AND ${field("analysisStatus")}='done' AND ${field("decision")}='candidate' AND ${field("relation")}='duplicate'`,
+  irrelevant: `${unread} AND (${freshSQL}) AND NOT (${source}) AND ${field("decision")}='irrelevant'`,
+  dismissed: `${field("reviewStatus")}='dismissed'`,
 };
 export const statsSQL = {
   pending: `${field("analysisStatus")}<>'done' AND (${freshSQL})`,
@@ -31,18 +33,25 @@ export function eligibleSQL(selection: string): string {
   const approved = `${field("reviewStatus")}='approved'`;
   return `(${freshSQL}) AND ${field("reviewStatus")} NOT IN ('posted','dismissed') AND (${approved} OR ${source} OR COALESCE(${field("relation")},'') NOT IN ('duplicate','uncertain')) AND (${approved} OR (${selection !== "candidates" ? "1" : "0"}=1 AND ${field("reviewStatus")}='saved') OR (${selection !== "saved" ? "1" : "0"}=1 AND (${source} OR (${field("analysisStatus")}='done' AND ${field("decision")}='candidate')))) AND NOT EXISTS (SELECT 1 FROM news_posts p WHERE p.id=a.id) AND (COALESCE(${field("sourceKey")},'')<>'' OR NOT EXISTS (SELECT 1 FROM news_articles used LEFT JOIN news_posts p ON p.id=used.id WHERE COALESCE(json_extract(used.data,'$.sourceKey'),'')='' AND json_extract(used.data,'$.url')=${field("url")} AND (p.id IS NOT NULL OR json_extract(used.data,'$.reviewStatus')='posted')))`;
 }
-export function querySQL(query: ArticleQuery): {
+export function bucketPredicates(selection: string): Record<string, string> {
+  return { ...bucketsSQL, queued: eligibleSQL(selection) };
+}
+export function querySQL(
+  query: ArticleQuery,
+  selection: string,
+): {
   where: string;
   order: string;
   values: SQLValue[];
   limit: number;
   offset: number;
 } {
+  const predicates = bucketPredicates(selection);
   const bucket = query.bucket ?? "inbox";
   const limit = query.limit ?? 50;
   const offset = query.offset ?? 0;
   if (
-    !Object.hasOwn(bucketsSQL, bucket) ||
+    !Object.hasOwn(predicates, bucket) ||
     !Number.isInteger(limit) ||
     limit < 1 ||
     limit > 100 ||
@@ -51,8 +60,12 @@ export function querySQL(query: ArticleQuery): {
     (query.sort && !["newest", "priority"].includes(query.sort))
   )
     throw new UserError("記事の取得条件が不正です");
-  const filters = [`(${bucketsSQL[bucket]})`];
+  const filters = [`(${predicates[bucket]})`];
   const values: SQLValue[] = [];
+  if (query.articleId) {
+    filters.push("a.id=?");
+    values.push(query.articleId);
+  }
   if (query.query) {
     if (query.query.length > 500) throw new UserError("検索条件が長すぎます");
     filters.push(`instr(COALESCE(${field("_listSearch")},''),?)>0`);

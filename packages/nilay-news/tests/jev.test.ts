@@ -377,7 +377,11 @@ describe("Jev decisions", () => {
         classified({ unrelated: 0.6, relevant: 0.3, insufficient: 0.1 }),
       ),
     );
-    expect(away).toMatchObject({ decision: "review", probability: 0.6 });
+    expect(away).toMatchObject({
+      decision: "irrelevant",
+      probability: 0.6,
+      reason: `対象外の可能性が高い（確度低）：${REASONS.unrelated}`,
+    });
     expect(away.reason).toContain(REASONS.unrelated);
     // Genuinely insufficient information is explained as such, not as a split.
     const lacking = await analyzed(response("insufficient", 0.7));
@@ -393,6 +397,60 @@ describe("Jev decisions", () => {
     );
     expect(even).toMatchObject({ decision: "review", probability: 0.34 });
   });
+
+  test.each([
+    [
+      { excluded: 0.25, fiction: 0.25, relevant: 0.3, insufficient: 0.2 },
+      "irrelevant",
+      0.5,
+      `対象外の可能性が高い（確度低）：${REASONS.excluded}`,
+    ],
+    [
+      { unrelated: 0.499, relevant: 0.3, insufficient: 0.201 },
+      "review",
+      0.499,
+      `判定が割れたため確認：「${REASONS.unrelated}」が最有力だが分類確率が基準未満`,
+    ],
+    [
+      { unrelated: 0.34, relevant: 0.33, insufficient: 0.33 },
+      "review",
+      0.34,
+      `判定が割れたため確認：「${REASONS.unrelated}」が最有力だが分類確率が基準未満`,
+    ],
+    [
+      { unrelated: 0.5, relevant: 0.5 },
+      "review",
+      0.5,
+      `判定が割れたため確認：「${REASONS.relevant}」が最有力だが分類確率が基準未満`,
+    ],
+    [
+      { unrelated: 0.5, insufficient: 0.5 },
+      "review",
+      0.5,
+      REASONS.insufficient,
+    ],
+    [
+      { unrelated: 0.849, relevant: 0.151 },
+      "irrelevant",
+      0.849,
+      `対象外の可能性が高い（確度低）：${REASONS.unrelated}`,
+    ],
+    [
+      { unrelated: 0.85, relevant: 0.15 },
+      "irrelevant",
+      0.85,
+      REASONS.unrelated,
+    ],
+  ])(
+    "separates the irrelevant threshold without changing group ties: %j",
+    async (probabilities, decision, probability, reason) => {
+      const result = await analyzed(
+        withClassification(classified(probabilities)),
+      );
+      expect(result).toMatchObject({ decision, probability });
+      expect(result.reason).toBe(reason);
+    },
+  );
 
   test("routing follows the distribution, never the reported choice alone", async () => {
     // The reported choice is validated but a confident group decides the route.

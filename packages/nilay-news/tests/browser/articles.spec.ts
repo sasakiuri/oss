@@ -15,6 +15,7 @@ test("bounded pages, search, on-demand details and keyboard focus work on wide a
     if (response.url().includes("/api/articles?")) lists.push(response.url());
   });
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(50);
   await expect(page.locator("#list-count")).toHaveText("151 件");
   const status = await (await page.request.get("/api/state")).json();
@@ -44,6 +45,7 @@ test("clearing a no-match filter retrieves the first page immediately", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(50);
   await page.locator("#select-all-articles").check();
   await page.locator("#search").fill("no-matching-fixture");
@@ -70,6 +72,7 @@ test("bulk selection applies to the displayed page and resets on filtering", asy
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(50);
   await page.locator("#select-all-articles").check();
   await expect(page.locator("#selection-count")).toHaveText("50 件選択中");
@@ -89,6 +92,7 @@ test("failed review leaves the article available for an explicit retry", async (
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(50);
   await page.getByRole("button", { name: /Article 0000.*詳細を読む/ }).click();
   await expect(page.locator("#detail-panel")).toContainText("Fixture body 0");
@@ -120,6 +124,7 @@ test("manual publication resolution requires an explicit operator action and kee
     (await page.request.post("/fixture/safety-stop", { data: {} })).status(),
   ).toBe(200);
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await page.getByRole("button", { name: /^保存済み 1$/ }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(1);
   await page.locator("#article-list .article-select").click();
@@ -179,7 +184,8 @@ test("Jev provenance can be inspected with keyboard on wide and narrow screens",
     await route.fulfill({ response: await route.fetch({ headers }) });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: /^見送り・対象外 1$/ }).click();
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
+  await page.getByRole("button", { name: /^対象外（自動） 1$/ }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(1);
   await page.locator("#article-list .article-select").click();
   const summary = page.locator(".analysis-provenance summary");
@@ -232,6 +238,7 @@ test("background refresh and review keep the current page and its visible select
 }) => {
   await page.clock.install();
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(50);
   await page.getByRole("button", { name: "次のページ", exact: true }).click();
   await expect(page.locator("#list-footnote")).toContainText("51–100");
@@ -272,6 +279,7 @@ test("unchanged detail recovery removes obsolete retry controls and preserves re
 }) => {
   await page.clock.install();
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator("#article-list > article")).toHaveCount(50);
   const id = await page
     .locator("#article-list [data-select-id]")

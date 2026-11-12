@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { Article, Clock, Job } from "./domain.ts";
 import { clock as systemClock } from "./domain.ts";
-import { NotFoundError, SettingsConflictError, UserError } from "./errors.ts";
+import { SettingsConflictError, UserError } from "./errors.ts";
 import { freshness } from "./freshness.ts";
 import type { Jev } from "./jev/client.ts";
 import type { CollectionOptions } from "./jobs/collection-task.ts";
@@ -98,7 +98,7 @@ export class Application {
     };
   }
 
-  private decorateArticle(article: Article, now = this.clock()) {
+  private decorateArticle<T extends Article>(article: T, now = this.clock()) {
     return {
       ...article,
       sourceCandidate: isSourceCandidate(article),
@@ -132,12 +132,12 @@ export class Application {
       if (!(error instanceof UserError)) throw error;
     }
     const related = article.relatedArticleId
-      ? await this.repository
-          .article(article.relatedArticleId)
-          .catch((error: unknown) => {
-            if (error instanceof NotFoundError) return null;
-            throw error;
-          })
+      ? ((
+          await this.repository.articlePage(
+            { bucket: "all", articleId: article.relatedArticleId, limit: 1 },
+            this.clock(),
+          )
+        ).articles[0] ?? null)
       : null;
     return {
       ...this.decorateArticle(article),

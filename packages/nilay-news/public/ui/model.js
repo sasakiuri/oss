@@ -3,7 +3,7 @@
 export const PAGE_SIZE = 50;
 export const model = {
   state: null,
-  view: "inbox",
+  view: "queued",
   selectedId: null,
   readingSession: 0,
   listScrollY: 0,

@@ -2,13 +2,38 @@
 import { model, PAGE_SIZE } from "./model.js";
 import { $, el, button } from "./dom.js";
 import { shortDate } from "./time.js";
-import { canReview, visibleArticles } from "./articles.js";
+import { canReview, canDismiss, visibleArticles } from "./articles.js";
 import { articleTags } from "./article-tags.js";
 import { renderBulkActions } from "./selection.js";
-import { review, collect, clearFilters, selectArticle } from "./actions.js";
+import {
+  review,
+  dismissRow,
+  collect,
+  clearFilters,
+  selectArticle,
+} from "./actions.js";
 import { renderFilters } from "./header.js";
 import { refresh, loadArticles } from "./inbox.js";
 import { notifyView } from "./updates.js";
+
+/** Server eligibility takes precedence over classification and relation annotations. */
+function outcome(article) {
+  if (article.autoPost) return "自動投稿の対象";
+  if (article.reviewStatus !== "unread") return "";
+  const related = article.relatedSummary;
+  if (article.relation === "duplicate")
+    return related
+      ? `止めた：『${related.title}』と重複（相手は${related.posted ? "投稿済み" : "未投稿"}）`
+      : "止めた：重複（参照先なし）";
+  if (article.relation === "uncertain")
+    return related
+      ? `保留：重複か判断できず（相手：『${related.title}』）`
+      : "保留：重複か判断できず（参照先なし）";
+  if (article.decision === "review") return "保留：対象か判断できず";
+  if (article.decision === "irrelevant")
+    return `対象外：${article.reason || ""}`;
+  return "";
+}
 
 export function renderArticle(article) {
   const card = el(
@@ -55,7 +80,16 @@ export function renderArticle(article) {
     el("span", "meta-dot", "·"),
     el("time", "", shortDate(article)),
   );
-  select.append(tags, el("h3", "article-title", article.title || "見出しなし"));
+  select.append(tags);
+  const conclusion = outcome(article);
+  if (conclusion) {
+    // The button's label names only the headline; expose the outcome too.
+    const note = el("p", "article-outcome", conclusion);
+    note.id = `outcome-${article.id}`;
+    select.setAttribute("aria-describedby", note.id);
+    select.append(note);
+  }
+  select.append(el("h3", "article-title", article.title || "見出しなし"));
   if (article.excerpt)
     select.append(el("p", "article-excerpt", article.excerpt));
   select.append(meta);
@@ -75,7 +109,27 @@ export function renderArticle(article) {
     save.setAttribute("aria-pressed", String(saved));
     save.title = saved ? "保存を解除" : "記事を保存";
     save.disabled = model.requestPending || !canReview(article, "saved");
-    card.append(save);
+    save.dataset.rowArticleId = article.id;
+    save.dataset.rowAction = saved ? "unread" : "saved";
+    const actions = el("div", "article-row-actions");
+    actions.append(save);
+    if (canDismiss(article)) {
+      const dismiss = button(
+        "見送る",
+        "dismiss-button",
+        () => dismissRow(article),
+        `dismiss-${article.id}`,
+      );
+      dismiss.setAttribute(
+        "aria-label",
+        `${article.title || "見出しなし"} — 見送る`,
+      );
+      dismiss.dataset.rowArticleId = article.id;
+      dismiss.dataset.rowAction = "dismissed";
+      dismiss.disabled = model.requestPending;
+      actions.append(dismiss);
+    }
+    card.append(actions);
   }
   return card;
 }
@@ -104,6 +158,18 @@ function renderEmpty() {
     description = "「記事を集める」で、登録した収集元から記事を取得します。";
   } else {
     const messages = {
+      queued: [
+        "自動投稿の対象はありません",
+        "選定条件と鮮度条件を満たす記事を表示します。",
+      ],
+      duplicate: [
+        "重複で停止した記事はありません",
+        "別の記事と重複すると判定した記事を表示します。",
+      ],
+      irrelevant: [
+        "自動で対象外にした記事はありません",
+        "選定基準で対象外と判定した記事を表示します。",
+      ],
       inbox: [
         "未読の記事はありません",
         "新しいニュースは「記事を集める」から確認できます。",
@@ -137,8 +203,8 @@ function renderEmpty() {
         "X で投稿したあと「投稿済みにする」で記録できます。",
       ],
       dismissed: [
-        "見送り・対象外の記事はありません",
-        "見送った記事と、仕分けで対象外になった記事を表示します。",
+        "見送った記事はありません",
+        "手動で見送った記事を表示します。",
       ],
     };
     [title, description] = messages[model.view] || messages.inbox;

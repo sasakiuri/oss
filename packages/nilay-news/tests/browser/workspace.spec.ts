@@ -12,6 +12,7 @@ test("filter controls expose the active conditions and each condition can be rem
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   const toggle = page.getByRole("button", { name: "絞り込み", exact: true });
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -47,6 +48,7 @@ test("empty folders explain their purpose and bulk selection can be cleared", as
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   await page.getByRole("button", { name: /^保存済み 0$/ }).click();
   await expect(page.locator("#article-list")).toContainText(
@@ -55,8 +57,8 @@ test("empty folders explain their purpose and bulk selection can be cleared", as
   await expect(page.locator("#article-list")).not.toContainText(
     "記事はまだありません",
   );
-  await page.getByRole("button", { name: /^受信箱 12$/ }).click();
-  await expect(page.locator("#page-title")).toHaveText("受信箱");
+  await page.getByRole("button", { name: /^すべての新着 12$/ }).click();
+  await expect(page.locator("#page-title")).toHaveText("すべての新着");
   await expect(page.locator(".article-row")).toHaveCount(12);
   await page.locator("#select-all-articles").check();
   await expect(page.locator("#selection-tools")).toBeVisible();
@@ -72,6 +74,7 @@ test("search waits for typing to settle and shortcuts preserve a clear focus tar
 }) => {
   await page.clock.install();
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   const requests: string[] = [];
   page.on("request", (request) => {
@@ -104,7 +107,10 @@ test("failed initial article requests offer an explicit retry", async ({
 }) => {
   let failed = false;
   await page.route("**/api/articles?*", async (route) => {
-    if (!failed) {
+    if (
+      !failed &&
+      new URL(route.request().url()).searchParams.get("bucket") === "inbox"
+    ) {
       failed = true;
       await route.fulfill({
         status: 503,
@@ -114,6 +120,7 @@ test("failed initial article requests offer an explicit retry", async ({
     } else await route.continue();
   });
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator("#article-list")).toContainText(
     "記事を読み込めませんでした",
   );
@@ -133,6 +140,7 @@ test("workspace, filters, selection and settings fit narrow viewports without du
 }) => {
   await page.setViewportSize({ width: 320, height: 780 });
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   await page.locator("#filter-toggle").click();
   await page.locator("#select-all-articles").check();
@@ -165,6 +173,7 @@ test("an unchanged background refresh finishes an overlapping visible load", asy
     (await request.post("/fixture/seed", { data: { count: 151 } })).ok(),
   ).toBe(true);
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(50);
   let release!: () => void;
   let captured!: () => void;
@@ -216,6 +225,7 @@ test("background recovery clears an obsolete list error even when the results ar
   page,
 }) => {
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   await page.locator("#search").fill("NO_MATCH");
   await expect(page.locator("#article-list")).toContainText(
@@ -253,6 +263,7 @@ test("Japanese text composition does not send intermediate search requests", asy
 }) => {
   await page.clock.install();
   await page.goto("/");
+  await page.getByRole("button", { name: /^すべての新着 / }).click();
   await expect(page.locator(".article-row")).toHaveCount(12);
   const queries: string[] = [];
   page.on("request", (request) => {

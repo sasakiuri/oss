@@ -43,6 +43,17 @@ export function renderBulkActions(
         : model.bulkStatus === "saved"
           ? "保存だけでは重複判定は解除されません。投稿承認済みの記事を保存に変更すると、承認は解除されます。"
           : "表示中の記事を対象にします。検索や絞り込みで表示から外れた記事の選択は解除されます。";
+  for (const control of $("article-list").querySelectorAll(
+    "[data-row-action]",
+  )) {
+    const article = shown.find(
+      (item) => item.id === control.dataset.rowArticleId,
+    );
+    control.disabled =
+      model.requestPending ||
+      !article ||
+      !canReview(article, control.dataset.rowAction);
+  }
   for (const checkbox of $("article-list").querySelectorAll(
     "[data-select-id]",
   )) {

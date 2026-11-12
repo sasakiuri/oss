@@ -13,6 +13,8 @@ import type {
 import type { CollectedItem, SourceConfig } from "./sources/types.ts";
 
 export interface ArticleQuery {
+  /** Internal primary-key lookup for related-article navigation. */
+  articleId?: string;
   bucket?: string;
   query?: string;
   topic?: string;
@@ -24,8 +26,12 @@ export interface ArticleQuery {
   /** Revision and clock window from the preceding page. */
   snapshot?: string;
 }
+export interface ArticleListItem extends Article {
+  autoPost: boolean;
+  relatedSummary: { id: string; title: string; posted: boolean } | null;
+}
 export interface ArticlePage {
-  articles: Article[];
+  articles: ArticleListItem[];
   total: number;
   offset: number;
   limit: number;

@@ -124,6 +124,33 @@ export async function review(article, status) {
     }
     notifyView("all");
   }
+  return success;
+}
+
+/** Restore row focus after removal without interrupting a later navigation. */
+export async function dismissRow(article) {
+  if (model.requestPending || !canReview(article, "dismissed")) return;
+  const session = model.readingSession;
+  const view = model.view;
+  const position = model.state.articles.findIndex(
+    (item) => item.id === article.id,
+  );
+  const key = `dismiss-${article.id}`;
+  await review(article, "dismissed");
+  if (session !== model.readingSession || view !== model.view) return;
+  if (
+    document.activeElement !== document.body &&
+    document.activeElement?.dataset?.focus !== key
+  )
+    return;
+  const controls = [...document.querySelectorAll("[data-focus]")];
+  const next =
+    model.state.articles[Math.min(position, model.state.articles.length - 1)];
+  (
+    controls.find((node) => node.dataset.focus === key) ||
+    controls.find((node) => node.dataset.focus === `article-${next?.id}`) ||
+    $("page-title")
+  ).focus({ preventScroll: true });
 }
 
 export function selectArticle(id, { keepListPosition = false } = {}) {

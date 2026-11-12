@@ -1,13 +1,41 @@
 // SPDX-License-Identifier: MIT
 
 export const buckets = [
+  { id: "queued", label: "自動投稿の対象", match: (a) => a.autoPost === true },
   {
-    id: "inbox",
-    label: "受信箱",
+    id: "posted",
+    label: "投稿済み",
+    match: (a) => a.reviewStatus === "posted",
+  },
+  {
+    id: "review",
+    label: "判断保留",
     match: (a) =>
       a.reviewStatus === "unread" &&
       a.freshness === "fresh" &&
-      (a.sourceCandidate || a.decision !== "irrelevant"),
+      !a.sourceCandidate &&
+      a.analysisStatus === "done" &&
+      (a.decision === "review" || a.relation === "uncertain"),
+  },
+  {
+    id: "duplicate",
+    label: "重複で停止",
+    match: (a) =>
+      a.reviewStatus === "unread" &&
+      a.freshness === "fresh" &&
+      !a.sourceCandidate &&
+      a.analysisStatus === "done" &&
+      a.decision === "candidate" &&
+      a.relation === "duplicate",
+  },
+  {
+    id: "irrelevant",
+    label: "対象外（自動）",
+    match: (a) =>
+      a.reviewStatus === "unread" &&
+      a.freshness === "fresh" &&
+      !a.sourceCandidate &&
+      a.decision === "irrelevant",
   },
   {
     id: "saved",
@@ -20,14 +48,17 @@ export const buckets = [
     match: (a) => a.reviewStatus === "approved",
   },
   {
-    id: "review",
-    label: "内容の要確認",
+    id: "dismissed",
+    label: "見送り",
+    match: (a) => a.reviewStatus === "dismissed",
+  },
+  {
+    id: "inbox",
+    label: "すべての新着",
     match: (a) =>
       a.reviewStatus === "unread" &&
       a.freshness === "fresh" &&
-      !a.sourceCandidate &&
-      a.analysisStatus === "done" &&
-      (a.decision === "review" || a.relation === "uncertain"),
+      (a.sourceCandidate || a.decision !== "irrelevant"),
   },
   {
     id: "pending",
@@ -50,21 +81,6 @@ export const buckets = [
     id: "expired",
     label: "期間を過ぎた記事",
     match: (a) => a.reviewStatus === "unread" && a.freshness === "stale",
-  },
-  {
-    id: "posted",
-    label: "投稿済み",
-    match: (a) => a.reviewStatus === "posted",
-  },
-  {
-    id: "dismissed",
-    label: "見送り・対象外",
-    match: (a) =>
-      a.reviewStatus === "dismissed" ||
-      (a.reviewStatus === "unread" &&
-        a.freshness === "fresh" &&
-        !a.sourceCandidate &&
-        a.decision === "irrelevant"),
   },
 ];
 /** Shown for articles the server made candidates by their source alone. */
