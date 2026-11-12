@@ -165,7 +165,12 @@ test(
       Buffer.from([0x80]),
       Buffer.from(".json"),
     ]);
-    writeFileSync(file, "{}");
+    try {
+      writeFileSync(file, "{}");
+    } catch (error) {
+      if (error.code !== "EILSEQ") throw error;
+      return t.skip("Filesystem cannot create invalid UTF-8 filenames");
+    }
     git("add", ".");
     git("commit", "-qm", "invalid path bytes");
     const base = git("rev-parse", "HEAD");
@@ -215,23 +220,42 @@ test("invalid base configuration is rejected even when current configuration is 
   assert.match(result.stderr, /eventContractDirectories/);
 });
 
-test("multiple configured directories and unusual filenames are checked", (t) => {
-  const { write, git, run } = fixture(t);
-  write(
-    "package.json",
-    JSON.stringify({
-      repoTooling: { eventContractDirectories: ["contracts/events", "other"] },
-    }),
-  );
-  write("other/odd \n:name.json", "{}");
-  git("add", ".");
-  git("commit", "-qm", "extra contracts");
-  const base = git("rev-parse", "HEAD");
-  write("other/odd \n:name.json", "changed");
-  const result = run(["--base", base]);
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /:name.json/);
-});
+for (const file of ["other/odd name.json", "other/odd \n:name.json"]) {
+  test(`multiple configured directories and unusual filenames are checked: ${JSON.stringify(file)}`, (t) => {
+    const { write, git, run } = fixture(t);
+    write(
+      "package.json",
+      JSON.stringify({
+        repoTooling: {
+          eventContractDirectories: ["contracts/events", "other"],
+        },
+      }),
+    );
+    try {
+      write(file, "{}");
+    } catch (error) {
+      if (
+        process.platform !== "win32" ||
+        !file.includes("\n") ||
+        !["ENOENT", "EINVAL"].includes(error.code)
+      )
+        throw error;
+      return t.skip(
+        "Filesystem cannot create filenames with a newline and colon",
+      );
+    }
+    git("add", ".");
+    git("commit", "-qm", "extra contracts");
+    const base = git("rev-parse", "HEAD");
+    const unchanged = run(["--base", base]);
+    assert.equal(unchanged.status, 0, unchanged.stderr);
+    assert.match(unchanged.stdout, /3 existing/);
+    write(file, "changed");
+    const result = run(["--base", base]);
+    assert.equal(result.status, 1);
+    assert.ok(result.stderr.includes(file), result.stderr);
+  });
+}
 
 test("BASE_SHA is accepted and an explicit argument takes precedence", (t) => {
   const { run, base } = fixture(t);
