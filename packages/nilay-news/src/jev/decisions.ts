@@ -6,8 +6,9 @@ import { isRecord } from "../text.ts";
 import { REASONS } from "./questions.ts";
 
 export const ROUTING_POLICY = {
-  classificationThreshold: 0.85,
+  classificationThreshold: 0.75,
   irrelevantThreshold: 0.5,
+  irrelevantConfidenceThreshold: 0.85,
   relationThreshold: 0.9,
   comparisonLimit: 3,
   comparisonOverlap: 0.2,
@@ -115,7 +116,8 @@ export function route(distribution: Record<string, number>): {
       decision: top,
       probability,
       reason:
-        top === "irrelevant" && probability < THRESHOLD
+        top === "irrelevant" &&
+        probability < ROUTING_POLICY.irrelevantConfidenceThreshold
           ? `対象外の可能性が高い（確度低）：${REASONS[label] ?? label}`
           : (REASONS[label] ?? label),
     };
