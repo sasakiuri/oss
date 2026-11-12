@@ -2711,7 +2711,7 @@ describe("publication freshness", () => {
   });
 
   it.each(["uncertain", "duplicate"] as const)(
-    "skips an unposted %s comparison whose reference is missing",
+    "keeps an unposted %s comparison whose reference is missing",
     async (relation) => {
       const calls: string[] = [];
       const transport: FetchBytes = async (url, options) => {
@@ -2761,10 +2761,10 @@ describe("publication freshness", () => {
       expect(await repo.article(later.id)).toMatchObject({
         analysisStatus: "done",
         decision: "candidate",
-        relation: null,
-        relatedArticleId: null,
+        relation: "duplicate",
+        relatedArticleId: earlier.id,
       });
-      expect(calls).toEqual(["classification"]);
+      expect(calls).toEqual(["classification", "relation"]);
       expect((await repo.article(earlier.id)).relation).toBe(relation);
       expect((await repo.getJob()).error).toBeNull();
     },

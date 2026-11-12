@@ -231,31 +231,74 @@ describe("analysis comparison redirection", () => {
     expect(client.post).not.toHaveBeenCalled();
   });
 
-  it.each(["missing", "cycle", "hops", "reads"])(
-    "excludes a comparison with $0 references",
-    async (kind) => {
-      const { article, at, target, run, calls } = await setup();
-      const count = kind === "hops" ? 33 : kind === "reads" ? 7 : 1;
-      const chain = Array.from({ length: count }, (_, i) =>
-        article(`link-${i}`, {
-          title: i === 0 ? NEAR : FAR,
-          relation: "uncertain",
-          relatedArticleId: kind === "cycle" ? "link-0" : `link-${i + 1}`,
-          publishedAt: kind === "reads" && i > 0 ? at(-8 * 86400) : at(-7200),
-        }),
+  describe.each(["duplicate", "uncertain"])(
+    "failed %s resolution",
+    (relation) => {
+      it.each(["missing", "cycle", "hops", "reads", "no-link", "self"])(
+        "compares the original article after %s failure and prevents a duplicate post",
+        async (kind) => {
+          const { article, at, target, run, calls } = await setup();
+          const posted = article("posted", { reviewStatus: "posted" });
+          const count =
+            kind === "hops"
+              ? 33
+              : kind === "reads"
+                ? 7
+                : kind === "cycle"
+                  ? 3
+                  : 2;
+          const chain = Array.from({ length: count }, (_, i) =>
+            article(`link-${i}`, {
+              title: i === 0 ? NEAR : FAR,
+              relation,
+              relatedArticleId:
+                i < count - 1
+                  ? `link-${i + 1}`
+                  : kind === "cycle"
+                    ? "link-1"
+                    : kind === "no-link"
+                      ? null
+                      : kind === "self"
+                        ? target.id
+                        : `link-${i + 1}`,
+              publishedAt:
+                kind === "reads" && i > 0 ? at(-8 * 86400) : at(-7200),
+            }),
+          );
+          if (kind === "hops" || kind === "reads")
+            chain.push(
+              article(`link-${count}`, {
+                reviewStatus: "posted",
+                publishedAt: at(-8 * 86400),
+              }),
+            );
+          // As in the incident, the posted article misses lexical retrieval, while H matches N.
+          expect(relatedCandidates(target, [posted])).toEqual([]);
+          expect(relatedCandidates(target, chain).map(({ id }) => id)).toEqual([
+            "link-0",
+          ]);
+          const { result, analysisReads, posts, client } = await run([
+            posted,
+            ...chain,
+          ]);
+          expect(calls.map((call) => call.previous)).toEqual([null, NEAR]);
+          expect(result).toMatchObject({
+            decision: "candidate",
+            relation: "duplicate",
+            relatedArticleId: "link-0",
+            relationProvenance: [
+              expect.objectContaining({ comparisonArticleId: "link-0" }),
+            ],
+          });
+          expect(posts.some((post) => post.articleId === target.id)).toBe(
+            false,
+          );
+          expect(client.post).not.toHaveBeenCalled();
+          expect(analysisReads.length - 1).toBe(
+            kind === "reads" ? 6 : kind === "missing" ? 1 : 0,
+          );
+        },
       );
-      chain.push(
-        article(`link-${count}`, {
-          reviewStatus: "posted",
-          publishedAt: at(-8 * 86400),
-        }),
-      );
-      if (kind === "missing") chain.pop();
-      const { result, analysisReads, posts } = await run(chain);
-      expect(calls.filter((call) => call.previous !== null)).toEqual([]);
-      expect(result.relation).toBeNull();
-      expect(posts.some((post) => post.articleId === target.id)).toBe(true);
-      expect(analysisReads.length - 1).toBeLessThanOrEqual(6);
     },
   );
 
@@ -344,12 +387,16 @@ describe("analysis comparison redirection", () => {
     const { result, analysisReads } = await run(others);
     expect(analysisReads.slice(1)).toHaveLength(6);
     expect(new Set(analysisReads.slice(1)).size).toBe(6);
-    expect(calls).toHaveLength(3);
-    expect(result.relationProvenance).toHaveLength(2);
+    expect(calls.map((call) => call.previous)).toEqual([null, FAR, FAR, NEAR]);
+    expect(
+      result.relationProvenance?.map(
+        ({ comparisonArticleId }) => comparisonArticleId,
+      ),
+    ).toEqual(["outside-0-2", "outside-1-2", "bridge-2"]);
   });
 
   it("caches a missing reference across selected comparisons", async () => {
-    const { article, run, calls } = await setup();
+    const { article, run, calls } = await setup("different");
     const { analysisReads } = await run(
       ["a", "b", "c"].map((id) =>
         article(id, {
@@ -360,7 +407,12 @@ describe("analysis comparison redirection", () => {
       ),
     );
     expect(analysisReads).toEqual(["new", "absent"]);
-    expect(calls).toHaveLength(1);
+    expect(calls.map((call) => call.previous)).toEqual([
+      null,
+      NEAR,
+      NEAR,
+      NEAR,
+    ]);
   });
 
   it("rejects a redirected comparison whose evidence changes before saving", async () => {
