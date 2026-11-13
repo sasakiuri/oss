@@ -1,5 +1,12 @@
 # @sasakiuri/saika-vista
 
+## 0.5.0
+
+### Patch Changes
+
+- Updated dependencies [[`3df0e2d`](https://github.com/sasakiuri/oss/commit/3df0e2d669f01188065a1b799682e6e8276ba8bb)]:
+  - @sasakiuri/saika-protocol@0.3.0
+
 ## 0.4.1
 
 ### Patch Changes
