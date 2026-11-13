@@ -3,6 +3,7 @@
 export const STATIC_ASSET_PATHS: ReadonlySet<string> = new Set([
   "/",
   "/app.js",
+  "/favicon.svg",
   "/styles.css",
   "/ui/actions.js",
   "/ui/api.js",
