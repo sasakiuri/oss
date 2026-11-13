@@ -47,7 +47,44 @@ const workspaces = [
     },
   },
 ];
-const requiredChecksPass = (needs) => check(needs, workspaces);
+const requiredChecksPass = (needs) =>
+  check(needs, workspaces, { name: "workflow_dispatch" });
+
+test("mainline security checks reject skips and missing event context", () => {
+  for (const event of [
+    { name: "pull_request", base: "1.x" },
+    { name: "push", ref: "refs/heads/1.x" },
+  ]) {
+    const needs = needsFor();
+    for (const id of ["analyze", "gitleaks", "dependency-review", "validate"])
+      needs[id] = { result: "success" };
+    assert.equal(check(needs, workspaces, event), true);
+    const required =
+      event.name === "push"
+        ? ["analyze", "gitleaks"]
+        : ["analyze", "gitleaks", "dependency-review", "validate"];
+    for (const id of required)
+      for (const result of ["skipped", "failure", "cancelled", undefined])
+        assert.equal(
+          check({ ...needs, [id]: { result } }, workspaces, event),
+          false,
+          `${event.name}/${id}/${result}`,
+        );
+  }
+  assert.equal(check(needsFor(), workspaces, {}), false);
+});
+
+test("PR bases other than 1.x cannot pass even with successful jobs", () => {
+  const needs = needsFor();
+  for (const id of ["analyze", "gitleaks", "dependency-review", "validate"])
+    needs[id] = { result: "success" };
+  for (const base of ["canary", "main", "", undefined])
+    assert.equal(
+      check(needs, workspaces, { name: "pull_request", base }),
+      false,
+      base,
+    );
+});
 
 test("workflow output names and aggregate dependencies carry real plans to the gate", () => {
   // These tests run before npm ci, so inspect the small output wiring without a YAML dependency.
@@ -78,6 +115,8 @@ test("workflow output names and aggregate dependencies carry real plans to the g
     );
     const applicable = {
       approval: true,
+      analyze: true,
+      gitleaks: true,
       changes: true,
       repository: true,
       text: plan.text,
@@ -100,7 +139,11 @@ test("workflow output names and aggregate dependencies carry real plans to the g
       ]),
     );
     needs.changes.outputs = outputs;
-    assert.equal(check(needs, packages), true, file);
+    assert.equal(
+      check(needs, packages, { name: "workflow_dispatch" }),
+      true,
+      file,
+    );
     for (const job of ["build", "unit", "e2e"]) {
       const definition = workflow
         .split(`\n  ${job}:\n`)[1]
@@ -150,6 +193,8 @@ function needsFor({
   const matrix = e2eMatrix(selected, os);
   return {
     approval: { result: "success" },
+    analyze: { result: "success" },
+    gitleaks: { result: "success" },
     repository: { result: "success" },
     changes: {
       result: "success",
@@ -311,7 +356,11 @@ test("the gate CLI rejects absent or malformed results", () => {
     process.execPath,
     ["scripts/check-required-ci.mjs"],
     {
-      env: { ...process.env, NEEDS_JSON: JSON.stringify(needsFor()) },
+      env: {
+        ...process.env,
+        NEEDS_JSON: JSON.stringify(needsFor()),
+        CI_EVENT_NAME: "workflow_dispatch",
+      },
     },
   );
   assert.equal(result.status, 0);

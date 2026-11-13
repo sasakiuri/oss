@@ -5,14 +5,13 @@ on:
   push:
     branches: [1.x]
 
-concurrency:
-  group: version-${{ github.ref }}
-  cancel-in-progress: false
-
 permissions: {}
 
 jobs:
   approval:
+    concurrency:
+      group: version-${{ github.ref }}-approval
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     permissions: {}
     environment: ci-approval
@@ -21,9 +20,13 @@ jobs:
         run: "true"
 
   version:
+    concurrency:
+      group: version-${{ github.ref }}
+      cancel-in-progress: false
     needs: approval
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: write
       pull-requests: write
     env:
@@ -38,6 +41,8 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # zizmor: ignore[artipacked]
         with:
           fetch-depth: 0
+      - name: Require latest workflow run
+        uses: ./.github/actions/require-latest-run
 
       - name: Setup environment
         uses: ./.github/actions/setup-node

@@ -1,10 +1,17 @@
 name: Docs deep quality
 on:
+  workflow_call:
+    inputs:
+      approval-inherited:
+        description: The caller gates this run with ci-approval.
+        type: boolean
+        default: true
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   approval:
+    if: ${{ !inputs.approval-inherited }}
     runs-on: ubuntu-24.04
     permissions: {}
     environment: ci-approval
@@ -14,6 +21,7 @@ jobs:
 
   deterministic:
     needs: approval
+    if: ${{ !cancelled() && (needs.approval.result == 'success' || (inputs.approval-inherited && needs.approval.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:

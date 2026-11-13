@@ -15,6 +15,10 @@ permissions:
 
 jobs:
   approval:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.client_payload.project.id == 'prj_yiyI5AfNEtF7WiQdwjTDnQil9zY3' &&
+       github.event.client_payload.environment == 'production')
     runs-on: ubuntu-24.04
     permissions: {}
     environment: ci-approval

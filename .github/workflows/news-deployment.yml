@@ -15,13 +15,11 @@ on:
 permissions:
   contents: read
 
-# Production deployments and D1 migrations never overlap or get cancelled midway.
-concurrency:
-  group: nilay-news-production
-  cancel-in-progress: false
-
 jobs:
   approval:
+    concurrency:
+      group: nilay-news-production-approval
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     permissions: {}
     environment: ci-approval
@@ -60,6 +58,9 @@ jobs:
       - run: npm run build
 
   deploy:
+    concurrency:
+      group: nilay-news-production
+      cancel-in-progress: false
     name: Deploy News to production
     needs: [approval, verify]
     runs-on: ubuntu-24.04
@@ -68,6 +69,7 @@ jobs:
       name: nilay-news-production
       url: ${{ vars.NILAY_PUBLIC_ORIGIN }}
     permissions:
+      actions: read
       contents: read
     defaults:
       run:
@@ -85,6 +87,8 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           persist-credentials: false
+      - name: Require latest workflow run
+        uses: ./.github/actions/require-latest-run
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24.16.0"

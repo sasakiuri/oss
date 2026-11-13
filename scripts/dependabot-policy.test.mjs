@@ -9,10 +9,7 @@ import { test } from "node:test";
 import yaml from "js-yaml";
 
 const workflow = yaml.load(
-  readFileSync(
-    new URL("../.github/workflows/dependabot-auto-merge.yml", import.meta.url),
-    "utf8",
-  ),
+  readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8"),
 );
 const policy = workflow.jobs.dependabot.steps.find(
   (step) => step.id === "policy",

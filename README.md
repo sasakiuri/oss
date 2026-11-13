@@ -83,8 +83,9 @@ before returning to Electron development or E2E tests. See
 
 ## Documentation
 
-GitHub Actions runs require owner approval before runners start. Scheduled runs
-are disabled; workflows that previously ran on a schedule can still be started manually.
+GitHub Actions runs require owner approval before runners start. Pull request checks share one approval in `ci.yml`. Scheduled runs
+are disabled. Start `periodic.yml` manually for periodic scans with one approval.
+CI does not run for pull requests targeting `canary`.
 If approval is rejected, only aggregate jobs start runners to report failure.
 
 - [Saika Lane README](packages/saika-lane/) -- detailed setup, architecture, and usage

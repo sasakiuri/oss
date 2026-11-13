@@ -90,6 +90,7 @@ Live measurement is opt-in and uses only reviewed cases: set separate `NILAY_EVA
 ## Production deployment
 
 [News deployment](../../.github/workflows/news-deployment.yml) deploys pushes to `1.x` that change this package, shared configs, root npm files, or the workflow. It can also be run manually on `1.x`.
+After acquiring its serial lock, the deploy job refuses to apply changes if a newer run of the same workflow and branch exists, including cancelled or skipped runs. Rerun the newer run or start a new run instead of retrying an older deployment.
 A job without credentials runs the checks above. The deploy job then writes the ignored `wrangler.production.jsonc`, validates it, runs a dry run, applies D1 migrations, deploys the private feed Worker, and then deploys the main Worker with its service binding. Manual deployments must use the same order: `wrangler deploy --config wrangler.feeds.jsonc`, then `wrangler deploy --config wrangler.production.jsonc` (both with the same account). The feed Worker has no public/preview URL, database, API key, or external route. Existing settings and jobs require the `0002_auto_analyze` and `0003_automatic_jobs` migrations before API and scheduled initialization can succeed.
 
 Production uses the Worker's default [workers.dev](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/) URL, `https://nilay-news.<account subdomain>.workers.dev`. It needs no custom domain or Cloudflare zone.

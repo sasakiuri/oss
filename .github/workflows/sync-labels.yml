@@ -1,17 +1,12 @@
 name: Sync Labels
 
 on:
-  pull_request:
-    paths:
-      - .github/labels.json
-      - .github/workflows/sync-labels.yml
-      - packages/**
-  push:
-    branches: [1.x]
-    paths:
-      - .github/labels.json
-      - .github/workflows/sync-labels.yml
-      - packages/**
+  workflow_call:
+    inputs:
+      approval-inherited:
+        description: The caller gates this run with ci-approval.
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       prune:
@@ -28,6 +23,7 @@ concurrency:
 
 jobs:
   approval:
+    if: ${{ !inputs.approval-inherited }}
     runs-on: ubuntu-latest
     permissions: {}
     environment: ci-approval
@@ -37,7 +33,7 @@ jobs:
 
   preview:
     needs: approval
-    if: github.event_name == 'pull_request'
+    if: ${{ !cancelled() && (needs.approval.result == 'success' || (inputs.approval-inherited && needs.approval.result == 'skipped')) && (github.event_name == 'pull_request') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -55,9 +51,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
         run: node packages/repo-tooling/cli.mjs labels:sync --dry-run --prune
+
   sync:
     needs: approval
-    if: github.event_name != 'pull_request'
+    if: ${{ !cancelled() && (needs.approval.result == 'success' || (inputs.approval-inherited && needs.approval.result == 'skipped')) && (github.event_name != 'pull_request') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

@@ -1,8 +1,12 @@
 name: Cache Cleanup
 
 on:
-  pull_request:
-    types: [closed]
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: Closed pull request number whose caches should be removed
+        type: number
+        required: true
 
 permissions: {}
 
@@ -23,7 +27,9 @@ jobs:
     steps:
       - name: Cleanup caches for closed PR
         run: |
-          echo "Fetching list of cache keys for PR #${{ github.event.pull_request.number }}"
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo "Invalid PR number"; exit 1; }
+          BRANCH="refs/pull/$PR_NUMBER/merge"
+          echo "Fetching list of cache keys for PR #$PR_NUMBER"
           CACHE_KEYS=$(gh actions-cache list -R "$REPO" -B "$BRANCH" --limit 100 | cut -f 1)
 
           if [ -z "$CACHE_KEYS" ]; then
@@ -39,4 +45,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
-          BRANCH: refs/pull/${{ github.event.pull_request.number }}/merge
+          PR_NUMBER: ${{ inputs.pr-number }}

@@ -89,6 +89,8 @@ build, bundle sizes, types, lint, unused code, unit coverage, two browser shards
 and Lighthouse checks. It does not wait for other applications. The shared CI
 selection includes changes to this site and its dependencies; unrelated changes
 leave its application jobs skipped. The smoke workflow must exist on the default branch.
+Deployment events for other projects or non-production environments skip its approval
+and smoke jobs.
 It uses the default branch's verification script and reports its result on the
 deployed commit, without running source code supplied by the deployment event.
 Store this project's automation bypass secret as the GitHub Actions secret
@@ -322,8 +324,8 @@ links fail. Markdown reports are written to `.cache/links/internal.md` and
 rate limits and temporary network failures can resemble broken links.
 
 The `Knowledge content links` workflow checks local links on relevant pull
-requests. On its weekly schedule and manual runs, it also reports external
-failures in the workflow summary and artifacts without failing the job for dead
+requests through `ci.yml`. Manual runs, including calls from `periodic.yml`, also
+report external failures in the workflow summary and artifacts without failing the job for dead
 external links. Reports are retained for 30 days. Tests of actual lychee detection
 run when the binary is available, including in that workflow; otherwise those
 integration cases are skipped. `lint:links:prepare` generates the inputs alone
@@ -438,7 +440,7 @@ Representative `image` metadata accepts content-relative paths, root-relative
 `/content/...` assets, and HTTP(S) URLs without credentials. Local images must be
 regular files served by the content route; repository validation rejects missing,
 hidden or escaping assets with the source filename. Metadata-only images are also
-included in local and scheduled external link checks. Omitted images retain the
+included in local and manual external link checks. Omitted images retain the
 generated `/api/og/` fallback. Body image rendering follows its existing policy.
 
 A category first qualifies for a landing page with an editorial introduction and

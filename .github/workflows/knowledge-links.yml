@@ -1,26 +1,18 @@
 # cspell:words lycheeverse
 name: Knowledge content links
 on:
+  workflow_call:
+    inputs:
+      approval-inherited:
+        description: The caller gates this run with ci-approval.
+        type: boolean
+        default: true
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "packages/nilay-knowledge/content/**"
-      - "packages/nilay-knowledge/public/**"
-      - "packages/nilay-knowledge/app/**"
-      - "packages/nilay-knowledge/lib/content/**"
-      - "packages/nilay-knowledge/lib/config.ts"
-      - "packages/nilay-knowledge/scripts/*links*"
-      - "packages/nilay-knowledge/scripts/link-check.ts"
-      - "packages/nilay-knowledge/__tests__/scripts/link-check.test.ts"
-      - "packages/nilay-knowledge/lychee.toml"
-      - "packages/nilay-knowledge/package.json"
-      - "package-lock.json"
-      - ".github/actions/setup-node/action.yml"
-      - ".github/workflows/knowledge-links.yml"
 permissions:
   contents: read
 jobs:
   approval:
+    if: ${{ !inputs.approval-inherited }}
     runs-on: ubuntu-24.04
     permissions: {}
     environment: ci-approval
@@ -30,6 +22,7 @@ jobs:
 
   links:
     needs: approval
+    if: ${{ !cancelled() && (needs.approval.result == 'success' || (inputs.approval-inherited && needs.approval.result == 'skipped')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

@@ -22,6 +22,43 @@ const select = (files, packages = current, previous = packages) =>
 const names = (plan) =>
   plan.packages.map((item) => item.replace("@sasakiuri/", "")).sort();
 
+test("label and Knowledge link calls retain their previous path filters", () => {
+  for (const file of [
+    ".github/labels.json",
+    ".github/workflows/sync-labels.yml",
+    "packages/new/file.ts",
+  ])
+    assert.equal(select([file]).syncLabels, true, file);
+  for (const file of [
+    "packages/nilay-knowledge/content/article.md",
+    "packages/nilay-knowledge/public/icon.svg",
+    "packages/nilay-knowledge/app/page.tsx",
+    "packages/nilay-knowledge/lib/content/index.ts",
+    "packages/nilay-knowledge/lib/config.ts",
+    "packages/nilay-knowledge/scripts/check-links.ts",
+    "packages/nilay-knowledge/scripts/link-check.ts",
+    "packages/nilay-knowledge/__tests__/scripts/link-check.test.ts",
+    "packages/nilay-knowledge/lychee.toml",
+    "packages/nilay-knowledge/package.json",
+    "package-lock.json",
+    ".github/actions/setup-node/action.yml",
+    ".github/workflows/knowledge-links.yml",
+  ])
+    assert.equal(select([file]).knowledgeLinks, true, file);
+  for (const file of [
+    "README.md",
+    "packages/nilay-knowledge/lib/other.ts",
+    "packages/nilay-knowledge/scripts/nested/links.ts",
+  ])
+    assert.equal(select([file]).knowledgeLinks, false, file);
+  for (const file of [
+    "package-lock.json",
+    "README.md",
+    ".github/workflows/ci.yml",
+  ])
+    assert.equal(select([file]).syncLabels, false, file);
+});
+
 test("mainline, manual and scheduled checks cover every workspace even after cancelled runs", () => {
   const head = execFileSync("git", ["rev-parse", "HEAD"], {
     encoding: "utf8",
@@ -191,8 +228,7 @@ test("repository documentation and unrelated workflows skip package jobs", () =>
     "README.md",
     "docs/adr/example.md",
     ".github/settings.yml",
-    ".github/workflows/security.yml",
-    ".github/workflows/dependabot-auto-merge.yml",
+    ".github/workflows/scorecard.yml",
   ]);
   assert.deepEqual(plan.packages, []);
   assert.equal(plan.ci, false);
@@ -211,7 +247,6 @@ test("text and policy tooling changes do not rebuild applications", () => {
     "scripts/pre-release-check.test.mjs",
     "scripts/dependabot-policy.test.mjs",
     ".github/dependabot.yml",
-    ".github/workflows/dependabot-auto-merge.yml",
     ".textlintignore",
   ]) {
     const plan = select([file]);
@@ -269,7 +304,7 @@ test("News builds and tests remain on Linux", () => {
 
 test("infrastructure checks follow workflows, tools, shell and Docker inputs", () => {
   for (const file of [
-    ".github/workflows/codeql.yml",
+    ".github/workflows/periodic.yml",
     ".github/actions/setup-node/action.yml",
     ".github/actionlint.yaml",
     ".husky/pre-commit",
@@ -288,7 +323,7 @@ test("infrastructure checks follow workflows, tools, shell and Docker inputs", (
   assert.equal(plan.text, false);
   assert.equal(plan.ci, false);
   assert.equal(plan.docs, false);
-  assert.equal(select([".github/workflows/codeql.yml"]).text, false);
+  assert.equal(select([".github/workflows/periodic.yml"]).text, false);
 });
 
 test("text checks include configuration and dependency changes", () => {
@@ -392,6 +427,21 @@ test("Git selection covers multi-commit pushes, renames, new refs, and missing b
   git("commit", "-qm", "second");
   const head = git("rev-parse", "HEAD");
   assert.deepEqual(planForRevision(base, head, cwd).packages, ["one", "two"]);
+  const push = planForEvent("push", { before: base }, head, cwd);
+  assert.equal(push.syncLabels, true);
+  assert.equal(push.knowledgeLinks, false);
+  assert.deepEqual(push.packages, ["one", "three", "two"]);
+  const unchanged = planForEvent("push", { before: head }, head, cwd);
+  assert.equal(unchanged.syncLabels, false);
+  assert.equal(unchanged.knowledgeLinks, false);
+  put(".github/workflows/knowledge-links.yml", "name: links");
+  git("add", ".");
+  git("commit", "-qm", "link input");
+  const linkHead = git("rev-parse", "HEAD");
+  assert.equal(
+    planForEvent("push", { before: head }, linkHead, cwd).knowledgeLinks,
+    true,
+  );
   git("mv", "packages/one/content.md", "packages/three/content.md");
   git("commit", "-qm", "rename");
   const renamed = git("rev-parse", "HEAD");
@@ -405,6 +455,7 @@ test("Git selection covers multi-commit pushes, renames, new refs, and missing b
     "two",
   ]);
   assert.equal(planForRevision("0".repeat(40), renamed, cwd).text, true);
+  assert.equal(planForRevision("0".repeat(40), renamed, cwd).syncLabels, true);
   assert.equal(
     planForRevision("0".repeat(40), renamed, cwd).infrastructure,
     true,

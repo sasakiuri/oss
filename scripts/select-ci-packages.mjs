@@ -35,7 +35,6 @@ const textToolingInputs = new Set([
   "scripts/pre-release-check.test.mjs",
   "scripts/dependabot-policy.test.mjs",
   ".github/dependabot.yml",
-  ".github/workflows/dependabot-auto-merge.yml",
   ".textlintignore",
 ]);
 
@@ -47,6 +46,26 @@ const stableJson = (value) =>
         )
       : item,
   );
+
+// Keep these in sync with the former workflows' path filters.
+const syncLabelsChanged = (file) =>
+  file.startsWith("packages/") ||
+  [".github/labels.json", ".github/workflows/sync-labels.yml"].includes(file);
+const knowledgeLinksChanged = (file) =>
+  /^packages\/nilay-knowledge\/(?:content|public|app|lib\/content)\//.test(
+    file,
+  ) ||
+  /^packages\/nilay-knowledge\/scripts\/[^/]*links[^/]*$/.test(file) ||
+  [
+    "packages/nilay-knowledge/lib/config.ts",
+    "packages/nilay-knowledge/scripts/link-check.ts",
+    "packages/nilay-knowledge/__tests__/scripts/link-check.test.ts",
+    "packages/nilay-knowledge/lychee.toml",
+    "packages/nilay-knowledge/package.json",
+    "package-lock.json",
+    ".github/actions/setup-node/action.yml",
+    ".github/workflows/knowledge-links.yml",
+  ].includes(file);
 
 // Resolve installed locations, not package names: different consumers can use
 // different versions of the same dependency, including nested npm aliases.
@@ -317,6 +336,8 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
   const e2e = e2eMatrix(packages, os);
   return {
     text: all || text,
+    syncLabels: files.some(syncLabelsChanged),
+    knowledgeLinks: files.some(knowledgeLinksChanged),
     infrastructure,
     knip,
     ci: packages.length > 0,
@@ -390,6 +411,8 @@ export function planForRevision(base, head, cwd = process.cwd()) {
   if (/^0+$/.test(base)) {
     return {
       ...selectCiPackages(["package.json"], current, []),
+      syncLabels: true,
+      knowledgeLinks: true,
       infrastructure: true,
     };
   }
@@ -436,8 +459,12 @@ export function planForEvent(eventName, event, head, cwd = process.cwd()) {
     throw new Error(`Unsupported CI event: ${eventName}`);
   if (!/^[a-f0-9]{40}$/.test(head ?? ""))
     throw new Error("Expected an explicit head commit SHA.");
+  const changed =
+    eventName === "push" ? planForRevision(event.before, head, cwd) : undefined;
   return {
     ...selectCiPackages(["package.json"], readGitWorkspaces(head, cwd)),
+    syncLabels: changed?.syncLabels ?? false,
+    knowledgeLinks: changed?.knowledgeLinks ?? false,
     infrastructure: true,
     knip: true,
     reasons: [`Full verification for ${eventName}.`],

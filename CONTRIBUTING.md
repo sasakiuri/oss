@@ -121,10 +121,23 @@ see [the site development guide](docs/reference-nextjs.md#api-and-http-load-chec
 ### CI Scope
 
 Workflow runs require owner approval through the `ci-approval` environment before
-runners start. Reusable workflows inherit approval from their caller; direct Docs
-runs request their own approval. Scheduled Actions runs are disabled. Workflows
-that previously ran on a schedule can be started manually.
+runners start. Pull request checks share one approval in `ci.yml`, including
+CodeQL, Gitleaks, dependency review, title validation, OSV, and test reports.
+CI does not run for pull requests targeting `canary`.
+Reusable workflows inherit caller approval; direct manual runs request their own.
+Scheduled Actions runs are disabled. To run CodeQL, the full OSV scan, Knowledge
+content links, Docs deep quality, Stale Issues, and Lock Threads together, run
+`gh workflow run periodic.yml --ref 1.x`, then approve `ci-approval` in Actions.
+Scorecard and Docs monitoring remain separate workflows. Cache Cleanup is manual:
+run `gh workflow run cache-cleanup.yml --ref 1.x -f pr-number=123` for a closed PR.
 If approval is rejected, only aggregate jobs start runners to report failure.
+After taking their serial lock, News deployment and Version reject older runs when a
+newer run of the same workflow and branch exists, regardless of its conclusion.
+After cancelling a newer run, rerun that newer run or start a new run to proceed.
+
+Same-repository PRs are inside the trust boundary and can change workflow definitions
+and requested permissions. Fork PR tokens are read-only, and CI skips Labeler and
+Test Report for forks. Both write jobs require owner approval.
 
 CI selects changed workspaces and their transitive dependents from the workspace
 manifests, including development, peer, and optional dependencies. Package content
@@ -159,8 +172,13 @@ range. Change-based package selection applies to pull requests; mainline pushes
 and manual runs select all workspaces and infrastructure checks, including Actions security checks. Infrastructure checks run when workflows, Actions,
 shell scripts, Dockerfiles, their lint configuration, or the infrastructure lint
 tool change. Security checks remain enabled. `CI Required` rejects failed
-detection, failed applicable checks, and unexpected skips. The Changes job
-summary lists the selected packages, runners, E2E shards, and reasons for a
+detection, failed applicable checks, and unexpected skips. For pull requests to
+`1.x`, it also requires `Analyze (javascript-typescript)`, `gitleaks`,
+`dependency-review`, and `validate` to succeed; pushes require CodeQL and Gitleaks.
+Title validation reads the base branch policy and the current title from the API
+on PR open, reopen, and push; editing the title or body does not rerun CI.
+After fixing the title, rerun the failed `validate` job or push a new commit.
+The Changes job summary lists the selected packages, runners, E2E shards, and reasons for a
 shared or conservative selection.
 
 Shared package jobs build once per platform and pass their outputs in a tar
@@ -176,7 +194,10 @@ gates to succeed. It remains the repository merge gate; Vercel production checks
 use each site's own gate.
 
 Bundle size checks reuse the build job outputs. Test reports process existing
-CI artifacts while keeping separate platform and E2E suite reports.
+CI artifacts in the final CI job, even after test failures, while keeping separate
+platform and E2E suite reports. Cancelled runs and fork pull requests skip reports.
+Label updates are previewed on PRs and applied on `1.x` pushes when the label
+configuration, workflow, or package files change. Fork PRs skip the Labeler job.
 Docs runs API lint and a local production-server k6 smoke test in its dedicated
 workflow.
 
