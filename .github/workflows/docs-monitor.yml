@@ -1,12 +1,19 @@
 name: Docs static site monitoring
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "23 */6 * * *"
 permissions:
   contents: read
 jobs:
+  approval:
+    runs-on: ubuntu-24.04
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   monitor:
+    needs: approval
     if: vars.DOCS_MONITOR_URL != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 5

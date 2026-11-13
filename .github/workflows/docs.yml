@@ -2,6 +2,11 @@ name: Docs
 
 on:
   workflow_call:
+    inputs:
+      approval-inherited:
+        description: The caller gates this run with ci-approval.
+        type: boolean
+        default: true
     secrets:
       SENTRY_AUTH_TOKEN:
         required: false
@@ -11,7 +16,19 @@ permissions:
   contents: read
 
 jobs:
+  # This input exists only for workflow_call; direct runs must request approval.
+  approval:
+    if: ${{ !inputs.approval-inherited }}
+    runs-on: ubuntu-24.04
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   validate:
+    if: ${{ !cancelled() && (needs.approval.result == 'success' || (inputs.approval-inherited && needs.approval.result == 'skipped')) }}
+    needs: approval
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:

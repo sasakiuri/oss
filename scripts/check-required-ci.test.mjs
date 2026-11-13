@@ -77,6 +77,7 @@ test("workflow output names and aggregate dependencies carry real plans to the g
       bindings.map(([, name, source]) => [name, JSON.stringify(plan[source])]),
     );
     const applicable = {
+      approval: true,
       changes: true,
       repository: true,
       text: plan.text,
@@ -148,6 +149,7 @@ function needsFor({
   const os = runnersFor(selected);
   const matrix = e2eMatrix(selected, os);
   return {
+    approval: { result: "success" },
     repository: { result: "success" },
     changes: {
       result: "success",
@@ -442,17 +444,31 @@ test("site workflows and production gates do not wait for shared application job
   );
   for (const site of ["knowledge", "about"]) {
     const job = workflow.split(`\n  ${site}:\n`)[1].split(/\n  [\w-]+:\n/)[0];
-    assert.match(job, /needs: changes/);
+    assert.match(job, /needs: \[approval, changes\]/);
     assert.match(job, /uses: \.\/\.github\/workflows\/web-ci\.yml/);
     assert.ok(job.includes(`application: nilay-${site}`));
     const gate = workflow
       .split(`\n  ${site}-required:\n`)[1]
       .split(/\n  [\w-]+:\n/)[0];
-    assert.ok(gate.includes(`needs: [changes, ${site}]`));
+    assert.ok(gate.includes(`needs: [approval, changes, ${site}]`));
     assert.ok(gate.includes(`node scripts/check-required-ci.mjs ${site}`));
     assert.ok(gate.includes("if: ${{ always() }}"));
   }
   assert.match(shared, /shard: \[1, 2\]/);
   assert.match(shared, /test:e2e --shard "\$E2E_SHARD"/);
   assert.doesNotMatch(shared, /windows-latest|macos-latest/);
+});
+
+test("owner approval is required even when every applicable check succeeds", () => {
+  for (const result of ["failure", "cancelled", "skipped", undefined]) {
+    const needs = needsFor({ knowledge: true, about: true });
+    needs.approval = { result };
+    assert.equal(requiredChecksPass(needs), false);
+    for (const site of ["knowledge", "about"])
+      assert.equal(siteChecksPass(needs, site), false);
+  }
+  const needs = needsFor();
+  delete needs.approval;
+  assert.equal(requiredChecksPass(needs), false);
+  assert.equal(siteChecksPass(needs, "knowledge"), false);
 });

@@ -3,15 +3,23 @@ name: Scorecard
 on:
   push:
     branches: [1.x]
-  schedule:
-    - cron: "0 20 * * 0"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  # Keep approval outside the publishing job: only that job may write an ID token.
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   scorecard:
+    needs: approval
     runs-on: ubuntu-latest
     # Scorecard only accepts published results when write permissions are job-scoped.
     permissions:

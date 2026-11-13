@@ -12,7 +12,16 @@ concurrency:
 permissions: {}
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   version:
+    needs: approval
     runs-on: ubuntu-latest
     permissions:
       contents: write

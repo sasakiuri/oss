@@ -12,7 +12,16 @@ concurrency:
 permissions: {}
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   publish:
+    needs: approval
     if: github.ref == 'refs/heads/1.x'
     runs-on: ubuntu-latest
     permissions:

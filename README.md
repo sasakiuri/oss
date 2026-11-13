@@ -83,6 +83,10 @@ before returning to Electron development or E2E tests. See
 
 ## Documentation
 
+GitHub Actions runs require owner approval before runners start. Scheduled runs
+are disabled; workflows that previously ran on a schedule can still be started manually.
+If approval is rejected, only aggregate jobs start runners to report failure.
+
 - [Saika Lane README](packages/saika-lane/) -- detailed setup, architecture, and usage
 - [Saika Director README](packages/saika-director/) -- Director setup and MQTT control workflow
 - [Saika Vista README](packages/saika-vista/) -- spectator screen setup and operation

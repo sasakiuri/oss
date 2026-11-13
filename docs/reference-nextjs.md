@@ -58,7 +58,7 @@ Regenerate the Japanese font subset after content generation, following [the fon
 
 Static output includes per-page CSP hashes, a Service Worker, an SPDX file inventory, and a SHA-256 manifest. Integrity checks detect files changed, added, or deleted after verification. The Service Worker caches only published static documents and assets.
 
-After publishing the static site, set the repository variable `DOCS_MONITOR_URL` to its public URL to enable scheduled monitoring. Checks cover certificate expiry, documents, the manifest, RSS, and the Service Worker.
+After publishing the static site, set the repository variable `DOCS_MONITOR_URL` to its public URL to enable monitoring. Monitoring runs manually through the `Docs static site monitoring` workflow and requires owner approval. Scheduled monitoring is disabled. Checks cover certificate expiry, documents, the manifest, RSS, and the Service Worker.
 
 PDF generation recreates the output directory. Distribution archives require coverage, browser, Storybook, and Lighthouse reports generated from the same source. Stale or missing results cannot be reused. The manual distribution workflow in CI can generate these in sequence. The PDF container includes WeasyPrint, Pandoc, Tectonic, and Graphviz.
 

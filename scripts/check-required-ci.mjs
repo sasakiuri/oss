@@ -11,6 +11,7 @@ import {
 
 export function requiredChecksPass(needs, workspaces) {
   if (!needs || typeof needs !== "object") return false;
+  if (needs.approval?.result !== "success") return false;
   if (needs.changes?.result !== "success") return false;
   const outputs = needs.changes.outputs;
   if (
@@ -99,6 +100,7 @@ export function requiredChecksPass(needs, workspaces) {
 }
 export function siteChecksPass(needs, site) {
   if (!["knowledge", "about"].includes(site)) return false;
+  if (needs?.approval?.result !== "success") return false;
   if (needs?.changes?.result !== "success") return false;
   const enabled = needs.changes.outputs?.[site];
   return (

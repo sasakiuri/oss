@@ -1,12 +1,11 @@
 name: CodeQL
 
 on:
+  workflow_dispatch:
   push:
     branches: [1.x]
   pull_request:
     branches: [1.x]
-  schedule:
-    - cron: "0 18 * * 0"
 
 concurrency:
   group: codeql-${{ github.event_name }}-${{ github.ref }}
@@ -16,7 +15,16 @@ permissions:
   contents: read
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   analyze:
+    needs: approval
     permissions:
       security-events: write
       contents: read

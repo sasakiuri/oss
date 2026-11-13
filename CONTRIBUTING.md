@@ -120,6 +120,12 @@ see [the site development guide](docs/reference-nextjs.md#api-and-http-load-chec
 
 ### CI Scope
 
+Workflow runs require owner approval through the `ci-approval` environment before
+runners start. Reusable workflows inherit approval from their caller; direct Docs
+runs request their own approval. Scheduled Actions runs are disabled. Workflows
+that previously ran on a schedule can be started manually.
+If approval is rejected, only aggregate jobs start runners to report failure.
+
 CI selects changed workspaces and their transitive dependents from the workspace
 manifests, including development, peer, and optional dependencies. Package content
 and assets also count as changes. For example, a Lane change tests Lane, while a
@@ -132,8 +138,8 @@ projects and shards on Linux. Other packages use Linux unless selected alongside
 Electron applications. Knowledge and About use the reusable `web-ci.yml` workflow
 with separate application jobs and production gates (`Knowledge CI Required` and
 `About CI Required`). Their checks are excluded from the shared package jobs.
-Each production gate depends only on change detection and its own application
-workflow; a failed, cancelled or unexpectedly skipped application cannot pass it.
+Each production gate depends only on owner approval, change detection, and its own
+application workflow; a failed, cancelled or unexpectedly skipped application cannot pass it.
 Saika Docs keeps its dedicated quality workflow. Changes to the npm v3 lockfile
 select consumers of the changed installed dependency entries, following both the
 previous and current dependency
@@ -149,9 +155,8 @@ only the affected applications and their dependents run their normal checks.
 
 Repository formatting, CSS, document links, spelling, and tooling tests run
 on every CI invocation. Pull requests also validate every commit in the PR
-range. Change-based package selection applies to pull requests; mainline pushes,
-manual runs, and the weekly schedule select all workspaces and infrastructure
-checks, including Actions security checks. Infrastructure checks run when workflows, Actions,
+range. Change-based package selection applies to pull requests; mainline pushes
+and manual runs select all workspaces and infrastructure checks, including Actions security checks. Infrastructure checks run when workflows, Actions,
 shell scripts, Dockerfiles, their lint configuration, or the infrastructure lint
 tool change. Security checks remain enabled. `CI Required` rejects failed
 detection, failed applicable checks, and unexpected skips. The Changes job

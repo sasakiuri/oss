@@ -14,7 +14,16 @@ permissions:
   contents: read
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   gitleaks:
+    needs: approval
     permissions:
       contents: read
       security-events: write
