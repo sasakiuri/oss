@@ -16,7 +16,7 @@ jobs:
         with:
           persist-credentials: false
           path: consumer
-          fetch-depth: 0
+          fetch-depth: ${{ github.event_name == 'pull_request' && '0' || '1' }}
       - name: Checkout shared tooling
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -33,15 +33,30 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ steps.runtime.outputs.node }}
-          cache: npm
-          cache-dependency-path: |
-            oss/package-lock.json
-            consumer/package-lock.json
       - name: Install upstream package manager
         uses: ./oss/.github/actions/setup-npm
+      # With lifecycle scripts disabled, the same lockfile and runtime reproduce
+      # the installed tree, including workspace-local node_modules.
+      - name: Cache upstream tools
+        id: upstream-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            oss/node_modules
+            oss/packages/*/node_modules
+          key: consumer-ci-tools-${{ runner.os }}-${{ runner.arch }}-node-${{ steps.runtime.outputs.node }}-npm-${{ steps.runtime.outputs.npm }}-${{ hashFiles('oss/package-lock.json') }}
       - name: Install upstream tools
         working-directory: oss
-        run: npm ci --ignore-scripts
+        env:
+          CACHE_HIT: ${{ steps.upstream-cache.outputs.cache-hit }}
+        run: |
+          if [ "$CACHE_HIT" = true ] &&
+            test -f node_modules/.package-lock.json &&
+            node packages/repo-tooling/cli.mjs run eslint --version; then
+            echo "Using cached upstream tools"
+          else
+            npm ci --ignore-scripts
+          fi
       - name: Install consumer dependencies
         working-directory: consumer
         run: node ../oss/packages/repo-tooling/cli.mjs install --ci
