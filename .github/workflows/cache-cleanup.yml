@@ -7,7 +7,16 @@ on:
 permissions: {}
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   cleanup:
+    needs: approval
     permissions:
       actions: write
     runs-on: ubuntu-latest

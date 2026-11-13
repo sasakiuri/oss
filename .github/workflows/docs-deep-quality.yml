@@ -1,12 +1,19 @@
 name: Docs deep quality
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "23 18 * * 0"
 permissions:
   contents: read
 jobs:
+  approval:
+    runs-on: ubuntu-24.04
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   deterministic:
+    needs: approval
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:

@@ -16,7 +16,16 @@ concurrency:
 permissions: {}
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   dependabot:
+    needs: approval
     permissions:
       contents: write
       pull-requests: write

@@ -1,12 +1,11 @@
 name: Security
 
 on:
+  workflow_dispatch:
   push:
     branches: [1.x]
   pull_request:
     branches: [1.x]
-  schedule:
-    - cron: "0 16 * * 0"
 
 concurrency:
   group: security-${{ github.ref }}
@@ -17,8 +16,17 @@ permissions:
   contents: read
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   osv-scan-push:
-    if: github.event_name == 'push' || github.event_name == 'schedule'
+    needs: approval
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
       actions: read
       contents: read
@@ -30,6 +38,7 @@ jobs:
         ./
 
   osv-scan-pr:
+    needs: approval
     if: github.event_name == 'pull_request'
     permissions:
       actions: read

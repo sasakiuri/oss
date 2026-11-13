@@ -203,16 +203,27 @@ const workflow = yaml.load(
   readFileSync(new URL("scheduled-failure-alert.yml", directory), "utf8"),
 );
 
-test("the alert workflow watches exactly all workflows declaring schedule triggers", () => {
-  const scheduled = readdirSync(directory)
+test("the alert workflow retains coverage for completed historical scheduled runs", () => {
+  const names = readdirSync(directory)
     .filter((file) => /\.ya?ml$/.test(file))
     .map((file) => yaml.load(readFileSync(new URL(file, directory), "utf8")))
-    .filter((entry) => Object.hasOwn(entry.on ?? {}, "schedule"))
     .map((entry) => entry.name);
   assert.deepEqual(
     [...workflow.on.workflow_run.workflows].sort(),
-    [...new Set(scheduled)].sort(),
+    [
+      "CI",
+      "CodeQL",
+      "Docs deep quality",
+      "Docs static site monitoring",
+      "Knowledge content links",
+      "Lock Threads",
+      "Scorecard",
+      "Security",
+      "Stale Issues",
+    ].sort(),
   );
+  for (const name of workflow.on.workflow_run.workflows)
+    assert.ok(names.includes(name), name);
 });
 
 test("the privileged workflow only executes trusted branch code and passes run data through env", () => {

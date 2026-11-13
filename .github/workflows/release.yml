@@ -12,7 +12,16 @@ concurrency:
 permissions: {}
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   preflight:
+    needs: approval
     name: Preflight Checks
     runs-on: ubuntu-latest
     permissions:
@@ -107,7 +116,7 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
-    needs: preflight
+    needs: [approval, preflight]
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -310,7 +319,7 @@ jobs:
 
   create-release:
     name: Publish GitHub Release
-    needs: build
+    needs: [approval, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write

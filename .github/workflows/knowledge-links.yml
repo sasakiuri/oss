@@ -2,8 +2,6 @@
 name: Knowledge content links
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "37 19 * * 0"
   pull_request:
     paths:
       - "packages/nilay-knowledge/content/**"
@@ -22,7 +20,16 @@ on:
 permissions:
   contents: read
 jobs:
+  approval:
+    runs-on: ubuntu-24.04
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   links:
+    needs: approval
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

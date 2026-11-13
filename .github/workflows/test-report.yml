@@ -9,7 +9,16 @@ on:
 permissions: {}
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   report:
+    needs: approval
     permissions:
       contents: read
       checks: write

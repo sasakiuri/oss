@@ -10,12 +10,22 @@ on:
         description: Successful Docs workflow run ID
         required: true
         type: number
+# Only the workload inherits these permissions; approval explicitly grants none.
 permissions:
   contents: read
   actions: read
-  pull-requests: write
+  pull-requests: write # zizmor: ignore[excessive-permissions]
 jobs:
+  approval:
+    runs-on: ubuntu-24.04
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   comment:
+    needs: approval
     runs-on: ubuntu-24.04
     steps:
       - name: Link the verified report run

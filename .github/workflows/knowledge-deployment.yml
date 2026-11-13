@@ -14,7 +14,16 @@ permissions:
   contents: read
 
 jobs:
+  approval:
+    runs-on: ubuntu-24.04
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   smoke:
+    needs: approval
     name: Knowledge deployment smoke
     if: >-
       github.event_name == 'workflow_dispatch' ||

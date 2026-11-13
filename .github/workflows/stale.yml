@@ -1,15 +1,24 @@
 name: Stale Issues
 
 on:
-  schedule:
-    - cron: "0 0 * * *"
+  workflow_dispatch:
 
+# Only the workload inherits these permissions; approval explicitly grants none.
 permissions:
-  issues: write
-  pull-requests: write
+  issues: write # zizmor: ignore[excessive-permissions]
+  pull-requests: write # zizmor: ignore[excessive-permissions]
 
 jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
   stale:
+    needs: approval
     runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9
