@@ -40,7 +40,7 @@ jobs:
       - name: Verify workflow approval policy
         run: node --test scripts/workflow-approval.test.mjs
       - name: Validate shared tooling
-        run: node --test packages/repo-tooling/tests/*.test.mjs packages/eslint-config/tests/*.test.mjs
+        run: node --test packages/repo-tooling/tests/*.test.mjs packages/eslint-config/tests/*.test.mjs scripts/run-e2e-ci.test.mjs
       - name: Test npm bootstrap and latest-run guard
         run: node --test scripts/npm-runtime.test.mjs scripts/require-latest-run.test.mjs
       - name: Check formatting, styles, and repository documentation
@@ -322,11 +322,11 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   e2e:
-    name: E2E (${{ matrix.package }}, ${{ matrix.os }}, ${{ matrix.shard }}/${{ matrix.shards }})
+    name: E2E (${{ matrix.os }}, group ${{ strategy.job-index }})
     runs-on: ${{ matrix.os }}
     needs: [approval, changes, build]
     if: needs.changes.outputs.e2e == 'true'
-    timeout-minutes: 30
+    timeout-minutes: ${{ matrix.timeoutMinutes }}
     permissions:
       contents: read
     strategy:
@@ -334,9 +334,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.e2eMatrix) }}
     env:
-      CI_PACKAGES_JSON: ${{ format('["{0}"]', matrix.package) }}
-      E2E_PACKAGE: ${{ matrix.package }}
-      E2E_SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+      CI_E2E_SUITES_JSON: ${{ toJSON(matrix.suites) }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
@@ -352,24 +350,46 @@ jobs:
         run: tar -xf build-output.tar
       # npm ci has already rebuilt native modules for Electron in this fresh job.
       - name: Install browser dependencies
-        if: matrix.installBrowsers
+        if: matrix.suites[0].installBrowsers
         shell: bash
+        env:
+          E2E_PACKAGE: ${{ matrix.suites[0].package }}
         run: npm run test:install --workspace="$E2E_PACKAGE"
       - name: E2E tests (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run -a npm run ci:packages -- test:e2e --shard "$E2E_SHARD"
+        run: xvfb-run -a bash scripts/run-e2e-ci.sh
       - name: E2E tests (other platforms)
         if: runner.os != 'Linux'
         shell: bash
-        run: npm run ci:packages -- test:e2e --shard "$E2E_SHARD"
-      - name: Upload Playwright reports
-        if: always()
+        run: bash scripts/run-e2e-ci.sh
+      - name: Upload Playwright reports (suite 1)
+        if: always() && matrix.suites[0].package != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: playwright-${{ strategy.job-index }}-${{ matrix.os }}
+          name: playwright-${{ matrix.suites[0].suite }}-${{ matrix.os }}
           path: |
-            ${{ matrix.directory }}/playwright-report/
-            ${{ matrix.directory }}/test-results/
+            ${{ matrix.suites[0].directory }}/playwright-report/
+            ${{ matrix.suites[0].directory }}/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload Playwright reports (suite 2)
+        if: always() && matrix.suites[1].package != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-${{ matrix.suites[1].suite }}-${{ matrix.os }}
+          path: |
+            ${{ matrix.suites[1].directory }}/playwright-report/
+            ${{ matrix.suites[1].directory }}/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Upload Playwright reports (suite 3)
+        if: always() && matrix.suites[2].package != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-${{ matrix.suites[2].suite }}-${{ matrix.os }}
+          path: |
+            ${{ matrix.suites[2].directory }}/playwright-report/
+            ${{ matrix.suites[2].directory }}/test-results/
           if-no-files-found: ignore
           retention-days: 7
 

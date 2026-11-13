@@ -8,6 +8,7 @@ import { test } from "node:test";
 
 import {
   affectedByLockfile,
+  e2eMatrix,
   platformRunners,
   planForRevision,
   planForEvent,
@@ -59,11 +60,11 @@ test("label and Knowledge link calls retain their previous path filters", () => 
     assert.equal(select([file]).syncLabels, false, file);
 });
 
-test("mainline, manual and scheduled checks cover every workspace even after cancelled runs", () => {
+test("manual and scheduled checks cover every workspace even after cancelled runs", () => {
   const head = execFileSync("git", ["rev-parse", "HEAD"], {
     encoding: "utf8",
   }).trim();
-  for (const event of ["push", "workflow_dispatch", "schedule"]) {
+  for (const event of ["workflow_dispatch", "schedule"]) {
     const plan = planForEvent(event, { before: head }, head);
     assert.equal(plan.docs, true);
     assert.equal(plan.knowledge, true);
@@ -101,6 +102,41 @@ test("an application change selects only that application", () => {
     "windows-latest",
     "macos-latest",
   ]);
+});
+
+test("a zero-before push enables every full-verification scope", () => {
+  const head = execFileSync("git", ["rev-parse", "HEAD"], {
+    encoding: "utf8",
+  }).trim();
+  const plan = planForEvent("push", { before: "0".repeat(40) }, head);
+  const dedicated = ["saika-docs", "nilay-knowledge", "nilay-about"].map(name);
+  assert.deepEqual(
+    plan.packages,
+    current
+      .filter((pkg) => !dedicated.includes(pkg.name))
+      .map((pkg) => pkg.name)
+      .sort(),
+  );
+  for (const flag of [
+    "text",
+    "infrastructure",
+    "knip",
+    "ci",
+    "build",
+    "docs",
+    "electron",
+    "knowledge",
+    "about",
+    "e2e",
+  ])
+    assert.equal(plan[flag], true, flag);
+  assert.deepEqual(plan.os, [
+    "ubuntu-latest",
+    "windows-latest",
+    "macos-latest",
+  ]);
+  assert.equal(plan.e2eMatrix.length, 4);
+  assert.equal(plan.e2eMatrix.flatMap((job) => job.suites).length, 10);
 });
 
 test("shared libraries select their transitive consumers", () => {
@@ -290,12 +326,20 @@ test("News builds and tests remain on Linux", () => {
     assert.deepEqual(plan.e2eMatrix, [
       {
         os: "ubuntu-latest",
-        package: name(app),
-        directory: `packages/${app}`,
-        shard: 1,
-        shards: 1,
         electron: false,
-        installBrowsers: true,
+        timeoutMinutes: 30,
+        suites: [
+          {
+            os: "ubuntu-latest",
+            suite: 0,
+            package: name(app),
+            directory: `packages/${app}`,
+            shard: 1,
+            shards: 1,
+            electron: false,
+            installBrowsers: true,
+          },
+        ],
       },
     ]);
     assert.ok(plan.e2eMatrix.every((row) => row.os === "ubuntu-latest"));
@@ -430,8 +474,13 @@ test("Git selection covers multi-commit pushes, renames, new refs, and missing b
   const push = planForEvent("push", { before: base }, head, cwd);
   assert.equal(push.syncLabels, true);
   assert.equal(push.knowledgeLinks, false);
-  assert.deepEqual(push.packages, ["one", "three", "two"]);
+  assert.deepEqual(push, planForRevision(base, head, cwd));
+  assert.deepEqual(push.packages, ["one", "two"]);
+  assert.equal(push.infrastructure, false);
+  assert.equal(push.knip, false);
   const unchanged = planForEvent("push", { before: head }, head, cwd);
+  assert.deepEqual(unchanged, planForRevision(head, head, cwd));
+  assert.equal(unchanged.ci, false);
   assert.equal(unchanged.syncLabels, false);
   assert.equal(unchanged.knowledgeLinks, false);
   put(".github/workflows/knowledge-links.yml", "name: links");
@@ -465,6 +514,18 @@ test("Git selection covers multi-commit pushes, renames, new refs, and missing b
     /explicit base/,
   );
   assert.throws(() => planForRevision("f".repeat(40), renamed, cwd));
+  const initialPush = planForEvent(
+    "push",
+    { before: "0".repeat(40) },
+    renamed,
+    cwd,
+  );
+  assert.deepEqual(initialPush.packages, ["one", "three", "two"]);
+  assert.equal(initialPush.infrastructure, true);
+  assert.equal(initialPush.knip, true);
+  assert.equal(initialPush.e2e, false); // These fixture packages have no E2E script.
+  for (const before of [undefined, "f".repeat(40)])
+    assert.throws(() => planForEvent("push", { before }, renamed, cwd));
   put("package.json", JSON.stringify({ workspaces: ["apps/*"] }));
   git("add", ".");
   git("commit", "-qm", "unsupported layout");
@@ -626,16 +687,15 @@ test("shared CI keeps web apps on Linux while retaining other platform checks", 
       ),
     );
   }
-  const knowledge = plan.e2eMatrix.filter(
+  const suites = plan.e2eMatrix.flatMap((row) => row.suites);
+  const knowledge = suites.filter(
     (row) => row.package === name("nilay-knowledge"),
   );
   assert.equal(knowledge.length, 0);
-  const about = plan.e2eMatrix.filter(
-    (row) => row.package === name("nilay-about"),
-  );
+  const about = suites.filter((row) => row.package === name("nilay-about"));
   assert.equal(about.length, 0);
   for (const os of platformRunners) {
-    const lane = plan.e2eMatrix.filter(
+    const lane = suites.filter(
       (row) => row.package === name("saika-lane") && row.os === os,
     );
     assert.equal(lane.length, 1);
@@ -645,4 +705,72 @@ test("shared CI keeps web apps on Linux while retaining other platform checks", 
   assert.equal(plan.e2e, true);
   assert.equal(plan.knowledge, true);
   assert.equal(plan.about, true);
+});
+
+test("Electron E2E shares setup per OS and preserves every suite and artifact index", () => {
+  const packages = current
+    .filter((pkg) =>
+      ["nilay-news", "saika-director", "saika-lane", "saika-vista"]
+        .map(name)
+        .includes(pkg.name),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const jobs = e2eMatrix(packages, platformRunners);
+  assert.equal(jobs.length, 4);
+  const suites = jobs
+    .flatMap((job) => job.suites)
+    .sort((a, b) => a.suite - b.suite);
+  assert.deepEqual(
+    suites.map(({ package: pkg, os, shard, shards, suite }) => [
+      pkg,
+      os,
+      shard,
+      shards,
+      suite,
+    ]),
+    packages.flatMap((pkg, index) =>
+      (index === 0 ? ["ubuntu-latest"] : platformRunners).map(
+        (os, runnerIndex) => [
+          pkg.name,
+          os,
+          1,
+          1,
+          index === 0 ? 0 : 1 + (index - 1) * 3 + runnerIndex,
+        ],
+      ),
+    ),
+  );
+  for (const os of platformRunners) {
+    const job = jobs.find((row) => row.os === os && row.electron);
+    assert.equal(job.suites.length, 3);
+    assert.equal(job.timeoutMinutes, 90);
+  }
+  const news = jobs.find((row) => !row.electron);
+  assert.equal(news.os, "ubuntu-latest");
+  assert.equal(news.suites.length, 1);
+  assert.equal(news.suites[0].installBrowsers, true);
+  assert.equal(news.timeoutMinutes, 30);
+  assert.equal(
+    e2eMatrix(
+      packages.filter((pkg) => pkg.name === name("saika-lane")),
+      platformRunners,
+    ).length,
+    3,
+  );
+  assert.deepEqual(e2eMatrix([], ["ubuntu-latest"]), []);
+});
+
+test("browser shard jobs remain separate", () => {
+  const jobs = e2eMatrix(
+    current.filter((pkg) =>
+      ["nilay-knowledge", "nilay-about"].map(name).includes(pkg.name),
+    ),
+    platformRunners,
+  );
+  assert.equal(jobs.length, 4);
+  for (const job of jobs) {
+    assert.equal(job.suites.length, 1);
+    assert.equal(job.os, "ubuntu-latest");
+    assert.equal(job.suites[0].shards, 2);
+  }
 });
