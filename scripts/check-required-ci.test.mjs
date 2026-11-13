@@ -521,3 +521,84 @@ test("owner approval is required even when every applicable check succeeds", () 
   assert.equal(requiredChecksPass(needs), false);
   assert.equal(siteChecksPass(needs, "knowledge"), false);
 });
+
+test("push uses the same applicable checks as PR and rejects missing grouped E2E", () => {
+  const packages = readGitWorkspaces("HEAD");
+  for (const file of [
+    "README.md",
+    "knip.config.ts",
+    "packages/saika-protocol/src/index.ts",
+    "packages/saika-lane/src/main.ts",
+    "packages/nilay-news/package.json",
+  ]) {
+    const plan = selectCiPackages([file], packages);
+    const applicable = {
+      approval: true,
+      analyze: true,
+      gitleaks: true,
+      "dependency-review": true,
+      validate: true,
+      repository: true,
+      changes: true,
+      text: plan.text,
+      infrastructure: plan.infrastructure,
+      knip: plan.knip,
+      lint: plan.ci || plan.knowledge || plan.about,
+      build: plan.build,
+      unit: plan.build,
+      e2e: plan.e2e,
+      docs: plan.docs,
+      knowledge: plan.knowledge,
+      about: plan.about,
+      "knowledge-required": true,
+      "about-required": true,
+    };
+    const needs = Object.fromEntries(
+      Object.entries(applicable).map(([key, enabled]) => [
+        key,
+        { result: enabled ? "success" : "skipped" },
+      ]),
+    );
+    needs.changes.outputs = Object.fromEntries(
+      Object.entries(plan).map(([key, value]) => [key, JSON.stringify(value)]),
+    );
+    for (const event of [
+      { name: "push", ref: "refs/heads/1.x" },
+      { name: "pull_request", base: "1.x" },
+    ]) {
+      assert.equal(check(needs, packages, event), true, file);
+      for (const [id, enabled] of Object.entries(applicable)) {
+        if (
+          !enabled ||
+          (event.name === "push" &&
+            ["dependency-review", "validate"].includes(id))
+        )
+          continue;
+        for (const result of ["failure", "cancelled", "skipped", undefined])
+          assert.equal(
+            check(
+              { ...needs, [id]: { ...needs[id], result } },
+              packages,
+              event,
+            ),
+            false,
+            `${file}/${event.name}/${id}/${result}`,
+          );
+      }
+      if (plan.e2e) {
+        for (const corrupt of [
+          [],
+          plan.e2eMatrix.slice(1),
+          plan.e2eMatrix.map((job) => ({
+            ...job,
+            suites: job.suites.slice(1),
+          })),
+        ]) {
+          const modified = structuredClone(needs);
+          modified.changes.outputs.e2eMatrix = JSON.stringify(corrupt);
+          assert.equal(check(modified, packages, event), false, file);
+        }
+      }
+    }
+  }
+});

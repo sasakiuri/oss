@@ -196,23 +196,51 @@ export function packageMatrix(packages, runners) {
 }
 
 export function e2eMatrix(packages, runners) {
-  return packages.flatMap((pkg) =>
-    !pkg.scripts?.["test:e2e"]
-      ? []
-      : runners.flatMap((os) => {
-          if (!runsOn(pkg, os)) return [];
-          const shards = [knowledgeName, aboutName].includes(pkg.name) ? 2 : 1;
-          return Array.from({ length: shards }, (_, index) => ({
-            package: pkg.name,
-            directory: pkg.directory,
-            os,
-            shard: index + 1,
-            shards,
-            electron: usesElectron(pkg),
-            installBrowsers: Boolean(pkg.scripts?.["test:install"]),
-          }));
-        }),
-  );
+  const suites = packages
+    .flatMap((pkg) =>
+      !pkg.scripts?.["test:e2e"]
+        ? []
+        : runners.flatMap((os) => {
+            if (!runsOn(pkg, os)) return [];
+            const shards = [knowledgeName, aboutName].includes(pkg.name)
+              ? 2
+              : 1;
+            return Array.from({ length: shards }, (_, index) => ({
+              package: pkg.name,
+              directory: pkg.directory,
+              os,
+              shard: index + 1,
+              shards,
+              electron: usesElectron(pkg),
+              installBrowsers: Boolean(pkg.scripts?.["test:install"]),
+            }));
+          }),
+    )
+    .map((suite, index) => ({ ...suite, suite: index }));
+  const jobs = [];
+  for (const suite of suites) {
+    let job = suite.electron
+      ? jobs.find((row) => row.electron && row.os === suite.os)
+      : undefined;
+    if (!job) {
+      job = {
+        os: suite.os,
+        electron: suite.electron,
+        suites: [],
+        timeoutMinutes: 0,
+      };
+      jobs.push(job);
+    }
+    job.suites.push(suite);
+    // Retain each former job's 30-minute budget for sequential execution.
+    job.timeoutMinutes += 30;
+    // The workflow has three upload slots, one per current Electron application.
+    if (job.suites.length > 3)
+      throw new Error(
+        "Add E2E artifact upload slots before grouping more than three suites.",
+      );
+  }
+  return jobs;
 }
 
 export function selectCiPackages(files, current, previous = current, lockfile) {
@@ -414,6 +442,7 @@ export function planForRevision(base, head, cwd = process.cwd()) {
       syncLabels: true,
       knowledgeLinks: true,
       infrastructure: true,
+      knip: true,
     };
   }
   const previous = readGitWorkspaces(base, cwd);
@@ -455,16 +484,15 @@ export function planForRevision(base, head, cwd = process.cwd()) {
 export function planForEvent(eventName, event, head, cwd = process.cwd()) {
   if (eventName === "pull_request")
     return planForRevision(event.pull_request?.base?.sha, head, cwd);
-  if (!["push", "workflow_dispatch", "schedule"].includes(eventName))
+  if (eventName === "push") return planForRevision(event.before, head, cwd);
+  if (!["workflow_dispatch", "schedule"].includes(eventName))
     throw new Error(`Unsupported CI event: ${eventName}`);
   if (!/^[a-f0-9]{40}$/.test(head ?? ""))
     throw new Error("Expected an explicit head commit SHA.");
-  const changed =
-    eventName === "push" ? planForRevision(event.before, head, cwd) : undefined;
   return {
     ...selectCiPackages(["package.json"], readGitWorkspaces(head, cwd)),
-    syncLabels: changed?.syncLabels ?? false,
-    knowledgeLinks: changed?.knowledgeLinks ?? false,
+    syncLabels: false,
+    knowledgeLinks: false,
     infrastructure: true,
     knip: true,
     reasons: [`Full verification for ${eventName}.`],

@@ -85,10 +85,10 @@ export function requiredChecksPass(needs, workspaces, event) {
       ),
     );
     if (build !== expectedBuild) return false;
-    const expectedMatrix = e2eMatrix(selected, os);
+    const expectedE2eJobs = e2eMatrix(selected, os);
     if (
-      e2e !== expectedMatrix.length > 0 ||
-      outputs.e2eMatrix !== JSON.stringify(expectedMatrix)
+      e2e !== expectedE2eJobs.length > 0 ||
+      outputs.e2eMatrix !== JSON.stringify(expectedE2eJobs)
     )
       return false;
   } catch {

@@ -168,8 +168,11 @@ only the affected applications and their dependents run their normal checks.
 
 Repository formatting, CSS, document links, spelling, and tooling tests run
 on every CI invocation. Pull requests also validate every commit in the PR
-range. Change-based package selection applies to pull requests; mainline pushes
-and manual runs select all workspaces and infrastructure checks, including Actions security checks. Infrastructure checks run when workflows, Actions,
+range. Change-based package selection applies to pull requests and mainline pushes
+(the push's `before`..head range). For full verification of all workspaces and
+infrastructure checks, including Actions security checks, run
+`gh workflow run ci.yml --ref 1.x` and approve `ci-approval` in Actions.
+Infrastructure checks run when workflows, Actions,
 shell scripts, Dockerfiles, their lint configuration, or the infrastructure lint
 tool change. Security checks remain enabled. `CI Required` rejects failed
 detection, failed applicable checks, and unexpected skips. For pull requests to
