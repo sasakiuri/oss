@@ -128,6 +128,7 @@ export class AnalysisTask {
         reason: null,
         relatedArticleId: null,
         relation: null,
+        relationRoute: null,
         provenance: null,
         relationProvenance: null,
       };

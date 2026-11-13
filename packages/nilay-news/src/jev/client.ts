@@ -22,7 +22,7 @@ import {
   RELATION_QUESTIONS,
   TOPICS,
 } from "./questions.ts";
-import { relatedCandidates } from "./related.ts";
+import { lexicalOverlap, relatedCandidates } from "./related.ts";
 import { JevTransport } from "./transport.ts";
 
 type ResolveComparison = (article: Article) => Promise<Article | null>;
@@ -78,6 +78,7 @@ export class Jev {
       analysisError: null,
       relatedArticleId: null,
       relation: null,
+      relationRoute: null,
       provenance: observation.provenance,
       relationProvenance: [],
     };
@@ -95,19 +96,27 @@ export class Jev {
     signal?: AbortSignal,
     resolve?: ResolveComparison,
   ): Promise<
-    Pick<Analysis, "relatedArticleId" | "relation" | "relationProvenance">
+    Pick<
+      Analysis,
+      "relatedArticleId" | "relation" | "relationRoute" | "relationProvenance"
+    >
   > {
     if (!this.key) throw new UserError("Jev の API キーが未設定です");
     const result: Pick<
       Analysis,
-      "relatedArticleId" | "relation" | "relationProvenance"
+      "relatedArticleId" | "relation" | "relationRoute" | "relationProvenance"
     > = {
       relatedArticleId: null,
       relation: null,
+      relationRoute: null,
       relationProvenance: [],
     };
     const compared = new Set<string>([article.id]);
     for (const candidate of relatedCandidates(article, others)) {
+      const location =
+        lexicalOverlap(article, candidate) < ROUTING_POLICY.comparisonOverlap;
+      // An extra request must never discard a blocking lexical result on failure.
+      if (location && result.relation === "uncertain") break;
       signal?.throwIfAborted();
       const other = resolve ? await resolve(candidate) : candidate;
       if (!other || compared.has(other.id)) continue;
@@ -128,6 +137,18 @@ export class Jev {
       const [chosen, p] = choice(related, "relation", Object.keys(RELATIONS));
       const relation =
         p < ROUTING_POLICY.relationThreshold ? "uncertain" : chosen;
+      if (location) {
+        if (
+          chosen === "duplicate" &&
+          p >= ROUTING_POLICY.locationRelationThreshold
+        ) {
+          result.relatedArticleId = other.id;
+          result.relation = relation;
+          result.relationRoute = "location";
+          break;
+        }
+        continue;
+      }
       if (relation === "duplicate") {
         // Duplicate detection is an annotation; every article is kept.
         result.relatedArticleId = other.id;

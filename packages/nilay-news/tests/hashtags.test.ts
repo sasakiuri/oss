@@ -402,6 +402,16 @@ describe("regions", () => {
     expect(places(title)).toEqual(expected);
   });
 
+  test("checks the excerpt start before removing its publisher", () => {
+    expect(
+      hashtags({
+        title: "新たな調査を開始",
+        sourceName: "地元紙",
+        excerpt: "地元紙 ... 八戸市で新たな調査を開始。",
+      }),
+    ).toEqual(["#地元紙", "#青森県", "#八戸市"]);
+  });
+
   test("an excerpt adds a municipality of the headline's only prefecture", () => {
     expect(places("北海道でクマを目撃", "札幌市の公園で目撃された。")).toEqual([
       "#北海道",

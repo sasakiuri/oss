@@ -32,6 +32,8 @@ export interface Analysis {
   probability?: number | null;
   relatedArticleId?: string | null;
   relation?: string | null;
+  /** Active location guard; it must not redirect later lexical comparisons. */
+  relationRoute?: "location" | null;
   provenance?: DecisionProvenance | null;
   relationProvenance?: DecisionProvenance[] | null;
 }

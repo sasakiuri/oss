@@ -84,6 +84,7 @@ const ANALYSIS_RESET = {
   analysisError: null,
   relatedArticleId: null,
   relation: null,
+  relationRoute: null,
   analyzedAt: null,
 } as const;
 
