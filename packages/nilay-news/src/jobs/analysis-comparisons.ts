@@ -47,6 +47,9 @@ export function analysisComparisons(
         visited.add(current.id);
         // Preserve posted shortlist slots and explicit publication approval.
         if (
+          // Location guards stop this article, not future lexical comparisons.
+          // Keep any earlier uncertain replacement and spend no extra read.
+          current.relationRoute === "location" ||
           current.reviewStatus === "posted" ||
           current.reviewStatus === "approved" ||
           (current.relation !== "duplicate" && current.relation !== "uncertain")

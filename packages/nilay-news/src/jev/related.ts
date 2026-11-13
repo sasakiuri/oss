@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
-/** Lexical retrieval for relationship checks; it never decides the relationship. */
+/** Bounded lexical and location retrieval; Jev decides the relationship. */
+import { chronological } from "../article-order.ts";
 import type { Article } from "../domain.ts";
+import { tagEvidence } from "../tag-evidence.ts";
 
 import { ROUTING_POLICY } from "./decisions.ts";
 import { modelEvidence } from "./evidence.ts";
@@ -61,38 +63,51 @@ function similarity(a: string[], b: string[]): number {
 
 type RelatedArticle = Pick<Article, "id" | "title"> & Partial<Article>;
 
-/** Lexical shortlist only; Jev makes the actual duplicate/follow-up judgment. */
+const normalized = (title: string) => [
+  ...title
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ""),
+];
+const bigrams = (chars: string[]) =>
+  new Set(chars.slice(1).map((char, index) => `${chars[index] ?? ""}${char}`));
+const signature = (item: RelatedArticle) => {
+  const content = modelEvidence(item);
+  const title = normalized(item.title);
+  // Search snippets and stale bodies are already excluded from model evidence.
+  const lead = (content.excerpt || content.body || "").slice(0, 600);
+  return {
+    title,
+    grams: bigrams(title),
+    context: bigrams(normalized(`${item.title} ${lead}`)),
+  };
+};
+const overlap = (left: Set<string>, right: Set<string>) => {
+  const shared = [...left].filter((gram) => right.has(gram)).length;
+  return (2 * shared) / Math.max(1, left.size + right.size);
+};
+/** The same overlap used by retrieval, before any reference replacement. */
+export function lexicalOverlap(
+  article: RelatedArticle,
+  other: RelatedArticle,
+): number {
+  const left = signature(article),
+    right = signature(other);
+  return Math.max(
+    overlap(left.grams, right.grams),
+    overlap(left.context, right.context),
+  );
+}
+
+/** Keep lexical ranking and its posted slot, then fill location slots. */
 export function relatedCandidates<T extends RelatedArticle>(
   article: RelatedArticle,
   others: readonly T[],
 ): T[] {
-  const normalized = (title: string) => [
-    ...title
-      .normalize("NFKC")
-      .toLowerCase()
-      .replace(/[^\p{L}\p{N}]+/gu, ""),
-  ];
-  const bigrams = (chars: string[]) =>
-    new Set(
-      chars.slice(1).map((char, index) => `${chars[index] ?? ""}${char}`),
-    );
-  const signature = (item: RelatedArticle) => {
-    const content = modelEvidence(item);
-    const title = normalized(item.title);
-    // Search snippets and stale bodies are already excluded from model evidence.
-    const lead = (content.excerpt || content.body || "").slice(0, 600);
-    return {
-      title,
-      grams: bigrams(title),
-      context: bigrams(normalized(`${item.title} ${lead}`)),
-    };
-  };
-  const overlap = (left: Set<string>, right: Set<string>) => {
-    const shared = [...left].filter((gram) => right.has(gram)).length;
-    return (2 * shared) / Math.max(1, left.size + right.size);
-  };
   const target = signature(article);
+  const targetPlaces = tagEvidence(article).places;
   const ranked: [number, T][] = [];
+  const locations: { article: T; municipality: boolean }[] = [];
   for (const other of others) {
     if (other.id === article.id) continue;
     const candidate = signature(other);
@@ -102,6 +117,16 @@ export function relatedCandidates<T extends RelatedArticle>(
     );
     if (score >= ROUTING_POLICY.comparisonOverlap)
       ranked.push([score + similarity(target.title, candidate.title), other]);
+    else if (score >= ROUTING_POLICY.locationComparisonOverlap) {
+      const matches = tagEvidence(other).places.filter((place) =>
+        targetPlaces.some((target) => target.name === place.name),
+      );
+      if (matches.length)
+        locations.push({
+          article: other,
+          municipality: matches.some((place) => place.municipality),
+        });
+    }
   }
   ranked.sort((x, y) => y[0] - x[0]);
   const selected = ranked
@@ -113,5 +138,28 @@ export function relatedCandidates<T extends RelatedArticle>(
   )?.[1];
   if (posted && !selected.includes(posted))
     selected[selected.length - 1] = posted;
-  return selected;
+  locations.sort(
+    (a, b) =>
+      Number(b.municipality) - Number(a.municipality) ||
+      chronological(
+        {
+          id: b.article.id,
+          publishedAt: b.article.publishedAt ?? null,
+          discoveredAt: b.article.discoveredAt ?? "",
+        },
+        {
+          id: a.article.id,
+          publishedAt: a.article.publishedAt ?? null,
+          discoveredAt: a.article.discoveredAt ?? "",
+        },
+      ),
+  );
+  const limit = Math.max(
+    ROUTING_POLICY.comparisonLimit - selected.length,
+    ROUTING_POLICY.locationExtraLimit,
+  );
+  return [
+    ...selected,
+    ...locations.slice(0, limit).map(({ article }) => article),
+  ];
 }

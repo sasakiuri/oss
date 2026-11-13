@@ -8,8 +8,10 @@ import { Jev } from "../src/jev/client.ts";
 import { evidenceHash } from "../src/jev/evidence.ts";
 import { REASONS, TOPICS, PRIORITY, RELATIONS } from "../src/jev/questions.ts";
 import { relatedCandidates } from "../src/jev/related.ts";
+import { analysisComparisons } from "../src/jobs/analysis-comparisons.ts";
 import type { FetchBytes } from "../src/net/types.ts";
 import { BufferClient } from "../src/publishing/buffer-client.ts";
+import { screenPost } from "../src/publishing/post-screening.ts";
 import { Publisher } from "../src/publishing/publisher.ts";
 import { utf8 } from "../src/text.ts";
 
@@ -105,7 +107,7 @@ async function setup(answer = "duplicate", probability = 1) {
     const posts = (await repo.publicationState()).posts;
     return { result, analysisReads, client, posts };
   }
-  return { repo, driver, article, target, at, run, calls };
+  return { repo, driver, article, target, at, run, calls, jev, clock };
 }
 
 describe("analysis comparison redirection", () => {
@@ -485,5 +487,219 @@ describe("analysis comparison redirection", () => {
     const { result } = await run([posted, ...bridges]);
     expect(calls.map((call) => call.previous)).toEqual([null, FAR]);
     expect(result.relationProvenance).toHaveLength(1);
+  });
+});
+
+describe("location publication regression", () => {
+  it.each([
+    ["duplicate", 0.95, "duplicate"],
+    ["duplicate", 0.6, "uncertain"],
+    ["different", 0.95, null],
+    ["followup", 0.95, null],
+    ["duplicate", 0.5, null],
+  ])(
+    "classifies and screens same-city coverage: %s at %s",
+    async (answer, probability, relation) => {
+      const { article, target, run, calls, repo } = await setup(
+        answer,
+        probability,
+      );
+      target.title = "八戸市の実証事業が始動";
+      const posted = article("posted", {
+        title: "市街地にクマが近づく前に検知 八戸市の山林でセンサーカメラ検証",
+        reviewStatus: "posted",
+      });
+      const { result, posts, client } = await run([posted]);
+      expect(result).toMatchObject({
+        decision: "candidate",
+        relation,
+        relatedArticleId: relation ? posted.id : null,
+        relationRoute: relation ? "location" : null,
+        relationProvenance: [
+          expect.objectContaining({ comparisonArticleId: posted.id }),
+        ],
+      });
+      expect(posts.some((post) => post.articleId === target.id)).toBe(
+        !relation,
+      );
+      expect(client.post).toHaveBeenCalledTimes(relation ? 0 : 1);
+      expect(calls.filter((call) => call.previous !== null)).toHaveLength(
+        relation ? 1 : 2,
+      );
+      const screening = (await repo.article(target.id)).postScreening;
+      expect(screening?.relation ?? null).toBeNull();
+      expect(
+        screening?.relationProvenance.map((item) => item.comparisonArticleId) ??
+          [],
+      ).toEqual(relation ? [] : [posted.id]);
+    },
+  );
+
+  it.each(["盛岡市", ""])(
+    "keeps nonmatching or missing places unchanged: %s",
+    async (place) => {
+      const { article, target, run, calls } = await setup();
+      target.title = "八戸市の実証事業が始動";
+      const { result, posts } = await run([
+        article("posted", {
+          title: `市街地にクマが近づく前に検知 ${place}の山林でセンサーカメラ検証`,
+          reviewStatus: "posted",
+        }),
+      ]);
+      expect(result).toMatchObject({ relation: null, relationProvenance: [] });
+      expect(calls).toHaveLength(1);
+      expect(posts.some((post) => post.articleId === target.id)).toBe(true);
+    },
+  );
+
+  it.each([0.6, 0.95])(
+    "persists the location route in a final screening at %s",
+    async (probability) => {
+      const { repo, article, target, jev } = await setup(
+        "duplicate",
+        probability,
+      );
+      target.title = "八戸市の実証事業が始動";
+      target.analysisStatus = "done";
+      target.decision = "candidate";
+      await seedArticles(repo, [
+        { ...target },
+        {
+          ...article("posted", {
+            title:
+              "市街地にクマが近づく前に検知 八戸市の山林でセンサーカメラ検証",
+            reviewStatus: "posted",
+          }),
+        },
+      ]);
+      expect(await screenPost(repo, target.id, jev)).toMatchObject({
+        permitted: false,
+      });
+      expect(await repo.article(target.id)).toMatchObject({
+        relation: probability < 0.9 ? "uncertain" : "duplicate",
+        relationRoute: "location",
+      });
+      const pool = await repo.relationPool(article("later"));
+      expect(pool.find(({ id }) => id === target.id)?.relationRoute).toBe(
+        "location",
+      );
+    },
+  );
+
+  it.each(["duplicate", "uncertain"])(
+    "location %s does not redirect later lexical matches or consume reads",
+    async (relation) => {
+      const { article, target } = await setup();
+      const location = article("location", {
+        relation,
+        relationRoute: "location",
+        relatedArticleId: "outside",
+      });
+      const read = vi.fn(async () => article("outside"));
+      const resolver = analysisComparisons(
+        target,
+        [location],
+        read,
+        new AbortController().signal,
+      );
+      expect(await resolver.resolve(location)).toBe(location);
+      const lexical = article("lexical", {
+        relation: "uncertain",
+        relatedArticleId: location.id,
+      });
+      expect(await resolver.resolve(lexical)).toBe(location);
+      expect(read).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps the six reads available for the following lexical chain", async () => {
+    const { article, target } = await setup();
+    const location = article("location", {
+      relation: "duplicate",
+      relationRoute: "location",
+      relatedArticleId: "posted",
+    });
+    const chain = Array.from({ length: 7 }, (_, i) =>
+      article(`chain-${i}`, {
+        relation: i < 6 ? "uncertain" : null,
+        relatedArticleId: i < 6 ? `chain-${i + 1}` : null,
+      }),
+    );
+    const read = vi.fn(async (id: string) =>
+      [...chain, article("posted", { reviewStatus: "posted" })].find(
+        (item) => item.id === id,
+      )!,
+    );
+    const resolver = analysisComparisons(
+      target,
+      [location, chain[0]!],
+      read,
+      new AbortController().signal,
+    );
+    expect(await resolver.resolve(location)).toBe(location);
+    expect(await resolver.resolve(chain[0]!)).toBe(chain[6]);
+    expect(read).toHaveBeenCalledTimes(6);
+    expect(read).not.toHaveBeenCalledWith("posted");
+  });
+});
+
+describe("location route lifecycle", () => {
+  it.each([false, true])(
+    "clears location markers after reclassification (error=%s)",
+    async (failure) => {
+      const { target, run, article } = await setup(
+        failure ? "invalid" : "different",
+      );
+      target.relation = "uncertain";
+      target.relatedArticleId = "lexical";
+      target.relationRoute = "location";
+      const { result } = await run(
+        [article("lexical", { title: target.title, reviewStatus: "posted" })],
+        failure,
+      );
+      expect(result).toMatchObject({
+        relation: null,
+        relatedArticleId: null,
+        relationRoute: null,
+      });
+    },
+  );
+
+  it("clears the route with a rubric reset and with a partial relation replacement", async () => {
+    const { repo, target } = await setup();
+    target.relation = "uncertain";
+    target.relatedArticleId = "old";
+    target.relationRoute = "location";
+    await seedArticles(repo, [{ ...target }]);
+    const settings = await repo.settings();
+    expect(
+      await repo.analyzeResult(
+        target.id,
+        await evidenceHash(target),
+        settings.rubric,
+        {
+          analysisStatus: "done",
+          relation: "uncertain",
+          relatedArticleId: "other",
+        },
+      ),
+    ).toBe(true);
+    expect((await repo.article(target.id)).relationRoute).toBeNull();
+    await repo.analyzeResult(
+      target.id,
+      await evidenceHash(target),
+      settings.rubric,
+      {
+        analysisStatus: "done",
+        relation: "uncertain",
+        relatedArticleId: "old",
+        relationRoute: "location",
+      },
+    );
+    await repo.updateSettings({ rubric: "Changed rubric" });
+    expect(await repo.article(target.id)).toMatchObject({
+      relation: null,
+      relationRoute: null,
+    });
   });
 });

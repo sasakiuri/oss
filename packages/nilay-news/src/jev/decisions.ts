@@ -12,7 +12,10 @@ export const ROUTING_POLICY = {
   relationThreshold: 0.9,
   comparisonLimit: 3,
   comparisonOverlap: 0.2,
-  retrievalVersion: "1",
+  locationComparisonOverlap: 0.1,
+  locationRelationThreshold: 0.6,
+  locationExtraLimit: 1,
+  retrievalVersion: "2",
 } as const;
 
 /** Routing groups of the classification labels, in tie-break order. */

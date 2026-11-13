@@ -444,6 +444,7 @@ export class ArticleStore {
             Object.assign(article, {
               relatedArticleId: result.relatedArticleId,
               relation: result.relation,
+              relationRoute: result.relationRoute ?? null,
               relationProvenance: structuredClone(
                 result.relationProvenance ?? [],
               ),
@@ -452,6 +453,8 @@ export class ArticleStore {
           Object.assign(article, structuredClone(result), {
             analyzedAt: timestamp(this.context.clock()),
           });
+          if ("relation" in result || "relatedArticleId" in result)
+            article.relationRoute = result.relationRoute ?? null;
         }
         return true;
       },
