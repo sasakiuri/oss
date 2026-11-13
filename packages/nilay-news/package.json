@@ -1,6 +1,6 @@
 {
   "name": "@sasakiuri/nilay-news",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Private Japanese news inbox on Cloudflare Workers with Jev triage",
   "license": "MIT",
