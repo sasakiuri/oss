@@ -4,7 +4,7 @@ on:
   push:
     branches: [1.x]
   pull_request:
-    branches: [1.x, canary]
+    branches: [1.x]
   workflow_dispatch:
 
 concurrency:
@@ -41,8 +41,8 @@ jobs:
         run: node --test scripts/workflow-approval.test.mjs
       - name: Validate shared tooling
         run: node --test packages/repo-tooling/tests/*.test.mjs packages/eslint-config/tests/*.test.mjs
-      - name: Test npm bootstrap and scheduled workflow alerts
-        run: node --test scripts/npm-runtime.test.mjs scripts/scheduled-failure-alert.test.mjs
+      - name: Test npm bootstrap and latest-run guard
+        run: node --test scripts/npm-runtime.test.mjs scripts/require-latest-run.test.mjs
       - name: Check formatting, styles, and repository documentation
         run: npm run lint:repository
       - name: Check spelling
@@ -62,6 +62,8 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
+      syncLabels: ${{ steps.plan.outputs.syncLabels }}
+      knowledgeLinks: ${{ steps.plan.outputs.knowledgeLinks }}
       text: ${{ steps.plan.outputs.text }}
       infrastructure: ${{ steps.plan.outputs.infrastructure }}
       knip: ${{ steps.plan.outputs.knip }}
@@ -446,6 +448,10 @@ jobs:
     needs:
       [
         approval,
+        analyze,
+        gitleaks,
+        dependency-review,
+        validate,
         changes,
         repository,
         text,
@@ -478,4 +484,291 @@ jobs:
       - name: Require successful applicable checks
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_BASE_REF: ${{ github.base_ref }}
+          CI_REF: ${{ github.ref }}
         run: node scripts/check-required-ci.mjs
+
+  analyze:
+    needs: approval
+    permissions:
+      security-events: write
+      contents: read
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/codeql
+        with:
+          language: ${{ matrix.language }}
+          category: /language:${{ matrix.language }}
+
+  gitleaks:
+    needs: approval
+    permissions:
+      contents: read
+      security-events: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload SARIF results
+        if: always() && steps.gitleaks.outputs.report != ''
+        uses: github/codeql-action/upload-sarif@480db559a14342288b67e54bd959dd52dc3ee68f # v3
+        with:
+          sarif_file: ${{ steps.gitleaks.outputs.report }}
+
+  # PR-only jobs may skip on pushes to 1.x, which attach checks to mainline SHAs.
+  # Manual-run checks do not satisfy PR required checks.
+  dependency-review:
+    needs: approval
+    permissions:
+      contents: read
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24.16.0"
+          cache: npm
+      - uses: ./.github/actions/setup-npm
+      - run: npm ci --ignore-scripts
+      - name: Audit actual package identities and test security guards
+        run: |
+          npm audit --audit-level=high
+          node --test scripts/dependency-security.test.mjs scripts/dependency-review-aliases.test.mjs
+
+      - name: Verify exact artifacts behind GitHub alias findings
+        id: aliases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p .local
+          gh api "repos/$GH_REPO/dependency-graph/compare/$BASE_SHA...$HEAD_SHA" > .local/dependency-review.json
+          node scripts/dependency-review-aliases.mjs .local/dependency-review.json
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: high
+          deny-licenses: AGPL-3.0, GPL-3.0
+          allow-ghsas: ${{ steps.aliases.outputs.allow-ghsas }}
+
+  validate:
+    needs: approval
+    permissions:
+      contents: read
+      pull-requests: read
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          # The target branch's own policy; a branch of this repository is trusted.
+          ref: ${{ github.base_ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install upstream package manager
+        uses: ./.github/actions/setup-npm
+      - run: npm ci --ignore-scripts
+      - name: Validate title with shared commitlint policy
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh api --method GET "repos/$GH_REPO/pulls/$PR_NUMBER" --jq '.title' | npm exec --no -- commitlint --verbose
+
+  osv-scan-push:
+    needs: approval
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/1.x')
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b8ac13f90f0ad78cebdcdbe5d39fcc8ff11301ba # v2
+    with:
+      scan-args: |-
+        --recursive
+        ./
+
+  osv-scan-pr:
+    needs: approval
+    if: github.event_name == 'pull_request' && github.base_ref == '1.x'
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@c51854704019a247608d928f370c98740469d4b5 # v2
+
+  # Same-repository PR definitions are trusted after owner approval.
+  # Fork PR tokens are read-only; this write job never runs for forks.
+  label:
+    needs: approval
+    permissions:
+      contents: read
+      pull-requests: write
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9 # v5
+        with:
+          configuration-path: .github/labeler.yml
+
+  dependabot:
+    needs: approval
+    if: github.event_name == 'pull_request' && github.base_ref == '1.x' && github.event.pull_request.user.login == 'dependabot[bot]'
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide auto-merge policy
+        id: policy
+        shell: bash
+        env:
+          GROUP: ${{ steps.metadata.outputs.dependency-group }}
+          ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+        run: |
+          AUTO_MERGE=false
+          # Production dependencies and all major updates require review.
+          if [[ "$UPDATE_TYPE" == 'version-update:semver-minor' || "$UPDATE_TYPE" == 'version-update:semver-patch' ]]; then
+            if [[ "$ECOSYSTEM" == 'npm_and_yarn' && ( "$GROUP" == 'npm-development' || "$GROUP" == 'security-dev-safe' ) ]]; then
+              AUTO_MERGE=true
+            elif [[ "$ECOSYSTEM" == 'github_actions' && "$GROUP" == 'actions-compatible' ]]; then
+              AUTO_MERGE=true
+            fi
+          fi
+          echo "auto-merge=$AUTO_MERGE" >> "$GITHUB_OUTPUT"
+
+      - name: Approve PR
+        if: steps.policy.outputs.auto-merge == 'true'
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge
+        if: steps.policy.outputs.auto-merge == 'true'
+        run: gh pr merge --auto --rebase "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sync-labels:
+    needs: [approval, changes]
+    if: needs.changes.outputs.syncLabels == 'true' && (github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/1.x'))
+    uses: ./.github/workflows/sync-labels.yml
+    permissions:
+      contents: read
+      issues: write
+
+  knowledge-links:
+    needs: [approval, changes]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.knowledgeLinks == 'true'
+    uses: ./.github/workflows/knowledge-links.yml
+    permissions:
+      contents: read
+
+  # Same-repository PR definitions are trusted after owner approval.
+  # Fork PR tokens are read-only; this write job never runs for forks.
+  report:
+    needs:
+      [
+        approval,
+        repository,
+        changes,
+        text,
+        infrastructure,
+        knip,
+        lint,
+        build,
+        unit,
+        e2e,
+        knowledge,
+        about,
+        knowledge-required,
+        about-required,
+        docs,
+        ci-required,
+        analyze,
+        gitleaks,
+        dependency-review,
+        validate,
+        osv-scan-push,
+        osv-scan-pr,
+        label,
+        dependabot,
+        sync-labels,
+        knowledge-links,
+      ]
+    permissions:
+      contents: read
+      checks: write
+      actions: read
+    if: ${{ !cancelled() && needs.approval.result == 'success' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+
+    steps:
+      # The reporter discovers artifacts from this CI run after all producers finish.
+      # Captured OS names keep separate reports without starting three runners.
+      - name: Vitest test report
+        uses: dorny/test-reporter@df6247429542221bc30d46a036ee47af1102c451 # v2
+        with:
+          artifact: /^test-results-(ubuntu-latest|windows-latest|macos-latest)$/
+          name: "Vitest ($1)"
+          path: "**/vitest-junit.xml"
+          reporter: java-junit
+          fail-on-error: false
+          fail-on-empty: false
+
+      - name: Playwright test report
+        uses: dorny/test-reporter@df6247429542221bc30d46a036ee47af1102c451 # v2
+        with:
+          artifact: /^playwright-(\d+)-(ubuntu-latest|windows-latest|macos-latest)$/
+          name: "Playwright ($2, suite $1)"
+          path: "**/playwright-junit.xml"
+          reporter: java-junit
+          fail-on-error: false
+          fail-on-empty: false

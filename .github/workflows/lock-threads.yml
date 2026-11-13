@@ -1,6 +1,12 @@
 name: Lock Threads
 
 on:
+  workflow_call:
+    inputs:
+      approval-inherited:
+        description: The caller gates this run with ci-approval.
+        type: boolean
+        default: true
   workflow_dispatch:
 
 # Only the workload inherits these permissions; approval explicitly grants none.
@@ -10,6 +16,7 @@ permissions:
 
 jobs:
   approval:
+    if: ${{ !inputs.approval-inherited }}
     runs-on: ubuntu-latest
     permissions: {}
     environment: ci-approval
@@ -19,6 +26,7 @@ jobs:
 
   lock:
     needs: approval
+    if: ${{ !cancelled() && (needs.approval.result == 'success' || (inputs.approval-inherited && needs.approval.result == 'skipped')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: dessant/lock-threads@89ae32b08ed1a541efecbab17912962a5e38981c # v6.0.2

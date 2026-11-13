@@ -1,0 +1,77 @@
+name: Periodic scans
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  approval:
+    runs-on: ubuntu-latest
+    permissions: {}
+    environment: ci-approval
+    steps:
+      - name: Confirm approval
+        run: "true"
+
+  analyze:
+    needs: approval
+    permissions:
+      security-events: write
+      contents: read
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/codeql
+        with:
+          language: ${{ matrix.language }}
+          category: /periodic/language:${{ matrix.language }}
+
+  osv-scan-push:
+    needs: approval
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@b8ac13f90f0ad78cebdcdbe5d39fcc8ff11301ba # v2
+    with:
+      scan-args: |-
+        --recursive
+        ./
+
+  knowledge-links:
+    needs: approval
+    uses: ./.github/workflows/knowledge-links.yml
+    permissions:
+      contents: read
+
+  docs-deep-quality:
+    needs: approval
+    uses: ./.github/workflows/docs-deep-quality.yml
+    permissions:
+      contents: read
+
+  stale:
+    needs: approval
+    uses: ./.github/workflows/stale.yml
+    permissions:
+      issues: write
+      pull-requests: write
+
+  lock-threads:
+    needs: approval
+    uses: ./.github/workflows/lock-threads.yml
+    permissions:
+      issues: write
+      pull-requests: write

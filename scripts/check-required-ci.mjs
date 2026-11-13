@@ -9,9 +9,22 @@ import {
   usesElectron,
 } from "./select-ci-packages.mjs";
 
-export function requiredChecksPass(needs, workspaces) {
+export function requiredChecksPass(needs, workspaces, event) {
   if (!needs || typeof needs !== "object") return false;
   if (needs.approval?.result !== "success") return false;
+  if (
+    !event ||
+    !["pull_request", "push", "workflow_dispatch"].includes(event.name)
+  )
+    return false;
+  if (event.name === "pull_request" && event.base !== "1.x") return false;
+  if (event.name === "push" && event.ref !== "refs/heads/1.x") return false;
+  const securityChecks =
+    event.name === "pull_request"
+      ? ["analyze", "gitleaks", "dependency-review", "validate"]
+      : ["analyze", "gitleaks"];
+  if (securityChecks.some((id) => needs[id]?.result !== "success"))
+    return false;
   if (needs.changes?.result !== "success") return false;
   const outputs = needs.changes.outputs;
   if (
@@ -119,7 +132,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const site = process.argv[2];
   const passed =
     site === undefined
-      ? requiredChecksPass(needs, readGitWorkspaces("HEAD"))
+      ? requiredChecksPass(needs, readGitWorkspaces("HEAD"), {
+          name: process.env.CI_EVENT_NAME,
+          base: process.env.CI_BASE_REF,
+          ref: process.env.CI_REF,
+        })
       : siteChecksPass(needs, site);
   if (!passed) {
     console.error("A required check did not succeed.");

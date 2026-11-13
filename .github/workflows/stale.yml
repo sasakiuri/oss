@@ -1,6 +1,12 @@
 name: Stale Issues
 
 on:
+  workflow_call:
+    inputs:
+      approval-inherited:
+        description: The caller gates this run with ci-approval.
+        type: boolean
+        default: true
   workflow_dispatch:
 
 # Only the workload inherits these permissions; approval explicitly grants none.
@@ -10,6 +16,7 @@ permissions:
 
 jobs:
   approval:
+    if: ${{ !inputs.approval-inherited }}
     runs-on: ubuntu-latest
     permissions: {}
     environment: ci-approval
@@ -19,6 +26,7 @@ jobs:
 
   stale:
     needs: approval
+    if: ${{ !cancelled() && (needs.approval.result == 'success' || (inputs.approval-inherited && needs.approval.result == 'skipped')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9

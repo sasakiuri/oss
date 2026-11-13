@@ -1,0 +1,16 @@
+name: Require latest workflow run
+description: Stop an older workflow run before it applies changes.
+runs:
+  using: composite
+  steps:
+    - name: Check for newer workflow runs
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        GH_TOKEN: ${{ github.token }}
+        LATEST_RUN_REPOSITORY: ${{ github.repository }}
+        LATEST_RUN_WORKFLOW_REF: ${{ github.workflow_ref }}
+        LATEST_RUN_BRANCH: ${{ github.ref_name }}
+        LATEST_RUN_NUMBER: ${{ github.run_number }}
+        LATEST_RUN_ID: ${{ github.run_id }}
+      run: node scripts/require-latest-run.mjs

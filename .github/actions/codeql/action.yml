@@ -1,0 +1,24 @@
+name: CodeQL analysis
+description: Initialize, build, and analyze one CodeQL language.
+inputs:
+  language:
+    description: CodeQL language to analyze
+    required: true
+  category:
+    description: SARIF category for this analysis
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@480db559a14342288b67e54bd959dd52dc3ee68f # v3
+      with:
+        languages: ${{ inputs.language }}
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@480db559a14342288b67e54bd959dd52dc3ee68f # v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@480db559a14342288b67e54bd959dd52dc3ee68f # v3
+      with:
+        category: ${{ inputs.category }}
