@@ -25,6 +25,9 @@ export interface IOperatorAccessStore {
 }
 export type OperatorPermissionResolver = (invocation: IpcInvocation) => OperatorPermission;
 const sessionDurationMs = 30 * 60 * 1000;
+// OWASP Password Storage Cheat Sheet: scrypt N >= 2^17, r = 8, p = 1.
+// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt
+const passwordHashCost = 131072;
 
 export class OperatorAccessService implements IpcInvocationMiddleware {
   private readonly sessions = new Map<number, { accountId: string; expiresAt: number }>();
@@ -34,6 +37,8 @@ export class OperatorAccessService implements IpcInvocationMiddleware {
     private readonly store: IOperatorAccessStore,
     private readonly permission: OperatorPermissionResolver,
     private readonly now: () => number = Date.now,
+    /** scrypt N; stored hashes verify only with the cost that created them. */
+    private readonly hashCost = passwordHashCost,
   ) {}
 
   currentActor(): OperatorAccount | null {
@@ -60,7 +65,7 @@ export class OperatorAccessService implements IpcInvocationMiddleware {
     if (attempt && attempt.count >= 5 && attempt.until > this.now())
       throw new Error('Too many sign-in attempts; wait one minute');
     const account = this.store.accounts().find((value) => value.name.toLowerCase() === key);
-    const hash = await hashPassword(password, account?.salt ?? '0'.repeat(32));
+    const hash = await hashPassword(password, account?.salt ?? '0'.repeat(32), this.hashCost);
     const valid =
       account &&
       !account.disabled &&
@@ -104,7 +109,7 @@ export class OperatorAccessService implements IpcInvocationMiddleware {
     if (this.store.accounts().length > 0) this.assertAdmin(senderId);
     // Hash before the final state check so another request cannot race initial administrator setup.
     const salt = data.password ? randomBytes(16).toString('hex') : null;
-    const passwordHash = data.password && salt ? await hashPassword(data.password, salt) : null;
+    const passwordHash = data.password && salt ? await hashPassword(data.password, salt, this.hashCost) : null;
     const accounts = this.store.accounts();
     const bootstrap = accounts.length === 0;
     if (!bootstrap) this.assertAdmin(senderId);
@@ -193,11 +198,9 @@ export class OperatorAccessService implements IpcInvocationMiddleware {
 function publicAccount({ salt: _salt, passwordHash: _hash, ...account }: StoredOperatorAccount): OperatorAccount {
   return account;
 }
-function hashPassword(password: string, salt: string): Promise<string> {
-  // OWASP Password Storage Cheat Sheet: scrypt N >= 2^17, r = 8, p = 1.
-  // https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html#scrypt
+function hashPassword(password: string, salt: string, cost: number): Promise<string> {
   return new Promise((resolve, reject) =>
-    scrypt(password, salt, 64, { N: 131072, r: 8, p: 1, maxmem: 256 * 1024 * 1024 }, (error, key) =>
+    scrypt(password, salt, 64, { N: cost, r: 8, p: 1, maxmem: 256 * 1024 * 1024 }, (error, key) =>
       error ? reject(error) : resolve(key.toString('hex')),
     ),
   );
