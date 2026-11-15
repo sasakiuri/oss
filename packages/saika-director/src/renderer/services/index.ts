@@ -39,7 +39,6 @@ export const squaddingService = createApiService('squadding');
 export const productionOperationsService = createApiService('productionOperations');
 export const mixedTeamTimeoutsService = createApiService('mixedTeamTimeouts');
 export const finalPlacementReviewService = createApiService('finalPlacementReview');
-export const shootoffService = createApiService('shootoff');
 export const debugService = createApiService('queries');
 
 export const evidenceFilesService = createApiService('evidenceFiles');

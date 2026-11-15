@@ -1,1 +1,0 @@
-export { ChampionshipScreen } from './ChampionshipScreen';

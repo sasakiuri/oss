@@ -210,7 +210,7 @@ describe('createApiService', () => {
   });
 
   describe('index.ts barrel exports', () => {
-    it('should export all 7 services', async () => {
+    it('should export the core services', async () => {
       // Import from the barrel
       const services = await import('@/renderer/services');
 
@@ -219,7 +219,6 @@ describe('createApiService', () => {
       expect(services.boardService).toBeDefined();
       expect(services.mqttService).toBeDefined();
       expect(services.resultsService).toBeDefined();
-      expect(services.shootoffService).toBeDefined();
       expect(services.debugService).toBeDefined();
     });
   });
