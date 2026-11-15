@@ -17,10 +17,27 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
-    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
-    exclude: ['e2e/**', 'node_modules/**'],
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'main',
+          environment: 'node',
+          include: ['tests/**/*.test.{ts,tsx}'],
+          exclude: ['tests/unit/renderer/**'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'renderer',
+          environment: 'jsdom',
+          include: ['tests/unit/renderer/**/*.test.{ts,tsx}'],
+          setupFiles: ['./tests/setup.renderer.ts'],
+        },
+      },
+    ],
     reporters: ['default', 'junit'],
     outputFile: {
       junit: 'test-results/vitest-junit.xml',
