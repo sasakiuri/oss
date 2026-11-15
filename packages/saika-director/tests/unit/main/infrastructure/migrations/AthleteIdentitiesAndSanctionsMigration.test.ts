@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
+import { migratedDatabase } from '../../../../helpers/database';
 
 const championshipA = '11111111-1111-4111-8111-111111111111';
 const championshipB = '22222222-2222-4222-8222-222222222222';
@@ -17,9 +16,8 @@ describe('migration058AthleteIdentitiesAndSanctions', () => {
   let database: Database.Database;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     seedChampionship(database, championshipA, eventA, participantA, 'ISSF-001');
     seedChampionship(database, championshipB, eventB, participantB, 'ISSF-001');
     database

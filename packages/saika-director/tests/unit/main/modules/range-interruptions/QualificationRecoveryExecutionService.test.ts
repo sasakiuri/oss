@@ -1,9 +1,7 @@
 import { ISSF_2026_P25 } from '@sasakiuri/saika-rules';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { QualificationRecoveryExecutionService } from '@/main/modules/range-interruptions/application/QualificationRecoveryExecutionService';
 import { RangeInterruptionService } from '@/main/modules/range-interruptions/application/RangeInterruptionService';
 import type { IQualificationRecoveryExecutionTransport } from '@/main/modules/range-interruptions/domain/IQualificationRecoveryExecutionTransport';
@@ -11,6 +9,8 @@ import { SqliteQualificationRecoveryExecutionRepository } from '@/main/modules/r
 import { SqliteRangeInterruptionRepository } from '@/main/modules/range-interruptions/infra/SqliteRangeInterruptionRepository';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';
 import type { QualificationRecoveryShotPayload, QualificationRecoveryStatePayload } from '@/shared/mqtt';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const LANE_ID = '22222222-2222-4222-8222-222222222222';
@@ -25,9 +25,8 @@ describe('QualificationRecoveryExecutionService', () => {
   let now: Date;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     const rangeRepository = new SqliteRangeInterruptionRepository(database);
     const executionRepository = new SqliteQualificationRecoveryExecutionRepository(database);
     const competitionTypes = new CompetitionTypeRegistry();

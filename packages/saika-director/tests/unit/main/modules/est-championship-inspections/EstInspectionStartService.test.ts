@@ -1,8 +1,6 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   EstChampionshipInspectionService,
   EstInspectionStartService,
@@ -10,6 +8,8 @@ import {
   SqliteEstChampionshipInspectionRepository,
 } from '@/main/modules/est-championship-inspections';
 import { CompetitionStartReadiness } from '@/main/shared-infra/operations/CompetitionStartReadiness';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const championshipId = '11111111-1111-4111-8111-111111111111';
 const scope = { competitionId: 'competition-a', phase: 'SIGHTING' as const, laneIds: ['lane-a'] };
@@ -26,8 +26,7 @@ describe('EST inspection start checks', () => {
   let service: EstInspectionStartService;
   let guard: CompetitionStartReadiness;
   beforeEach(() => {
-    db = new Database(':memory:');
-    new MigrationRunner(db).run(allMigrations);
+    db = migratedDatabase();
     db.prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)').run(
       championshipId,
       'Championship',

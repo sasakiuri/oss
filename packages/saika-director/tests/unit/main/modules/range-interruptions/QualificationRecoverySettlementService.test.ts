@@ -1,9 +1,7 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { ISSF_2026_P25 } from '@sasakiuri/saika-rules';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { QualificationRecoverySettlementService } from '@/main/modules/range-interruptions/application/QualificationRecoverySettlementService';
 import { RangeInterruptionService } from '@/main/modules/range-interruptions/application/RangeInterruptionService';
 import type { IQualificationRecoverySettlementTransport } from '@/main/modules/range-interruptions/domain/IQualificationRecoverySettlementTransport';
@@ -11,6 +9,8 @@ import { SqliteQualificationRecoveryExecutionRepository } from '@/main/modules/r
 import { SqliteQualificationRecoverySettlementRepository } from '@/main/modules/range-interruptions/infra/SqliteQualificationRecoverySettlementRepository';
 import { SqliteRangeInterruptionRepository } from '@/main/modules/range-interruptions/infra/SqliteRangeInterruptionRepository';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const LANE_ID = '22222222-2222-4222-8222-222222222222';
@@ -23,9 +23,8 @@ describe('QualificationRecoverySettlementService', () => {
   let now: Date;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     const rangeRepository = new SqliteRangeInterruptionRepository(database);
     const executionRepository = new SqliteQualificationRecoveryExecutionRepository(database);
     const settlementRepository = new SqliteQualificationRecoverySettlementRepository(database);

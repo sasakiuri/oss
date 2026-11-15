@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   AthleteSanctionParticipantEligibilityReader,
   AthleteSanctionResultClassificationSource,
@@ -11,6 +9,8 @@ import {
   SqliteAthleteEntryReferenceSource,
   SqliteAthleteSanctionRepository,
 } from '@/main/modules/athlete-sanctions';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const championshipId = '11111111-1111-4111-8111-111111111111';
 const eventA = '22222222-2222-4222-8222-222222222222';
@@ -26,9 +26,8 @@ describe('AthleteSanctionService', () => {
   let eligibility: AthleteSanctionParticipantEligibilityReader;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     seedCompetition(database);
     const repository = new SqliteAthleteSanctionRepository(database);
     const entries = new SqliteAthleteEntryReferenceSource(database);

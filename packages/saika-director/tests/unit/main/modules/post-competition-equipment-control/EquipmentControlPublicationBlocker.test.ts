@@ -1,8 +1,6 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   AthleteIdentity,
   AthleteIdentityLinkEntry,
@@ -22,6 +20,8 @@ import { OptionalResultPublicationBlocker } from '@/main/modules/result-publicat
 import { ResultPublicationService } from '@/main/modules/result-publication/application/ResultPublicationService';
 import { SqliteResultPublicationRepository } from '@/main/modules/result-publication/infra/SqliteResultPublicationRepository';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 const now = new Date('2026-09-08T12:00:00Z');
 const authorization = {
   basis: 'POST_COMPETITION_CHECK',
@@ -39,9 +39,8 @@ describe('Equipment publication review', () => {
   let source: StoredEquipmentControlPublicationSource;
   let blocker: EquipmentControlPublicationBlocker;
   beforeEach(() => {
-    db = new Database(':memory:');
+    db = migratedDatabase();
     db.pragma('foreign_keys = ON');
-    new MigrationRunner(db).run(allMigrations);
     db.exec(`INSERT INTO championships (id, name, date, venue) VALUES ('champ', 'Meet', '2026-09-08', 'Range');
       INSERT INTO events (id, championship_id, name, event_type, round, sort_order)
         VALUES ('event', 'champ', 'Air Pistol', 'AP60', 'Qualification', 0),

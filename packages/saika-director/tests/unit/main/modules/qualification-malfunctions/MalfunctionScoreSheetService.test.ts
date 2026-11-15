@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ISSF_2026_RFPM,
@@ -26,6 +26,8 @@ import { renderMalfunctionScoreSheetHtml } from '@/main/modules/qualification-ma
 import { SqliteCompetitionEvidenceSource } from '@/main/modules/operational-archives';
 import { qualificationMalfunctionsContract } from '@/shared/ipc/contracts';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 const championshipId = '11111111-1111-4111-8111-111111111111';
 const eventId = '22222222-2222-4222-8222-222222222222';
 const participantId = '33333333-3333-4333-8333-333333333333';
@@ -36,10 +38,9 @@ let database: Database.Database;
 afterEach(() => database?.close());
 
 function setup(pack: RulePack = ISSF_2026_RFPM, recordedShots = 2, nonAllowable = false) {
-  database = new Database(':memory:');
+  database = migratedDatabase(63);
   database.pragma('foreign_keys = ON');
   const runner = new MigrationRunner(database);
-  runner.run(allMigrations.filter((migration) => migration.version <= 63));
   database
     .prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)')
     .run(championshipId, 'Championship', '2026-09-07', 'Range');

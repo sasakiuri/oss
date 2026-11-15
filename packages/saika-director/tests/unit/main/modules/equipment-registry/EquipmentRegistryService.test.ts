@@ -1,7 +1,5 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   EquipmentRegistryService,
   equipmentAdvisories,
@@ -9,6 +7,8 @@ import {
 import { SqliteEquipmentRegistryRepository } from '@/main/modules/equipment-registry/SqliteEquipmentRegistryRepository';
 import { SqliteCompetitionEvidenceSource } from '@/main/modules/operational-archives/infra/SqliteCompetitionEvidenceSource';
 import type { EquipmentDetails } from '@/shared/ipc/contracts/equipmentRegistry.contract';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const championshipId = '11111111-1111-4111-8111-111111111111';
 const athleteIdentityId = '22222222-2222-4222-8222-222222222222';
@@ -49,9 +49,8 @@ describe('Equipment registry', () => {
       })
       .entries.at(-1)!;
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     database
       .prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)')
       .run(championshipId, 'Example competition', scope.asOfDate, 'Range');

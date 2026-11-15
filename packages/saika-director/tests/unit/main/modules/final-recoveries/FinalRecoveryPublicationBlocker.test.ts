@@ -1,8 +1,6 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   FinalRecoveryCase,
   FinalRecoveryEntry,
@@ -11,14 +9,15 @@ import {
   SqliteFinalRecoveryEventScope,
 } from '@/main/modules/final-recoveries';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 const eventId = 'event-a';
 describe('Final recovery publication review', () => {
   let db: Database.Database;
   let repository: SqliteFinalRecoveryRepository;
   let blocker: FinalRecoveryPublicationBlocker;
   beforeEach(() => {
-    db = new Database(':memory:');
-    new MigrationRunner(db).run(allMigrations);
+    db = migratedDatabase();
     repository = new SqliteFinalRecoveryRepository(db);
     blocker = new FinalRecoveryPublicationBlocker(repository, (id) =>
       new SqliteFinalRecoveryEventScope(db).competitionIds(id),

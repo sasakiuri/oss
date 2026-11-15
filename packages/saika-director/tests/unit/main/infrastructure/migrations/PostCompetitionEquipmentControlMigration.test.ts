@@ -1,13 +1,13 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   PostCompetitionEquipmentControlService,
   SqliteEquipmentControlSubjectSource,
   SqlitePostCompetitionEquipmentCheckRepository,
 } from '@/main/modules/post-competition-equipment-control';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const championshipId = '11111111-1111-4111-8111-111111111111';
 const eventId = '22222222-2222-4222-8222-222222222222';
@@ -17,9 +17,8 @@ describe('migration063PostCompetitionEquipmentControl', () => {
   let database: Database.Database;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     database
       .prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)')
       .run(championshipId, 'ISSF Test', '2026-09-07', 'Range A');
