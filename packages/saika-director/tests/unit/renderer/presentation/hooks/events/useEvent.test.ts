@@ -38,28 +38,28 @@ describe('useEvent', () => {
   it('should subscribe to event on mount', () => {
     const handler = vi.fn();
 
-    renderHook(() => useEvent('timerTick', handler), { wrapper });
+    renderHook(() => useEvent('laneTimerTick', handler), { wrapper });
 
-    expect(testBus.getSubscriptionCount('timerTick')).toBe(1);
+    expect(testBus.getSubscriptionCount('laneTimerTick')).toBe(1);
   });
 
   it('should unsubscribe on unmount', () => {
     const handler = vi.fn();
 
-    const { unmount } = renderHook(() => useEvent('timerTick', handler), { wrapper });
+    const { unmount } = renderHook(() => useEvent('laneTimerTick', handler), { wrapper });
 
-    expect(testBus.getSubscriptionCount('timerTick')).toBe(1);
+    expect(testBus.getSubscriptionCount('laneTimerTick')).toBe(1);
 
     unmount();
 
-    expect(testBus.getSubscriptionCount('timerTick')).toBe(0);
+    expect(testBus.getSubscriptionCount('laneTimerTick')).toBe(0);
   });
 
   it('should re-subscribe when dependencies change', () => {
     const handler = vi.fn();
     const subscribeSpy = vi.spyOn(testBus, 'subscribe');
 
-    const { rerender } = renderHook(({ dep }: { dep: number }) => useEvent('timerTick', handler, [dep]), {
+    const { rerender } = renderHook(({ dep }: { dep: number }) => useEvent('laneTimerTick', handler, [dep]), {
       initialProps: { dep: 1 },
       wrapper,
     });
@@ -72,13 +72,13 @@ describe('useEvent', () => {
     // Old subscription should be cleaned up, new one created
     expect(subscribeSpy).toHaveBeenCalledTimes(2);
     // Only one active subscription (old cleaned up)
-    expect(testBus.getSubscriptionCount('timerTick')).toBe(1);
+    expect(testBus.getSubscriptionCount('laneTimerTick')).toBe(1);
   });
 
   it('should NOT re-subscribe when handler reference changes but deps are stable', () => {
     const subscribeSpy = vi.spyOn(testBus, 'subscribe');
 
-    const { rerender } = renderHook(({ handler }: { handler: () => void }) => useEvent('timerTick', handler), {
+    const { rerender } = renderHook(({ handler }: { handler: () => void }) => useEvent('laneTimerTick', handler), {
       initialProps: { handler: vi.fn() },
       wrapper,
     });
@@ -97,20 +97,20 @@ describe('useEvent', () => {
     const handler2 = vi.fn();
 
     const { rerender } = renderHook(
-      ({ handler }: { handler: (data: unknown) => void }) => useEvent('timerTick', handler as never),
+      ({ handler }: { handler: (data: unknown) => void }) => useEvent('laneTimerTick', handler as never),
       { initialProps: { handler: handler1 }, wrapper },
     );
 
     // Simulate an event firing via TestEventBus
-    const testData = { remainingTime: 100, phase: 'ACTIVE' as const };
-    testBus.emit('timerTick', testData);
+    const testData = { laneId: 'lane-1', remainingTime: 100, phase: 'ACTIVE' as const };
+    testBus.emit('laneTimerTick', testData);
     expect(handler1).toHaveBeenCalledWith(testData);
 
     // Update the handler (no re-subscribe due to stable wrapper)
     rerender({ handler: handler2 });
 
     // The same subscription should now delegate to handler2
-    testBus.emit('timerTick', testData);
+    testBus.emit('laneTimerTick', testData);
     expect(handler2).toHaveBeenCalledWith(testData);
   });
 
@@ -119,25 +119,25 @@ describe('useEvent', () => {
     const handler = vi.fn();
 
     const { rerender } = renderHook(({ event }: { event: EventName }) => useEvent(event, handler as never), {
-      initialProps: { event: 'timerTick' as EventName },
+      initialProps: { event: 'laneTimerTick' as EventName },
       wrapper,
     });
 
     expect(subscribeSpy).toHaveBeenCalledTimes(1);
-    expect(subscribeSpy).toHaveBeenCalledWith('timerTick', expect.any(Function));
+    expect(subscribeSpy).toHaveBeenCalledWith('laneTimerTick', expect.any(Function));
 
-    rerender({ event: 'timerExpired' as EventName });
+    rerender({ event: 'laneTimerExpired' as EventName });
 
     expect(subscribeSpy).toHaveBeenCalledTimes(2);
-    expect(subscribeSpy).toHaveBeenLastCalledWith('timerExpired', expect.any(Function));
+    expect(subscribeSpy).toHaveBeenLastCalledWith('laneTimerExpired', expect.any(Function));
     // Old event should be cleaned up
-    expect(testBus.getSubscriptionCount('timerTick')).toBe(0);
-    expect(testBus.getSubscriptionCount('timerExpired')).toBe(1);
+    expect(testBus.getSubscriptionCount('laneTimerTick')).toBe(0);
+    expect(testBus.getSubscriptionCount('laneTimerExpired')).toBe(1);
   });
 
   it('should throw when used outside EventBusProvider', () => {
     expect(() => {
-      renderHook(() => useEvent('timerTick', vi.fn()));
+      renderHook(() => useEvent('laneTimerTick', vi.fn()));
     }).toThrow('useEventBus must be used within EventBusProvider');
   });
 });

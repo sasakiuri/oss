@@ -1,9 +1,8 @@
 import { useCallback } from 'react';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
-import type { LaneControlDto } from '../../stores/domain/laneControl.store';
 import { TargetBoardCard } from './components/TargetBoardCard';
 import { laneControlService } from '@/renderer/services';
-import { mapResponseToLaneControlDto } from '@/renderer/services/mappers/laneControlMapper';
+import { mapResponseToLaneControlDto, type LaneControlDto } from '@/renderer/services/mappers/laneControlMapper';
 import { useBoardLaneData } from '@/renderer/presentation/hooks/useBoardLaneData';
 import { useAuthoritativeRangeClock } from '@/renderer/presentation/hooks/useAuthoritativeRangeClock';
 import { RangeClockDisplay } from './components/RangeClockDisplay';

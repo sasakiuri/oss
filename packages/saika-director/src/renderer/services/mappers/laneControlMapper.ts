@@ -1,6 +1,31 @@
-import type { LaneControlDto } from '@/renderer/presentation/stores/domain/laneControl.store';
 import type { LanePhase } from '@/shared/constants/competition';
 import type { FinalBoardLaneData } from '@/renderer/presentation/features/boards/types';
+
+export interface LaneControlDto {
+  id: string;
+  channel: number;
+  playerName: string | null;
+  affiliation: string | null;
+  participantId?: string;
+  phase: LanePhase;
+  remainingTime: number;
+  shotNumber: number;
+  lastScore: number | null;
+  lastShotTime: number | null;
+  seriesScores: number[];
+  totalScore: number;
+  recentShots: number[];
+  unifiedPhase: string;
+  stageIndex: number;
+  seriesIndex: number;
+  roundType: string;
+  stageName: string;
+  stage1Total: number;
+  stage2Total: number;
+  eliminated: boolean;
+  eliminationRank: number | null;
+  relayNumber: number;
+}
 
 export function mapResponseToLaneControlDto(data: Record<string, unknown>): LaneControlDto {
   const player = data.player as { name: string; affiliation: string; participantId?: string } | null;
