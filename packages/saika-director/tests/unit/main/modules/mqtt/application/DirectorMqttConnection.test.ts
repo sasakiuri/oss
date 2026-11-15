@@ -2,7 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DirectorMqttConnection } from '@/main/modules/mqtt/application/DirectorMqttConnection';
-import { directorSubscriptions } from '@/shared/mqtt';
 
 import { FakeMqttTransport } from '../../../../../helpers/FakeMqttTransport';
 
@@ -42,7 +41,15 @@ describe('DirectorMqttConnection', () => {
     expect(() => connection.assertConnected()).toThrow('MQTT client is not connected');
     release();
     await connecting;
-    expect(transport.subscriptions).toEqual(directorSubscriptions);
+    expect(transport.subscriptions).toEqual([
+      'saika/lane/+/hardware/#',
+      'saika/lane/+/safety/state',
+      'saika/lane/+/range-officer/request',
+      'saika/lane/+/qualification-malfunction/signal',
+      'saika/lane/+/est-complaint/signal',
+      'saika/lane/+/command/+/acknowledgement',
+      'saika/competition/+/#',
+    ]);
     expect(connection.isConnected()).toBe(true);
     expect(connection.brokerUrl).toBe(brokerUrl);
     expect(callbacks.onReady).toHaveBeenCalledOnce();

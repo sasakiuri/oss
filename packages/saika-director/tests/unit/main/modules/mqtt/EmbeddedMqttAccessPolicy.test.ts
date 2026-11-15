@@ -71,6 +71,45 @@ describe('EmbeddedMqttAccessPolicy', () => {
     expect(policy.canSubscribe(principal, clientId, `saika/competition/c1/lane/${otherLaneId}/command/+`)).toBe(false);
   });
 
+  it.each([
+    [`saika/lane/${laneId}/command/+`, true],
+    [`saika/lane/${laneId}/command/join-competition`, false],
+    [`saika/lane/${laneId}/hardware/state`, false],
+    [`saika/lane/${otherLaneId}/command/+`, false],
+    ['saika/competition/+/state', true],
+    ['saika/competition/+/command/+', true],
+    ['saika/competition//state', false],
+    ['saika/competition/c1', false],
+    ['saika/competition/c1/state/extra', false],
+    ['saika/competition/c1/command/start-match', false],
+    ['saika/competition/c1/cue/+', false],
+    ['saika/competition/c1/lane/+/command/+', false],
+    [`saika/competition/c1/lane/${laneId}/command/assign-athlete`, false],
+    [`saika/competition/c1/lane/${laneId}/command/+/acknowledgement`, false],
+    [`saika/competition/c1/lane/${laneId}/query/+/response`, false],
+    [`saika/competition/c1/lane/${laneId}/state`, false],
+    [`other/competition/c1/state`, false],
+    [`saika/vista/c1/state`, false],
+  ])('decides a Lane subscription to %s as %s', (topic, allowed) => {
+    const principal = { username: 'lane', role: 'LANE' } as const;
+    expect(requiredPolicy().canSubscribe(principal, `saika-lane-${laneId}`, topic)).toBe(allowed);
+  });
+
+  it('matches a Lane client ID case-insensitively but compares topic Lane IDs exactly', () => {
+    const policy = requiredPolicy();
+    const principal = { username: 'lane', role: 'LANE' } as const;
+    const lowerLaneId = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+    const upperLaneId = lowerLaneId.toUpperCase();
+    const clientId = `saika-lane-${upperLaneId}`;
+
+    expect(policy.canSubscribe(principal, clientId, `saika/lane/${upperLaneId}/command/+`)).toBe(true);
+    expect(policy.canSubscribe(principal, clientId, `saika/lane/${lowerLaneId}/command/+`)).toBe(false);
+    expect(policy.canSubscribe(principal, clientId, `saika/competition/c1/lane/${upperLaneId}/query/+/request`)).toBe(
+      true,
+    );
+    expect(policy.canSubscribe(principal, 'saika-lane-not-a-uuid', 'saika/competition/c1/state')).toBe(false);
+  });
+
   it('builds an explicit required configuration and rejects incomplete secrets', () => {
     expect(
       embeddedMqttSecurityFromEnvironment({
