@@ -180,8 +180,6 @@ const eventBus: EventBus = {
     eventHandlers.set(event, handler);
     return () => eventHandlers.delete(event);
   }) as EventBus['subscribe'],
-  unsubscribeAll: vi.fn(),
-  getSubscriptionCount: vi.fn(() => 0),
 };
 
 describe('CompetitionControlScreen', () => {

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import React from 'react';
 import { useEvent } from '@/renderer/presentation/hooks/useEvent';
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
-import { TestEventBus } from '@/renderer/events/TestEventBus';
+import { TestEventBus } from '../../../../../helpers/renderer/TestEventBus';
 import type { EventName } from '@/renderer/events/EventBus';
 
 // Suppress Logger output in tests
@@ -55,27 +55,7 @@ describe('useEvent', () => {
     expect(testBus.getSubscriptionCount('laneTimerTick')).toBe(0);
   });
 
-  it('should re-subscribe when dependencies change', () => {
-    const handler = vi.fn();
-    const subscribeSpy = vi.spyOn(testBus, 'subscribe');
-
-    const { rerender } = renderHook(({ dep }: { dep: number }) => useEvent('laneTimerTick', handler, [dep]), {
-      initialProps: { dep: 1 },
-      wrapper,
-    });
-
-    expect(subscribeSpy).toHaveBeenCalledTimes(1);
-
-    // Change the dependency
-    rerender({ dep: 2 });
-
-    // Old subscription should be cleaned up, new one created
-    expect(subscribeSpy).toHaveBeenCalledTimes(2);
-    // Only one active subscription (old cleaned up)
-    expect(testBus.getSubscriptionCount('laneTimerTick')).toBe(1);
-  });
-
-  it('should NOT re-subscribe when handler reference changes but deps are stable', () => {
+  it('should NOT re-subscribe when only the handler reference changes', () => {
     const subscribeSpy = vi.spyOn(testBus, 'subscribe');
 
     const { rerender } = renderHook(({ handler }: { handler: () => void }) => useEvent('laneTimerTick', handler), {
@@ -85,10 +65,10 @@ describe('useEvent', () => {
 
     expect(subscribeSpy).toHaveBeenCalledTimes(1);
 
-    // Provide a new handler reference but no deps change
+    // Provide a new handler reference
     rerender({ handler: vi.fn() });
 
-    // Should NOT re-subscribe because deps default to []
+    // Should NOT re-subscribe: the stable wrapper calls the latest handler
     expect(subscribeSpy).toHaveBeenCalledTimes(1);
   });
 

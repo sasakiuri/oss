@@ -1,10 +1,10 @@
-import type { EventBus, EventName, EventHandler } from './EventBus';
+import type { EventBus, EventName, EventHandler } from '@/renderer/events/EventBus';
 
 /**
- * In-memory EventBus implementation for testing.
+ * In-memory EventBus for renderer tests.
  *
- * Provides an `emit()` helper to programmatically fire events in tests
- * without requiring `window.electronAPI`.
+ * `emit()` fires events without `window.electronAPI`; `getSubscriptionCount()` checks that hooks release
+ * their listeners.
  */
 export class TestEventBus implements EventBus {
   private listeners = new Map<string, Set<(data: unknown) => void>>();
@@ -29,10 +29,6 @@ export class TestEventBus implements EventBus {
     };
   }
 
-  unsubscribeAll(): void {
-    this.listeners.clear();
-  }
-
   getSubscriptionCount(event?: EventName): number {
     if (event) {
       return this.listeners.get(event)?.size ?? 0;
@@ -44,9 +40,6 @@ export class TestEventBus implements EventBus {
     return total;
   }
 
-  /**
-   * Emit an event to all registered handlers. Test-only helper.
-   */
   emit<E extends EventName>(event: E, data: Parameters<EventHandler<E>>[0]): void {
     const handlers = this.listeners.get(event);
     if (handlers) {
