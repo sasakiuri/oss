@@ -3,7 +3,7 @@ import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
-import { TestEventBus } from '@/renderer/events/TestEventBus';
+import { TestEventBus } from '../../../../helpers/renderer/TestEventBus';
 import { useBoardLaneData } from '@/renderer/presentation/hooks/useBoardLaneData';
 
 vi.mock('@/shared/utils/Logger', () => ({

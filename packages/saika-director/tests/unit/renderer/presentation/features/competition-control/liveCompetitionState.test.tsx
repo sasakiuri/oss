@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
-import { TestEventBus } from '@/renderer/events/TestEventBus';
+import { TestEventBus } from '../../../../../helpers/renderer/TestEventBus';
 import { useCompetitionEvidence } from '@/renderer/presentation/features/competition-control/useCompetitionEvidence';
 import { useMqttControlSnapshot } from '@/renderer/presentation/features/competition-control/useMqttControlSnapshot';
 import type { FiringWindowViolationDto, MqttControlSnapshotDto } from '@/shared/ipc/contracts';

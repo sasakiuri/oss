@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
-import { TestEventBus } from '@/renderer/events/TestEventBus';
+import { TestEventBus } from '../../../../../helpers/renderer/TestEventBus';
 import { FinalBoardScreen } from '@/renderer/presentation/features/boards/FinalBoardScreen';
 
 const { getAll, getControlState } = vi.hoisted(() => ({ getAll: vi.fn(), getControlState: vi.fn() }));

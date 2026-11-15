@@ -1,9 +1,9 @@
-import { useEffect, useCallback, useRef, type DependencyList } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useEventBus } from '@/renderer/events/EventBusProvider';
 import type { EventName, EventHandler } from '@/renderer/events/EventBus';
 
-/** Subscribes until unmount or a deps change. The callback ref updates without resubscribing. */
-export function useEvent<E extends EventName>(event: E, handler: EventHandler<E>, deps: DependencyList = []): void {
+/** Subscribes until unmount or an event change. The callback ref updates without resubscribing. */
+export function useEvent<E extends EventName>(event: E, handler: EventHandler<E>): void {
   const bus = useEventBus();
 
   // Keep a mutable ref to the latest handler so the IPC subscription
@@ -19,5 +19,5 @@ export function useEvent<E extends EventName>(event: E, handler: EventHandler<E>
   useEffect(() => {
     const unsubscribe = bus.subscribe(event, stableHandler as EventHandler<E>);
     return unsubscribe;
-  }, [bus, event, stableHandler, ...deps]);
+  }, [bus, event, stableHandler]);
 }

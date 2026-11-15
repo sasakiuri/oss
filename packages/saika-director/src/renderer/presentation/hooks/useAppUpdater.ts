@@ -1,23 +1,23 @@
 // SPDX-License-Identifier: MIT
 import type { AppUpdateStateDto } from '@sasakiuri/saika-updater';
 import { useEffect, useRef, useState } from 'react';
-import { useEventBus } from '@/renderer/events/EventBusProvider';
 import { updaterService } from '@/renderer/services';
+import { useEvent } from './useEvent';
 
 export function useAppUpdater() {
-  const bus = useEventBus();
   const [state, setState] = useState<AppUpdateStateDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const revision = useRef(0);
 
+  useEvent('appUpdateStateChanged', (next) => {
+    revision.current += 1;
+    setState(next);
+    setError(null);
+  });
+
   useEffect(() => {
     let disposed = false;
-    const unsubscribe = bus.subscribe('appUpdateStateChanged', (next) => {
-      revision.current += 1;
-      setState(next);
-      setError(null);
-    });
     const requestedRevision = revision.current;
     void updaterService.getUpdateState().then(
       (response) => {
@@ -31,9 +31,8 @@ export function useAppUpdater() {
     );
     return () => {
       disposed = true;
-      unsubscribe();
     };
-  }, [bus]);
+  }, []);
 
   const checkForUpdates = async () => {
     setBusy(true);
