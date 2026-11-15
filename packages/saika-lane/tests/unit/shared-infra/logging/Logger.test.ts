@@ -1,26 +1,44 @@
 // SPDX-License-Identifier: MIT
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Logger } from '@/main/shared-infra/logging/Logger';
 
+const paths = vi.hoisted(() => ({ userData: '' }));
+
 vi.mock('electron', () => ({
-  app: { getPath: () => '/tmp/test-userData' },
+  app: { getPath: () => paths.userData },
 }));
 
+const ENV_NAMES = ['LOG_LEVEL', 'LOGS_DIR', 'NODE_ENV'] as const;
+
 describe('Logger', () => {
-  const originalLogLevel = process.env.LOG_LEVEL;
-  const originalLogsDir = process.env.LOGS_DIR;
-  const originalNodeEnv = process.env.NODE_ENV;
+  const originalEnv = Object.fromEntries(ENV_NAMES.map((name) => [name, process.env[name]]));
+
+  beforeAll(() => {
+    paths.userData = mkdtempSync(join(tmpdir(), 'saika-lane-logger-'));
+  });
+
+  afterAll(() => {
+    rmSync(paths.userData, { recursive: true, force: true });
+  });
 
   beforeEach(() => {
     Logger.resetInstance();
+    // Keep log files inside the temporary user-data directory.
+    delete process.env.LOGS_DIR;
   });
 
   afterEach(() => {
     Logger.resetInstance();
-    process.env.LOG_LEVEL = originalLogLevel;
-    process.env.LOGS_DIR = originalLogsDir;
-    process.env.NODE_ENV = originalNodeEnv;
+    for (const name of ENV_NAMES) {
+      // Assigning undefined would store the string "undefined".
+      if (originalEnv[name] === undefined) delete process.env[name];
+      else process.env[name] = originalEnv[name];
+    }
   });
 
   describe('getInstance', () => {
