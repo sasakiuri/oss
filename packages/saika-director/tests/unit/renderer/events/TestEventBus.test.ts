@@ -6,42 +6,42 @@ describe('TestEventBus', () => {
     const bus = new TestEventBus();
     const handler = vi.fn();
 
-    bus.subscribe('timerTick', handler);
-    bus.emit('timerTick', { remainingTime: 100, phase: 'ACTIVE' });
+    bus.subscribe('laneTimerTick', handler);
+    bus.emit('laneTimerTick', { laneId: 'lane-1', remainingTime: 100, phase: 'ACTIVE' });
 
-    expect(handler).toHaveBeenCalledWith({ remainingTime: 100, phase: 'ACTIVE' });
+    expect(handler).toHaveBeenCalledWith({ laneId: 'lane-1', remainingTime: 100, phase: 'ACTIVE' });
   });
 
   it('should return unsubscribe function that removes the handler', () => {
     const bus = new TestEventBus();
     const handler = vi.fn();
 
-    const unsubscribe = bus.subscribe('timerTick', handler);
+    const unsubscribe = bus.subscribe('laneTimerTick', handler);
     unsubscribe();
 
-    bus.emit('timerTick', { remainingTime: 50, phase: 'ACTIVE' });
+    bus.emit('laneTimerTick', { laneId: 'lane-1', remainingTime: 50, phase: 'ACTIVE' });
 
     expect(handler).not.toHaveBeenCalled();
-    expect(bus.getSubscriptionCount('timerTick')).toBe(0);
+    expect(bus.getSubscriptionCount('laneTimerTick')).toBe(0);
   });
 
   it('should track subscription counts', () => {
     const bus = new TestEventBus();
 
-    bus.subscribe('timerTick', vi.fn());
-    bus.subscribe('timerTick', vi.fn());
-    bus.subscribe('timerExpired', vi.fn());
+    bus.subscribe('laneTimerTick', vi.fn());
+    bus.subscribe('laneTimerTick', vi.fn());
+    bus.subscribe('laneTimerExpired', vi.fn());
 
-    expect(bus.getSubscriptionCount('timerTick')).toBe(2);
-    expect(bus.getSubscriptionCount('timerExpired')).toBe(1);
+    expect(bus.getSubscriptionCount('laneTimerTick')).toBe(2);
+    expect(bus.getSubscriptionCount('laneTimerExpired')).toBe(1);
     expect(bus.getSubscriptionCount()).toBe(3);
   });
 
   it('should unsubscribe all handlers', () => {
     const bus = new TestEventBus();
 
-    bus.subscribe('timerTick', vi.fn());
-    bus.subscribe('timerExpired', vi.fn());
+    bus.subscribe('laneTimerTick', vi.fn());
+    bus.subscribe('laneTimerExpired', vi.fn());
 
     bus.unsubscribeAll();
 
@@ -53,10 +53,10 @@ describe('TestEventBus', () => {
     const handler1 = vi.fn();
     const handler2 = vi.fn();
 
-    bus.subscribe('timerTick', handler1);
-    bus.subscribe('timerTick', handler2);
+    bus.subscribe('laneTimerTick', handler1);
+    bus.subscribe('laneTimerTick', handler2);
 
-    bus.emit('timerTick', { remainingTime: 30, phase: 'ACTIVE' });
+    bus.emit('laneTimerTick', { laneId: 'lane-1', remainingTime: 30, phase: 'ACTIVE' });
 
     expect(handler1).toHaveBeenCalledOnce();
     expect(handler2).toHaveBeenCalledOnce();
@@ -67,10 +67,10 @@ describe('TestEventBus', () => {
     const tickHandler = vi.fn();
     const expiredHandler = vi.fn();
 
-    bus.subscribe('timerTick', tickHandler);
-    bus.subscribe('timerExpired', expiredHandler);
+    bus.subscribe('laneTimerTick', tickHandler);
+    bus.subscribe('laneTimerExpired', expiredHandler);
 
-    bus.emit('timerTick', { remainingTime: 10, phase: 'ACTIVE' });
+    bus.emit('laneTimerTick', { laneId: 'lane-1', remainingTime: 10, phase: 'ACTIVE' });
 
     expect(tickHandler).toHaveBeenCalledOnce();
     expect(expiredHandler).not.toHaveBeenCalled();

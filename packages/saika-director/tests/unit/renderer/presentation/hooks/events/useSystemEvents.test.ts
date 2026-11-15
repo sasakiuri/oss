@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSystemEvents } from '@/renderer/presentation/hooks/useSystemEvents';
-import { useTimerStore } from '@/renderer/presentation/stores/system/timer.store';
 import { useConnectionStore } from '@/renderer/presentation/stores/system/connection.store';
 import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
@@ -46,11 +45,6 @@ describe('useSystemEvents', () => {
     getControlState.mockImplementation(() => new Promise(() => {}));
 
     // Reset stores to initial state
-    useTimerStore.setState({
-      remainingTime: 0,
-      phase: 'IDLE',
-      isRunning: false,
-    });
     useConnectionStore.setState({
       isConnected: false,
       connectedChannels: [],
@@ -84,17 +78,17 @@ describe('useSystemEvents', () => {
   }
 
   describe('event subscriptions', () => {
-    it('should subscribe to all system events', () => {
+    it('should subscribe to the system events it displays or records', () => {
       renderSystemEvents();
 
-      expect(capturedHandlers.has('laneConnected')).toBe(true);
-      expect(capturedHandlers.has('mqttControlStateChanged')).toBe(true);
-      expect(capturedHandlers.has('competitionAnnouncementDue')).toBe(true);
-      expect(capturedHandlers.has('firingWindowViolationDetected')).toBe(true);
-      expect(capturedHandlers.has('timerTick')).toBe(true);
-      expect(capturedHandlers.has('timerExpired')).toBe(true);
-      expect(capturedHandlers.has('debugLog')).toBe(true);
-      expect(capturedHandlers.has('mqttConnectionError')).toBe(true);
+      expect([...capturedHandlers.keys()].sort()).toEqual([
+        'competitionAnnouncementDue',
+        'debugLog',
+        'firingWindowViolationDetected',
+        'laneConnected',
+        'mqttConnectionError',
+        'mqttControlStateChanged',
+      ]);
     });
   });
 
@@ -148,61 +142,6 @@ describe('useSystemEvents', () => {
         type: 'warning',
         message: expect.stringMatching(/Rule 6\.11\.1\.3.*Detection only; no score or decision was changed/),
       });
-    });
-  });
-
-  describe('timerTick event', () => {
-    it('should update timer store with remaining time and phase', () => {
-      const { fireEvent } = renderSystemEvents();
-
-      fireEvent('timerTick', { remainingTime: 250, phase: 'ACTIVE' });
-
-      const state = useTimerStore.getState();
-      expect(state.remainingTime).toBe(250);
-      expect(state.phase).toBe('ACTIVE');
-      expect(state.isRunning).toBe(true);
-    });
-
-    it('should set isRunning to false when remainingTime is 0', () => {
-      const { fireEvent } = renderSystemEvents();
-
-      fireEvent('timerTick', { remainingTime: 0, phase: 'ACTIVE' });
-
-      const state = useTimerStore.getState();
-      expect(state.remainingTime).toBe(0);
-      expect(state.isRunning).toBe(false);
-    });
-
-    it('should update phase on timer tick', () => {
-      const { fireEvent } = renderSystemEvents();
-
-      fireEvent('timerTick', { remainingTime: 300, phase: 'ACTIVE' });
-
-      expect(useTimerStore.getState().phase).toBe('ACTIVE');
-    });
-  });
-
-  describe('timerExpired event', () => {
-    it('should set remaining time to 0 and isRunning to false', () => {
-      // First set a running timer
-      useTimerStore.setState({ remainingTime: 10, phase: 'ACTIVE', isRunning: true });
-
-      const { fireEvent } = renderSystemEvents();
-
-      fireEvent('timerExpired', { phase: 'ACTIVE' });
-
-      const state = useTimerStore.getState();
-      expect(state.remainingTime).toBe(0);
-      expect(state.phase).toBe('ACTIVE');
-      expect(state.isRunning).toBe(false);
-    });
-
-    it('should update the phase when timer expires', () => {
-      const { fireEvent } = renderSystemEvents();
-
-      fireEvent('timerExpired', { phase: 'ACTIVE' });
-
-      expect(useTimerStore.getState().phase).toBe('ACTIVE');
     });
   });
 

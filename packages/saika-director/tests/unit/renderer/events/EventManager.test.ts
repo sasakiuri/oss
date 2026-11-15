@@ -63,51 +63,51 @@ describe('ElectronEventBus', () => {
     it('should register an event handler and track the subscription', () => {
       const handler = vi.fn();
 
-      bus.subscribe('timerTick', handler);
+      bus.subscribe('laneTimerTick', handler);
 
-      expect(bus.getSubscriptionCount('timerTick')).toBe(1);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(1);
       expect(bus.getSubscriptionCount()).toBe(1);
     });
 
     it('should return an unsubscribe function', () => {
       const handler = vi.fn();
 
-      const unsubscribe = bus.subscribe('timerTick', handler);
+      const unsubscribe = bus.subscribe('laneTimerTick', handler);
 
       expect(typeof unsubscribe).toBe('function');
     });
 
     it('should call window.electronAPI.on[event] with the handler', () => {
-      const onTimerTick = vi.fn().mockReturnValue(vi.fn());
+      const onLaneTimerTick = vi.fn().mockReturnValue(vi.fn());
       (globalThis as Record<string, unknown>).window = {
         electronAPI: {
-          on: { timerTick: onTimerTick },
+          on: { laneTimerTick: onLaneTimerTick },
         },
       };
 
       const handler = vi.fn();
-      bus.subscribe('timerTick', handler);
+      bus.subscribe('laneTimerTick', handler);
 
-      expect(onTimerTick).toHaveBeenCalledWith(handler);
+      expect(onLaneTimerTick).toHaveBeenCalledWith(handler);
     });
   });
 
   describe('unsubscribe (returned function)', () => {
     it('should remove the subscription from tracking on unsubscribe', () => {
       const handler = vi.fn();
-      const unsubscribe = bus.subscribe('timerTick', handler);
+      const unsubscribe = bus.subscribe('laneTimerTick', handler);
 
-      expect(bus.getSubscriptionCount('timerTick')).toBe(1);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(1);
 
       unsubscribe();
 
-      expect(bus.getSubscriptionCount('timerTick')).toBe(0);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(0);
       expect(bus.getSubscriptionCount()).toBe(0);
     });
 
     it('should call the IPC unsubscribe function', () => {
       const handler = vi.fn();
-      const unsubscribe = bus.subscribe('timerTick', handler);
+      const unsubscribe = bus.subscribe('laneTimerTick', handler);
 
       unsubscribe();
 
@@ -117,24 +117,24 @@ describe('ElectronEventBus', () => {
 
     it('should be safe to call twice (double unsubscribe)', () => {
       const handler = vi.fn();
-      const unsubscribe = bus.subscribe('timerTick', handler);
+      const unsubscribe = bus.subscribe('laneTimerTick', handler);
 
       unsubscribe();
       unsubscribe(); // second call should not throw
 
-      expect(bus.getSubscriptionCount('timerTick')).toBe(0);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(0);
       // IPC unsubscribe should only be called once due to the `cleaned` guard
       expect(mockOn.ipcUnsubscribes[0]).toHaveBeenCalledTimes(1);
     });
 
     it('should clean up the event key from the map when last subscription is removed', () => {
       const handler = vi.fn();
-      const unsubscribe = bus.subscribe('timerTick', handler);
+      const unsubscribe = bus.subscribe('laneTimerTick', handler);
 
       unsubscribe();
 
       // Internal map should no longer have the event key
-      expect(bus.getSubscriptionCount('timerTick')).toBe(0);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(0);
       expect(bus.getSubscriptionCount()).toBe(0);
     });
   });
@@ -145,11 +145,11 @@ describe('ElectronEventBus', () => {
       const handler2 = vi.fn();
       const handler3 = vi.fn();
 
-      bus.subscribe('timerTick', handler1);
-      bus.subscribe('timerTick', handler2);
-      bus.subscribe('timerTick', handler3);
+      bus.subscribe('laneTimerTick', handler1);
+      bus.subscribe('laneTimerTick', handler2);
+      bus.subscribe('laneTimerTick', handler3);
 
-      expect(bus.getSubscriptionCount('timerTick')).toBe(3);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(3);
       expect(bus.getSubscriptionCount()).toBe(3);
     });
 
@@ -157,30 +157,30 @@ describe('ElectronEventBus', () => {
       const handler1 = vi.fn();
       const handler2 = vi.fn();
 
-      const unsub1 = bus.subscribe('timerTick', handler1);
-      bus.subscribe('timerTick', handler2);
+      const unsub1 = bus.subscribe('laneTimerTick', handler1);
+      bus.subscribe('laneTimerTick', handler2);
 
       unsub1();
 
-      expect(bus.getSubscriptionCount('timerTick')).toBe(1);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(1);
     });
   });
 
   describe('subscriptions across different events', () => {
     it('should track subscriptions per event name', () => {
-      bus.subscribe('timerTick', vi.fn());
-      bus.subscribe('timerExpired', vi.fn());
-      bus.subscribe('timerTick', vi.fn());
+      bus.subscribe('laneTimerTick', vi.fn());
+      bus.subscribe('laneTimerExpired', vi.fn());
+      bus.subscribe('laneTimerTick', vi.fn());
 
-      expect(bus.getSubscriptionCount('timerTick')).toBe(2);
-      expect(bus.getSubscriptionCount('timerExpired')).toBe(1);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(2);
+      expect(bus.getSubscriptionCount('laneTimerExpired')).toBe(1);
       expect(bus.getSubscriptionCount()).toBe(3);
     });
   });
 
   describe('getSubscriptionCount', () => {
     it('should return 0 for an event with no subscriptions', () => {
-      expect(bus.getSubscriptionCount('timerTick')).toBe(0);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(0);
     });
 
     it('should return 0 for total when no subscriptions exist', () => {
@@ -188,15 +188,15 @@ describe('ElectronEventBus', () => {
     });
 
     it('should return correct count for a specific event', () => {
-      bus.subscribe('timerTick', vi.fn());
-      bus.subscribe('timerTick', vi.fn());
+      bus.subscribe('laneTimerTick', vi.fn());
+      bus.subscribe('laneTimerTick', vi.fn());
 
-      expect(bus.getSubscriptionCount('timerTick')).toBe(2);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(2);
     });
 
     it('should return correct total across all events', () => {
-      bus.subscribe('timerTick', vi.fn());
-      bus.subscribe('timerExpired', vi.fn());
+      bus.subscribe('laneTimerTick', vi.fn());
+      bus.subscribe('laneTimerExpired', vi.fn());
       bus.subscribe('laneConnected', vi.fn());
 
       expect(bus.getSubscriptionCount()).toBe(3);
@@ -205,8 +205,8 @@ describe('ElectronEventBus', () => {
 
   describe('unsubscribeAll', () => {
     it('should remove all subscriptions', () => {
-      bus.subscribe('timerTick', vi.fn());
-      bus.subscribe('timerExpired', vi.fn());
+      bus.subscribe('laneTimerTick', vi.fn());
+      bus.subscribe('laneTimerExpired', vi.fn());
       bus.subscribe('laneConnected', vi.fn());
 
       expect(bus.getSubscriptionCount()).toBe(3);
@@ -214,14 +214,14 @@ describe('ElectronEventBus', () => {
       bus.unsubscribeAll();
 
       expect(bus.getSubscriptionCount()).toBe(0);
-      expect(bus.getSubscriptionCount('timerTick')).toBe(0);
-      expect(bus.getSubscriptionCount('timerExpired')).toBe(0);
+      expect(bus.getSubscriptionCount('laneTimerTick')).toBe(0);
+      expect(bus.getSubscriptionCount('laneTimerExpired')).toBe(0);
       expect(bus.getSubscriptionCount('laneConnected')).toBe(0);
     });
 
     it('should call IPC unsubscribe for every active subscription', () => {
-      bus.subscribe('timerTick', vi.fn());
-      bus.subscribe('timerExpired', vi.fn());
+      bus.subscribe('laneTimerTick', vi.fn());
+      bus.subscribe('laneTimerExpired', vi.fn());
 
       bus.unsubscribeAll();
 
@@ -235,7 +235,7 @@ describe('ElectronEventBus', () => {
     });
 
     it('should be safe to call multiple times', () => {
-      bus.subscribe('timerTick', vi.fn());
+      bus.subscribe('laneTimerTick', vi.fn());
 
       bus.unsubscribeAll();
       bus.unsubscribeAll();
