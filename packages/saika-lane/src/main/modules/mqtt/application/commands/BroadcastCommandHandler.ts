@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Handles competition-wide commands and acknowledges executing, done, or error states. */
 
+import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
+
 import {
   AdvanceStageToken,
   EndStageToken,
@@ -84,11 +86,7 @@ const ACTION_SCHEMAS: LaneCommandSchemas<BroadcastAction> = {
   'record-timed-target-unload': RecordTimedTargetUnloadCmdSchema,
 };
 
-/** Parsed parts of the topic */
-interface ParsedBroadcastTopic {
-  competitionId: string;
-  action: string;
-}
+type BroadcastTopic = ParsedMqttTopicOf<'competitionCommand'>;
 
 export class BroadcastCommandHandler {
   private readonly processor: LaneCommandProcessor;
@@ -128,14 +126,14 @@ export class BroadcastCommandHandler {
   async subscribeToCompetition(competitionId: string): Promise<void> {
     await this.unsubscribeFromCompetition();
 
-    const topic = `saika/competition/${competitionId}/command/+`;
+    const topic = mqttTopicFilters.competitionCommands(competitionId);
     this.subscribedTopic = topic;
 
     await this.mqttClient.subscribe(topic, 1);
 
     this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
-      const parsed = this.parseTopic(msgTopic);
-      if (!parsed) return;
+      const parsed = parseMqttTopic(msgTopic);
+      if (parsed?.kind !== 'competitionCommand') return;
 
       void this.handleCommand(parsed, payload);
     });
@@ -160,30 +158,18 @@ export class BroadcastCommandHandler {
   }
 
   /**
-   * Parses the topic
-   * saika/competition/{competitionId}/command/{action}
-   */
-  private parseTopic(topic: string): ParsedBroadcastTopic | null {
-    const segments = topic.split('/');
-    if (segments.length !== 5) return null;
-    if (segments[0] !== 'saika' || segments[1] !== 'competition') return null;
-    if (segments[3] !== 'command') return null;
-
-    return {
-      competitionId: segments[2]!,
-      action: segments[4]!,
-    };
-  }
-
-  /**
    * Processes a command
    */
-  private handleCommand(parsed: ParsedBroadcastTopic, payload: Buffer): Promise<void> {
+  private handleCommand(parsed: BroadcastTopic, payload: Buffer): Promise<void> {
     return this.processor.handle<BroadcastAction>({
       action: parsed.action,
       payload,
       schemas: ACTION_SCHEMAS,
-      acknowledgementTopic: `saika/competition/${parsed.competitionId}/command/${parsed.action}/acknowledgement/${this.getLaneId()}`,
+      acknowledgementTopic: mqttTopics.competitionCommandAcknowledgement(
+        parsed.competitionId,
+        parsed.action,
+        this.getLaneId(),
+      ),
       prepare: (action, command) => this.prepareCommand(action, command),
       execute: (action, command) => this.executeAction(action, command, parsed.competitionId),
     });

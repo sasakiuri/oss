@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Publishes recorded shots with competition context at QoS 1 without retention. */
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
@@ -94,7 +96,7 @@ export class CompetitionShotPublisher {
       publishedAt: new Date().toISOString(),
     });
 
-    const topic = `saika/competition/${competition.id}/lane/${laneId}/shot`;
+    const topic = mqttTopics.competitionShot(competition.id, laneId);
 
     await this.mqttClient.publish(topic, payload, { qos: 1, retain: false });
   }

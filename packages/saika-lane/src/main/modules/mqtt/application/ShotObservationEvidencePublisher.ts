@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
 import type { ShotObservationEvidence } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -59,8 +61,8 @@ export class ShotObservationEvidencePublisher {
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
     const competition = evidence.competition;
     const topic = competition
-      ? `saika/competition/${competition.competitionId}/lane/${laneId}/observation`
-      : `saika/lane/${laneId}/hardware/observation`;
+      ? mqttTopics.competitionShotObservation(competition.competitionId, laneId)
+      : mqttTopics.laneHardwareObservation(laneId);
     const payload = JSON.stringify({
       evidenceVersion: 1,
       evidenceId: evidence.evidenceId,

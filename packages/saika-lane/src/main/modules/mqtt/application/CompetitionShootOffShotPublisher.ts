@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { ICompetitionShootOffControl, ICompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -103,7 +105,7 @@ export class CompetitionShootOffShotPublisher {
       for (const payload of pending) {
         if (!this.mqttClient.isConnected()) return;
         await this.mqttClient.publish(
-          `saika/competition/${payload.competitionId}/lane/${payload.laneId}/shoot-off/shot`,
+          mqttTopics.competitionShootOffShot(payload.competitionId, payload.laneId),
           JSON.stringify({ ...payload, publishedAt: new Date().toISOString() }),
           { qos: 1, retain: false },
         );

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Handles commands addressed to one Lane within a competition. */
 
+import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
+
 import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
@@ -80,12 +82,7 @@ const ACTION_SCHEMAS: LaneCommandSchemas<PerLaneAction> = {
   'retire-finalist': RetireFinalistCmdSchema,
 };
 
-/** Parsed parts of the topic */
-interface ParsedPerLaneTopic {
-  competitionId: string;
-  laneId: string;
-  action: string;
-}
+type PerLaneTopic = ParsedMqttTopicOf<'laneCompetitionCommand'>;
 
 export class PerLaneCommandHandler {
   private readonly processor: LaneCommandProcessor;
@@ -133,14 +130,14 @@ export class PerLaneCommandHandler {
   async subscribeToCompetition(competitionId: string): Promise<void> {
     await this.unsubscribeFromCompetition();
 
-    const topic = `saika/competition/${competitionId}/lane/${this.getLaneId()}/command/+`;
+    const topic = mqttTopicFilters.laneCompetitionCommands(competitionId, this.getLaneId());
     this.subscribedTopic = topic;
 
     await this.mqttClient.subscribe(topic, 1);
 
     this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
-      const parsed = this.parseTopic(msgTopic);
-      if (!parsed) return;
+      const parsed = parseMqttTopic(msgTopic);
+      if (parsed?.kind !== 'laneCompetitionCommand') return;
       if (parsed.laneId !== this.getLaneId()) return;
 
       void this.handleCommand(parsed, payload);
@@ -166,32 +163,18 @@ export class PerLaneCommandHandler {
   }
 
   /**
-   * Parses the topic
-   * saika/competition/{competitionId}/lane/{laneId}/command/{action}
-   */
-  private parseTopic(topic: string): ParsedPerLaneTopic | null {
-    const segments = topic.split('/');
-    if (segments.length !== 7) return null;
-    if (segments[0] !== 'saika' || segments[1] !== 'competition') return null;
-    if (segments[3] !== 'lane') return null;
-    if (segments[5] !== 'command') return null;
-
-    return {
-      competitionId: segments[2]!,
-      laneId: segments[4]!,
-      action: segments[6]!,
-    };
-  }
-
-  /**
    * Processes a command
    */
-  private handleCommand(parsed: ParsedPerLaneTopic, payload: Buffer): Promise<void> {
+  private handleCommand(parsed: PerLaneTopic, payload: Buffer): Promise<void> {
     return this.processor.handle<PerLaneAction>({
       action: parsed.action,
       payload,
       schemas: ACTION_SCHEMAS,
-      acknowledgementTopic: `saika/competition/${parsed.competitionId}/lane/${this.getLaneId()}/command/${parsed.action}/acknowledgement`,
+      acknowledgementTopic: mqttTopics.laneCompetitionCommandAcknowledgement(
+        parsed.competitionId,
+        this.getLaneId(),
+        parsed.action,
+      ),
       execute: (action, command) => this.executeAction(action, command, parsed.competitionId),
     });
   }

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type {
   IQualificationRecoveryControl,
   QualificationRecoveryRunRecord,
@@ -82,6 +84,6 @@ export class QualificationRecoveryStatePublisher {
   }
 
   private topic(competitionId: string, laneId: string): string {
-    return `saika/competition/${competitionId}/lane/${laneId}/qualification-recovery/state`;
+    return mqttTopics.qualificationRecoveryState(competitionId, laneId);
   }
 }

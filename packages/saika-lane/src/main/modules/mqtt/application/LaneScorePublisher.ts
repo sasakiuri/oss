@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Publishes a retained score from one persisted session snapshot at QoS 1. */
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import { projectShotResult, type ShotResultProjectionCapability } from '@sasakiuri/saika-rules';
 
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
@@ -91,7 +92,7 @@ export class LaneScorePublisher {
       publishedAt: new Date().toISOString(),
     });
 
-    const topic = `saika/competition/${competition.id}/lane/${laneId}/score`;
+    const topic = mqttTopics.laneScore(competition.id, laneId);
 
     await this.mqttClient.publish(topic, payload, { qos: 1, retain: true });
   }

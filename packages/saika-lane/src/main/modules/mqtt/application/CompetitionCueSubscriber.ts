@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import {
   CompetitionCuePayloadSchema,
@@ -21,7 +23,7 @@ export class CompetitionCueSubscriber {
 
   async subscribe(competitionId: string): Promise<void> {
     await this.unsubscribe();
-    const topic = `saika/competition/${competitionId}/cue`;
+    const topic = mqttTopics.competitionCue(competitionId);
     this.subscribedTopic = topic;
     this.competitionId = competitionId;
     this.messageUnsubscribe = this.mqttClient.onMessage((messageTopic, payload) => {

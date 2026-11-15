@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { EstComplaintSignalService, EstComplaintSignalState } from '@/main/modules/est-complaint-signal';
 import { EstComplaintSignalPayloadSchema, type EstComplaintSignalPayload } from '@/shared/mqtt/EstComplaintSignal';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
@@ -26,7 +28,7 @@ export class EstComplaintSignalPublisher {
     if (!this.mqttClient.isConnected()) return;
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
     const payload = toEstComplaintSignalPayload(laneId, this.service.getState());
-    await this.mqttClient.publish(`saika/lane/${laneId}/est-complaint/signal`, JSON.stringify(payload), {
+    await this.mqttClient.publish(mqttTopics.laneEstComplaintSignal(laneId), JSON.stringify(payload), {
       qos: 1,
       retain: true,
     });
