@@ -17,6 +17,8 @@ import { migration089EvidenceFileContents } from '@/main/infrastructure/database
 import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { SqliteEvidenceFileStore } from '@/main/modules/evidence-files';
 
+import { latestMigrationVersion } from '../../../../helpers/database';
+
 describe('Evidence original database migration', () => {
   let directory: string;
   let database: Database.Database | undefined;
@@ -122,7 +124,7 @@ describe('Evidence original database migration', () => {
     directory = await mkdtemp(join(tmpdir(), 'saika-evidence-fresh-'));
     database = new Database(join(directory, 'saika.db'));
     new MigrationRunner(database).run(allMigrations);
-    expect(new MigrationRunner(database).getCurrentVersion()).toBe(90);
+    expect(new MigrationRunner(database).getCurrentVersion()).toBe(latestMigrationVersion);
     expect(database.prepare('SELECT COUNT(*) FROM evidence_file_contents').pluck().get()).toBe(0);
   });
 });

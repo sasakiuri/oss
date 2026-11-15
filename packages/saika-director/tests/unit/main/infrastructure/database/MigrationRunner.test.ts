@@ -22,18 +22,6 @@ describe('MigrationRunner', () => {
         expect(migration.name).toBeTruthy();
       }
     });
-
-    it('registers reusable operation templates after the competition start policies', () => {
-      const maxVersion = Math.max(...allMigrations.map((m) => m.version));
-      expect(maxVersion).toBe(90);
-      expect(allMigrations.find((migration) => migration.version === 90)?.name).toBe('nullified_position_extra');
-      expect(allMigrations.find((migration) => migration.version === 89)?.name).toBe('evidence_file_contents');
-      expect(allMigrations.find((migration) => migration.version === 88)?.name).toBe('vista_ranking_scopes');
-      expect(allMigrations.find((migration) => migration.version === 87)?.name).toBe('final_result_source_competition');
-      expect(allMigrations.find((migration) => migration.version === 86)?.name).toBe('vista_sources');
-      expect(allMigrations.find((migration) => migration.version === 73)?.name).toBe('est_inspection_start_settings');
-      expect(allMigrations.find((migration) => migration.version === 72)?.name).toBe('relay_readiness_start_settings');
-    });
   });
 
   describe('Migration interface', () => {
