@@ -18,46 +18,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-// Electron API type definition (legacy format - direct ipcRenderer)
-interface LegacyElectronAPI {
-  ipcRenderer: {
-    on: ReturnType<typeof vi.fn>;
-    off: ReturnType<typeof vi.fn>;
-    send: ReturnType<typeof vi.fn>;
-    invoke: ReturnType<typeof vi.fn>;
-  };
-}
-
-// Global scope type extension
-// Note: Window.electronAPI is already declared in src/shared/types/ElectronAPI.ts
-declare global {
-  var electron: LegacyElectronAPI;
-  interface Window {
-    electron: LegacyElectronAPI;
-  }
-}
-
-// Electron API mock (extend as needed)
-globalThis.electron = {
-  // Mock IPC API for communication with Main Process
-  ipcRenderer: {
-    on: vi.fn(),
-    off: vi.fn(),
-    send: vi.fn(),
-    invoke: vi.fn(),
-  },
-};
-
-// Window API extension (mock Electron-specific APIs)
-Object.defineProperty(window, 'electron', {
-  writable: true,
-  value: globalThis.electron,
-});
-
 // Suppress jsdom "Not implemented: HTMLCanvasElement.prototype.getContext" noise
 HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
-// Electron API mock (new format via preload)
+// Electron API mock exposed by the preload script
 const mockElectronAPI = createMockElectronAPI();
 
 Object.defineProperty(window, 'electronAPI', {
