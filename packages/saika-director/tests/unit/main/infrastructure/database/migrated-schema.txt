@@ -1,0 +1,3051 @@
+CREATE INDEX evidence_files_by_evidence ON evidence_files(evidence_id);
+
+CREATE INDEX final_firing_case ON final_recovery_firing_runs(case_id);
+
+CREATE INDEX final_firing_evidence_run ON final_recovery_firing_evidence(run_id);
+
+CREATE INDEX idx_adjudication_case_entries_case
+        ON adjudication_case_entries(case_id, recorded_at, id);
+
+CREATE INDEX idx_adjudication_case_links_case
+        ON adjudication_case_links(case_id, recorded_at, id);
+
+CREATE INDEX idx_adjudication_cases_scope
+        ON adjudication_cases(scope_type, scope_id, opened_at, id);
+
+CREATE INDEX idx_athlete_identities_championship
+        ON athlete_identities(championship_id, display_name, id);
+
+CREATE INDEX idx_athlete_identity_links_identity
+        ON athlete_identity_link_entries(athlete_identity_id, recorded_at, id);
+
+CREATE INDEX idx_athlete_identity_links_participant
+        ON athlete_identity_link_entries(participant_id, recorded_at, id);
+
+CREATE INDEX idx_athlete_sanctions_event
+        ON athlete_sanction_decisions(source_event_id, decided_at, id);
+
+CREATE INDEX idx_athlete_sanctions_identity
+        ON athlete_sanction_decisions(athlete_identity_id, decided_at, id);
+
+CREATE INDEX idx_championship_official_entries
+        ON championship_official_entries(championship_id, recorded_at, id);
+
+CREATE INDEX idx_equipment_registry_championship ON equipment_registry_entries(championship_id, sequence);
+
+CREATE INDEX idx_est_backup_sources_event ON est_backup_sources(event_id);
+
+CREATE INDEX idx_est_backup_verification_event
+        ON est_backup_verification_runs(event_id, verified_at, id);
+
+CREATE INDEX idx_est_complaint_links_competition
+        ON est_complaint_target_examination_links(
+          json_extract(snapshot_json, '$.context.competitionId'), linked_at
+        );
+
+CREATE INDEX idx_est_inspection_entries_plan
+        ON est_inspection_entries(plan_id, target_identifier, recorded_at, id);
+
+CREATE INDEX idx_est_inspection_plans_championship
+        ON est_inspection_plans(championship_id, version_number, created_at, id);
+
+CREATE INDEX idx_final_control_decisions_competition
+        ON final_control_decisions(competition_id, after_shot, rank, recorded_at, id);
+
+CREATE INDEX idx_final_control_entries_decision
+        ON final_control_entries(decision_id, recorded_at, id);
+
+CREATE UNIQUE INDEX idx_final_operation_entries_confirm_once
+        ON final_operation_entries(run_id, branch, iteration, step_id)
+        WHERE entry_type = 'STEP_CONFIRMED';
+
+CREATE INDEX idx_final_operation_entries_run
+        ON final_operation_entries(run_id, recorded_at, id);
+
+CREATE UNIQUE INDEX idx_final_operation_entries_shoot_off_close_once
+        ON final_operation_entries(run_id, branch, iteration)
+        WHERE entry_type = 'SHOOT_OFF_ROUND_CLOSED';
+
+CREATE UNIQUE INDEX idx_final_operation_entries_shoot_off_start_once
+        ON final_operation_entries(run_id, branch, iteration)
+        WHERE entry_type = 'SHOOT_OFF_STARTED';
+
+CREATE UNIQUE INDEX idx_final_operation_entries_skip_once
+        ON final_operation_entries(run_id, branch, iteration, step_id)
+        WHERE entry_type = 'STEP_SKIPPED';
+
+CREATE INDEX idx_final_operation_runs_competition
+        ON final_operation_runs(competition_id, created_at, id);
+
+CREATE INDEX idx_final_operation_shoot_off_shots_lane
+        ON final_operation_shoot_off_shots(run_id, iteration, lane_id, fired_at, id);
+
+CREATE INDEX idx_final_operation_shoot_off_shots_run
+        ON final_operation_shoot_off_shots(run_id, iteration, observed_at, id);
+
+CREATE INDEX idx_final_placement_review_entries_event
+        ON final_placement_review_entries(event_id, recorded_at, id);
+
+CREATE INDEX idx_final_recovery_cases_competition
+        ON final_recovery_cases(competition_id, occurred_at, id);
+
+CREATE INDEX idx_final_recovery_cases_event
+        ON final_recovery_cases(event_id, occurred_at, id) WHERE event_id IS NOT NULL;
+
+CREATE INDEX idx_final_recovery_cases_run
+        ON final_recovery_cases(final_run_id, occurred_at, id) WHERE final_run_id IS NOT NULL;
+
+CREATE INDEX idx_final_recovery_entries_case
+        ON final_recovery_entries(case_id, recorded_at, id);
+
+CREATE UNIQUE INDEX idx_final_results_event_participant
+        ON final_results(event_id, participant_id);
+
+CREATE INDEX idx_final_results_event_rank
+        ON final_results(event_id, final_rank ASC);
+
+CREATE INDEX idx_irregular_shot_case_entries_case
+        ON irregular_shot_case_entries(case_id, recorded_at, id);
+
+CREATE INDEX idx_irregular_shot_cases_competition
+        ON irregular_shot_cases(competition_id, occurred_at, id);
+
+CREATE INDEX idx_irregular_shot_cases_event
+        ON irregular_shot_cases(event_id, result_scope, occurred_at, id);
+
+CREATE INDEX idx_irregular_shot_evidence_case
+        ON irregular_shot_evidence(case_id, fired_at, id);
+
+CREATE INDEX idx_mixed_team_final_decisions_competition
+        ON mixed_team_final_decisions(competition_id, after_shot, rank, recorded_at, id);
+
+CREATE INDEX idx_mixed_team_final_entries_decision
+        ON mixed_team_final_entries(decision_id, recorded_at, id);
+
+CREATE INDEX idx_mixed_team_final_results_event
+        ON mixed_team_final_results(event_id, final_rank, team_id);
+
+CREATE UNIQUE INDEX idx_mixed_team_timeout_entry_once
+        ON mixed_team_timeout_entries(timeout_id, entry_type);
+
+CREATE INDEX idx_mixed_team_timeouts_competition
+        ON mixed_team_timeout_sessions(competition_id, started_at, id);
+
+CREATE INDEX idx_mqtt_firing_boundaries_competition
+        ON mqtt_firing_command_boundaries(competition_id, occurred_at, id);
+
+CREATE INDEX idx_mqtt_firing_violations_competition
+        ON mqtt_firing_window_violations(competition_id, evaluated_shot_at, id);
+
+CREATE INDEX idx_mqtt_observation_evidence_competition
+        ON mqtt_shot_observation_evidence(competition_id, observed_at, evidence_id);
+
+CREATE INDEX idx_mqtt_observation_evidence_lane
+        ON mqtt_shot_observation_evidence(lane_id, observed_at, evidence_id);
+
+CREATE INDEX idx_mqtt_shot_observations_competition
+        ON mqtt_competition_shot_observations(competition_id, observed_at, id);
+
+CREATE INDEX idx_mqtt_shot_observations_competition_lane_session
+        ON mqtt_competition_shot_observations(
+          competition_id, lane_id, session_id, stage_index, series_index, shot_number_in_series
+        );
+
+CREATE INDEX idx_mqtt_shot_observations_shot
+        ON mqtt_competition_shot_observations(shot_id, observed_at, id);
+
+CREATE INDEX idx_observation_reviews_competition ON observation_reviews(competition_id, subject_id);
+
+CREATE INDEX idx_outdoor_elimination_plan_entries_plan
+        ON outdoor_elimination_plan_entries(plan_id, recorded_at, id);
+
+CREATE INDEX idx_outdoor_elimination_plans_event
+        ON outdoor_elimination_plans(event_id, created_at, id);
+
+CREATE INDEX idx_participants_event_team
+        ON participants(event_id, team_id, entry_status, sort_order);
+
+CREATE INDEX idx_post_competition_equipment_check_entries_check
+        ON post_competition_equipment_check_entries(check_id, occurred_at, recorded_at, id);
+
+CREATE INDEX idx_post_competition_equipment_checks_championship
+        ON post_competition_equipment_checks(championship_id, selected_at, recorded_at, id);
+
+CREATE INDEX idx_post_competition_equipment_checks_subject
+        ON post_competition_equipment_checks(event_id, participant_id, selection_basis);
+
+CREATE INDEX idx_production_operations_competition
+        ON production_operation_entries(competition_id, recorded_at, id);
+
+CREATE INDEX idx_protest_cases_scope
+        ON protest_cases(scope_type, scope_id, lodged_at, id);
+
+CREATE INDEX idx_protest_entries_case ON protest_entries(case_id, occurred_at, id);
+
+CREATE INDEX idx_publication_review_policy_scope ON publication_review_policies(event_id, result_scope);
+
+CREATE INDEX idx_qualification_malfunction_entries_case ON qualification_malfunction_entries(case_id, recorded_at, id);
+
+CREATE INDEX idx_qualification_malfunctions_competition
+        ON qualification_malfunction_cases(competition_id, occurred_at, id);
+
+CREATE INDEX idx_qualification_malfunctions_event_participant
+        ON qualification_malfunction_cases(event_id, participant_id, occurred_at, id);
+
+CREATE INDEX idx_qualification_recovery_execution_events_run
+        ON qualification_recovery_execution_events(run_id, recorded_at);
+
+CREATE INDEX idx_qualification_recovery_executions_case
+        ON qualification_recovery_executions(case_id, requested_at);
+
+CREATE INDEX idx_qualification_recovery_settlement_events_request
+        ON qualification_recovery_settlement_events(settlement_id, recorded_at);
+
+CREATE INDEX idx_qualification_recovery_settlement_requests_case
+        ON qualification_recovery_settlement_requests(case_id, requested_at);
+
+CREATE INDEX idx_qualification_timed_target_recovery_decisions_case
+        ON qualification_timed_target_recovery_decisions(case_id, recorded_at);
+
+CREATE INDEX idx_range_incident_report_entries_report
+        ON range_incident_report_entries(report_id, recorded_at, id);
+
+CREATE INDEX idx_range_incident_reports_event
+        ON range_incident_reports(event_id, occurred_at, id);
+
+CREATE INDEX idx_range_interruption_batches_case
+        ON range_interruption_command_batches(case_id, recorded_at, id);
+
+CREATE INDEX idx_range_interruption_cases_started
+        ON range_interruption_cases(started_at, id);
+
+CREATE INDEX idx_range_interruption_entries_case
+        ON range_interruption_entries(case_id, occurred_at, id);
+
+CREATE INDEX idx_range_interruption_scope_lookup
+        ON range_interruption_scope_links(scope_type, scope_id, linked_at, case_id);
+
+CREATE INDEX idx_range_safety_lane_clearances_stop
+        ON range_safety_lane_clearances(safety_stop_id, lane_id, verified_at);
+
+CREATE INDEX idx_range_safety_stop_audit_stop
+        ON range_safety_stop_audit(safety_stop_id, recorded_at, id);
+
+CREATE INDEX idx_record_claim_entries
+        ON record_claim_entries(claim_id, recorded_at, id);
+
+CREATE INDEX idx_record_claims_championship
+        ON record_claims(championship_id, achieved_at, id);
+
+CREATE INDEX idx_record_claims_source
+        ON record_claims(championship_id, event_id, result_id, result_scope, record_code);
+
+CREATE INDEX idx_relay_athlete_lifecycle_scope
+        ON relay_athlete_lifecycle_entries(
+          competition_id, relay_number, phase, lane_id, athlete_id, recorded_at, id
+        );
+
+CREATE INDEX idx_relay_readiness_scope
+        ON relay_readiness_entries(competition_id, relay_number, phase, recorded_at, id);
+
+CREATE INDEX idx_result_list_approval_entries_event
+        ON result_list_approval_entries(event_id, result_scope, recorded_at, id);
+
+CREATE INDEX idx_result_publication_entries_event
+        ON result_publication_entries(event_id, result_scope);
+
+CREATE INDEX idx_result_verification_checks_event_result
+        ON result_verification_checks(event_id, result_id, checked_at, id);
+
+CREATE INDEX idx_results_book_signatures_book
+        ON results_book_signatures(book_id, signed_at, id);
+
+CREATE INDEX idx_results_book_versions_championship
+        ON results_book_versions(championship_id, version_number, created_at, id);
+
+CREATE INDEX idx_results_event_total
+        ON results(event_id, total_score DESC);
+
+CREATE INDEX idx_results_source_competition
+        ON results(event_id, relay_number, source_competition_id);
+
+CREATE INDEX idx_scoring_decisions_reversal
+        ON scoring_decisions(reverses_decision_id);
+
+CREATE INDEX idx_scoring_decisions_target
+        ON scoring_decisions(event_id, participant_id, relay_number, result_scope, decided_at, id);
+
+CREATE INDEX idx_squadding_draw_entries_draw
+        ON squadding_draw_entries(draw_id, recorded_at, id);
+
+CREATE UNIQUE INDEX idx_squadding_draw_entries_once
+        ON squadding_draw_entries(draw_id, entry_type);
+
+CREATE INDEX idx_squadding_draws_event
+        ON squadding_draws(event_id, created_at, id);
+
+CREATE INDEX idx_start_list_entries_version
+        ON start_list_entries(version_id, recorded_at, id);
+
+CREATE INDEX idx_start_list_versions_event
+        ON start_list_versions(event_id, list_kind, version_number, created_at);
+
+CREATE INDEX idx_target_examination_cases_occurred
+        ON target_examination_cases(occurred_at, id);
+
+CREATE INDEX idx_target_examination_entries_case
+        ON target_examination_entries(case_id, recorded_at, id);
+
+CREATE INDEX idx_target_examination_evidence_case
+        ON target_examination_evidence(case_id, recorded_at, id);
+
+CREATE INDEX idx_target_examination_scope_lookup
+        ON target_examination_scope_links(scope_type, scope_id, linked_at, case_id);
+
+CREATE INDEX idx_target_recovery_assessments_case
+        ON target_recovery_assessments(case_id, assessed_at, id);
+
+CREATE INDEX malfunction_score_applications_target ON malfunction_score_applications(event_id, participant_id, relay_number);
+
+CREATE INDEX reserve_transfer_events_transfer ON reserve_lane_transfer_events(transfer_id);
+
+CREATE INDEX reserve_transfers_competition ON reserve_lane_transfers(competition_id);
+
+CREATE INDEX score_corrections_target ON score_corrections(event_id, participant_id, relay_number, result_scope);
+
+CREATE UNIQUE INDEX uq_adjudication_case_link_removal
+        ON adjudication_case_links(reverses_link_id) WHERE operation = 'REMOVE';
+
+CREATE UNIQUE INDEX uq_athlete_identities_championship_issf_id
+        ON athlete_identities(championship_id, upper(issf_id))
+        WHERE issf_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_athlete_identity_link_single_reversal
+        ON athlete_identity_link_entries(reverses_link_id)
+        WHERE reverses_link_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_athlete_sanction_single_revocation
+        ON athlete_sanction_decisions(reverses_decision_id)
+        WHERE reverses_decision_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_championship_official_revocation
+        ON championship_official_entries(reverses_entry_id) WHERE reverses_entry_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_est_inspection_single_revocation
+        ON est_inspection_entries(revoked_entry_id) WHERE revoked_entry_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_final_placement_review_single_revocation
+        ON final_placement_review_entries(reverses_review_id)
+        WHERE reverses_review_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_qualification_malfunction_source_signal
+        ON qualification_malfunction_cases(source_signal_id)
+        WHERE source_signal_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_range_incident_report_single_void
+        ON range_incident_report_entries(report_id)
+        WHERE entry_type = 'VOID';
+
+CREATE UNIQUE INDEX uq_result_list_approval_single_revocation
+        ON result_list_approval_entries(reverses_approval_id)
+        WHERE reverses_approval_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_result_publication_protest_registration
+        ON result_publication_entries(
+          preliminary_id,
+          json_extract(payload_json, '$.protestReference')
+        )
+        WHERE entry_type = 'PROTEST_REGISTERED';
+
+CREATE UNIQUE INDEX uq_result_publication_protest_resolution
+        ON result_publication_entries(
+          preliminary_id,
+          json_extract(payload_json, '$.protestReference')
+        )
+        WHERE entry_type = 'PROTEST_RESOLVED';
+
+CREATE UNIQUE INDEX uq_result_publication_single_official
+        ON result_publication_entries(preliminary_id)
+        WHERE entry_type = 'OFFICIAL_PUBLISHED';
+
+CREATE UNIQUE INDEX uq_scoring_decisions_single_revocation
+        ON scoring_decisions(reverses_decision_id)
+        WHERE reverses_decision_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_start_list_content_approval
+        ON start_list_entries(version_id) WHERE entry_type = 'CONTENT_APPROVED';
+
+CREATE UNIQUE INDEX uq_start_list_paperless_approval
+        ON start_list_entries(version_id) WHERE entry_type = 'PAPERLESS_APPROVED';
+
+CREATE UNIQUE INDEX uq_start_list_void
+        ON start_list_entries(version_id) WHERE entry_type = 'VOID';
+
+CREATE UNIQUE INDEX uq_start_list_withdrawal
+        ON start_list_entries(version_id) WHERE entry_type = 'WITHDRAWN';
+
+CREATE TABLE adjudication_case_entries (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES adjudication_cases(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('NOTE', 'REFERRED', 'RESOLVED', 'REOPENED', 'CLOSED', 'VOID')),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        rule_reference TEXT,
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE "adjudication_case_links" (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES adjudication_cases(id),
+        operation TEXT NOT NULL CHECK (operation IN ('ADD', 'REMOVE')),
+        artifact_type TEXT NOT NULL CHECK (artifact_type IN (
+          'SCORING_DECISION', 'RANGE_INCIDENT_REPORT', 'PROTEST', 'RANGE_INTERRUPTION',
+          'TARGET_EXAMINATION', 'FINAL_OPERATION', 'FINAL_RECOVERY', 'OTHER'
+        )),
+        artifact_id TEXT NOT NULL,
+        relation TEXT NOT NULL CHECK (relation IN ('SOURCE', 'EVIDENCE', 'DECISION', 'REPORT', 'PROTEST', 'RECOVERY', 'RELATED')),
+        label_snapshot TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        reverses_link_id TEXT REFERENCES "adjudication_case_links"(id),
+        CHECK (
+          (operation = 'ADD' AND reverses_link_id IS NULL)
+          OR (operation = 'REMOVE' AND reverses_link_id IS NOT NULL)
+        )
+      );
+
+CREATE TABLE adjudication_cases (
+        id TEXT PRIMARY KEY,
+        scope_type TEXT NOT NULL CHECK (scope_type IN ('EVENT', 'COMPETITION')),
+        scope_id TEXT NOT NULL,
+        category TEXT NOT NULL CHECK (category IN (
+          'SCORING', 'RANGE_INCIDENT', 'PROTEST', 'MALFUNCTION', 'TARGET_FAILURE',
+          'COMMAND_ERROR', 'FINAL', 'OTHER'
+        )),
+        subject TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        opened_by TEXT NOT NULL,
+        opened_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+CREATE TABLE app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+CREATE TABLE athlete_identities (
+        id TEXT PRIMARY KEY,
+        championship_id TEXT NOT NULL REFERENCES championships(id) ON DELETE CASCADE,
+        display_name TEXT NOT NULL,
+        issf_id TEXT,
+        created_by TEXT NOT NULL,
+        creation_statement TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        CHECK(length(trim(display_name)) > 0),
+        CHECK(issf_id IS NULL OR (length(trim(issf_id)) > 0 AND issf_id = upper(trim(issf_id)))),
+        CHECK(length(trim(created_by)) > 0),
+        CHECK(length(trim(creation_statement)) > 0)
+      );
+
+CREATE TABLE athlete_identity_link_entries (
+        id TEXT PRIMARY KEY,
+        athlete_identity_id TEXT NOT NULL REFERENCES athlete_identities(id) ON DELETE CASCADE,
+        participant_id TEXT NOT NULL,
+        event_id_snapshot TEXT NOT NULL,
+        event_name_snapshot TEXT NOT NULL,
+        player_name_snapshot TEXT NOT NULL,
+        issf_id_snapshot TEXT,
+        entry_type TEXT NOT NULL CHECK(entry_type IN ('LINKED', 'UNLINKED')),
+        link_basis TEXT NOT NULL CHECK(link_basis IN ('ISSF_ID', 'MANUAL')),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        reverses_link_id TEXT REFERENCES athlete_identity_link_entries(id),
+        CHECK(
+          (entry_type = 'LINKED' AND reverses_link_id IS NULL)
+          OR (entry_type = 'UNLINKED' AND reverses_link_id IS NOT NULL)
+        ),
+        CHECK(length(trim(event_id_snapshot)) > 0),
+        CHECK(length(trim(event_name_snapshot)) > 0),
+        CHECK(length(trim(player_name_snapshot)) > 0),
+        CHECK(length(trim(statement)) > 0),
+        CHECK(length(trim(official_name)) > 0)
+      );
+
+CREATE TABLE athlete_sanction_decisions (
+        id TEXT PRIMARY KEY,
+        athlete_identity_id TEXT NOT NULL REFERENCES athlete_identities(id) ON DELETE CASCADE,
+        source_event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        decision_type TEXT NOT NULL CHECK(decision_type IN ('IMPOSED', 'REVOKED')),
+        classification_code TEXT NOT NULL CHECK(classification_code IN ('DSQ', 'DQB', 'AD_DSQ')),
+        sanction_scope TEXT NOT NULL CHECK(sanction_scope IN ('EVENT', 'CHAMPIONSHIP')),
+        authority_basis TEXT NOT NULL CHECK(
+          authority_basis IN ('JURY_MAJORITY', 'POST_COMPETITION_CHECK', 'ANTI_DOPING_DECISION')
+        ),
+        authority_reference TEXT NOT NULL,
+        rule_reference TEXT NOT NULL,
+        incident_report_number TEXT,
+        public_remark TEXT NOT NULL,
+        internal_note TEXT,
+        official_name TEXT NOT NULL,
+        official_role TEXT NOT NULL CHECK(
+          official_role IN ('JURY_MEMBER', 'EQUIPMENT_CONTROL_JURY', 'ANTI_DOPING_AUTHORITY')
+        ),
+        official_actor_id TEXT,
+        authorization_mode TEXT NOT NULL CHECK(
+          authorization_mode IN ('MANUAL_ATTESTATION', 'AUTHENTICATED_SESSION')
+        ),
+        decided_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        reverses_decision_id TEXT REFERENCES athlete_sanction_decisions(id),
+        CHECK(
+          (decision_type = 'IMPOSED' AND reverses_decision_id IS NULL)
+          OR (decision_type = 'REVOKED' AND reverses_decision_id IS NOT NULL)
+        ),
+        CHECK(
+          (classification_code = 'DSQ' AND sanction_scope = 'EVENT'
+            AND authority_basis IN ('JURY_MAJORITY', 'POST_COMPETITION_CHECK'))
+          OR (classification_code = 'DQB' AND sanction_scope = 'CHAMPIONSHIP'
+            AND authority_basis = 'JURY_MAJORITY')
+          OR (classification_code = 'AD_DSQ' AND sanction_scope = 'CHAMPIONSHIP'
+            AND authority_basis = 'ANTI_DOPING_DECISION')
+        ),
+        CHECK(
+          (authority_basis = 'JURY_MAJORITY' AND official_role = 'JURY_MEMBER')
+          OR (authority_basis = 'POST_COMPETITION_CHECK' AND official_role = 'EQUIPMENT_CONTROL_JURY')
+          OR (authority_basis = 'ANTI_DOPING_DECISION' AND official_role = 'ANTI_DOPING_AUTHORITY')
+        ),
+        CHECK(
+          (authorization_mode = 'MANUAL_ATTESTATION' AND official_actor_id IS NULL)
+          OR (authorization_mode = 'AUTHENTICATED_SESSION'
+            AND official_actor_id IS NOT NULL AND length(trim(official_actor_id)) > 0)
+        ),
+        CHECK(length(trim(authority_reference)) > 0),
+        CHECK(length(trim(rule_reference)) > 0),
+        CHECK(length(trim(public_remark)) > 0),
+        CHECK(length(trim(official_name)) > 0)
+      );
+
+CREATE TABLE backup_capture_readiness_settings (
+      competition_id TEXT PRIMARY KEY,
+      settings_json TEXT NOT NULL CHECK (json_valid(settings_json))
+    );
+
+CREATE TABLE championship_official_entries (
+        id TEXT PRIMARY KEY,
+        championship_id TEXT NOT NULL REFERENCES championships(id),
+        operation TEXT NOT NULL CHECK (operation IN ('APPOINT', 'REVOKE')),
+        role TEXT NOT NULL CHECK (role IN (
+          'TECHNICAL_DELEGATE', 'RTS_JURY_CHAIR', 'COMPETITION_JURY_CHAIR',
+          'EQUIPMENT_CONTROL_JURY_CHAIR', 'RANGE_JURY_CHAIR', 'RTS_OFFICER',
+          'RANGE_OFFICER', 'ORGANIZING_COMMITTEE', 'OTHER'
+        )),
+        official_name TEXT NOT NULL,
+        organization TEXT,
+        statement TEXT NOT NULL,
+        recorded_by TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        reverses_entry_id TEXT REFERENCES championship_official_entries(id), official_actor_id TEXT,
+        CHECK (
+          (operation = 'APPOINT' AND reverses_entry_id IS NULL)
+          OR (operation = 'REVOKE' AND reverses_entry_id IS NOT NULL)
+        )
+      );
+
+CREATE TABLE championships (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        date TEXT NOT NULL,
+        venue TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+CREATE TABLE equipment_registry_entries (
+        sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+        id TEXT NOT NULL UNIQUE,
+        championship_id TEXT NOT NULL REFERENCES championships(id),
+        kind TEXT NOT NULL CHECK(kind IN ('EQUIPMENT', 'INSPECTION', 'CALIBRATION', 'WITHDRAWAL')),
+        payload_json TEXT NOT NULL CHECK(json_valid(payload_json))
+      );
+
+CREATE TABLE est_backup_capture_plans (
+      event_id TEXT PRIMARY KEY,
+      plan_json TEXT NOT NULL CHECK (json_valid(plan_json))
+    );
+
+CREATE TABLE est_backup_sources (
+      id TEXT PRIMARY KEY, event_id TEXT NOT NULL, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)));
+
+CREATE TABLE est_backup_verification_runs (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        result_kind TEXT NOT NULL CHECK (result_kind IN ('INDIVIDUAL', 'TEAM', 'MIXED_TEAM')),
+        key_type TEXT NOT NULL CHECK (key_type IN ('PARTICIPANT_ID', 'START_NUMBER', 'ISSF_ID', 'TEAM_ID')),
+        source_name TEXT NOT NULL,
+        source_reference TEXT,
+        records_json TEXT NOT NULL CHECK (json_valid(records_json)),
+        comparison_json TEXT NOT NULL CHECK (json_valid(comparison_json)),
+        snapshot_revision TEXT NOT NULL,
+        intervention_review_statement TEXT,
+        verified INTEGER NOT NULL CHECK (verified IN (0, 1)),
+        official_name TEXT NOT NULL,
+        verified_at TEXT NOT NULL
+      , result_scope TEXT NOT NULL
+      DEFAULT 'QUALIFICATION' CHECK (result_scope IN ('QUALIFICATION', 'FINAL')), source_id TEXT REFERENCES est_backup_sources(id));
+
+CREATE TABLE est_complaint_target_examination_links (
+        signal_id TEXT PRIMARY KEY,
+        target_examination_case_id TEXT NOT NULL UNIQUE
+          REFERENCES target_examination_cases(id),
+        snapshot_json TEXT NOT NULL CHECK(json_valid(snapshot_json)),
+        snapshot_sha256 TEXT NOT NULL
+          CHECK(length(snapshot_sha256) = 64 AND snapshot_sha256 NOT GLOB '*[^0-9a-f]*'),
+        linked_by TEXT NOT NULL CHECK(length(trim(linked_by)) > 0),
+        linked_at TEXT NOT NULL
+      );
+
+CREATE TABLE est_inspection_entries (
+        id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL REFERENCES est_inspection_plans(id),
+        target_identifier TEXT NOT NULL,
+        outcome TEXT NOT NULL CHECK (outcome IN ('PASSED', 'FAILED')),
+        statement TEXT NOT NULL,
+        evidence_reference TEXT,
+        performed_by TEXT NOT NULL,
+        technical_delegate_name TEXT NOT NULL,
+        inspected_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        revoked_entry_id TEXT REFERENCES est_inspection_entries(id),
+        CHECK (revoked_entry_id IS NULL OR revoked_entry_id <> id)
+      );
+
+CREATE TABLE est_inspection_plans (
+        id TEXT PRIMARY KEY,
+        championship_id TEXT NOT NULL REFERENCES championships(id),
+        version_number INTEGER NOT NULL CHECK (version_number > 0),
+        target_identifiers_json TEXT NOT NULL CHECK (
+          json_valid(target_identifiers_json) AND json_array_length(target_identifiers_json) > 0
+        ),
+        method_statement TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (championship_id, version_number)
+      );
+
+CREATE TABLE est_inspection_start_settings (
+      competition_id TEXT PRIMARY KEY, settings_json TEXT NOT NULL CHECK(json_valid(settings_json))
+    );
+
+CREATE TABLE events (
+        id TEXT PRIMARY KEY,
+        championship_id TEXT NOT NULL REFERENCES championships(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        round TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      , rule_pack_id TEXT, rule_pack_schema_version INTEGER
+        CHECK (rule_pack_schema_version IS NULL OR rule_pack_schema_version = 1), rule_pack_fingerprint_sha256 TEXT
+        CHECK (
+          rule_pack_fingerprint_sha256 IS NULL
+          OR rule_pack_fingerprint_sha256 NOT GLOB '*[^0-9a-f]*'
+             AND length(rule_pack_fingerprint_sha256) = 64
+        ));
+
+CREATE TABLE evidence_file_contents (
+      sha256 TEXT PRIMARY KEY,
+      content BLOB NOT NULL CHECK (typeof(content) = 'blob')
+    );
+
+CREATE TABLE evidence_files (
+      id TEXT PRIMARY KEY,
+      evidence_id TEXT NOT NULL REFERENCES target_examination_evidence(id),
+      snapshot_json TEXT NOT NULL CHECK (json_valid(snapshot_json))
+    );
+
+CREATE TABLE final_control_decisions (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        event_id TEXT,
+        competition_type_id TEXT NOT NULL,
+        participant_count INTEGER NOT NULL CHECK (participant_count >= 2),
+        after_shot INTEGER NOT NULL CHECK (after_shot > 0),
+        rank INTEGER NOT NULL CHECK (rank >= 2),
+        selected_lane_id TEXT NOT NULL,
+        score_snapshot_json TEXT NOT NULL CHECK (json_valid(score_snapshot_json)),
+        tied_lane_ids_json TEXT NOT NULL CHECK (json_valid(tied_lane_ids_json)),
+        resolution TEXT NOT NULL CHECK (resolution IN (
+          'CLEAR_LOWEST',
+          'COUNTBACK',
+          'FINAL_START_NUMBER',
+          'SHOOT_OFF',
+          'JURY_DECISION'
+        )),
+        resolution_statement TEXT,
+        official_name TEXT NOT NULL,
+        rule_reference TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE final_control_entries (
+        id TEXT PRIMARY KEY,
+        decision_id TEXT NOT NULL REFERENCES final_control_decisions(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('COMMAND_RESULT', 'VOID')),
+        command_id TEXT,
+        command_status TEXT CHECK (command_status IS NULL OR command_status IN ('DONE', 'ERROR', 'TIMEOUT')),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK (
+          (entry_type = 'COMMAND_RESULT' AND command_id IS NOT NULL AND command_status IS NOT NULL)
+          OR (entry_type = 'VOID' AND command_id IS NULL AND command_status IS NULL)
+        )
+      );
+
+CREATE TABLE final_operation_entries (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES final_operation_runs(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'STEP_CONFIRMED',
+          'STEP_SKIPPED',
+          'EXECUTION_RESULT',
+          'SHOOT_OFF_STARTED',
+          'SHOOT_OFF_ROUND_CLOSED',
+          'ABORTED'
+        )),
+        branch TEXT NOT NULL CHECK (branch IN ('MAIN', 'SHOOT_OFF')),
+        iteration INTEGER NOT NULL CHECK (iteration >= 0),
+        step_id TEXT,
+        step_snapshot_json TEXT CHECK (step_snapshot_json IS NULL OR json_valid(step_snapshot_json)),
+        confirmation_entry_id TEXT REFERENCES final_operation_entries(id),
+        execution_status TEXT CHECK (execution_status IS NULL OR execution_status IN ('DONE', 'ERROR', 'TIMEOUT')),
+        command_id TEXT,
+        eligible_lane_ids_json TEXT NOT NULL CHECK (json_valid(eligible_lane_ids_json)),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        metadata_json TEXT CHECK (metadata_json IS NULL OR json_valid(metadata_json)),
+        CHECK (
+          (entry_type = 'STEP_CONFIRMED' AND step_id IS NOT NULL AND step_snapshot_json IS NOT NULL
+            AND confirmation_entry_id IS NULL AND execution_status IS NULL)
+          OR (entry_type = 'STEP_SKIPPED' AND step_id IS NOT NULL AND step_snapshot_json IS NOT NULL
+            AND confirmation_entry_id IS NULL AND execution_status IS NULL)
+          OR (entry_type = 'EXECUTION_RESULT' AND step_id IS NOT NULL AND step_snapshot_json IS NOT NULL
+            AND confirmation_entry_id IS NOT NULL AND execution_status IS NOT NULL)
+          OR (entry_type IN ('SHOOT_OFF_STARTED', 'SHOOT_OFF_ROUND_CLOSED')
+            AND step_id IS NOT NULL AND step_snapshot_json IS NOT NULL
+            AND confirmation_entry_id IS NULL AND execution_status IS NULL)
+          OR (entry_type = 'ABORTED' AND step_id IS NULL AND step_snapshot_json IS NULL
+            AND confirmation_entry_id IS NULL AND execution_status IS NULL)
+        )
+      );
+
+CREATE TABLE final_operation_runs (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        event_id TEXT,
+        competition_type_id TEXT NOT NULL,
+        rule_pack_id TEXT NOT NULL,
+        script_version TEXT NOT NULL,
+        script_snapshot_json TEXT NOT NULL CHECK (json_valid(script_snapshot_json)),
+        scheduled_start_at TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+CREATE TABLE final_operation_shoot_off_shots (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL REFERENCES final_operation_runs(id),
+        iteration INTEGER NOT NULL CHECK (iteration > 0),
+        lane_id TEXT NOT NULL,
+        shot_id TEXT NOT NULL UNIQUE,
+        score_x10 INTEGER NOT NULL CHECK (score_x10 BETWEEN 0 AND 109),
+        source_score_x10 INTEGER NOT NULL CHECK (source_score_x10 BETWEEN 0 AND 109),
+        x REAL,
+        y REAL,
+        fired_at TEXT NOT NULL,
+        observed_at TEXT NOT NULL
+      );
+
+CREATE TABLE final_placement_review_entries (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES events(id) ON DELETE RESTRICT,
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('REVIEW', 'REVOCATION')),
+        scoring_revision TEXT NOT NULL,
+        placements_json TEXT NOT NULL,
+        rule_reference TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        reverses_review_id TEXT REFERENCES final_placement_review_entries(id)
+      );
+
+CREATE TABLE final_recovery_allowance_subjects (
+        case_id TEXT PRIMARY KEY REFERENCES final_recovery_cases(id),
+        subject_json TEXT NOT NULL CHECK (json_valid(subject_json))
+      );
+
+CREATE TABLE final_recovery_cases (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        event_id TEXT,
+        final_run_id TEXT,
+        script_step_id TEXT,
+        script_step_snapshot TEXT,
+        procedure_profile TEXT NOT NULL CHECK (procedure_profile IN (
+          'RIFLE_PISTOL_10M_50M', 'RIFLE_PISTOL_10M_50M_MIXED_TEAM',
+          'PISTOL_25M_RAPID_FIRE', 'PISTOL_25M_WOMEN', 'GENERAL'
+        )),
+        incident_type TEXT NOT NULL CHECK (incident_type IN (
+          'MALFUNCTION', 'EST_FAILURE', 'INCORRECT_COMMAND', 'IRREGULAR_CASE'
+        )),
+        phase TEXT NOT NULL CHECK (phase IN ('SIGHTING', 'MATCH_SINGLE', 'MATCH_SERIES', 'SHOOT_OFF', 'OTHER')),
+        affected_lane_ids_json TEXT NOT NULL CHECK (json_valid(affected_lane_ids_json)),
+        summary TEXT NOT NULL,
+        opened_by TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      , allowance_subject_json TEXT
+      CHECK (allowance_subject_json IS NULL OR json_valid(allowance_subject_json)));
+
+CREATE TABLE final_recovery_entries (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES final_recovery_cases(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'NOTE', 'STOP_RECORDED', 'JURY_RULING', 'REMEDY_AUTHORIZED', 'RESUMED', 'COMPLETED', 'VOID'
+        )),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        rule_reference TEXT,
+        classification TEXT CHECK (classification IS NULL OR classification IN (
+          'ALLOWABLE_MALFUNCTION', 'NON_ALLOWABLE_MALFUNCTION', 'TARGET_MALFUNCTION',
+          'SHOT_CONFIRMED_MISS', 'COMMAND_CONFIRMED', 'COMMAND_NOT_CONFIRMED', 'OTHER'
+        )),
+        remedy TEXT CHECK (remedy IS NULL OR remedy IN (
+          'NONE', 'FIRE_TEST_SHOT', 'REPEAT_SINGLE_SHOT', 'COMPLETE_SERIES', 'REPEAT_SERIES',
+          'COUNT_DISPLAYED_SHOTS', 'MOVE_TO_RESERVE_TARGET', 'RESTART_PREPARATION_AND_SIGHTING',
+          'GRANT_TWO_MINUTE_SIGHTING', 'RESET_TO_ORIGINAL_TIME',
+          'RESTART_WITH_REMAINING_TIME_PLUS_60', 'NULLIFY_EXTRA_SHOTS_WITHOUT_PENALTY',
+          'APPLY_RULE_PENALTY', 'CONTINUE', 'OTHER'
+        )),
+        remaining_time_seconds INTEGER CHECK (remaining_time_seconds IS NULL OR remaining_time_seconds >= 0),
+        granted_time_seconds INTEGER CHECK (granted_time_seconds IS NULL OR granted_time_seconds >= 0),
+        shot_count INTEGER CHECK (shot_count IS NULL OR shot_count >= 0),
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK ((entry_type = 'JURY_RULING') = (classification IS NOT NULL)),
+        CHECK ((entry_type = 'REMEDY_AUTHORIZED') = (remedy IS NOT NULL)),
+        CHECK (entry_type = 'REMEDY_AUTHORIZED' OR (granted_time_seconds IS NULL AND shot_count IS NULL))
+      );
+
+CREATE TABLE final_recovery_firing_evidence (id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES final_recovery_firing_runs(id), received_at TEXT NOT NULL, evidence_json TEXT NOT NULL CHECK(json_valid(evidence_json)));
+
+CREATE TABLE final_recovery_firing_runs (id TEXT PRIMARY KEY, case_id TEXT NOT NULL, competition_id TEXT NOT NULL,
+      lane_id TEXT NOT NULL, authorization_id TEXT NOT NULL, record_json TEXT NOT NULL CHECK(json_valid(record_json)), UNIQUE(authorization_id, lane_id));
+
+CREATE TABLE final_result_declarations (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL UNIQUE REFERENCES events(id),
+        snapshot_revision TEXT NOT NULL,
+        approval_id TEXT NOT NULL REFERENCES result_list_approval_entries(id),
+        final_protests_resolved INTEGER NOT NULL CHECK (final_protests_resolved = 1),
+        result_process_confirmed INTEGER NOT NULL CHECK (result_process_confirmed = 1),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        rule_reference TEXT NOT NULL,
+        declared_at TEXT NOT NULL
+      );
+
+CREATE TABLE final_results (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        participant_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        affiliation TEXT NOT NULL,
+        firing_point_number INTEGER NOT NULL,
+        stage1_shots TEXT NOT NULL,
+        stage1_total REAL NOT NULL,
+        stage2_shots TEXT NOT NULL,
+        stage2_total REAL NOT NULL,
+        total_score REAL NOT NULL,
+        final_rank INTEGER NOT NULL,
+        eliminated_at_shot INTEGER,
+        shootoff_id TEXT,
+        remarks TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'in_progress',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')), source_competition_id TEXT,
+        FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+        FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE,
+        FOREIGN KEY (event_id, participant_id) REFERENCES participants(event_id, id)
+      );
+
+CREATE TABLE firing_point_assignments (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        relay_number INTEGER NOT NULL,
+        firing_point_number INTEGER NOT NULL,
+        participant_id TEXT NOT NULL,
+        UNIQUE(event_id, relay_number, firing_point_number),
+        FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+        FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE,
+        FOREIGN KEY (event_id, participant_id) REFERENCES participants(event_id, id)
+      );
+
+CREATE TABLE "irregular_shot_case_entries" (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES "irregular_shot_cases"(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('NOTE', 'REFERRED', 'RESOLVED', 'REOPENED', 'CLOSED', 'VOID')),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        rule_reference TEXT,
+        resolution_code TEXT CHECK (resolution_code IS NULL OR resolution_code IN (
+          'EXCESS_IDENTIFIED', 'EXCESS_UNIDENTIFIED', 'CROSS_FIRE_CONFIRMED',
+          'RECEIVED_CROSS_FIRE_CONFIRMED', 'SHOT_ANNULLED', 'SHOT_CREDITED',
+          'HIT_PENALTY_APPLIED', 'DISQUALIFICATION_APPLIED', 'NO_SCORE_CHANGE'
+        )),
+        incident_report_id TEXT REFERENCES range_incident_reports(id),
+        scoring_decision_ids_json TEXT NOT NULL CHECK (json_valid(scoring_decision_ids_json)),
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK (
+          (entry_type = 'RESOLVED' AND resolution_code IS NOT NULL AND incident_report_id IS NOT NULL)
+          OR (entry_type <> 'RESOLVED' AND resolution_code IS NULL AND incident_report_id IS NULL
+              AND json_array_length(scoring_decision_ids_json) = 0)
+        )
+      );
+
+CREATE TABLE "irregular_shot_cases" (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES events(id),
+        competition_id TEXT NOT NULL,
+        result_scope TEXT NOT NULL CHECK (result_scope IN ('QUALIFICATION', 'FINAL')),
+        kind TEXT NOT NULL CHECK (kind IN (
+          'EXCESS_SHOTS', 'CROSS_FIRE', 'DISPUTED_SHOT',
+          'LATE_OR_UNFIRED_SHOT', 'MULTIPLE_SHOTS_SAME_TARGET', 'READY_POSITION'
+        )),
+        subject_lane_id TEXT NOT NULL,
+        adjacent_lane_ids_json TEXT NOT NULL CHECK (json_valid(adjacent_lane_ids_json)),
+        window_start_at TEXT NOT NULL,
+        window_end_at TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        rule_reference TEXT NOT NULL,
+        opened_by TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+CREATE TABLE "irregular_shot_evidence" (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES "irregular_shot_cases"(id),
+        relation TEXT NOT NULL CHECK (relation IN ('SUBJECT', 'POSSIBLE_SOURCE', 'RECIPIENT', 'CONTEXT')),
+        observation_id TEXT NOT NULL,
+        shot_id TEXT NOT NULL,
+        lane_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        stage_index INTEGER NOT NULL CHECK (stage_index >= 0),
+        series_index INTEGER NOT NULL CHECK (series_index >= 0),
+        shot_number_in_series INTEGER NOT NULL CHECK (shot_number_in_series > 0),
+        mode TEXT NOT NULL CHECK (mode IN ('SIGHTING', 'MATCH')),
+        effective_score_x10 INTEGER NOT NULL CHECK (effective_score_x10 >= 0),
+        fired_at TEXT NOT NULL,
+        received_at TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        UNIQUE (case_id, observation_id, relation)
+      );
+
+CREATE TABLE lane_state (
+        id TEXT PRIMARY KEY,
+        channel INTEGER NOT NULL,
+        state_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+CREATE TABLE malfunction_score_applications (
+      id TEXT PRIMARY KEY, case_id TEXT NOT NULL REFERENCES qualification_malfunction_cases(id),
+      event_id TEXT NOT NULL, participant_id TEXT NOT NULL, relay_number INTEGER NOT NULL,
+      snapshot_json TEXT NOT NULL CHECK (json_valid(snapshot_json))
+    );
+
+CREATE TABLE malfunction_score_withdrawals (
+      id TEXT PRIMARY KEY, application_id TEXT NOT NULL UNIQUE REFERENCES malfunction_score_applications(id),
+      snapshot_json TEXT NOT NULL CHECK (json_valid(snapshot_json))
+    );
+
+CREATE TABLE mixed_team_final_decisions (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        event_id TEXT,
+        competition_type_id TEXT NOT NULL,
+        after_shot INTEGER NOT NULL CHECK (after_shot > 0),
+        rank INTEGER NOT NULL CHECK (rank BETWEEN 2 AND 4),
+        selected_team_id TEXT NOT NULL,
+        member_lane_ids_json TEXT NOT NULL CHECK (json_valid(member_lane_ids_json)),
+        score_snapshot_json TEXT NOT NULL CHECK (json_valid(score_snapshot_json)),
+        tied_team_ids_json TEXT NOT NULL CHECK (json_valid(tied_team_ids_json)),
+        resolution TEXT NOT NULL CHECK (resolution IN ('CLEAR_LOWEST', 'SHOOT_OFF', 'JURY_DECISION')),
+        resolution_statement TEXT,
+        official_name TEXT NOT NULL,
+        rule_reference TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE mixed_team_final_entries (
+        id TEXT PRIMARY KEY,
+        decision_id TEXT NOT NULL REFERENCES mixed_team_final_decisions(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('COMMAND_BATCH', 'VOID')),
+        command_results_json TEXT CHECK (command_results_json IS NULL OR json_valid(command_results_json)),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK (
+          (entry_type = 'COMMAND_BATCH' AND command_results_json IS NOT NULL)
+          OR (entry_type = 'VOID' AND command_results_json IS NULL)
+        )
+      );
+
+CREATE TABLE mixed_team_final_results (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        source_competition_id TEXT NOT NULL,
+        team_id TEXT NOT NULL,
+        team_name TEXT NOT NULL,
+        nation_code TEXT NOT NULL,
+        member_results_json TEXT NOT NULL CHECK (json_valid(member_results_json)),
+        stage1_total REAL NOT NULL,
+        stage2_total REAL NOT NULL,
+        total_score REAL NOT NULL,
+        final_rank INTEGER NOT NULL CHECK (final_rank BETWEEN 1 AND 4),
+        eliminated_at_shot INTEGER,
+        shootoff_id TEXT,
+        remarks TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(event_id, team_id)
+      );
+
+CREATE TABLE mixed_team_timeout_entries (
+        id TEXT PRIMARY KEY,
+        timeout_id TEXT NOT NULL REFERENCES mixed_team_timeout_sessions(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('CLOSED', 'VOID')),
+        official_name TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE mixed_team_timeout_sessions (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        requesting_team_id TEXT NOT NULL,
+        courtesy_team_ids_json TEXT NOT NULL CHECK (json_valid(courtesy_team_ids_json)),
+        requested_by_role TEXT NOT NULL CHECK (requested_by_role IN ('COACH', 'ATHLETE')),
+        requested_by_name TEXT NOT NULL,
+        after_shot INTEGER NOT NULL CHECK (after_shot BETWEEN 1 AND 24),
+        duration_seconds INTEGER NOT NULL CHECK (duration_seconds = 30),
+        official_name TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      );
+
+CREATE TABLE mqtt_competition_shot_observations (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        lane_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        shot_id TEXT NOT NULL,
+        source_observation_id TEXT,
+        x REAL,
+        y REAL,
+        legacy_raw_score_x10 INTEGER NOT NULL,
+        device_score_x10 INTEGER,
+        calculated_score_x10 INTEGER NOT NULL,
+        calculated_score_available INTEGER NOT NULL DEFAULT 0
+          CHECK (calculated_score_available IN (0, 1)),
+        effective_score_x10 INTEGER NOT NULL,
+        inner_ten INTEGER NOT NULL CHECK (inner_ten IN (0, 1)),
+        mode TEXT NOT NULL CHECK (mode IN ('SIGHTING', 'MATCH')),
+        fired_at TEXT NOT NULL,
+        received_at TEXT NOT NULL,
+        stage_index INTEGER NOT NULL,
+        scored INTEGER NOT NULL CHECK (scored IN (0, 1)),
+        series_index INTEGER NOT NULL,
+        shot_number_in_series INTEGER NOT NULL,
+        is_recorded INTEGER NOT NULL CHECK (is_recorded IN (0, 1)),
+        is_replay INTEGER NOT NULL CHECK (is_replay IN (0, 1)),
+        published_at TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        payload_json TEXT NOT NULL
+      , target_profile_id TEXT, scoring_gauge_profile_id TEXT);
+
+CREATE TABLE mqtt_firing_command_boundaries (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        phase TEXT NOT NULL CHECK (phase IN ('SIGHTING', 'MATCH')),
+        transition TEXT NOT NULL CHECK (transition IN ('OPEN', 'CLOSE')),
+        occurred_at TEXT NOT NULL,
+        command_id TEXT NOT NULL,
+        command_issued_at TEXT NOT NULL,
+        source_action TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        UNIQUE (competition_id, command_id, phase, transition)
+      );
+
+CREATE TABLE mqtt_firing_window_violations (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        lane_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        shot_id TEXT NOT NULL,
+        observation_id TEXT NOT NULL,
+        shot_mode TEXT NOT NULL CHECK (shot_mode IN ('SIGHTING', 'MATCH')),
+        policy_rule_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN (
+          'BEFORE_PREPARATION_AND_SIGHTING_START',
+          'BETWEEN_PREPARATION_AND_SIGHTING_STOP_AND_MATCH_START',
+          'AFTER_MATCH_STOP'
+        )),
+        rule_reference TEXT NOT NULL,
+        review_guidance TEXT NOT NULL,
+        timestamp_source TEXT NOT NULL CHECK (timestamp_source IN ('FIRED_AT', 'RECEIVED_AT', 'OBSERVED_AT')),
+        clock_tolerance_milliseconds INTEGER NOT NULL CHECK (clock_tolerance_milliseconds >= 0),
+        evaluated_shot_at TEXT NOT NULL,
+        fired_at TEXT NOT NULL,
+        received_at TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        decisive_boundary_id TEXT NOT NULL REFERENCES mqtt_firing_command_boundaries(id),
+        detected_at TEXT NOT NULL,
+        UNIQUE (competition_id, lane_id, session_id, shot_id, policy_rule_id)
+      );
+
+CREATE TABLE mqtt_retained_messages (
+        topic TEXT PRIMARY KEY,
+        payload BLOB NOT NULL,
+        qos INTEGER NOT NULL CHECK (qos BETWEEN 0 AND 2),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+
+CREATE TABLE mqtt_shot_observation_evidence (
+        evidence_id TEXT PRIMARY KEY,
+        observation_id TEXT NOT NULL,
+        competition_id TEXT,
+        lane_id TEXT NOT NULL,
+        outcome TEXT NOT NULL CHECK (outcome IN (
+          'RECORDED',
+          'NULLIFIED_POSITION_EXTRA',
+          'REJECTED_COMPETITION_PHASE',
+          'REJECTED_TIMED_TARGET_WINDOW',
+          'QUARANTINED_TIMING_REVIEW',
+          'QUARANTINED_SAFETY_STOP',
+          'NO_ACTIVE_SESSION',
+          'PROCESSING_FAILED'
+        )),
+        fired_at TEXT NOT NULL,
+        received_at TEXT NOT NULL,
+        observed_at TEXT NOT NULL,
+        payload_json TEXT NOT NULL
+      );
+
+CREATE TABLE observation_reviews (
+        id TEXT PRIMARY KEY, competition_id TEXT NOT NULL, subject_id TEXT NOT NULL, snapshot_json TEXT NOT NULL
+      );
+
+CREATE TABLE operational_setting_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      description TEXT NOT NULL,
+      modes_json TEXT NOT NULL CHECK (json_valid(modes_json)),
+      revision INTEGER NOT NULL CHECK (revision >= 1),
+      updated_at TEXT NOT NULL
+    );
+
+CREATE TABLE operator_access_audit (sequence INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)));
+
+CREATE TABLE operator_access_settings (id INTEGER PRIMARY KEY CHECK(id = 1), enabled INTEGER NOT NULL CHECK(enabled IN (0, 1)));
+
+CREATE TABLE operator_accounts (id TEXT PRIMARY KEY, payload_json TEXT NOT NULL CHECK(json_valid(payload_json)));
+
+CREATE TABLE outdoor_elimination_plan_entries (
+        id TEXT PRIMARY KEY,
+        plan_id TEXT NOT NULL REFERENCES outdoor_elimination_plans(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('APPROVED', 'QUOTAS_ANNOUNCED', 'VOID')),
+        official_name TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE outdoor_elimination_plans (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        competition_type_id TEXT NOT NULL,
+        rule_pack_id TEXT NOT NULL,
+        rule_pack_schema_version INTEGER NOT NULL CHECK (rule_pack_schema_version = 1),
+        rule_pack_fingerprint_sha256 TEXT NOT NULL
+          CHECK (
+            rule_pack_fingerprint_sha256 NOT GLOB '*[^0-9a-f]*'
+            AND length(rule_pack_fingerprint_sha256) = 64
+          ),
+        source_hash TEXT NOT NULL
+          CHECK (source_hash NOT GLOB '*[^0-9a-f]*' AND length(source_hash) = 64),
+        input_json TEXT NOT NULL CHECK (json_valid(input_json)),
+        projection_json TEXT NOT NULL CHECK (json_valid(projection_json)),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+CREATE TABLE participants (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        player_name TEXT NOT NULL,
+        affiliation TEXT NOT NULL DEFAULT '',
+        logo_path TEXT,
+        sort_order INTEGER NOT NULL DEFAULT 0, family_name TEXT, start_number TEXT, issf_id TEXT, nation_code TEXT, gender TEXT NOT NULL DEFAULT 'UNSPECIFIED' CHECK (gender IN ('M', 'F', 'X', 'UNSPECIFIED')), entry_status TEXT NOT NULL DEFAULT 'COMPETING' CHECK (entry_status IN ('COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB')), team_id TEXT, team_name TEXT,
+        UNIQUE(event_id, id)
+      );
+
+CREATE TABLE post_competition_equipment_check_entries (
+        id TEXT PRIMARY KEY,
+        check_id TEXT NOT NULL REFERENCES post_competition_equipment_checks(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'NOTICE_ISSUED', 'TEST_RECORDED', 'FAILURE_CONFIRMED', 'CHECK_VOIDED'
+        )),
+        payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE post_competition_equipment_checks (
+        id TEXT PRIMARY KEY,
+        championship_id TEXT NOT NULL,
+        event_id TEXT NOT NULL,
+        event_name TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        round_name TEXT NOT NULL,
+        participant_id TEXT NOT NULL,
+        athlete_name TEXT NOT NULL,
+        start_number TEXT,
+        gender TEXT NOT NULL,
+        selection_basis TEXT NOT NULL CHECK (selection_basis IN (
+          'RANDOM_DRAW', 'TARGETED_CREDIBLE_EVIDENCE',
+          'QUALIFICATION_FINALIST_TOP_10', 'PISTOL_TRIGGER_RANDOM_DRAW'
+        )),
+        selection_statement TEXT NOT NULL,
+        selected_by TEXT NOT NULL,
+        selected_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        rule_references_json TEXT NOT NULL CHECK (
+          json_valid(rule_references_json) AND json_array_length(rule_references_json) > 0
+        )
+      );
+
+CREATE TABLE production_operation_entries (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        competition_type_id TEXT NOT NULL,
+        round_name TEXT NOT NULL,
+        phase TEXT NOT NULL,
+        action TEXT NOT NULL CHECK (action IN (
+          'MUSIC_PROGRAM_APPROVED', 'MUSIC_PROGRAM_APPROVAL_REVOKED',
+          'MUSIC_STARTED', 'MUSIC_STOPPED',
+          'FINAL_PRODUCTION_CONFIRMED', 'FINAL_PRODUCTION_REVOKED',
+          'ANNOUNCEMENT_NOTE'
+        )),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE protest_cases (
+        id TEXT PRIMARY KEY,
+        scope_type TEXT NOT NULL CHECK (scope_type IN ('COMPETITION', 'EVENT')),
+        scope_id TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('VERBAL', 'WRITTEN', 'FINAL_VERBAL', 'APPEAL')),
+        parent_protest_id TEXT REFERENCES protest_cases(id),
+        subject TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        lodged_by TEXT NOT NULL,
+        lodged_at TEXT NOT NULL,
+        triggering_decision_at TEXT,
+        form_reference TEXT,
+        fee_paid_euro INTEGER CHECK (fee_paid_euro IS NULL OR fee_paid_euro >= 0),
+        late_acceptance_reason TEXT,
+        opened_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        CHECK ((kind = 'APPEAL' AND parent_protest_id IS NOT NULL) OR (kind <> 'APPEAL' AND parent_protest_id IS NULL))
+      );
+
+CREATE TABLE protest_entries (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES protest_cases(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'FORWARDED_TO_JURY', 'DECIDED_UPHELD', 'DECIDED_PARTLY_UPHELD', 'DECIDED_REJECTED',
+          'FEE_REFUNDED', 'FEE_RETAINED', 'NOTE', 'CLOSED', 'VOID'
+        )),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        rule_reference TEXT,
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE publication_review_policies (
+      id TEXT PRIMARY KEY, event_id TEXT NOT NULL, result_scope TEXT NOT NULL CHECK (result_scope IN ('QUALIFICATION','FINAL')),
+      payload_json TEXT NOT NULL CHECK (json_valid(payload_json)));
+
+CREATE TABLE qualification_malfunction_cases (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        event_id TEXT NOT NULL REFERENCES events(id),
+        competition_type_id TEXT NOT NULL,
+        rule_pack_id TEXT,
+        rule_pack_schema_version INTEGER CHECK(rule_pack_schema_version IS NULL OR rule_pack_schema_version = 1),
+        rule_pack_fingerprint_sha256 TEXT CHECK(
+          rule_pack_fingerprint_sha256 IS NULL
+          OR (rule_pack_fingerprint_sha256 NOT GLOB '*[^0-9a-f]*'
+            AND length(rule_pack_fingerprint_sha256) = 64)
+        ),
+        policy_snapshot_json TEXT NOT NULL CHECK(json_valid(policy_snapshot_json)),
+        participant_id TEXT NOT NULL REFERENCES participants(id),
+        participant_name_snapshot TEXT NOT NULL,
+        start_number_snapshot TEXT,
+        lane_id TEXT NOT NULL,
+        lane_channel_snapshot INTEGER NOT NULL CHECK(lane_channel_snapshot > 0),
+        relay_number_snapshot INTEGER NOT NULL CHECK(relay_number_snapshot > 0),
+        report_source TEXT NOT NULL CHECK(report_source IN ('LANE_SIGNAL', 'DIRECTOR_MANUAL')),
+        claim_mode TEXT NOT NULL CHECK(claim_mode IN ('CLAIM', 'DOCUMENTATION_ONLY')),
+        phase TEXT NOT NULL CHECK(phase IN ('SIGHTING', 'MATCH')),
+        stage_id TEXT,
+        stage_index INTEGER NOT NULL CHECK(stage_index >= 0),
+        series_index INTEGER NOT NULL CHECK(series_index >= 0),
+        series_shot_limit INTEGER CHECK(series_shot_limit IS NULL OR series_shot_limit > 0),
+        recorded_shots INTEGER NOT NULL CHECK(recorded_shots >= 0),
+        timed_target_program_id TEXT,
+        exposure_index INTEGER CHECK(exposure_index IS NULL OR exposure_index >= 0),
+        lane_session_id TEXT,
+        lane_snapshot_captured_at TEXT,
+        exceptional_match_part INTEGER CHECK(exceptional_match_part IS NULL OR exceptional_match_part IN (1, 2)),
+        existing_claims_in_scope INTEGER NOT NULL CHECK(existing_claims_in_scope >= 0),
+        existing_claims_in_part INTEGER CHECK(existing_claims_in_part IS NULL OR existing_claims_in_part >= 0),
+        claim_assessment_json TEXT NOT NULL CHECK(json_valid(claim_assessment_json)),
+        summary TEXT NOT NULL,
+        opened_by TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        created_at TEXT NOT NULL, source_signal_id TEXT
+          CHECK(source_signal_id IS NULL OR length(trim(source_signal_id)) > 0),
+        CHECK(
+          (rule_pack_id IS NULL AND rule_pack_schema_version IS NULL AND rule_pack_fingerprint_sha256 IS NULL)
+          OR (rule_pack_id IS NOT NULL AND rule_pack_schema_version = 1
+            AND rule_pack_fingerprint_sha256 IS NOT NULL)
+        ),
+        CHECK(exposure_index IS NULL OR timed_target_program_id IS NOT NULL),
+        CHECK(series_shot_limit IS NULL OR recorded_shots <= series_shot_limit),
+        CHECK((exceptional_match_part IS NULL) = (existing_claims_in_part IS NULL)),
+        CHECK(exceptional_match_part IS NULL OR phase = 'MATCH'),
+        CHECK(
+          (report_source = 'LANE_SIGNAL' AND lane_snapshot_captured_at IS NOT NULL)
+          OR (report_source = 'DIRECTOR_MANUAL' AND lane_snapshot_captured_at IS NULL)
+        ),
+        CHECK(length(trim(competition_type_id)) > 0),
+        CHECK(length(trim(participant_name_snapshot)) > 0),
+        CHECK(length(trim(summary)) > 0),
+        CHECK(length(trim(opened_by)) > 0),
+        FOREIGN KEY(event_id, participant_id) REFERENCES participants(event_id, id)
+      );
+
+CREATE TABLE "qualification_malfunction_entries" (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES qualification_malfunction_cases(id),
+        entry_type TEXT NOT NULL CHECK(entry_type IN (
+          'NOTE', 'INSPECTION_RECORDED', 'CLASSIFIED', 'REPAIR_STARTED', 'REPAIR_EXTENDED',
+          'REPAIR_COMPLETED', 'REMEDY_AUTHORIZED', 'EXECUTION_RECORDED', 'SCORE_SETTLED', 'SCORE_REOPENED',
+          'COMPLETED', 'VOID'
+        )),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        official_role TEXT NOT NULL CHECK(official_role IN (
+          'RANGE_OFFICER', 'CRO', 'JURY_MEMBER', 'RTS_OFFICER', 'TECHNICAL_OFFICER'
+        )),
+        rule_reference TEXT,
+        classification TEXT CHECK(classification IS NULL OR classification IN ('ALLOWABLE', 'NON_ALLOWABLE')),
+        cause_code TEXT,
+        remedy TEXT CHECK(remedy IS NULL OR remedy IN (
+          'CONTINUE_WITHIN_ORIGINAL_TIME', 'REPEAT_FULL_SERIES', 'COMPLETE_REMAINING_SHOTS',
+          'SCORE_UNFIRED_AS_MISS', 'NO_FURTHER_ACTION'
+        )),
+        shots_to_fire INTEGER CHECK(shots_to_fire IS NULL OR shots_to_fire >= 0),
+        repair_seconds INTEGER CHECK(repair_seconds IS NULL OR repair_seconds > 0),
+        artifact_id TEXT,
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK(
+          (entry_type = 'CLASSIFIED' AND classification IS NOT NULL AND cause_code IS NOT NULL)
+          OR (entry_type <> 'CLASSIFIED' AND classification IS NULL AND cause_code IS NULL)
+        ),
+        CHECK(
+          (entry_type = 'REMEDY_AUTHORIZED' AND remedy IS NOT NULL AND shots_to_fire IS NOT NULL)
+          OR (entry_type <> 'REMEDY_AUTHORIZED' AND remedy IS NULL AND shots_to_fire IS NULL)
+        ),
+        CHECK(
+          (entry_type = 'REPAIR_EXTENDED' AND repair_seconds IS NOT NULL)
+          OR (entry_type <> 'REPAIR_EXTENDED' AND repair_seconds IS NULL)
+        ),
+        CHECK(entry_type NOT IN ('EXECUTION_RECORDED', 'SCORE_SETTLED', 'SCORE_REOPENED') OR artifact_id IS NOT NULL),
+        CHECK(length(trim(statement)) > 0),
+        CHECK(length(trim(official_name)) > 0)
+      );
+
+CREATE TABLE qualification_malfunction_score_sheets (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES qualification_malfunction_cases(id),
+        version INTEGER NOT NULL CHECK (version > 0),
+        content_json TEXT NOT NULL CHECK (json_valid(content_json)),
+        digest TEXT NOT NULL CHECK (length(digest) = 64),
+        recorded_at TEXT NOT NULL,
+        UNIQUE (case_id, version)
+      );
+
+CREATE TABLE qualification_recovery_execution_events (
+        id TEXT PRIMARY KEY,
+        event_key TEXT NOT NULL UNIQUE,
+        run_id TEXT NOT NULL REFERENCES qualification_recovery_executions(run_id),
+        event_type TEXT NOT NULL CHECK (event_type IN (
+          'START_RESULT',
+          'START_ERROR',
+          'LANE_STATE',
+          'LANE_STATE_REJECTED',
+          'SHOT',
+          'SHOT_REJECTED',
+          'CANCEL_REQUESTED',
+          'CANCEL_RESULT',
+          'CANCEL_ERROR',
+          'ADJUDICATION_REQUESTED',
+          'ADJUDICATION_RESULT',
+          'ADJUDICATION_ERROR'
+        )),
+        payload_json TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE qualification_recovery_executions (
+        run_id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES range_interruption_cases(id),
+        decision_id TEXT NOT NULL REFERENCES qualification_timed_target_recovery_decisions(id),
+        competition_id TEXT NOT NULL,
+        lane_id TEXT NOT NULL,
+        phase TEXT NOT NULL CHECK (phase IN ('EXTRA_SIGHTING', 'SERIES_RECOVERY')),
+        stage_index INTEGER NOT NULL CHECK (stage_index >= 0),
+        series_index INTEGER NOT NULL CHECK (series_index >= 0),
+        expected_match_program_id TEXT NOT NULL,
+        expected_series_shot_limit INTEGER NOT NULL CHECK (expected_series_shot_limit > 0),
+        expected_recorded_shots INTEGER NOT NULL CHECK (expected_recorded_shots >= 0),
+        authorization_json TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        decision_rule_reference TEXT NOT NULL,
+        decided_at TEXT NOT NULL,
+        requested_at TEXT NOT NULL,
+        UNIQUE(decision_id, phase)
+      );
+
+CREATE TABLE qualification_recovery_settlement_events (
+        id TEXT PRIMARY KEY,
+        event_key TEXT NOT NULL UNIQUE,
+        settlement_id TEXT NOT NULL REFERENCES qualification_recovery_settlement_requests(settlement_id),
+        event_type TEXT NOT NULL CHECK(event_type IN ('SETTLEMENT_RESULT', 'SETTLEMENT_ERROR')),
+        payload_json TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE qualification_recovery_settlement_requests (
+        settlement_id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES range_interruption_cases(id),
+        decision_id TEXT NOT NULL UNIQUE REFERENCES qualification_timed_target_recovery_decisions(id),
+        competition_id TEXT NOT NULL,
+        lane_id TEXT NOT NULL,
+        treatment TEXT NOT NULL CHECK(treatment = 'KEEP_RECORDED_SERIES'),
+        stage_index INTEGER NOT NULL CHECK(stage_index >= 0),
+        series_index INTEGER NOT NULL CHECK(series_index >= 0),
+        expected_match_program_id TEXT NOT NULL,
+        expected_series_shot_limit INTEGER NOT NULL CHECK(expected_series_shot_limit > 0),
+        expected_recorded_shots INTEGER NOT NULL CHECK(expected_recorded_shots = expected_series_shot_limit),
+        decision_official_name TEXT NOT NULL,
+        decision_rule_reference TEXT NOT NULL,
+        decided_at TEXT NOT NULL,
+        applied_by TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        applied_at TEXT NOT NULL,
+        requested_at TEXT NOT NULL
+      );
+
+CREATE TABLE qualification_timed_target_recovery_decisions (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES range_interruption_cases(id),
+        supersedes_decision_id TEXT REFERENCES qualification_timed_target_recovery_decisions(id),
+        recommendation_json TEXT NOT NULL,
+        authorized_recovery_json TEXT NOT NULL,
+        follows_recommendation INTEGER NOT NULL CHECK (follows_recommendation IN (0, 1)),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        incident_report_reference TEXT NOT NULL,
+        rule_reference TEXT NOT NULL,
+        decided_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE range_incident_report_entries (
+        id TEXT PRIMARY KEY,
+        report_id TEXT NOT NULL REFERENCES range_incident_reports(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('SIGNATURE', 'FORWARDED', 'NOTE', 'VOID')),
+        official_role TEXT CHECK (official_role IS NULL OR official_role IN (
+          'RANGE_OFFICER',
+          'COMPETITION_JURY_MEMBER',
+          'RTS_OFFICER',
+          'RTS_JURY_MEMBER',
+          'RANKING_TECHNICAL_OFFICER',
+          'OTHER_OFFICIAL'
+        )),
+        destination TEXT,
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK (
+          (entry_type = 'SIGNATURE' AND official_role IS NOT NULL AND destination IS NULL)
+          OR (entry_type = 'FORWARDED' AND official_role IS NULL AND destination IS NOT NULL)
+          OR (entry_type IN ('NOTE', 'VOID') AND official_role IS NULL AND destination IS NULL)
+        )
+      );
+
+CREATE TABLE range_incident_reports (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        serial_number TEXT NOT NULL COLLATE NOCASE,
+        event_name TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        relay_number INTEGER CHECK (relay_number IS NULL OR relay_number > 0),
+        firing_point_number INTEGER CHECK (firing_point_number IS NULL OR firing_point_number > 0),
+        athlete_name TEXT,
+        bib_number TEXT,
+        nationality TEXT,
+        stage TEXT,
+        series TEXT,
+        details TEXT NOT NULL,
+        rule_references TEXT NOT NULL,
+        penalty TEXT,
+        score_amendment_reference TEXT,
+        initiator_role TEXT NOT NULL CHECK (initiator_role IN (
+          'RANGE_OFFICER',
+          'COMPETITION_JURY_MEMBER',
+          'RTS_OFFICER',
+          'RTS_JURY_MEMBER',
+          'RANKING_TECHNICAL_OFFICER',
+          'OTHER_OFFICIAL'
+        )),
+        initiator_name TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (event_id, serial_number)
+      );
+
+CREATE TABLE range_interruption_cases (
+        id TEXT PRIMARY KEY,
+        cause TEXT NOT NULL CHECK (cause IN (
+          'ATHLETE_NON_FAULT',
+          'ALL_TARGET_FAILURE',
+          'SINGLE_TARGET_FAILURE',
+          'FIRING_POINT_MOVE',
+          'OTHER'
+        )),
+        phase TEXT NOT NULL CHECK (phase IN ('SIGHTING', 'MATCH')),
+        started_at TEXT NOT NULL,
+        remaining_seconds_at_start INTEGER NOT NULL CHECK (remaining_seconds_at_start >= 0),
+        lane_id TEXT,
+        firing_point_number INTEGER CHECK (firing_point_number IS NULL OR firing_point_number > 0),
+        athlete_name TEXT,
+        summary TEXT NOT NULL,
+        details TEXT NOT NULL,
+        opened_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      , qualification_timed_target_context_json TEXT);
+
+CREATE TABLE range_interruption_command_batches (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES range_interruption_cases(id),
+        competition_id TEXT NOT NULL,
+        operation TEXT NOT NULL CHECK (operation IN ('PAUSE', 'RESUME', 'MATCH_RESUME')),
+        target_lane_ids_json TEXT NOT NULL CHECK (json_valid(target_lane_ids_json)),
+        success INTEGER NOT NULL CHECK (success IN (0, 1)),
+        results_json TEXT NOT NULL CHECK (json_valid(results_json)),
+        official_name TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE range_interruption_entries (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES range_interruption_cases(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'PAUSE_APPLIED',
+          'ENDED',
+          'TIME_GRANTED',
+          'RESUME_APPLIED',
+          'MATCH_RESUMED',
+          'NOTE',
+          'CLOSED',
+          'REOPENED',
+          'VOID'
+        )),
+        occurred_at TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        rule_reference TEXT,
+        lost_time_seconds INTEGER CHECK (lost_time_seconds IS NULL OR lost_time_seconds >= 0),
+        extension_seconds INTEGER CHECK (extension_seconds IS NULL OR extension_seconds >= 0),
+        authorized_remaining_seconds INTEGER CHECK (
+          authorized_remaining_seconds IS NULL OR authorized_remaining_seconds >= 0
+        ),
+        unlimited_sighting_shots INTEGER CHECK (
+          unlimited_sighting_shots IS NULL OR unlimited_sighting_shots IN (0, 1)
+        ),
+        incident_report_reference TEXT,
+        command_id TEXT,
+        recorded_at TEXT NOT NULL,
+        CHECK (entry_type <> 'ENDED' OR lost_time_seconds IS NOT NULL),
+        CHECK (
+          entry_type <> 'TIME_GRANTED' OR (
+            extension_seconds IS NOT NULL AND
+            authorized_remaining_seconds IS NOT NULL AND
+            unlimited_sighting_shots IS NOT NULL AND
+            incident_report_reference IS NOT NULL AND
+            rule_reference IS NOT NULL
+          )
+        ),
+        CHECK (
+          entry_type NOT IN ('PAUSE_APPLIED', 'RESUME_APPLIED', 'MATCH_RESUMED') OR command_id IS NOT NULL
+        )
+      );
+
+CREATE TABLE range_interruption_scope_links (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES range_interruption_cases(id),
+        scope_type TEXT NOT NULL CHECK (scope_type IN ('COMPETITION', 'EVENT')),
+        scope_id TEXT NOT NULL,
+        linked_by TEXT NOT NULL,
+        note TEXT,
+        linked_at TEXT NOT NULL,
+        UNIQUE (case_id, scope_type, scope_id)
+      );
+
+CREATE TABLE range_safety_lane_clearances (
+        id TEXT PRIMARY KEY,
+        audit_entry_id TEXT NOT NULL REFERENCES range_safety_stop_audit(id),
+        safety_stop_id TEXT NOT NULL,
+        lane_id TEXT NOT NULL,
+        participant_id TEXT,
+        participant_name TEXT,
+        athlete_confirmation_status TEXT NOT NULL
+          CHECK(athlete_confirmation_status IN ('CONFIRMED', 'NOT_APPLICABLE')),
+        athlete_confirmed_by TEXT,
+        not_applicable_reason TEXT,
+        firearm_condition TEXT NOT NULL CHECK(firearm_condition IN (
+          'UNLOADED_SAFETY_FLAG_INSERTED',
+          'UNLOADED_ACTION_OPEN',
+          'NO_FIREARM_PRESENT'
+        )),
+        personnel_clear INTEGER NOT NULL CHECK(personnel_clear = 1),
+        verified_by TEXT NOT NULL CHECK(length(trim(verified_by)) > 0),
+        verification_note TEXT,
+        verified_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        rule_references_json TEXT NOT NULL CHECK(json_valid(rule_references_json)),
+        UNIQUE(audit_entry_id, lane_id),
+        CHECK((participant_id IS NULL) = (participant_name IS NULL)),
+        CHECK(
+          (athlete_confirmation_status = 'CONFIRMED'
+            AND athlete_confirmed_by IS NOT NULL AND not_applicable_reason IS NULL)
+          OR
+          (athlete_confirmation_status = 'NOT_APPLICABLE'
+            AND athlete_confirmed_by IS NULL AND not_applicable_reason IS NOT NULL)
+        )
+      );
+
+CREATE TABLE range_safety_stop_audit (
+        id TEXT PRIMARY KEY,
+        safety_stop_id TEXT NOT NULL,
+        operation TEXT NOT NULL CHECK(operation IN ('ACTIVATE', 'CLEAR')),
+        target_lane_ids_json TEXT NOT NULL CHECK(json_valid(target_lane_ids_json)),
+        success INTEGER NOT NULL CHECK(success IN (0, 1)),
+        reason TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        occurred_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        lane_outcomes_json TEXT NOT NULL CHECK(json_valid(lane_outcomes_json))
+      );
+
+CREATE TABLE record_claim_entries (
+        id TEXT PRIMARY KEY,
+        claim_id TEXT NOT NULL REFERENCES record_claims(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'TD_CONFIRMED', 'SUBMITTED', 'TECHNICAL_COMMITTEE_VERIFIED',
+          'REJECTED', 'REOPENED', 'VOID'
+        )),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        appointment_id TEXT,
+        reference TEXT,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE record_claims (
+        id TEXT PRIMARY KEY,
+        championship_id TEXT NOT NULL REFERENCES championships(id),
+        event_id TEXT NOT NULL REFERENCES events(id),
+        result_id TEXT NOT NULL,
+        result_scope TEXT NOT NULL CHECK (result_scope IN ('QUALIFICATION', 'FINAL')),
+        source_json TEXT NOT NULL CHECK (json_valid(source_json)),
+        record_code TEXT NOT NULL CHECK (record_code IN (
+          'WR', 'QWR', 'EWR', 'EQWR', 'WRJ', 'QWRJ', 'EWRJ', 'EQWRJ',
+          'OR', 'EOR', 'QOR', 'EQOR'
+        )),
+        result_basis TEXT NOT NULL CHECK (result_basis IN (
+          'QUALIFICATION_OR_ELIMINATION', 'FINAL', 'RECOGNIZED_NO_FINAL_TOTAL'
+        )),
+        benchmark_score_x10 INTEGER NOT NULL CHECK (benchmark_score_x10 >= 0),
+        rule_reference TEXT NOT NULL,
+        claimed_by TEXT NOT NULL,
+        achieved_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+CREATE TABLE relay_athlete_lifecycle_entries (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        relay_number INTEGER NOT NULL CHECK (relay_number > 0),
+        lane_id TEXT NOT NULL,
+        athlete_id TEXT NOT NULL,
+        athlete_name TEXT NOT NULL,
+        athlete_start_number INTEGER NOT NULL CHECK (athlete_start_number > 0),
+        phase TEXT NOT NULL CHECK (phase IN ('PRE_RELAY', 'POST_RELAY')),
+        requirement TEXT NOT NULL CHECK (requirement IN (
+          'ATHLETE_IDENTITY_BIB_VERIFIED',
+          'EQUIPMENT_APPROVAL_VERIFIED',
+          'FIREARM_UNLOADED_SAFETY_FLAG_VERIFIED',
+          'PRINTOUT_ATHLETE_SIGNED',
+          'PRINTOUT_OFFICIAL_INITIALLED',
+          'ATHLETE_RELEASED'
+        )),
+        state TEXT NOT NULL CHECK (state IN ('CONFIRMED', 'REVOKED')),
+        source TEXT NOT NULL CHECK (source IN ('MANUAL', 'LANE_REPORTED', 'IMPORT')),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK (
+          (phase = 'PRE_RELAY' AND requirement IN (
+            'ATHLETE_IDENTITY_BIB_VERIFIED', 'EQUIPMENT_APPROVAL_VERIFIED'
+          )) OR
+          (phase = 'POST_RELAY' AND requirement IN (
+            'FIREARM_UNLOADED_SAFETY_FLAG_VERIFIED', 'PRINTOUT_ATHLETE_SIGNED',
+            'PRINTOUT_OFFICIAL_INITIALLED', 'ATHLETE_RELEASED'
+          ))
+        )
+      );
+
+CREATE TABLE relay_readiness_entries (
+        id TEXT PRIMARY KEY,
+        competition_id TEXT NOT NULL,
+        relay_number INTEGER NOT NULL CHECK (relay_number > 0),
+        lane_id TEXT,
+        phase TEXT NOT NULL CHECK (phase IN ('RELAY', 'SIGHTING', 'MATCH')),
+        requirement TEXT NOT NULL CHECK (requirement IN (
+          'RANGE_EQUIPMENT_READY',
+          'TARGET_MODE_CONFIRMED',
+          'BACKUP_MEMORY_READY',
+          'TARGET_WHITE_SURFACE_CLEAR',
+          'TARGET_FRAME_MARKS_INDICATED',
+          'CONTROL_SHEET_RENEWED',
+          'BACKING_MATERIAL_CLEAR'
+        )),
+        state TEXT NOT NULL CHECK (state IN ('CONFIRMED', 'REVOKED')),
+        source TEXT NOT NULL CHECK (source IN ('MANUAL', 'LANE_REPORTED', 'IMPORT')),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK (
+          (requirement IN (
+            'TARGET_MODE_CONFIRMED',
+            'TARGET_WHITE_SURFACE_CLEAR',
+            'TARGET_FRAME_MARKS_INDICATED',
+            'CONTROL_SHEET_RENEWED',
+            'BACKING_MATERIAL_CLEAR'
+          ) AND lane_id IS NOT NULL)
+          OR (requirement IN ('RANGE_EQUIPMENT_READY', 'BACKUP_MEMORY_READY') AND lane_id IS NULL)
+        ),
+        CHECK (
+          (requirement = 'TARGET_MODE_CONFIRMED' AND phase IN ('SIGHTING', 'MATCH'))
+          OR (requirement <> 'TARGET_MODE_CONFIRMED' AND phase = 'RELAY')
+        )
+      );
+
+CREATE TABLE relay_readiness_start_settings (
+      competition_id TEXT PRIMARY KEY,
+      relay_number INTEGER NOT NULL CHECK(relay_number > 0),
+      mode TEXT NOT NULL CHECK(mode IN ('DISABLED', 'ADVISORY', 'REQUIRED'))
+    );
+
+CREATE TABLE reserve_lane_transfer_events (id TEXT PRIMARY KEY, transfer_id TEXT NOT NULL REFERENCES reserve_lane_transfers(id), operation TEXT NOT NULL, entry_json TEXT NOT NULL CHECK(json_valid(entry_json)));
+
+CREATE TABLE reserve_lane_transfers (id TEXT PRIMARY KEY, competition_id TEXT NOT NULL, request_json TEXT NOT NULL CHECK(json_valid(request_json)));
+
+CREATE TABLE result_list_approval_entries (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        result_scope TEXT NOT NULL CHECK (result_scope IN ('QUALIFICATION', 'FINAL')),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('APPROVAL', 'REVOCATION')),
+        snapshot_revision TEXT NOT NULL,
+        required_individual_checks INTEGER NOT NULL CHECK (required_individual_checks >= 0),
+        required_team_checks INTEGER NOT NULL CHECK (required_team_checks >= 0),
+        check_ids_json TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        reverses_approval_id TEXT REFERENCES result_list_approval_entries(id)
+      , signing_evidence_json TEXT
+      CHECK(signing_evidence_json IS NULL OR json_valid(signing_evidence_json)));
+
+CREATE TABLE result_publication_entries (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES events(id),
+        result_scope TEXT NOT NULL CHECK (result_scope IN ('QUALIFICATION', 'FINAL')),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'PRELIMINARY_PUBLISHED',
+          'PROTEST_REGISTERED',
+          'PROTEST_RESOLVED',
+          'OFFICIAL_PUBLISHED'
+        )),
+        preliminary_id TEXT NOT NULL,
+        payload_json TEXT NOT NULL CHECK (json_valid(payload_json)),
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE result_verification_checks (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        result_id TEXT NOT NULL,
+        participant_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        result_revision TEXT NOT NULL,
+        result_rank INTEGER NOT NULL CHECK (result_rank > 0),
+        score_x10 INTEGER NOT NULL CHECK (score_x10 >= 0),
+        decision_count_at_check INTEGER NOT NULL CHECK (decision_count_at_check >= 0),
+        evidence_source TEXT NOT NULL
+          CHECK (evidence_source IN ('TARGET_PRINTOUT', 'INDEPENDENT_MEMORY', 'OTHER')),
+        evidence_reference TEXT NOT NULL,
+        comparison_status TEXT NOT NULL
+          CHECK (comparison_status IN ('MATCHED', 'MISMATCH', 'UNAVAILABLE')),
+        manual_interventions_reviewed INTEGER NOT NULL
+          CHECK (manual_interventions_reviewed IN (0, 1)),
+        note TEXT,
+        official_name TEXT NOT NULL,
+        checked_at TEXT NOT NULL
+      );
+
+CREATE TABLE results (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        participant_id TEXT NOT NULL,
+        player_name TEXT NOT NULL,
+        affiliation TEXT NOT NULL DEFAULT '',
+        relay_number INTEGER NOT NULL,
+        total_score REAL NOT NULL,
+        series1 REAL NOT NULL DEFAULT 0.0,
+        series2 REAL NOT NULL DEFAULT 0.0,
+        series3 REAL NOT NULL DEFAULT 0.0,
+        series4 REAL NOT NULL DEFAULT 0.0,
+        series5 REAL NOT NULL DEFAULT 0.0,
+        series6 REAL NOT NULL DEFAULT 0.0,
+        shots_detail TEXT NOT NULL,
+        confirmed_at TEXT NOT NULL DEFAULT (datetime('now')), status TEXT DEFAULT 'published', source_competition_id TEXT, family_name TEXT, source_lane_id TEXT, ranking_shots_detail TEXT NOT NULL DEFAULT '[]', series_scores_json TEXT
+      CHECK (series_scores_json IS NULL OR
+        (json_valid(series_scores_json) AND json_type(series_scores_json) = 'array')),
+        UNIQUE(event_id, participant_id),
+        FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+        FOREIGN KEY (participant_id) REFERENCES participants(id) ON DELETE CASCADE,
+        FOREIGN KEY (event_id, participant_id) REFERENCES participants(event_id, id)
+      );
+
+CREATE TABLE results_book_finalizations (
+        id TEXT PRIMARY KEY,
+        book_id TEXT NOT NULL UNIQUE REFERENCES results_book_versions(id),
+        source_hash TEXT NOT NULL CHECK (length(source_hash) = 64),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        finalized_at TEXT NOT NULL
+      );
+
+CREATE TABLE results_book_signatures (
+        id TEXT PRIMARY KEY,
+        book_id TEXT NOT NULL REFERENCES results_book_versions(id),
+        appointment_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        signed_at TEXT NOT NULL, signing_evidence_json TEXT
+        CHECK(signing_evidence_json IS NULL OR json_valid(signing_evidence_json)),
+        UNIQUE (book_id, appointment_id)
+      );
+
+CREATE TABLE results_book_versions (
+        id TEXT PRIMARY KEY,
+        championship_id TEXT NOT NULL REFERENCES championships(id),
+        version_number INTEGER NOT NULL CHECK (version_number > 0),
+        source_hash TEXT NOT NULL CHECK (length(source_hash) = 64),
+        content_json TEXT NOT NULL CHECK (json_valid(content_json)),
+        findings_json TEXT NOT NULL CHECK (json_valid(findings_json)),
+        required_signers_json TEXT NOT NULL CHECK (json_valid(required_signers_json)),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (championship_id, version_number)
+      );
+
+CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
+CREATE TABLE score_correction_withdrawals (
+      id TEXT PRIMARY KEY, application_id TEXT UNIQUE NOT NULL REFERENCES score_corrections(id),
+      snapshot_json TEXT NOT NULL CHECK (json_valid(snapshot_json))
+    );
+
+CREATE TABLE score_corrections (
+      id TEXT PRIMARY KEY, event_id TEXT NOT NULL, participant_id TEXT NOT NULL,
+      relay_number INTEGER NOT NULL CHECK (relay_number > 0), result_scope TEXT NOT NULL CHECK (result_scope IN ('QUALIFICATION', 'FINAL')),
+      snapshot_json TEXT NOT NULL CHECK (json_valid(snapshot_json))
+    );
+
+CREATE TABLE scoring_decisions (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        participant_id TEXT NOT NULL,
+        relay_number INTEGER NOT NULL,
+        result_scope TEXT NOT NULL CHECK (result_scope IN ('QUALIFICATION', 'FINAL')),
+        result_id_at_decision TEXT NOT NULL,
+        source_competition_id TEXT,
+        decision_type TEXT NOT NULL,
+        application_policy TEXT NOT NULL,
+        points_x10 INTEGER,
+        series_index INTEGER,
+        shot_index INTEGER,
+        classification_code TEXT,
+        rule_reference TEXT NOT NULL,
+        incident_report_number TEXT,
+        public_remark TEXT NOT NULL,
+        internal_note TEXT,
+        official_name TEXT NOT NULL,
+        decided_at TEXT NOT NULL,
+        reverses_decision_id TEXT REFERENCES scoring_decisions(id)
+      );
+
+CREATE TABLE sqlite_sequence(name,seq);
+
+CREATE TABLE squadding_draw_entries (
+        id TEXT PRIMARY KEY,
+        draw_id TEXT NOT NULL REFERENCES squadding_draws(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN ('APPROVED', 'APPLIED', 'VOID')),
+        official_name TEXT NOT NULL,
+        statement TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE squadding_draws (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL,
+        competition_type_id TEXT NOT NULL,
+        seed TEXT NOT NULL,
+        algorithm_version TEXT NOT NULL,
+        relay_count INTEGER NOT NULL CHECK (relay_count > 0),
+        first_firing_point INTEGER NOT NULL CHECK (first_firing_point > 0),
+        firing_point_count INTEGER NOT NULL CHECK (firing_point_count > 0),
+        status_section_policy TEXT NOT NULL CHECK (status_section_policy IN ('OFF', 'END_OF_RELAY')),
+        participant_snapshot_json TEXT NOT NULL CHECK (json_valid(participant_snapshot_json)),
+        participant_snapshot_hash TEXT NOT NULL,
+        assignments_json TEXT NOT NULL CHECK (json_valid(assignments_json)),
+        output_hash TEXT NOT NULL,
+        findings_json TEXT NOT NULL CHECK (json_valid(findings_json)),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+CREATE TABLE start_list_entries (
+        id TEXT PRIMARY KEY,
+        version_id TEXT NOT NULL REFERENCES start_list_versions(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'CONTENT_APPROVED', 'PAPERLESS_APPROVED', 'DISTRIBUTED', 'VOID', 'WITHDRAWN'
+        )),
+        official_name TEXT NOT NULL,
+        official_role TEXT NOT NULL CHECK (official_role IN (
+          'TECHNICAL_DELEGATE', 'RTS_JURY', 'RTS_OFFICER', 'ORGANIZING_COMMITTEE', 'OTHER'
+        )),
+        statement TEXT NOT NULL,
+        channels_json TEXT NOT NULL CHECK (json_valid(channels_json)),
+        final_release_basis TEXT CHECK (
+          final_release_basis IS NULL OR final_release_basis IN ('PROTESTS_CLEARED', 'NO_QUALIFICATION_IMPACT')
+        ),
+        recorded_at TEXT NOT NULL,
+        CHECK (entry_type = 'DISTRIBUTED' OR (channels_json = '[]' AND final_release_basis IS NULL))
+      );
+
+CREATE TABLE start_list_versions (
+        id TEXT PRIMARY KEY,
+        event_id TEXT NOT NULL REFERENCES events(id),
+        version_number INTEGER NOT NULL CHECK (version_number > 0),
+        list_kind TEXT NOT NULL CHECK (list_kind IN (
+          'PRE_EVENT_TRAINING', 'ELIMINATION', 'QUALIFICATION', 'FINAL', 'OTHER'
+        )),
+        discipline_group TEXT NOT NULL CHECK (discipline_group IN ('RIFLE_PISTOL', 'SHOTGUN', 'OTHER')),
+        distribution_mode TEXT NOT NULL CHECK (distribution_mode IN ('PRINTED', 'PAPERLESS')),
+        scheduled_start_at TEXT NOT NULL,
+        publication_due_at TEXT NOT NULL,
+        source_snapshot_json TEXT NOT NULL CHECK (json_valid(source_snapshot_json)),
+        source_hash TEXT NOT NULL,
+        findings_json TEXT NOT NULL CHECK (json_valid(findings_json)),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(event_id, list_kind, version_number)
+      );
+
+CREATE TABLE target_examination_cases (
+        id TEXT PRIMARY KEY,
+        issue_kind TEXT NOT NULL CHECK (issue_kind IN (
+          'SIGHTING_COMPLAINT',
+          'NO_SHOT_INDICATION',
+          'UNEXPECTED_ZERO',
+          'SCORE_VALUE_PROTEST',
+          'PAPER_OR_RUBBER_FAILURE',
+          'SINGLE_TARGET_FAILURE',
+          'RANGE_TARGET_FAILURE',
+          'OTHER'
+        )),
+        occurred_at TEXT NOT NULL,
+        lane_id TEXT,
+        firing_point_number INTEGER CHECK (firing_point_number IS NULL OR firing_point_number > 0),
+        relay_number INTEGER CHECK (relay_number IS NULL OR relay_number > 0),
+        athlete_name TEXT,
+        shot_id TEXT,
+        summary TEXT NOT NULL,
+        details TEXT NOT NULL,
+        rule_references TEXT NOT NULL,
+        opened_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+CREATE TABLE target_examination_entries (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES target_examination_cases(id),
+        entry_type TEXT NOT NULL CHECK (entry_type IN (
+          'NOTE',
+          'DECISION',
+          'HOLD_RELEASED',
+          'HOLD_REINSTATED',
+          'CLOSED',
+          'REOPENED',
+          'VOID'
+        )),
+        statement TEXT NOT NULL,
+        rule_reference TEXT,
+        official_name TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        CHECK (entry_type <> 'DECISION' OR rule_reference IS NOT NULL)
+      );
+
+CREATE TABLE target_examination_evidence (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES target_examination_cases(id),
+        evidence_type TEXT NOT NULL CHECK (evidence_type IN (
+          'CONTROL_SHEET',
+          'BACKING_CARD',
+          'BACKING_TARGET',
+          'WITNESS_STRIP',
+          'RUBBER_BAND',
+          'RANGE_INCIDENT_REPORT',
+          'EST_LOG_PRINT',
+          'EST_COMPUTER_RECORD',
+          'TARGET_FACE',
+          'OTHER'
+        )),
+        description TEXT NOT NULL,
+        reference TEXT,
+        content_hash_sha256 TEXT CHECK (content_hash_sha256 IS NULL OR length(content_hash_sha256) = 64),
+        collected_by TEXT NOT NULL,
+        collected_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL
+      );
+
+CREATE TABLE target_examination_scope_links (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES target_examination_cases(id),
+        scope_type TEXT NOT NULL CHECK (scope_type IN ('COMPETITION', 'EVENT')),
+        scope_id TEXT NOT NULL,
+        linked_by TEXT NOT NULL,
+        note TEXT,
+        linked_at TEXT NOT NULL,
+        UNIQUE (case_id, scope_type, scope_id)
+      );
+
+CREATE TABLE target_recovery_assessments (
+        id TEXT PRIMARY KEY,
+        case_id TEXT NOT NULL REFERENCES range_interruption_cases(id),
+        repair_completed_at TEXT,
+        moved_to_reserve_firing_point INTEGER NOT NULL
+          CHECK (moved_to_reserve_firing_point IN (0, 1)),
+        reserve_firing_point_number INTEGER
+          CHECK (reserve_firing_point_number IS NULL OR reserve_firing_point_number > 0),
+        statement TEXT NOT NULL,
+        official_name TEXT NOT NULL,
+        assessed_at TEXT NOT NULL
+      );
+
+CREATE TABLE vista_competition_sources (
+      id TEXT PRIMARY KEY,
+      source_json TEXT NOT NULL CHECK (json_valid(source_json)),
+      snapshot_json TEXT CHECK (snapshot_json IS NULL OR json_valid(snapshot_json)),
+      revision INTEGER NOT NULL DEFAULT 0
+    );
+
+CREATE TRIGGER events_rule_pack_binding_insert
+      BEFORE INSERT ON events
+      WHEN (NEW.rule_pack_id IS NULL) != (NEW.rule_pack_schema_version IS NULL)
+        OR (NEW.rule_pack_id IS NULL) != (NEW.rule_pack_fingerprint_sha256 IS NULL)
+      BEGIN
+        SELECT RAISE(ABORT, 'Event Rule Pack binding must be complete');
+      END;
+
+CREATE TRIGGER events_rule_pack_binding_update
+      BEFORE UPDATE OF rule_pack_id, rule_pack_schema_version, rule_pack_fingerprint_sha256 ON events
+      WHEN (NEW.rule_pack_id IS NULL) != (NEW.rule_pack_schema_version IS NULL)
+        OR (NEW.rule_pack_id IS NULL) != (NEW.rule_pack_fingerprint_sha256 IS NULL)
+      BEGIN
+        SELECT RAISE(ABORT, 'Event Rule Pack binding must be complete');
+      END;
+
+CREATE TRIGGER evidence_file_contents_no_delete BEFORE DELETE ON evidence_file_contents
+    BEGIN SELECT RAISE(ABORT, 'Evidence originals are append-only'); END;
+
+CREATE TRIGGER evidence_file_contents_no_update BEFORE UPDATE ON evidence_file_contents
+    BEGIN SELECT RAISE(ABORT, 'Evidence originals are append-only'); END;
+
+CREATE TRIGGER evidence_files_no_delete BEFORE DELETE ON evidence_files
+    BEGIN SELECT RAISE(ABORT, 'Evidence files are append-only'); END;
+
+CREATE TRIGGER evidence_files_no_update BEFORE UPDATE ON evidence_files
+    BEGIN SELECT RAISE(ABORT, 'Evidence files are append-only'); END;
+
+CREATE TRIGGER final_recovery_allowance_subjects_no_delete BEFORE DELETE ON final_recovery_allowance_subjects
+      BEGIN SELECT RAISE(ABORT, 'Final recovery identities are append-only'); END;
+
+CREATE TRIGGER final_recovery_allowance_subjects_no_update BEFORE UPDATE ON final_recovery_allowance_subjects
+      BEGIN SELECT RAISE(ABORT, 'Final recovery identities are append-only'); END;
+
+CREATE TRIGGER final_recovery_firing_evidence_no_delete BEFORE DELETE ON final_recovery_firing_evidence BEGIN SELECT RAISE(ABORT, 'Final firing evidence is append-only'); END;
+
+CREATE TRIGGER final_recovery_firing_evidence_no_update BEFORE UPDATE ON final_recovery_firing_evidence BEGIN SELECT RAISE(ABORT, 'Final firing evidence is append-only'); END;
+
+CREATE TRIGGER final_recovery_firing_runs_no_delete BEFORE DELETE ON final_recovery_firing_runs BEGIN SELECT RAISE(ABORT, 'Final firing evidence is append-only'); END;
+
+CREATE TRIGGER final_recovery_firing_runs_no_update BEFORE UPDATE ON final_recovery_firing_runs BEGIN SELECT RAISE(ABORT, 'Final firing evidence is append-only'); END;
+
+CREATE TRIGGER malfunction_score_applications_no_delete BEFORE DELETE ON malfunction_score_applications
+        BEGIN SELECT RAISE(ABORT, 'Score application history is append-only'); END;
+
+CREATE TRIGGER malfunction_score_applications_no_update BEFORE UPDATE ON malfunction_score_applications
+        BEGIN SELECT RAISE(ABORT, 'Score application history is append-only'); END;
+
+CREATE TRIGGER malfunction_score_withdrawals_no_delete BEFORE DELETE ON malfunction_score_withdrawals
+        BEGIN SELECT RAISE(ABORT, 'Score application history is append-only'); END;
+
+CREATE TRIGGER malfunction_score_withdrawals_no_update BEFORE UPDATE ON malfunction_score_withdrawals
+        BEGIN SELECT RAISE(ABORT, 'Score application history is append-only'); END;
+
+CREATE TRIGGER reserve_lane_transfer_events_no_delete BEFORE DELETE ON reserve_lane_transfer_events BEGIN SELECT RAISE(ABORT, 'Reserve transfer history is append-only'); END;
+
+CREATE TRIGGER reserve_lane_transfer_events_no_update BEFORE UPDATE ON reserve_lane_transfer_events BEGIN SELECT RAISE(ABORT, 'Reserve transfer history is append-only'); END;
+
+CREATE TRIGGER reserve_lane_transfers_no_delete BEFORE DELETE ON reserve_lane_transfers BEGIN SELECT RAISE(ABORT, 'Reserve transfer history is append-only'); END;
+
+CREATE TRIGGER reserve_lane_transfers_no_update BEFORE UPDATE ON reserve_lane_transfers BEGIN SELECT RAISE(ABORT, 'Reserve transfer history is append-only'); END;
+
+CREATE TRIGGER score_correction_withdrawals_no_delete BEFORE DELETE ON score_correction_withdrawals BEGIN SELECT RAISE(ABORT, 'Score correction history is append-only'); END;
+
+CREATE TRIGGER score_correction_withdrawals_no_update BEFORE UPDATE ON score_correction_withdrawals BEGIN SELECT RAISE(ABORT, 'Score correction history is append-only'); END;
+
+CREATE TRIGGER score_corrections_no_delete BEFORE DELETE ON score_corrections BEGIN SELECT RAISE(ABORT, 'Score correction history is append-only'); END;
+
+CREATE TRIGGER score_corrections_no_update BEFORE UPDATE ON score_corrections BEGIN SELECT RAISE(ABORT, 'Score correction history is append-only'); END;
+
+CREATE TRIGGER trg_adjudication_case_entries_no_delete BEFORE DELETE ON adjudication_case_entries
+      BEGIN SELECT RAISE(ABORT, 'Adjudication entries are append-only'); END;
+
+CREATE TRIGGER trg_adjudication_case_entries_no_update BEFORE UPDATE ON adjudication_case_entries
+      BEGIN SELECT RAISE(ABORT, 'Adjudication entries are append-only'); END;
+
+CREATE TRIGGER trg_adjudication_case_links_no_delete BEFORE DELETE ON adjudication_case_links
+      BEGIN SELECT RAISE(ABORT, 'Adjudication links are append-only'); END;
+
+CREATE TRIGGER trg_adjudication_case_links_no_update BEFORE UPDATE ON adjudication_case_links
+      BEGIN SELECT RAISE(ABORT, 'Adjudication links are append-only'); END;
+
+CREATE TRIGGER trg_adjudication_cases_no_delete BEFORE DELETE ON adjudication_cases
+      BEGIN SELECT RAISE(ABORT, 'Adjudication cases are append-only'); END;
+
+CREATE TRIGGER trg_adjudication_cases_no_update BEFORE UPDATE ON adjudication_cases
+      BEGIN SELECT RAISE(ABORT, 'Adjudication cases are append-only'); END;
+
+CREATE TRIGGER trg_athlete_identities_no_delete
+      BEFORE DELETE ON athlete_identities
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete identities are append-only');
+      END;
+
+CREATE TRIGGER trg_athlete_identities_no_update
+      BEFORE UPDATE ON athlete_identities
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete identities are immutable');
+      END;
+
+CREATE TRIGGER trg_athlete_identity_link_issf_id_basis
+      BEFORE INSERT ON athlete_identity_link_entries
+      WHEN NEW.entry_type = 'LINKED'
+        AND NEW.link_basis = 'ISSF_ID'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM athlete_identities identity
+          JOIN participants participant ON participant.id = NEW.participant_id
+          WHERE identity.id = NEW.athlete_identity_id
+            AND identity.issf_id IS NOT NULL
+            AND participant.issf_id IS NOT NULL
+            AND upper(trim(identity.issf_id)) = upper(trim(participant.issf_id))
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'ISSF ID identity links require matching ISSF IDs');
+      END;
+
+CREATE TRIGGER trg_athlete_identity_link_one_active_identity
+      BEFORE INSERT ON athlete_identity_link_entries
+      WHEN NEW.entry_type = 'LINKED'
+        AND EXISTS (
+          SELECT 1
+          FROM athlete_identity_link_entries linked
+          WHERE linked.participant_id = NEW.participant_id
+            AND linked.entry_type = 'LINKED'
+            AND NOT EXISTS (
+              SELECT 1
+              FROM athlete_identity_link_entries unlinked
+              WHERE unlinked.entry_type = 'UNLINKED'
+                AND unlinked.reverses_link_id = linked.id
+            )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Participant already has an active athlete identity link');
+      END;
+
+CREATE TRIGGER trg_athlete_identity_link_same_championship
+      BEFORE INSERT ON athlete_identity_link_entries
+      WHEN NEW.entry_type = 'LINKED'
+        AND NOT EXISTS (
+        SELECT 1
+        FROM athlete_identities identity
+        JOIN participants participant ON participant.id = NEW.participant_id
+        JOIN events event ON event.id = participant.event_id
+        WHERE identity.id = NEW.athlete_identity_id
+          AND identity.championship_id = event.championship_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete identity and participant must belong to the same Championship');
+      END;
+
+CREATE TRIGGER trg_athlete_identity_link_snapshot_matches_entry
+      BEFORE INSERT ON athlete_identity_link_entries
+      WHEN NEW.entry_type = 'LINKED'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM participants participant
+          JOIN events event ON event.id = participant.event_id
+          WHERE participant.id = NEW.participant_id
+            AND event.id = NEW.event_id_snapshot
+            AND event.name = NEW.event_name_snapshot
+            AND participant.player_name = NEW.player_name_snapshot
+            AND participant.issf_id IS NEW.issf_id_snapshot
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete identity link snapshot must match the current event entry');
+      END;
+
+CREATE TRIGGER trg_athlete_identity_links_no_delete
+      BEFORE DELETE ON athlete_identity_link_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete identity links are append-only');
+      END;
+
+CREATE TRIGGER trg_athlete_identity_links_no_update
+      BEFORE UPDATE ON athlete_identity_link_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete identity links are append-only');
+      END;
+
+CREATE TRIGGER trg_athlete_identity_unlink_matches_link
+      BEFORE INSERT ON athlete_identity_link_entries
+      WHEN NEW.entry_type = 'UNLINKED'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM athlete_identity_link_entries linked
+          WHERE linked.id = NEW.reverses_link_id
+            AND linked.entry_type = 'LINKED'
+            AND linked.athlete_identity_id = NEW.athlete_identity_id
+            AND linked.participant_id = NEW.participant_id
+            AND linked.event_id_snapshot = NEW.event_id_snapshot
+            AND linked.event_name_snapshot = NEW.event_name_snapshot
+            AND linked.player_name_snapshot = NEW.player_name_snapshot
+            AND linked.issf_id_snapshot IS NEW.issf_id_snapshot
+            AND linked.link_basis = NEW.link_basis
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete identity unlink must reverse its matching link');
+      END;
+
+CREATE TRIGGER trg_athlete_sanction_revocation_matches_decision
+      BEFORE INSERT ON athlete_sanction_decisions
+      WHEN NEW.decision_type = 'REVOKED'
+        AND NOT EXISTS (
+          SELECT 1
+          FROM athlete_sanction_decisions imposed
+          WHERE imposed.id = NEW.reverses_decision_id
+            AND imposed.decision_type = 'IMPOSED'
+            AND imposed.athlete_identity_id = NEW.athlete_identity_id
+            AND imposed.source_event_id = NEW.source_event_id
+            AND imposed.classification_code = NEW.classification_code
+            AND imposed.sanction_scope = NEW.sanction_scope
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete sanction revocation must match the imposed decision');
+      END;
+
+CREATE TRIGGER trg_athlete_sanction_same_championship
+      BEFORE INSERT ON athlete_sanction_decisions
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM athlete_identities identity
+        JOIN events event ON event.id = NEW.source_event_id
+        WHERE identity.id = NEW.athlete_identity_id
+          AND identity.championship_id = event.championship_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete sanction source event must belong to the identity Championship');
+      END;
+
+CREATE TRIGGER trg_athlete_sanctions_no_delete
+      BEFORE DELETE ON athlete_sanction_decisions
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete sanction decisions are append-only');
+      END;
+
+CREATE TRIGGER trg_athlete_sanctions_no_update
+      BEFORE UPDATE ON athlete_sanction_decisions
+      BEGIN
+        SELECT RAISE(ABORT, 'Athlete sanction decisions are append-only');
+      END;
+
+CREATE TRIGGER trg_championship_official_entries_no_delete BEFORE DELETE ON championship_official_entries
+      BEGIN SELECT RAISE(ABORT, 'Championship official entries are append-only'); END;
+
+CREATE TRIGGER trg_championship_official_entries_no_update BEFORE UPDATE ON championship_official_entries
+      BEGIN SELECT RAISE(ABORT, 'Championship official entries are append-only'); END;
+
+CREATE TRIGGER trg_equipment_registry_no_delete BEFORE DELETE ON equipment_registry_entries
+        BEGIN SELECT RAISE(ABORT, 'equipment registry entries are append-only'); END;
+
+CREATE TRIGGER trg_equipment_registry_no_update BEFORE UPDATE ON equipment_registry_entries
+        BEGIN SELECT RAISE(ABORT, 'equipment registry entries are append-only'); END;
+
+CREATE TRIGGER trg_est_backup_source_no_delete BEFORE DELETE ON est_backup_sources
+      BEGIN SELECT RAISE(ABORT, 'EST backup sources are append-only'); END;
+
+CREATE TRIGGER trg_est_backup_source_no_update BEFORE UPDATE ON est_backup_sources
+      BEGIN SELECT RAISE(ABORT, 'EST backup sources are append-only'); END;
+
+CREATE TRIGGER trg_est_backup_verification_no_delete
+      BEFORE DELETE ON est_backup_verification_runs
+      BEGIN SELECT RAISE(ABORT, 'EST backup verification runs are append-only'); END;
+
+CREATE TRIGGER trg_est_backup_verification_no_update
+      BEFORE UPDATE ON est_backup_verification_runs
+      BEGIN SELECT RAISE(ABORT, 'EST backup verification runs are append-only'); END;
+
+CREATE TRIGGER trg_est_complaint_links_no_delete
+      BEFORE DELETE ON est_complaint_target_examination_links
+      BEGIN
+        SELECT RAISE(ABORT, 'EST complaint examination links are append-only');
+      END;
+
+CREATE TRIGGER trg_est_complaint_links_no_update
+      BEFORE UPDATE ON est_complaint_target_examination_links
+      BEGIN
+        SELECT RAISE(ABORT, 'EST complaint examination links are append-only');
+      END;
+
+CREATE TRIGGER trg_est_inspection_entries_no_delete BEFORE DELETE ON est_inspection_entries
+      BEGIN SELECT RAISE(ABORT, 'EST inspection entries are append-only'); END;
+
+CREATE TRIGGER trg_est_inspection_entries_no_update BEFORE UPDATE ON est_inspection_entries
+      BEGIN SELECT RAISE(ABORT, 'EST inspection entries are append-only'); END;
+
+CREATE TRIGGER trg_est_inspection_plans_no_delete BEFORE DELETE ON est_inspection_plans
+      BEGIN SELECT RAISE(ABORT, 'EST inspection plans are append-only'); END;
+
+CREATE TRIGGER trg_est_inspection_plans_no_update BEFORE UPDATE ON est_inspection_plans
+      BEGIN SELECT RAISE(ABORT, 'EST inspection plans are append-only'); END;
+
+CREATE TRIGGER trg_final_control_decisions_no_delete
+      BEFORE DELETE ON final_control_decisions
+      BEGIN SELECT RAISE(ABORT, 'Final control decisions are append-only'); END;
+
+CREATE TRIGGER trg_final_control_decisions_no_update
+      BEFORE UPDATE ON final_control_decisions
+      BEGIN SELECT RAISE(ABORT, 'Final control decisions are append-only'); END;
+
+CREATE TRIGGER trg_final_control_entries_no_delete
+      BEFORE DELETE ON final_control_entries
+      BEGIN SELECT RAISE(ABORT, 'Final control entries are append-only'); END;
+
+CREATE TRIGGER trg_final_control_entries_no_update
+      BEFORE UPDATE ON final_control_entries
+      BEGIN SELECT RAISE(ABORT, 'Final control entries are append-only'); END;
+
+CREATE TRIGGER trg_final_operation_entries_no_delete
+      BEFORE DELETE ON final_operation_entries
+      BEGIN SELECT RAISE(ABORT, 'Final operation entries are append-only'); END;
+
+CREATE TRIGGER trg_final_operation_entries_no_update
+      BEFORE UPDATE ON final_operation_entries
+      BEGIN SELECT RAISE(ABORT, 'Final operation entries are append-only'); END;
+
+CREATE TRIGGER trg_final_operation_runs_no_delete
+      BEFORE DELETE ON final_operation_runs
+      BEGIN SELECT RAISE(ABORT, 'Final operation runs are append-only'); END;
+
+CREATE TRIGGER trg_final_operation_runs_no_update
+      BEFORE UPDATE ON final_operation_runs
+      BEGIN SELECT RAISE(ABORT, 'Final operation runs are append-only'); END;
+
+CREATE TRIGGER trg_final_operation_shoot_off_shots_no_delete
+      BEFORE DELETE ON final_operation_shoot_off_shots
+      BEGIN SELECT RAISE(ABORT, 'Final operation shoot-off shots are append-only'); END;
+
+CREATE TRIGGER trg_final_operation_shoot_off_shots_no_update
+      BEFORE UPDATE ON final_operation_shoot_off_shots
+      BEGIN SELECT RAISE(ABORT, 'Final operation shoot-off shots are append-only'); END;
+
+CREATE TRIGGER trg_final_recovery_cases_no_delete BEFORE DELETE ON final_recovery_cases
+      BEGIN SELECT RAISE(ABORT, 'Final recovery cases are append-only'); END;
+
+CREATE TRIGGER trg_final_recovery_cases_no_update BEFORE UPDATE ON final_recovery_cases
+      BEGIN SELECT RAISE(ABORT, 'Final recovery cases are append-only'); END;
+
+CREATE TRIGGER trg_final_recovery_entries_no_delete BEFORE DELETE ON final_recovery_entries
+      BEGIN SELECT RAISE(ABORT, 'Final recovery entries are append-only'); END;
+
+CREATE TRIGGER trg_final_recovery_entries_no_update BEFORE UPDATE ON final_recovery_entries
+      BEGIN SELECT RAISE(ABORT, 'Final recovery entries are append-only'); END;
+
+CREATE TRIGGER trg_final_result_declarations_no_delete
+      BEFORE DELETE ON final_result_declarations
+      BEGIN
+        SELECT RAISE(ABORT, 'Final result declarations are append-only');
+      END;
+
+CREATE TRIGGER trg_final_result_declarations_no_update
+      BEFORE UPDATE ON final_result_declarations
+      BEGIN
+        SELECT RAISE(ABORT, 'Final result declarations are append-only');
+      END;
+
+CREATE TRIGGER trg_irregular_shot_case_entries_no_delete BEFORE DELETE ON irregular_shot_case_entries
+      BEGIN SELECT RAISE(ABORT, 'Irregular shot case entries are append-only'); END;
+
+CREATE TRIGGER trg_irregular_shot_case_entries_no_update BEFORE UPDATE ON irregular_shot_case_entries
+      BEGIN SELECT RAISE(ABORT, 'Irregular shot case entries are append-only'); END;
+
+CREATE TRIGGER trg_irregular_shot_cases_no_delete BEFORE DELETE ON irregular_shot_cases
+      BEGIN SELECT RAISE(ABORT, 'Irregular shot cases are append-only'); END;
+
+CREATE TRIGGER trg_irregular_shot_cases_no_update BEFORE UPDATE ON irregular_shot_cases
+      BEGIN SELECT RAISE(ABORT, 'Irregular shot cases are append-only'); END;
+
+CREATE TRIGGER trg_irregular_shot_evidence_no_delete BEFORE DELETE ON irregular_shot_evidence
+      BEGIN SELECT RAISE(ABORT, 'Irregular shot evidence is append-only'); END;
+
+CREATE TRIGGER trg_irregular_shot_evidence_no_update BEFORE UPDATE ON irregular_shot_evidence
+      BEGIN SELECT RAISE(ABORT, 'Irregular shot evidence is append-only'); END;
+
+CREATE TRIGGER trg_malfunction_score_sheets_no_delete BEFORE DELETE ON qualification_malfunction_score_sheets
+        BEGIN SELECT RAISE(ABORT, 'malfunction score sheets are append-only'); END;
+
+CREATE TRIGGER trg_malfunction_score_sheets_no_update BEFORE UPDATE ON qualification_malfunction_score_sheets
+        BEGIN SELECT RAISE(ABORT, 'malfunction score sheets are append-only'); END;
+
+CREATE TRIGGER trg_mixed_team_final_decisions_no_delete
+      BEFORE DELETE ON mixed_team_final_decisions
+      BEGIN SELECT RAISE(ABORT, 'Mixed Team Final decisions are append-only'); END;
+
+CREATE TRIGGER trg_mixed_team_final_decisions_no_update
+      BEFORE UPDATE ON mixed_team_final_decisions
+      BEGIN SELECT RAISE(ABORT, 'Mixed Team Final decisions are append-only'); END;
+
+CREATE TRIGGER trg_mixed_team_final_entries_no_delete
+      BEFORE DELETE ON mixed_team_final_entries
+      BEGIN SELECT RAISE(ABORT, 'Mixed Team Final entries are append-only'); END;
+
+CREATE TRIGGER trg_mixed_team_final_entries_no_update
+      BEFORE UPDATE ON mixed_team_final_entries
+      BEGIN SELECT RAISE(ABORT, 'Mixed Team Final entries are append-only'); END;
+
+CREATE TRIGGER trg_mixed_team_timeout_entries_no_delete
+      BEFORE DELETE ON mixed_team_timeout_entries
+      BEGIN SELECT RAISE(ABORT, 'Mixed Team timeout entries are append-only'); END;
+
+CREATE TRIGGER trg_mixed_team_timeout_entries_no_update
+      BEFORE UPDATE ON mixed_team_timeout_entries
+      BEGIN SELECT RAISE(ABORT, 'Mixed Team timeout entries are append-only'); END;
+
+CREATE TRIGGER trg_mixed_team_timeout_sessions_no_delete
+      BEFORE DELETE ON mixed_team_timeout_sessions
+      BEGIN SELECT RAISE(ABORT, 'Mixed Team timeout sessions are append-only'); END;
+
+CREATE TRIGGER trg_mixed_team_timeout_sessions_no_update
+      BEFORE UPDATE ON mixed_team_timeout_sessions
+      BEGIN SELECT RAISE(ABORT, 'Mixed Team timeout sessions are append-only'); END;
+
+CREATE TRIGGER trg_mqtt_firing_boundaries_no_delete
+      BEFORE DELETE ON mqtt_firing_command_boundaries
+      BEGIN
+        SELECT RAISE(ABORT, 'Firing command boundaries are append-only');
+      END;
+
+CREATE TRIGGER trg_mqtt_firing_boundaries_no_update
+      BEFORE UPDATE ON mqtt_firing_command_boundaries
+      BEGIN
+        SELECT RAISE(ABORT, 'Firing command boundaries are append-only');
+      END;
+
+CREATE TRIGGER trg_mqtt_firing_violations_no_delete
+      BEFORE DELETE ON mqtt_firing_window_violations
+      BEGIN
+        SELECT RAISE(ABORT, 'Firing-window violations are append-only');
+      END;
+
+CREATE TRIGGER trg_mqtt_firing_violations_no_update
+      BEFORE UPDATE ON mqtt_firing_window_violations
+      BEGIN
+        SELECT RAISE(ABORT, 'Firing-window violations are append-only');
+      END;
+
+CREATE TRIGGER trg_mqtt_observation_evidence_no_delete
+      BEFORE DELETE ON mqtt_shot_observation_evidence
+      BEGIN
+        SELECT RAISE(ABORT, 'Shot observation evidence is append-only');
+      END;
+
+CREATE TRIGGER trg_mqtt_observation_evidence_no_update
+      BEFORE UPDATE ON mqtt_shot_observation_evidence
+      BEGIN
+        SELECT RAISE(ABORT, 'Shot observation evidence is append-only');
+      END;
+
+CREATE TRIGGER trg_observation_reviews_no_delete BEFORE DELETE ON observation_reviews
+      BEGIN SELECT RAISE(ABORT, 'Observation reviews are append-only'); END;
+
+CREATE TRIGGER trg_observation_reviews_no_update BEFORE UPDATE ON observation_reviews
+      BEGIN SELECT RAISE(ABORT, 'Observation reviews are append-only'); END;
+
+CREATE TRIGGER trg_operator_access_audit_no_delete BEFORE DELETE ON operator_access_audit BEGIN SELECT RAISE(ABORT, 'operator audit is append-only'); END;
+
+CREATE TRIGGER trg_operator_access_audit_no_update BEFORE UPDATE ON operator_access_audit BEGIN SELECT RAISE(ABORT, 'operator audit is append-only'); END;
+
+CREATE TRIGGER trg_outdoor_elimination_plan_entries_no_delete
+      BEFORE DELETE ON outdoor_elimination_plan_entries
+      BEGIN SELECT RAISE(ABORT, 'Outdoor Elimination plan entries are append-only'); END;
+
+CREATE TRIGGER trg_outdoor_elimination_plan_entries_no_update
+      BEFORE UPDATE ON outdoor_elimination_plan_entries
+      BEGIN SELECT RAISE(ABORT, 'Outdoor Elimination plan entries are append-only'); END;
+
+CREATE TRIGGER trg_outdoor_elimination_plans_no_delete
+      BEFORE DELETE ON outdoor_elimination_plans
+      BEGIN SELECT RAISE(ABORT, 'Outdoor Elimination plans are append-only'); END;
+
+CREATE TRIGGER trg_outdoor_elimination_plans_no_update
+      BEFORE UPDATE ON outdoor_elimination_plans
+      BEGIN SELECT RAISE(ABORT, 'Outdoor Elimination plans are append-only'); END;
+
+CREATE TRIGGER trg_post_competition_equipment_checks_no_delete
+        BEFORE DELETE ON post_competition_equipment_checks
+      BEGIN SELECT RAISE(ABORT, 'post-competition equipment checks are append-only'); END;
+
+CREATE TRIGGER trg_post_competition_equipment_checks_no_update
+        BEFORE UPDATE ON post_competition_equipment_checks
+      BEGIN SELECT RAISE(ABORT, 'post-competition equipment checks are append-only'); END;
+
+CREATE TRIGGER trg_post_competition_equipment_entries_no_delete
+        BEFORE DELETE ON post_competition_equipment_check_entries
+      BEGIN SELECT RAISE(ABORT, 'post-competition equipment check entries are append-only'); END;
+
+CREATE TRIGGER trg_post_competition_equipment_entries_no_update
+        BEFORE UPDATE ON post_competition_equipment_check_entries
+      BEGIN SELECT RAISE(ABORT, 'post-competition equipment check entries are append-only'); END;
+
+CREATE TRIGGER trg_production_operations_no_delete
+      BEFORE DELETE ON production_operation_entries
+      BEGIN SELECT RAISE(ABORT, 'Production operations are append-only'); END;
+
+CREATE TRIGGER trg_production_operations_no_update
+      BEFORE UPDATE ON production_operation_entries
+      BEGIN SELECT RAISE(ABORT, 'Production operations are append-only'); END;
+
+CREATE TRIGGER trg_protect_athlete_sanction_event_delete
+      BEFORE DELETE ON events
+      WHEN EXISTS (
+        SELECT 1 FROM athlete_sanction_decisions WHERE source_event_id = OLD.id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Cannot delete an event with athlete sanction history');
+      END;
+
+CREATE TRIGGER trg_protect_athlete_sanction_event_type
+      BEFORE UPDATE OF event_type ON events
+      WHEN OLD.event_type <> NEW.event_type
+        AND EXISTS (
+          SELECT 1 FROM athlete_sanction_decisions WHERE source_event_id = OLD.id
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Cannot change the type of an event with athlete sanction history');
+      END;
+
+CREATE TRIGGER trg_protect_final_declaration_event_delete
+      BEFORE DELETE ON events
+      WHEN EXISTS (
+        SELECT 1 FROM final_result_declarations WHERE event_id = OLD.id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Cannot delete an event with a Final result declaration');
+      END;
+
+CREATE TRIGGER trg_protect_final_declaration_event_type
+      BEFORE UPDATE OF event_type ON events
+      WHEN OLD.event_type <> NEW.event_type AND EXISTS (
+        SELECT 1 FROM final_result_declarations WHERE event_id = OLD.id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Cannot change the type of an event with a Final result declaration');
+      END;
+
+CREATE TRIGGER trg_protect_incident_report_event_delete
+      BEFORE DELETE ON events
+      WHEN EXISTS (
+        SELECT 1 FROM range_incident_reports WHERE event_id = OLD.id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Cannot delete an event with Range Incident Reports');
+      END;
+
+CREATE TRIGGER trg_protect_incident_report_event_type
+      BEFORE UPDATE OF event_type ON events
+      WHEN OLD.event_type <> NEW.event_type AND EXISTS (
+        SELECT 1 FROM range_incident_reports WHERE event_id = OLD.id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Cannot change the type of an event with Range Incident Reports');
+      END;
+
+CREATE TRIGGER trg_protect_linked_participant_issf_id
+      BEFORE UPDATE OF issf_id ON participants
+      WHEN NOT (OLD.issf_id IS NEW.issf_id)
+        AND EXISTS (
+          SELECT 1
+          FROM athlete_identity_link_entries linked
+          WHERE linked.participant_id = OLD.id
+            AND linked.entry_type = 'LINKED'
+            AND linked.link_basis = 'ISSF_ID'
+            AND NOT EXISTS (
+              SELECT 1 FROM athlete_identity_link_entries unlinked
+              WHERE unlinked.entry_type = 'UNLINKED'
+                AND unlinked.reverses_link_id = linked.id
+            )
+        )
+      BEGIN
+        SELECT RAISE(ABORT, 'Unlink the active ISSF ID athlete identity before changing the participant ISSF ID');
+      END;
+
+CREATE TRIGGER trg_protect_result_publication_event_delete
+      BEFORE DELETE ON events
+      WHEN EXISTS (
+        SELECT 1 FROM result_publication_entries WHERE event_id = OLD.id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Cannot delete an event with result publication history');
+      END;
+
+CREATE TRIGGER trg_protect_result_publication_event_type
+      BEFORE UPDATE OF event_type ON events
+      WHEN OLD.event_type <> NEW.event_type AND EXISTS (
+        SELECT 1 FROM result_publication_entries WHERE event_id = OLD.id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Cannot change the type of an event with result publication history');
+      END;
+
+CREATE TRIGGER trg_protest_cases_no_delete BEFORE DELETE ON protest_cases
+      BEGIN SELECT RAISE(ABORT, 'Protest cases are append-only'); END;
+
+CREATE TRIGGER trg_protest_cases_no_update BEFORE UPDATE ON protest_cases
+      BEGIN SELECT RAISE(ABORT, 'Protest cases are append-only'); END;
+
+CREATE TRIGGER trg_protest_entries_no_delete BEFORE DELETE ON protest_entries
+      BEGIN SELECT RAISE(ABORT, 'Protest entries are append-only'); END;
+
+CREATE TRIGGER trg_protest_entries_no_update BEFORE UPDATE ON protest_entries
+      BEGIN SELECT RAISE(ABORT, 'Protest entries are append-only'); END;
+
+CREATE TRIGGER trg_publication_review_policy_no_delete BEFORE DELETE ON publication_review_policies
+      BEGIN SELECT RAISE(ABORT, 'Publication review policies are append-only'); END;
+
+CREATE TRIGGER trg_publication_review_policy_no_update BEFORE UPDATE ON publication_review_policies
+      BEGIN SELECT RAISE(ABORT, 'Publication review policies are append-only'); END;
+
+CREATE TRIGGER trg_qualification_malfunction_cases_no_delete
+      BEFORE DELETE ON qualification_malfunction_cases
+      BEGIN SELECT RAISE(ABORT, 'Qualification malfunction cases are append-only'); END;
+
+CREATE TRIGGER trg_qualification_malfunction_cases_no_update
+      BEFORE UPDATE ON qualification_malfunction_cases
+      BEGIN SELECT RAISE(ABORT, 'Qualification malfunction cases are append-only'); END;
+
+CREATE TRIGGER trg_qualification_malfunction_entries_no_delete BEFORE DELETE ON qualification_malfunction_entries
+        BEGIN SELECT RAISE(ABORT, 'Qualification malfunction entries are append-only'); END;
+
+CREATE TRIGGER trg_qualification_malfunction_entries_no_update BEFORE UPDATE ON qualification_malfunction_entries
+        BEGIN SELECT RAISE(ABORT, 'Qualification malfunction entries are append-only'); END;
+
+CREATE TRIGGER trg_qualification_malfunction_source_signal_required
+      BEFORE INSERT ON qualification_malfunction_cases
+      WHEN
+        (NEW.report_source = 'LANE_SIGNAL' AND NEW.source_signal_id IS NULL)
+        OR (NEW.report_source = 'DIRECTOR_MANUAL' AND NEW.source_signal_id IS NOT NULL)
+      BEGIN
+        SELECT RAISE(ABORT, 'Lane signal cases require one source signal; manual cases must not have one');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_execution_events_no_delete
+      BEFORE DELETE ON qualification_recovery_execution_events
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery execution events are append-only');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_execution_events_no_update
+      BEFORE UPDATE ON qualification_recovery_execution_events
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery execution events are append-only');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_executions_decision_case
+      BEFORE INSERT ON qualification_recovery_executions
+      WHEN NOT EXISTS (
+        SELECT 1
+        FROM qualification_timed_target_recovery_decisions
+        WHERE id = NEW.decision_id AND case_id = NEW.case_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery decision does not belong to interruption case');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_executions_no_delete
+      BEFORE DELETE ON qualification_recovery_executions
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery executions are append-only');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_executions_no_update
+      BEFORE UPDATE ON qualification_recovery_executions
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery executions are immutable');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_settlement_events_no_delete
+      BEFORE DELETE ON qualification_recovery_settlement_events
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery settlement events are append-only');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_settlement_events_no_update
+      BEFORE UPDATE ON qualification_recovery_settlement_events
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery settlement events are append-only');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_settlement_requests_decision_case
+      BEFORE INSERT ON qualification_recovery_settlement_requests
+      WHEN NOT EXISTS (
+        SELECT 1 FROM qualification_timed_target_recovery_decisions
+        WHERE id = NEW.decision_id AND case_id = NEW.case_id
+      )
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery settlement decision does not belong to interruption case');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_settlement_requests_no_delete
+      BEFORE DELETE ON qualification_recovery_settlement_requests
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery settlement requests are append-only');
+      END;
+
+CREATE TRIGGER trg_qualification_recovery_settlement_requests_no_update
+      BEFORE UPDATE ON qualification_recovery_settlement_requests
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification recovery settlement requests are immutable');
+      END;
+
+CREATE TRIGGER trg_qualification_timed_target_recovery_decisions_no_delete
+      BEFORE DELETE ON qualification_timed_target_recovery_decisions
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification timed-target recovery decisions are append-only');
+      END;
+
+CREATE TRIGGER trg_qualification_timed_target_recovery_decisions_no_update
+      BEFORE UPDATE ON qualification_timed_target_recovery_decisions
+      BEGIN
+        SELECT RAISE(ABORT, 'Qualification timed-target recovery decisions are append-only');
+      END;
+
+CREATE TRIGGER trg_range_interruption_batches_no_delete
+      BEFORE DELETE ON range_interruption_command_batches
+      BEGIN
+        SELECT RAISE(ABORT, 'Range interruption command batches are append-only');
+      END;
+
+CREATE TRIGGER trg_range_interruption_batches_no_update
+      BEFORE UPDATE ON range_interruption_command_batches
+      BEGIN
+        SELECT RAISE(ABORT, 'Range interruption command batches are append-only');
+      END;
+
+CREATE TRIGGER trg_range_interruption_cases_no_delete
+      BEFORE DELETE ON range_interruption_cases
+      BEGIN
+        SELECT RAISE(ABORT, 'Range interruption cases are append-only');
+      END;
+
+CREATE TRIGGER trg_range_interruption_cases_no_update
+      BEFORE UPDATE ON range_interruption_cases
+      BEGIN
+        SELECT RAISE(ABORT, 'Range interruption cases are append-only');
+      END;
+
+CREATE TRIGGER trg_range_interruption_entries_no_delete
+      BEFORE DELETE ON range_interruption_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Range interruption entries are append-only');
+      END;
+
+CREATE TRIGGER trg_range_interruption_entries_no_update
+      BEFORE UPDATE ON range_interruption_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Range interruption entries are append-only');
+      END;
+
+CREATE TRIGGER trg_range_interruption_scopes_no_delete
+      BEFORE DELETE ON range_interruption_scope_links
+      BEGIN
+        SELECT RAISE(ABORT, 'Range interruption scope links are append-only');
+      END;
+
+CREATE TRIGGER trg_range_interruption_scopes_no_update
+      BEFORE UPDATE ON range_interruption_scope_links
+      BEGIN
+        SELECT RAISE(ABORT, 'Range interruption scope links are append-only');
+      END;
+
+CREATE TRIGGER trg_range_safety_lane_clearances_no_delete
+      BEFORE DELETE ON range_safety_lane_clearances
+      BEGIN
+        SELECT RAISE(ABORT, 'Range safety Lane clearances are append-only');
+      END;
+
+CREATE TRIGGER trg_range_safety_lane_clearances_no_update
+      BEFORE UPDATE ON range_safety_lane_clearances
+      BEGIN
+        SELECT RAISE(ABORT, 'Range safety Lane clearances are append-only');
+      END;
+
+CREATE TRIGGER trg_range_safety_stop_audit_no_delete
+      BEFORE DELETE ON range_safety_stop_audit
+      BEGIN
+        SELECT RAISE(ABORT, 'Range safety stop audit is append-only');
+      END;
+
+CREATE TRIGGER trg_range_safety_stop_audit_no_update
+      BEFORE UPDATE ON range_safety_stop_audit
+      BEGIN
+        SELECT RAISE(ABORT, 'Range safety stop audit is append-only');
+      END;
+
+CREATE TRIGGER trg_record_claim_entries_no_delete BEFORE DELETE ON record_claim_entries
+      BEGIN SELECT RAISE(ABORT, 'Record claim entries are append-only'); END;
+
+CREATE TRIGGER trg_record_claim_entries_no_update BEFORE UPDATE ON record_claim_entries
+      BEGIN SELECT RAISE(ABORT, 'Record claim entries are append-only'); END;
+
+CREATE TRIGGER trg_record_claims_no_delete BEFORE DELETE ON record_claims
+      BEGIN SELECT RAISE(ABORT, 'Record claims are append-only'); END;
+
+CREATE TRIGGER trg_record_claims_no_update BEFORE UPDATE ON record_claims
+      BEGIN SELECT RAISE(ABORT, 'Record claims are append-only'); END;
+
+CREATE TRIGGER trg_relay_athlete_lifecycle_no_delete
+      BEFORE DELETE ON relay_athlete_lifecycle_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Relay athlete lifecycle evidence is append-only');
+      END;
+
+CREATE TRIGGER trg_relay_athlete_lifecycle_no_update
+      BEFORE UPDATE ON relay_athlete_lifecycle_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Relay athlete lifecycle evidence is append-only');
+      END;
+
+CREATE TRIGGER trg_relay_readiness_no_delete
+      BEFORE DELETE ON relay_readiness_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Relay readiness evidence is append-only');
+      END;
+
+CREATE TRIGGER trg_relay_readiness_no_update
+      BEFORE UPDATE ON relay_readiness_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Relay readiness evidence is append-only');
+      END;
+
+CREATE TRIGGER trg_result_publication_entries_no_delete
+      BEFORE DELETE ON result_publication_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Result publication entries are append-only');
+      END;
+
+CREATE TRIGGER trg_result_publication_entries_no_update
+      BEFORE UPDATE ON result_publication_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Result publication entries are append-only');
+      END;
+
+CREATE TRIGGER trg_results_book_finalizations_no_delete BEFORE DELETE ON results_book_finalizations
+      BEGIN SELECT RAISE(ABORT, 'Results Book finalizations are append-only'); END;
+
+CREATE TRIGGER trg_results_book_finalizations_no_update BEFORE UPDATE ON results_book_finalizations
+      BEGIN SELECT RAISE(ABORT, 'Results Book finalizations are append-only'); END;
+
+CREATE TRIGGER trg_results_book_signatures_no_delete BEFORE DELETE ON results_book_signatures
+      BEGIN SELECT RAISE(ABORT, 'Results Book signatures are append-only'); END;
+
+CREATE TRIGGER trg_results_book_signatures_no_update BEFORE UPDATE ON results_book_signatures
+      BEGIN SELECT RAISE(ABORT, 'Results Book signatures are append-only'); END;
+
+CREATE TRIGGER trg_results_book_versions_no_delete BEFORE DELETE ON results_book_versions
+      BEGIN SELECT RAISE(ABORT, 'Results Book versions are append-only'); END;
+
+CREATE TRIGGER trg_results_book_versions_no_update BEFORE UPDATE ON results_book_versions
+      BEGIN SELECT RAISE(ABORT, 'Results Book versions are append-only'); END;
+
+CREATE TRIGGER trg_squadding_draw_entries_no_delete
+      BEFORE DELETE ON squadding_draw_entries
+      BEGIN SELECT RAISE(ABORT, 'Squadding draw entries are append-only'); END;
+
+CREATE TRIGGER trg_squadding_draw_entries_no_update
+      BEFORE UPDATE ON squadding_draw_entries
+      BEGIN SELECT RAISE(ABORT, 'Squadding draw entries are append-only'); END;
+
+CREATE TRIGGER trg_squadding_draws_no_delete
+      BEFORE DELETE ON squadding_draws
+      BEGIN SELECT RAISE(ABORT, 'Squadding draws are append-only'); END;
+
+CREATE TRIGGER trg_squadding_draws_no_update
+      BEFORE UPDATE ON squadding_draws
+      BEGIN SELECT RAISE(ABORT, 'Squadding draws are append-only'); END;
+
+CREATE TRIGGER trg_start_list_entries_no_delete BEFORE DELETE ON start_list_entries
+      BEGIN SELECT RAISE(ABORT, 'Start List entries are append-only'); END;
+
+CREATE TRIGGER trg_start_list_entries_no_update BEFORE UPDATE ON start_list_entries
+      BEGIN SELECT RAISE(ABORT, 'Start List entries are append-only'); END;
+
+CREATE TRIGGER trg_start_list_versions_no_delete BEFORE DELETE ON start_list_versions
+      BEGIN SELECT RAISE(ABORT, 'Start List versions are append-only'); END;
+
+CREATE TRIGGER trg_start_list_versions_no_update BEFORE UPDATE ON start_list_versions
+      BEGIN SELECT RAISE(ABORT, 'Start List versions are append-only'); END;
+
+CREATE TRIGGER trg_target_examination_cases_no_delete
+      BEFORE DELETE ON target_examination_cases
+      BEGIN
+        SELECT RAISE(ABORT, 'Target examination cases are append-only');
+      END;
+
+CREATE TRIGGER trg_target_examination_cases_no_update
+      BEFORE UPDATE ON target_examination_cases
+      BEGIN
+        SELECT RAISE(ABORT, 'Target examination cases are append-only');
+      END;
+
+CREATE TRIGGER trg_target_examination_entries_no_delete
+      BEFORE DELETE ON target_examination_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Target examination entries are append-only');
+      END;
+
+CREATE TRIGGER trg_target_examination_entries_no_update
+      BEFORE UPDATE ON target_examination_entries
+      BEGIN
+        SELECT RAISE(ABORT, 'Target examination entries are append-only');
+      END;
+
+CREATE TRIGGER trg_target_examination_evidence_no_delete
+      BEFORE DELETE ON target_examination_evidence
+      BEGIN
+        SELECT RAISE(ABORT, 'Target examination evidence is append-only');
+      END;
+
+CREATE TRIGGER trg_target_examination_evidence_no_update
+      BEFORE UPDATE ON target_examination_evidence
+      BEGIN
+        SELECT RAISE(ABORT, 'Target examination evidence is append-only');
+      END;
+
+CREATE TRIGGER trg_target_examination_scopes_no_delete
+      BEFORE DELETE ON target_examination_scope_links
+      BEGIN
+        SELECT RAISE(ABORT, 'Target examination scope links are append-only');
+      END;
+
+CREATE TRIGGER trg_target_examination_scopes_no_update
+      BEFORE UPDATE ON target_examination_scope_links
+      BEGIN
+        SELECT RAISE(ABORT, 'Target examination scope links are append-only');
+      END;
+
+CREATE TRIGGER trg_target_recovery_assessments_no_delete
+      BEFORE DELETE ON target_recovery_assessments
+      BEGIN
+        SELECT RAISE(ABORT, 'Target recovery assessments are append-only');
+      END;
+
+CREATE TRIGGER trg_target_recovery_assessments_no_update
+      BEFORE UPDATE ON target_recovery_assessments
+      BEGIN
+        SELECT RAISE(ABORT, 'Target recovery assessments are append-only');
+      END;
