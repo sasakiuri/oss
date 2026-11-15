@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { directorSubscriptions } from '@/shared/mqtt';
+import { MQTT_SINGLE_LEVEL_WILDCARD, mqttTopicFilters, mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { IMqttTransport, MqttMessageHandler } from '../domain/IMqttTransport';
 
@@ -14,6 +14,19 @@ interface DirectorMqttConnectionCallbacks {
   onError: (error: unknown) => void;
   onDebugLog: (message: string) => void;
 }
+
+const ANY = MQTT_SINGLE_LEVEL_WILDCARD;
+
+/** Everything Lanes publish; competition topics include Director's own retained state and cue. */
+const DIRECTOR_SUBSCRIPTIONS = [
+  mqttTopicFilters.laneHardware(ANY),
+  mqttTopics.laneSafetyState(ANY),
+  mqttTopics.laneRangeOfficerRequest(ANY),
+  mqttTopics.laneQualificationMalfunctionSignal(ANY),
+  mqttTopics.laneEstComplaintSignal(ANY),
+  mqttTopics.laneCommandAcknowledgement(ANY, ANY),
+  mqttTopicFilters.competition(ANY),
+] as const;
 
 /** Owns broker readiness, subscription recovery and transport listener lifetime. */
 export class DirectorMqttConnection {
@@ -134,7 +147,7 @@ export class DirectorMqttConnection {
   }
 
   private async subscribeAsDirector(): Promise<void> {
-    for (const topic of directorSubscriptions) {
+    for (const topic of DIRECTOR_SUBSCRIPTIONS) {
       await this.transport.subscribe(topic, 1);
     }
   }
