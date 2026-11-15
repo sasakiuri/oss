@@ -31,3 +31,36 @@ export function migratedDatabase(upToVersion = latestMigrationVersion): Database
   }
   return new Database(template);
 }
+
+type Row = Record<string, string | number | null>;
+
+function insert(database: Database.Database, table: string, row: Row): void {
+  const columns = Object.keys(row);
+  database
+    .prepare(`INSERT INTO ${table} (${columns.join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`)
+    .run(...Object.values(row));
+}
+
+/** Inserts exactly the given columns; omitted columns keep their schema defaults. */
+export function seedChampionship(
+  database: Database.Database,
+  row: { id: string; name: string; date?: string | null; venue?: string | null },
+): void {
+  insert(database, 'championships', row);
+}
+
+/** Inserts exactly the given columns; omitted columns keep their schema defaults. */
+export function seedEvent(
+  database: Database.Database,
+  row: { id: string; championship_id: string; name: string } & Row,
+): void {
+  insert(database, 'events', row);
+}
+
+/** Inserts exactly the given columns; omitted columns keep their schema defaults. */
+export function seedParticipant(
+  database: Database.Database,
+  row: { id: string; event_id: string; player_name: string } & Row,
+): void {
+  insert(database, 'participants', row);
+}

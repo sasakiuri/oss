@@ -2,12 +2,10 @@
 import { randomUUID } from 'node:crypto';
 
 import { ISSF_2026_RULE_PACKS } from '@sasakiuri/saika-rules';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
 import { migration088VistaRankingScopes } from '@/main/infrastructure/database/migrations/088_vista_ranking_scopes';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { EventId, ParticipantId, SqliteParticipantRepository, GetEventByIdToken } from '@/main/modules/championship';
 import { SqliteFinalControlRepository, type IFinalControlRepository } from '@/main/modules/final-control';
 import { SqliteFinalOperationRepository } from '@/main/modules/final-operations';
@@ -45,6 +43,8 @@ import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfS
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
 import { type ReserveLaneTransferBundle } from '@/shared/mqtt/ReserveLaneTransfer';
+
+import { migratedDatabase, seedChampionship, seedEvent, seedParticipant } from '../../../../helpers/database';
 
 const competitionId = randomUUID();
 const laneId = randomUUID();
@@ -212,8 +212,7 @@ describe('Director Vista source', () => {
   let checkedAt: number;
   const board = vi.fn<(event: string, scope: 'QUALIFICATION' | 'FINAL') => Promise<ResultBoardSnapshotDto>>();
   beforeEach(() => {
-    db = new Database(':memory:');
-    new MigrationRunner(db).run(allMigrations);
+    db = migratedDatabase();
     registry = new CompetitionTypeRegistry();
     registry.registerStrategy(new IssfStandardStrategy());
     for (const definition of [BR60S, BR60S_FINAL, BP60, BP60_FINAL]) registry.register(definition);
@@ -240,29 +239,20 @@ describe('Director Vista source', () => {
   });
   afterEach(() => db.close());
 
-  function seedEvent(eventCode = 'BR60S') {
-    db.prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)').run(
-      championshipId,
-      'Championship',
-      '2026-09-11',
-      'Range',
-    );
-    db.prepare('INSERT INTO events (id, championship_id, name, event_type, round) VALUES (?, ?, ?, ?, ?)').run(
-      eventId,
-      championshipId,
-      'Event',
-      eventCode,
-      'Qualification',
-    );
-    db.prepare('INSERT INTO participants (id, event_id, player_name) VALUES (?, ?, ?)').run(
-      participantId,
-      eventId,
-      'Athlete',
-    );
+  function seedQualificationEvent(eventCode = 'BR60S') {
+    seedChampionship(db, { id: championshipId, name: 'Championship', date: '2026-09-11', venue: 'Range' });
+    seedEvent(db, {
+      id: eventId,
+      championship_id: championshipId,
+      name: 'Event',
+      event_type: eventCode,
+      round: 'Qualification',
+    });
+    seedParticipant(db, { id: participantId, event_id: eventId, player_name: 'Athlete' });
   }
 
   function officialSource(eventCode = 'BP60', laneCount = 1, recordedShotCount = Infinity) {
-    seedEvent(eventCode);
+    seedQualificationEvent(eventCode);
     const definition = registry.get(eventCode);
     const final = eventCode.endsWith('_FINAL');
     const snapshot = control(registry, eventCode);
@@ -282,11 +272,11 @@ describe('Director Vista source', () => {
       lane.score!.sessionId = lane.competitionState!.sessionId;
       snapshot.competitions[0]!.laneIds.push(lane.laneId);
       snapshot.lanes.push(lane);
-      db.prepare('INSERT INTO participants (id, event_id, player_name) VALUES (?, ?, ?)').run(
-        lane.assignment!.athlete!.id,
-        eventId,
-        lane.assignment!.athlete!.name,
-      );
+      seedParticipant(db, {
+        id: lane.assignment!.athlete!.id,
+        event_id: eventId,
+        player_name: lane.assignment!.athlete!.name,
+      });
     }
     source.observe(snapshot);
     const positions = definition.config.stages.flatMap((stage, stageIndex) =>
@@ -915,13 +905,9 @@ describe('Director Vista source', () => {
   });
 
   it('keeps explicit relay and event scopes through finish, corrections, restart and result replacement', async () => {
-    seedEvent();
+    seedQualificationEvent();
     const earlierParticipant = randomUUID();
-    db.prepare('INSERT INTO participants (id, event_id, player_name) VALUES (?, ?, ?)').run(
-      earlierParticipant,
-      eventId,
-      'Earlier relay',
-    );
+    seedParticipant(db, { id: earlierParticipant, event_id: eventId, player_name: 'Earlier relay' });
     const insertResult = db.prepare(
       'INSERT INTO results (id, event_id, participant_id, player_name, relay_number, total_score, shots_detail, source_competition_id, source_lane_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     );
@@ -1019,7 +1005,7 @@ describe('Director Vista source', () => {
   });
 
   it('does not substitute relay standings when event results have not been acquired', async () => {
-    seedEvent();
+    seedQualificationEvent();
     const snapshot = control(registry);
     fire(snapshot);
     source.observe(snapshot);
@@ -1031,7 +1017,7 @@ describe('Director Vista source', () => {
   it.each(['published', 'reset archive'] as const)(
     'migrates a legacy %s without losing corrected scores or reusing event places for the relay',
     async (kind) => {
-      seedEvent();
+      seedQualificationEvent();
       db.prepare(
         'INSERT INTO results (id, event_id, participant_id, player_name, relay_number, total_score, shots_detail, source_competition_id, source_lane_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       ).run('result', eventId, participantId, 'Athlete', 2, 8.4, '[10.4]', competitionId, laneId);
@@ -1156,7 +1142,7 @@ describe('Director Vista source', () => {
   });
 
   it.each(['BR60S', 'BR60S_FINAL'])('excludes classified athletes from live %s places', async (eventCode) => {
-    seedEvent(eventCode);
+    seedQualificationEvent(eventCode);
     db.prepare("UPDATE participants SET entry_status = 'DSQ' WHERE id = ?").run(participantId);
     const snapshot = control(registry, eventCode);
     if (eventCode.endsWith('_FINAL'))
@@ -1252,7 +1238,7 @@ describe('Director Vista source', () => {
   });
 
   it('applies official corrections to the original shot and series slots when history has gaps', async () => {
-    seedEvent();
+    seedQualificationEvent();
     db.prepare(
       'INSERT INTO results (id, event_id, participant_id, player_name, relay_number, total_score, shots_detail, source_competition_id, source_lane_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).run('result', eventId, participantId, 'Athlete', 1, 17, '[8,9]', competitionId, laneId);
@@ -1323,7 +1309,7 @@ describe('Director Vista source', () => {
   });
 
   it('keeps qualification scores separate when the same athlete has a result from another competition', async () => {
-    seedEvent();
+    seedQualificationEvent();
     db.prepare(
       'INSERT INTO results (id, event_id, participant_id, player_name, relay_number, total_score, shots_detail, source_competition_id, source_lane_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).run('replacement-result', eventId, participantId, 'Athlete', 1, 600, '[]', randomUUID(), laneId);
@@ -1364,7 +1350,7 @@ describe('Director Vista source', () => {
   it.each(['reset', 'replacement', 'partial replacement'] as const)(
     'preserves corrected archived scores as unverified after a %s',
     async (change) => {
-      seedEvent();
+      seedQualificationEvent();
       db.prepare(
         'INSERT INTO results (id, event_id, participant_id, player_name, relay_number, total_score, shots_detail, source_competition_id, source_lane_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       ).run('result', eventId, participantId, 'Athlete', 1, 8.4, '[10.4]', competitionId, laneId);
@@ -1385,11 +1371,7 @@ describe('Director Vista source', () => {
         other.score!.laneId = other.laneId;
         snapshot.competitions[0]!.laneIds.push(other.laneId);
         snapshot.lanes.push(other);
-        db.prepare('INSERT INTO participants (id, event_id, player_name) VALUES (?, ?, ?)').run(
-          other.assignment!.athlete!.id,
-          eventId,
-          'Other',
-        );
+        seedParticipant(db, { id: other.assignment!.athlete!.id, event_id: eventId, player_name: 'Other' });
         db.prepare(
           'INSERT INTO results (id, event_id, participant_id, player_name, relay_number, total_score, shots_detail, source_competition_id, source_lane_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         ).run(
@@ -1488,7 +1470,7 @@ describe('Director Vista source', () => {
   );
 
   it('persists MQTT Final provenance and excludes another Final from the selected source', async () => {
-    seedEvent('BR60S_FINAL');
+    seedQualificationEvent('BR60S_FINAL');
     const snapshot = control(registry, 'BR60S_FINAL');
     fire(snapshot);
     const second = structuredClone(snapshot.lanes[0]!);
@@ -1496,11 +1478,7 @@ describe('Director Vista source', () => {
     second.assignment!.laneId = second.laneId;
     second.assignment!.athlete!.id = randomUUID();
     second.score!.laneId = second.laneId;
-    db.prepare('INSERT INTO participants (id, event_id, player_name) VALUES (?, ?, ?)').run(
-      second.assignment!.athlete!.id,
-      eventId,
-      'Second',
-    );
+    seedParticipant(db, { id: second.assignment!.athlete!.id, event_id: eventId, player_name: 'Second' });
     const lanes = [snapshot.lanes[0]!, second];
     for (const lane of lanes) {
       lane.score!.totalShotCount = 24;
@@ -2819,30 +2797,17 @@ describe('Director Vista source', () => {
   });
 
   it('retries changing result boundaries and preserves authoritative totals, ranks and publication as one unit', async () => {
-    db.prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)').run(
-      championshipId,
-      'Championship',
-      '2026-09-11',
-      'Range',
-    );
-    db.prepare('INSERT INTO events (id, championship_id, name, event_type, round) VALUES (?, ?, ?, ?, ?)').run(
-      eventId,
-      championshipId,
-      'Beam Rifle',
-      'BR60S',
-      'Qualification',
-    );
-    db.prepare('INSERT INTO participants (id, event_id, player_name) VALUES (?, ?, ?)').run(
-      participantId,
-      eventId,
-      'Athlete',
-    );
+    seedChampionship(db, { id: championshipId, name: 'Championship', date: '2026-09-11', venue: 'Range' });
+    seedEvent(db, {
+      id: eventId,
+      championship_id: championshipId,
+      name: 'Beam Rifle',
+      event_type: 'BR60S',
+      round: 'Qualification',
+    });
+    seedParticipant(db, { id: participantId, event_id: eventId, player_name: 'Athlete' });
     const earlierParticipant = randomUUID();
-    db.prepare('INSERT INTO participants (id, event_id, player_name) VALUES (?, ?, ?)').run(
-      earlierParticipant,
-      eventId,
-      'Earlier relay',
-    );
+    seedParticipant(db, { id: earlierParticipant, event_id: eventId, player_name: 'Earlier relay' });
     db.prepare(
       'INSERT INTO results (id, event_id, participant_id, player_name, relay_number, total_score, shots_detail, source_competition_id, source_lane_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).run('earlier-result', eventId, earlierParticipant, 'Earlier relay', 1, 500, '[]', randomUUID(), laneId);
