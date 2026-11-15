@@ -1,0 +1,530 @@
+[
+  {
+    "version": 3,
+    "name": "create_schema",
+    "file": "003_create_schema.ts",
+    "sha256": "f580e8ad2cbed73312edd32fcc4ca3951688b22ebb5970cf833dbcc83686fd81"
+  },
+  {
+    "version": 4,
+    "name": "add_results_status",
+    "file": "004_add_results_status.ts",
+    "sha256": "18ad5f1bb4f6e066c174a35e36f69aec39d67c2186ea7797b204914461d370d1"
+  },
+  {
+    "version": 5,
+    "name": "add_final_results",
+    "file": "005_add_final_results.ts",
+    "sha256": "21f4e3c4abde651a5a03940adcee59228e7e1db7c322ce145ba5c08d376b1338"
+  },
+  {
+    "version": 6,
+    "name": "lane_state",
+    "file": "006_lane_state.ts",
+    "sha256": "9bf9a2812d1d0f48a215013b312dc99fd164ff3488eee04b7744b3a4681078ef"
+  },
+  {
+    "version": 7,
+    "name": "mqtt_retained_messages",
+    "file": "007_mqtt_retained_messages.ts",
+    "sha256": "215e8741ccb0d68d18aa56310e0b6680313fe2a6939b7c4e214d35d159f41a13"
+  },
+  {
+    "version": 8,
+    "name": "unique_final_results",
+    "file": "008_unique_final_results.ts",
+    "sha256": "e90b4b4923670fa0f53fea8555daab31d3cea970ed09dd1a7801ed22df1b741f"
+  },
+  {
+    "version": 9,
+    "name": "result_source_competition",
+    "file": "009_result_source_competition.ts",
+    "sha256": "4a171a8be3b13f5ddf7fa2943264d40be879a854b2fb2c16ffbcdc490575ee90"
+  },
+  {
+    "version": 10,
+    "name": "mqtt_competition_shot_journal",
+    "file": "010_mqtt_competition_shot_journal.ts",
+    "sha256": "b79eddccf32a31aa2feed94bad202290a0a5b6648aa38ee2a5ab769e015e3753"
+  },
+  {
+    "version": 11,
+    "name": "scoring_decisions",
+    "file": "011_scoring_decisions.ts",
+    "sha256": "92ace0b6360f342513d2c4a52bf536df5c9780b8e8141e57cdc145211d3b1917"
+  },
+  {
+    "version": 12,
+    "name": "official_ranking_evidence",
+    "file": "012_official_ranking_evidence.ts",
+    "sha256": "90a9305fb3b8e9ad9e9c188bcb9f96623c333d0259269450f9f6832f696585ce"
+  },
+  {
+    "version": 13,
+    "name": "result_verification",
+    "file": "013_result_verification.ts",
+    "sha256": "579cf05a4c6aa3c2010179e00372fd84564bf9cd0b0ac3e69d57dea6dd4fbdc7"
+  },
+  {
+    "version": 14,
+    "name": "range_incident_reports",
+    "file": "014_range_incident_reports.ts",
+    "sha256": "4dd7cf9a25ef1eed404b283d02676f526a752c694c39a724d70c7abddf8c4735"
+  },
+  {
+    "version": 15,
+    "name": "protect_incident_report_events",
+    "file": "015_protect_incident_report_events.ts",
+    "sha256": "06d36f28c30d1fc59cd3a3b149e1600f69341beb22b492c40477d2aa6749fcb2"
+  },
+  {
+    "version": 16,
+    "name": "final_placement_reviews",
+    "file": "016_final_placement_reviews.ts",
+    "sha256": "b76b3e70d66851b36e087d91e219098bbec008a785829e67f4c90825fe0458f1"
+  },
+  {
+    "version": 17,
+    "name": "result_publication",
+    "file": "017_result_publication.ts",
+    "sha256": "e28bb7c64f0052b04425ddbd0ba6ab9083319de1496d34dfee8e2bf1e71785e3"
+  },
+  {
+    "version": 18,
+    "name": "firing_window_review",
+    "file": "018_firing_window_review.ts",
+    "sha256": "2997244b3e1980f2133b3d2e4a221ed390214c2788f147f05c0f9ef8492b7860"
+  },
+  {
+    "version": 19,
+    "name": "target_examinations",
+    "file": "019_target_examinations.ts",
+    "sha256": "6ae71ae772135b166d280fd96c09fabd482027d11c49c001839b65eb7a60caf0"
+  },
+  {
+    "version": 20,
+    "name": "range_interruptions",
+    "file": "020_range_interruptions.ts",
+    "sha256": "9b30e9dde7b3c7419c03d97008907db81ac8fb8bf4107864bd589d8eac78bd10"
+  },
+  {
+    "version": 21,
+    "name": "target_recovery_assessments",
+    "file": "021_target_recovery_assessments.ts",
+    "sha256": "29fab2a3adabd875f138e01c70f006e982e5ac259cd4bb1de6b994d8ba109c42"
+  },
+  {
+    "version": 22,
+    "name": "shot_observation_evidence",
+    "file": "022_shot_observation_evidence.ts",
+    "sha256": "d7a4d1606f3d34b69c1f99a214731307a799e69892da5c266ed54ba19fc00ccf"
+  },
+  {
+    "version": 23,
+    "name": "relay_readiness",
+    "file": "023_relay_readiness.ts",
+    "sha256": "ac109ce6931e9793c5a3bf673ec8c0f2af68dc316b3e87363d7fee5b364858e7"
+  },
+  {
+    "version": 24,
+    "name": "range_interruption_command_batches",
+    "file": "024_range_interruption_batches.ts",
+    "sha256": "40fc6dbe933fdcbd90c6c03a215e521db11ac28dc3ca61cbc20e96db0620be43"
+  },
+  {
+    "version": 25,
+    "name": "official_entries",
+    "file": "025_official_entries.ts",
+    "sha256": "5d6a34bb218e6242b1be477a927ea568cad28105616ae8c03f7b7db7bfd9689c"
+  },
+  {
+    "version": 26,
+    "name": "protests_and_appeals",
+    "file": "026_protests.ts",
+    "sha256": "f5ce46d393630f9d181f026127e3151f6b32d091d40f538fc75a34b179da1a9d"
+  },
+  {
+    "version": 27,
+    "name": "est_backup_verification",
+    "file": "027_est_backup_verification.ts",
+    "sha256": "3792e4e88e2859155993a79f521cab255241426d3faf44133886a101d2e78b81"
+  },
+  {
+    "version": 28,
+    "name": "final_control",
+    "file": "028_final_control.ts",
+    "sha256": "89736e7f13e0f7036e256e7211377aa5ba9c0b42ad415d020c0ae14a56fc3d8c"
+  },
+  {
+    "version": 29,
+    "name": "mixed_team_final_control",
+    "file": "029_mixed_team_final_control.ts",
+    "sha256": "94d260b04c4e1f5f2a57c81f7d06f94fa363e404a5518a7913ec954604e6768a"
+  },
+  {
+    "version": 30,
+    "name": "mixed_team_final_results",
+    "file": "030_mixed_team_final_results.ts",
+    "sha256": "7e480caf0808cdf40aaf77bd3beebf5a40e2d6a64f4a7c548c5c1509034d3957"
+  },
+  {
+    "version": 31,
+    "name": "squadding_draws",
+    "file": "031_squadding_draws.ts",
+    "sha256": "b9b314f044c618009e4908e02ca48407ce31ca79038f668cc3471bb46fc4db80"
+  },
+  {
+    "version": 32,
+    "name": "production_operations",
+    "file": "032_production_operations.ts",
+    "sha256": "345629b14288012d6a0ac17daac07b52f2b87a87eccc30df1483b32e00aa4a7d"
+  },
+  {
+    "version": 33,
+    "name": "mixed_team_timeouts",
+    "file": "033_mixed_team_timeouts.ts",
+    "sha256": "f44c3deacb797673bfa5e6422726f85c84226c14df24638a45500392b9026830"
+  },
+  {
+    "version": 34,
+    "name": "final_result_declarations",
+    "file": "034_final_result_declarations.ts",
+    "sha256": "1f80df1e466f46df6f0064e03b8fd89c2375969b631f475b879707f6af4c7b22"
+  },
+  {
+    "version": 35,
+    "name": "range_safety_stop",
+    "file": "035_range_safety_stop.ts",
+    "sha256": "61ef2891b419a6f168aa087b8c85c28691b6d188ea1b8943b6399f9f3e91f318"
+  },
+  {
+    "version": 36,
+    "name": "final_operations",
+    "file": "036_final_operations.ts",
+    "sha256": "8c1794bf17d61756250f17318986ac7bad6a48fa1886e7ff0b207eba5b242a26"
+  },
+  {
+    "version": 37,
+    "name": "adjudication_cases",
+    "file": "037_adjudication_cases.ts",
+    "sha256": "27fc2be964d62c7ddb36e43c818671be2c0ead7587f956dcba993477c69c15eb"
+  },
+  {
+    "version": 38,
+    "name": "final_recoveries",
+    "file": "038_final_recoveries.ts",
+    "sha256": "121246ebe82827b33721d3534b9e4dc6cfaec2943f7fb35d713a87394023a6cb"
+  },
+  {
+    "version": 39,
+    "name": "start_lists",
+    "file": "039_start_lists.ts",
+    "sha256": "9229d498848b838cc31d161731cff6426011dc25f4cce5bcd710b64848d9508c"
+  },
+  {
+    "version": 40,
+    "name": "irregular_shot_cases",
+    "file": "040_irregular_shot_cases.ts",
+    "sha256": "da668f25c443095a4f58fc8c8542b87cfd3bfdaed393777c3e07b8489024c3ca"
+  },
+  {
+    "version": 41,
+    "name": "issf_est_relay_checklist",
+    "file": "041_issf_est_relay_checklist.ts",
+    "sha256": "52e8b31f747f84760fcc48c66ad67159edb14a4ef2990c7cd41d65e2287e046d"
+  },
+  {
+    "version": 42,
+    "name": "est_championship_inspections",
+    "file": "042_est_championship_inspections.ts",
+    "sha256": "cf64ae1f0c0603380633d368b3cf2deb56c7b411329cbf00edc7a190fb928db2"
+  },
+  {
+    "version": 43,
+    "name": "results_books",
+    "file": "043_results_books.ts",
+    "sha256": "36d3cf0aa7fd60e797e7bf0baca8c1cdb5da1ee971b178ee526c2684b30efd06"
+  },
+  {
+    "version": 44,
+    "name": "event_rule_pack_binding",
+    "file": "044_event_rule_pack_binding.ts",
+    "sha256": "9a89c987900d62bb554952e50f0d9cb01b620b1f13984152acf80567cd65b1de"
+  },
+  {
+    "version": 45,
+    "name": "final_countback_resolution",
+    "file": "045_final_countback_resolution.ts",
+    "sha256": "8b82730d9be6642565bf26491bf07f06441744cc2ba59b2df1096e09d5d3607a"
+  },
+  {
+    "version": 46,
+    "name": "outdoor_elimination_plans",
+    "file": "046_outdoor_elimination_plans.ts",
+    "sha256": "b7ae4cc5ed84f531cd84d0ee9f71089eaf06716624665c198746cca6ecbd1caf"
+  },
+  {
+    "version": 47,
+    "name": "relay_athlete_lifecycle",
+    "file": "047_relay_athlete_lifecycle.ts",
+    "sha256": "9af4e7afaa2764ceb2dcd0f2c1d939728d34392a9c57d170d98e56d8e8432f95"
+  },
+  {
+    "version": 48,
+    "name": "timed_target_observation_outcome",
+    "file": "048_timed_target_observation_outcome.ts",
+    "sha256": "4b570f8a94d0b881cd3641eb51a8cddb5bf7cb3b2878c8e716f44f28949d9db4"
+  },
+  {
+    "version": 49,
+    "name": "final_start_number_resolution",
+    "file": "049_final_start_number_resolution.ts",
+    "sha256": "b7887b7710dff435c7321de5a662e7aa9f123ec12f713d777c7aa87bae74f82b"
+  },
+  {
+    "version": 50,
+    "name": "multi_shot_final_shoot_off",
+    "file": "050_multi_shot_final_shoot_off.ts",
+    "sha256": "24f0e24943dfaf7a7bbe192504be44d13fb6c3cbc698d2bdf7d9c9039c2270a6"
+  },
+  {
+    "version": 51,
+    "name": "final_series_irregular_shot_cases",
+    "file": "051_final_series_irregular_shot_cases.ts",
+    "sha256": "374b48da89fe80fd6ed53d4d6c13407e99d63064a38f2fd6489fff460f16aa6c"
+  },
+  {
+    "version": 52,
+    "name": "scoring_geometry_evidence",
+    "file": "052_scoring_geometry_evidence.ts",
+    "sha256": "e37802c8be8050628df14289de5699600beaacfa969d6a1e3003c30e48d4086a"
+  },
+  {
+    "version": 53,
+    "name": "qualification_timed_target_interruptions",
+    "file": "053_qualification_timed_target_interruptions.ts",
+    "sha256": "417b9c0fa9413c2f47296cd1cecc2451ca24a00d297ffa072e1e87612ece3c67"
+  },
+  {
+    "version": 54,
+    "name": "qualification_timed_target_recovery_decisions",
+    "file": "054_qualification_timed_target_recovery_decisions.ts",
+    "sha256": "9a943b3223a45e825698711cb5f07c423f30ff6126421e4a3bebd34a621b481f"
+  },
+  {
+    "version": 55,
+    "name": "qualification_recovery_execution_events",
+    "file": "055_qualification_recovery_execution_events.ts",
+    "sha256": "ed81359e116b50dd922cd00c7be4dd968b0e7742ba6ea736f48371635445f968"
+  },
+  {
+    "version": 56,
+    "name": "qualification_recovery_adjudication_events",
+    "file": "056_qualification_recovery_adjudication_events.ts",
+    "sha256": "e317def06ddb0f3c17f9c66704f80be1447bc0825daa044e0822a0c81e4a1c23"
+  },
+  {
+    "version": 57,
+    "name": "qualification_recovery_settlements",
+    "file": "057_qualification_recovery_settlements.ts",
+    "sha256": "42919eca42b7f62733691e14390d3100c0c0015db0cf99b3995d553b1b00cf2a"
+  },
+  {
+    "version": 58,
+    "name": "athlete_identities_and_sanctions",
+    "file": "058_athlete_identities_and_sanctions.ts",
+    "sha256": "f7d761c779915fe0847b6d9bdc35ae2d4ae589677ea62fbbe7a7052beb637df3"
+  },
+  {
+    "version": 59,
+    "name": "qualification_malfunctions",
+    "file": "059_qualification_malfunctions.ts",
+    "sha256": "98c741df6e2fc746c16c241b01895e99adc55ad81404800ac935fa52bbbf84a1"
+  },
+  {
+    "version": 60,
+    "name": "qualification_malfunction_signal_link",
+    "file": "060_qualification_malfunction_signal_link.ts",
+    "sha256": "f1b325caa786ea69087bc62173b95315aae9122567a5bd375c0cbb59f976a883"
+  },
+  {
+    "version": 61,
+    "name": "est_complaint_target_examination_links",
+    "file": "061_est_complaint_target_examination_links.ts",
+    "sha256": "aefc2eecbc9bee04358bfe240e5145e4ae64d19607bb1d4306d59b4f3c81f931"
+  },
+  {
+    "version": 62,
+    "name": "range_safety_lane_clearances",
+    "file": "062_range_safety_lane_clearances.ts",
+    "sha256": "41702973d750de77c7ca5a86a18f8d36b9173c0b1971ecf12ff57b77a432cde7"
+  },
+  {
+    "version": 63,
+    "name": "post_competition_equipment_control",
+    "file": "063_post_competition_equipment_control.ts",
+    "sha256": "8b1d71538ab739ae8d4ed2700ad1ff9bdd7bbbd154bd86e9b8dfdca54edd74ef"
+  },
+  {
+    "version": 64,
+    "name": "qualification_malfunction_score_sheets",
+    "file": "064_qualification_malfunction_score_sheets.ts",
+    "sha256": "fecfdf538903ad7cff6115c232dae03662838a30c74483211a2dc06a1c51b9c2"
+  },
+  {
+    "version": 65,
+    "name": "final_recovery_allowance_subjects",
+    "file": "065_final_recovery_allowance_subjects.ts",
+    "sha256": "a46dff9d71ea7a8ef9a9924bf227def965004a46baa0f108f42aed4803b9ad6a"
+  },
+  {
+    "version": 66,
+    "name": "evidence_files",
+    "file": "066_evidence_files.ts",
+    "sha256": "34f18fb11d58ddc66a4fcce2363e7c2f6b071a25a54d4b2f1a048a34930277e3"
+  },
+  {
+    "version": 67,
+    "name": "qualification_result_series",
+    "file": "067_qualification_result_series.ts",
+    "sha256": "4d065289b0d463be4340f558fb200ab2c8d5514c2698b565e0b8a033f00c72f7"
+  },
+  {
+    "version": 68,
+    "name": "malfunction_score_applications",
+    "file": "068_malfunction_score_applications.ts",
+    "sha256": "b0ca64f2feec872c9a39b56ebc7a6062bf277232fda3a74ae03bb8330637b2b8"
+  },
+  {
+    "version": 69,
+    "name": "score_corrections",
+    "file": "069_score_corrections.ts",
+    "sha256": "7e955d1288e2ec93aed5467f182c04c4370c137c2f563b443154814ed3c21916"
+  },
+  {
+    "version": 70,
+    "name": "reserve_lane_transfers",
+    "file": "070_reserve_lane_transfers.ts",
+    "sha256": "92485e913d1ab1789fbe1f20933ff5b6019a6eac649b887397654c41c471b863"
+  },
+  {
+    "version": 71,
+    "name": "final_recovery_firing",
+    "file": "071_final_recovery_firing.ts",
+    "sha256": "991f4bdd79e167b9e43f6fcdd26c251aa8b86dcaa03c3e7d0e2ad51401e95af2"
+  },
+  {
+    "version": 72,
+    "name": "relay_readiness_start_settings",
+    "file": "072_relay_readiness_start_settings.ts",
+    "sha256": "970850f8ee3fa04f07448a8317267ee1d82bd343e2e8e5a615bd114c2249c53b"
+  },
+  {
+    "version": 73,
+    "name": "est_inspection_start_settings",
+    "file": "073_est_inspection_start_settings.ts",
+    "sha256": "cdd24ed9befc2a7b372eeb678d1dc5c70913a991e2adad96ec606348191c1836"
+  },
+  {
+    "version": 74,
+    "name": "equipment_registry",
+    "file": "074_equipment_registry.ts",
+    "sha256": "08efe86746e5db14e6d6b091bd1c937d35b5ca24ad3dd0f70e2df49f2a61ee01"
+  },
+  {
+    "version": 75,
+    "name": "operator_access",
+    "file": "075_operator_access.ts",
+    "sha256": "7025a9a5c97f4fc0c4e36b4e8ae68e6af96fb902fdcec65c1f88b9dbeb1380eb"
+  },
+  {
+    "version": 76,
+    "name": "results_book_signing_identity",
+    "file": "076_results_book_signing_identity.ts",
+    "sha256": "f353efd6d603b94d4fc5e6daa2d9afc71374bf13765470b7a386e2c11d8a1d0a"
+  },
+  {
+    "version": 77,
+    "name": "result_approval_signing_identity",
+    "file": "077_result_approval_signing_identity.ts",
+    "sha256": "79d503a3af36da63767a61cf40876f7d2922ee2484dc64806ca303ff2a6ad61c"
+  },
+  {
+    "version": 78,
+    "name": "shot_timing_review_outcome",
+    "file": "078_shot_timing_review_outcome.ts",
+    "sha256": "7809253ef79031cf67ba15799f79c9ebc24500a57aaf746835565f4e573bbb6e"
+  },
+  {
+    "version": 79,
+    "name": "observation_reviews",
+    "file": "079_observation_reviews.ts",
+    "sha256": "fc9da7c0d4ac13d8cf28019095820bf82ae79151a8d1b97201c0de1c3d1764b2"
+  },
+  {
+    "version": 80,
+    "name": "est_backup_result_scope",
+    "file": "080_est_backup_result_scope.ts",
+    "sha256": "20aa1b51b9075c4d3f1b2a3e11f875f106a57c5beba4ea4933521beff055c389"
+  },
+  {
+    "version": 81,
+    "name": "publication_review_policies",
+    "file": "081_publication_review_policies.ts",
+    "sha256": "c19b70defa880a49c801577860eb760ddca0cf6ae1c6d8d950852c04f96d8ded"
+  },
+  {
+    "version": 82,
+    "name": "est_backup_sources",
+    "file": "082_est_backup_sources.ts",
+    "sha256": "f19f8fa68423b34b33525879aee92d2bf91de4679979eeac5d0f8f58c6856e57"
+  },
+  {
+    "version": 83,
+    "name": "est_backup_capture_plans",
+    "file": "083_est_backup_capture_plans.ts",
+    "sha256": "6825561e3dbdf1ddf42bf917e173a0cfc8fea7206ef9c6cc1ebcfc2be8a9e589"
+  },
+  {
+    "version": 84,
+    "name": "backup_capture_readiness",
+    "file": "084_backup_capture_readiness.ts",
+    "sha256": "9313ec2e96184d962231ff30c19c8d352cf858365b73cba22bb4b880158fd5b2"
+  },
+  {
+    "version": 85,
+    "name": "operational_setting_templates",
+    "file": "085_operational_setting_templates.ts",
+    "sha256": "bb49281b56e2dc08457ffd89906c6d769091ecff08bc27c465bbf960737c02fa"
+  },
+  {
+    "version": 86,
+    "name": "vista_sources",
+    "file": "086_vista_sources.ts",
+    "sha256": "e60fd75a2ed2cb7b18bccd72f93a162c5a1cbad481ba37fe45e4ac14760e4960"
+  },
+  {
+    "version": 87,
+    "name": "final_result_source_competition",
+    "file": "087_final_result_source_competition.ts",
+    "sha256": "f3ffdb6b6676ae9d36b7614c6d97089e4f55aee0e56317657baed9d3d7b6a9f5"
+  },
+  {
+    "version": 88,
+    "name": "vista_ranking_scopes",
+    "file": "088_vista_ranking_scopes.ts",
+    "sha256": "626969e923f2b0916c30f528edc1c337251ee106a757d80bf1477707431ffff1"
+  },
+  {
+    "version": 89,
+    "name": "evidence_file_contents",
+    "file": "089_evidence_file_contents.ts",
+    "sha256": "d5db61ea01c4527ac9592af05bd4c37875e617d9d65bf317816901e519ff504f"
+  },
+  {
+    "version": 90,
+    "name": "nullified_position_extra",
+    "file": "090_nullified_position_extra.ts",
+    "sha256": "0c4a75c2c40cbd408298934e31dc3960872e86b5cbfe24d4cf709e6351f55ea9"
+  }
+]
