@@ -3,19 +3,17 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
+import { ok } from '../../../../../helpers/renderer/serviceResponses';
 import { TestEventBus } from '../../../../../helpers/renderer/TestEventBus';
 import { useCompetitionEvidence } from '@/renderer/presentation/features/competition-control/useCompetitionEvidence';
 import { useMqttControlSnapshot } from '@/renderer/presentation/features/competition-control/useMqttControlSnapshot';
+import { mqttService } from '@/renderer/services';
 import type { FiringWindowViolationDto, MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 
-const { getControlState, getFiringWindowViolations, getShotObservationEvidence } = vi.hoisted(() => ({
-  getControlState: vi.fn(),
-  getFiringWindowViolations: vi.fn(),
-  getShotObservationEvidence: vi.fn(),
-}));
-vi.mock('@/renderer/services', () => ({
-  mqttService: { getControlState, getFiringWindowViolations, getShotObservationEvidence },
-}));
+vi.mock('@/renderer/services', async () =>
+  (await import('../../../../../helpers/renderer/mockServices')).mockServices(),
+);
+const { getControlState, getFiringWindowViolations, getShotObservationEvidence } = vi.mocked(mqttService);
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -53,39 +51,38 @@ const violation = (competitionId: string): FiringWindowViolationDto => ({
   detectedAt: '2026-09-10T00:00:00Z',
   decisiveBoundaryId: '66666666-6666-4666-8666-666666666666',
 });
-const response = <T,>(data: T) => ({ success: true as const, data });
 let bus: TestEventBus;
 const wrapper = ({ children }: { children: ReactNode }) => <EventBusProvider bus={bus}>{children}</EventBusProvider>;
 
 beforeEach(() => {
   vi.resetAllMocks();
   bus = new TestEventBus();
-  getControlState.mockResolvedValue(response(snapshot(null)));
-  getFiringWindowViolations.mockResolvedValue(response([]));
-  getShotObservationEvidence.mockResolvedValue(response([]));
+  getControlState.mockResolvedValue(ok(snapshot(null)));
+  getFiringWindowViolations.mockResolvedValue(ok([]));
+  getShotObservationEvidence.mockResolvedValue(ok([]));
 });
 
 describe('MQTT control snapshot ownership', () => {
   it('keeps a live broker update when an older refresh returns', async () => {
-    const pending = deferred<ReturnType<typeof response<MqttControlSnapshotDto>>>();
+    const pending = deferred<ReturnType<typeof ok<MqttControlSnapshotDto>>>();
     getControlState.mockReturnValueOnce(pending.promise);
     const { result } = renderHook(useMqttControlSnapshot, { wrapper });
     act(() => bus.emit('mqttControlStateChanged', snapshot('mqtt://current')));
-    await act(async () => pending.resolve(response(snapshot('mqtt://old'))));
+    await act(async () => pending.resolve(ok(snapshot('mqtt://old'))));
     expect(result.current.snapshot.brokerUrl).toBe('mqtt://current');
   });
 
   it('accepts only the newest concurrent refresh', async () => {
-    const pending = deferred<ReturnType<typeof response<MqttControlSnapshotDto>>>();
-    getControlState.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(response(snapshot('mqtt://latest')));
+    const pending = deferred<ReturnType<typeof ok<MqttControlSnapshotDto>>>();
+    getControlState.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(ok(snapshot('mqtt://latest')));
     const { result } = renderHook(useMqttControlSnapshot, { wrapper });
     await act(() => result.current.refresh());
-    await act(async () => pending.resolve(response(snapshot('mqtt://old'))));
+    await act(async () => pending.resolve(ok(snapshot('mqtt://old'))));
     expect(result.current.snapshot.brokerUrl).toBe('mqtt://latest');
   });
 
   it('removes listeners on unmount with an outstanding request', async () => {
-    const pending = deferred<ReturnType<typeof response<MqttControlSnapshotDto>>>();
+    const pending = deferred<ReturnType<typeof ok<MqttControlSnapshotDto>>>();
     getControlState.mockReturnValueOnce(pending.promise);
     const { result, unmount } = renderHook(useMqttControlSnapshot, { wrapper });
     expect(bus.getSubscriptionCount()).toBe(1);
@@ -93,19 +90,19 @@ describe('MQTT control snapshot ownership', () => {
     expect(bus.getSubscriptionCount()).toBe(0);
     await result.current.refresh();
     expect(getControlState).toHaveBeenCalledTimes(1);
-    await act(async () => pending.resolve(response(snapshot('mqtt://old'))));
+    await act(async () => pending.resolve(ok(snapshot('mqtt://old'))));
   });
 
   it('restarts subscriptions and discards the first request during Strict Mode replay', async () => {
-    const pending = deferred<ReturnType<typeof response<MqttControlSnapshotDto>>>();
-    getControlState.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(response(snapshot('mqtt://current')));
+    const pending = deferred<ReturnType<typeof ok<MqttControlSnapshotDto>>>();
+    getControlState.mockReturnValueOnce(pending.promise).mockResolvedValueOnce(ok(snapshot('mqtt://current')));
     const { result, unmount } = renderHook(useMqttControlSnapshot, {
       wrapper,
       reactStrictMode: true,
     });
     await waitFor(() => expect(result.current.snapshot.brokerUrl).toBe('mqtt://current'));
     expect(bus.getSubscriptionCount()).toBe(1);
-    await act(async () => pending.resolve(response(snapshot('mqtt://old'))));
+    await act(async () => pending.resolve(ok(snapshot('mqtt://old'))));
     expect(result.current.snapshot.brokerUrl).toBe('mqtt://current');
     unmount();
     expect(bus.getSubscriptionCount()).toBe(0);
@@ -114,7 +111,7 @@ describe('MQTT control snapshot ownership', () => {
 
 describe('competition evidence ownership', () => {
   it('deduplicates live events and prevents an older query from erasing them', async () => {
-    const pending = deferred<ReturnType<typeof response<FiringWindowViolationDto[]>>>();
+    const pending = deferred<ReturnType<typeof ok<FiringWindowViolationDto[]>>>();
     getFiringWindowViolations.mockReturnValueOnce(pending.promise);
     const { result } = renderHook(() => useCompetitionEvidence('A'), { wrapper });
     act(() => {
@@ -122,12 +119,12 @@ describe('competition evidence ownership', () => {
       bus.emit('firingWindowViolationDetected', violation('A'));
       bus.emit('firingWindowViolationDetected', violation('A'));
     });
-    await act(async () => pending.resolve(response([])));
+    await act(async () => pending.resolve(ok([])));
     expect(result.current.firingWindowViolations).toEqual([violation('A')]);
   });
 
   it('discards an old scope query after switching away and back', async () => {
-    const pending = deferred<ReturnType<typeof response<FiringWindowViolationDto[]>>>();
+    const pending = deferred<ReturnType<typeof ok<FiringWindowViolationDto[]>>>();
     getFiringWindowViolations.mockReturnValueOnce(pending.promise);
     const { result, rerender } = renderHook(({ id }: { id: string | null }) => useCompetitionEvidence(id), {
       initialProps: { id: 'A' as string | null },
@@ -135,12 +132,12 @@ describe('competition evidence ownership', () => {
     });
     rerender({ id: 'B' });
     rerender({ id: 'A' });
-    await act(async () => pending.resolve(response([violation('A')])));
+    await act(async () => pending.resolve(ok([violation('A')])));
     expect(result.current.firingWindowViolations).toEqual([]);
   });
 
   it('clears evidence and stops querying when there is no selected competition', async () => {
-    getFiringWindowViolations.mockResolvedValueOnce(response([violation('A')]));
+    getFiringWindowViolations.mockResolvedValueOnce(ok([violation('A')]));
     const { result, rerender, unmount } = renderHook(({ id }: { id: string | null }) => useCompetitionEvidence(id), {
       initialProps: { id: 'A' as string | null },
       wrapper,
