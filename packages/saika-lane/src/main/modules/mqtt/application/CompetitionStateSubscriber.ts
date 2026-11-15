@@ -4,6 +4,8 @@
  * lane has a local aggregate with the same competition ID before join is ACKed.
  */
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import { StartCompetitionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import {
@@ -40,7 +42,7 @@ export class CompetitionStateSubscriber {
   async subscribe(competitionId: string): Promise<CompetitionStatePayload> {
     await this.unsubscribe();
 
-    const topic = `saika/competition/${competitionId}/state`;
+    const topic = mqttTopics.competitionState(competitionId);
     this.subscribedTopic = topic;
     this.lastPhase = null;
 

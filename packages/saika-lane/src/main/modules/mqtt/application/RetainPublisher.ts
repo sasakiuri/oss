@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Republishes retained state after reconnecting and marks replayed shots with isReplay=true. */
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -132,13 +134,15 @@ export class RetainPublisher {
 
   /** Clears all lane-owned retained topics when leaving a competition. */
   async clearCompetitionTopics(competitionId: string, laneId: string): Promise<void> {
-    const baseTopic = `saika/competition/${competitionId}/lane/${laneId}`;
+    const retainedTopics = [
+      mqttTopics.laneCompetitionState(competitionId, laneId),
+      mqttTopics.laneScore(competitionId, laneId),
+      mqttTopics.laneAssignment(competitionId, laneId),
+      mqttTopics.timedTargetState(competitionId, laneId),
+      mqttTopics.qualificationRecoveryState(competitionId, laneId),
+    ];
     try {
-      await Promise.all(
-        ['state', 'score', 'assignment', 'timed-target/state', 'qualification-recovery/state'].map((suffix) =>
-          this.mqttClient.publish(`${baseTopic}/${suffix}`, '', { qos: 1, retain: true }),
-        ),
-      );
+      await Promise.all(retainedTopics.map((topic) => this.mqttClient.publish(topic, '', { qos: 1, retain: true })));
     } finally {
       this.assignmentPublisher.clearStoredAssignment(competitionId);
     }
@@ -172,7 +176,7 @@ export class RetainPublisher {
     const competition = await this.competitionRepository.findActive();
     if (!competition) return;
 
-    const topic = `saika/competition/${competitionId}/lane/${laneId}/shot`;
+    const topic = mqttTopics.competitionShot(competitionId, laneId);
 
     for (const shot of backlogShots) {
       const placement = resolveCompetitionShotPlacement(shot, session.allShots, competition);

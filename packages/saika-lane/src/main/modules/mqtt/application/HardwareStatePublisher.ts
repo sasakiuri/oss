@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Publishes connection changes and a hardware heartbeat every 60 seconds. */
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import type { RulePackIdentity } from '@sasakiuri/saika-rules';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
@@ -76,8 +77,8 @@ export class HardwareStatePublisher {
   }
 
   private getTopic(): string {
-    const laneId = this.storage.get<string>('mqtt.laneId');
-    return `saika/lane/${laneId}/hardware/state`;
+    // String() keeps the topic byte-identical for a missing ID ("undefined"); the payload uses an empty laneId.
+    return mqttTopics.laneHardwareState(String(this.storage.get<string>('mqtt.laneId')));
   }
 
   private getLaneId(): string {

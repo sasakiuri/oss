@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type {
   QualificationMalfunctionSignalService,
   QualificationMalfunctionSignalState,
@@ -32,7 +34,7 @@ export class QualificationMalfunctionSignalPublisher {
     if (!this.mqttClient.isConnected()) return;
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
     const payload = toQualificationMalfunctionSignalPayload(laneId, this.service.getState());
-    await this.mqttClient.publish(`saika/lane/${laneId}/qualification-malfunction/signal`, JSON.stringify(payload), {
+    await this.mqttClient.publish(mqttTopics.laneQualificationMalfunctionSignal(laneId), JSON.stringify(payload), {
       qos: 1,
       retain: true,
     });

@@ -81,34 +81,29 @@ type CompetitionLaneTopicKind =
   | 'qualificationRecoveryState'
   | 'qualificationRecoveryShot';
 
+/** One member per kind, so `Extract` and narrowing on `kind` see each kind separately. */
+type TopicOfKind<Kind extends string, Identifiers> = Kind extends string
+  ? Readonly<{ kind: Kind } & Identifiers>
+  : never;
+
 /**
  * A received topic split into its kind and identifiers. Parsing checks the topic structure only: identifiers are
  * returned exactly as received, including empty strings, so receivers keep their own identity checks.
  */
 export type ParsedMqttTopic =
-  | { readonly kind: LaneTopicKind; readonly laneId: string }
-  | { readonly kind: 'laneCommand' | 'laneCommandAcknowledgement'; readonly laneId: string; readonly action: string }
-  | { readonly kind: CompetitionTopicKind; readonly competitionId: string }
-  | { readonly kind: 'competitionCommand'; readonly competitionId: string; readonly action: string }
-  | {
-      readonly kind: 'competitionCommandAcknowledgement';
-      readonly competitionId: string;
-      readonly action: string;
-      readonly laneId: string;
-    }
-  | { readonly kind: CompetitionLaneTopicKind; readonly competitionId: string; readonly laneId: string }
-  | {
-      readonly kind: 'laneCompetitionCommand' | 'laneCompetitionCommandAcknowledgement';
-      readonly competitionId: string;
-      readonly laneId: string;
-      readonly action: string;
-    }
-  | {
-      readonly kind: 'laneQueryRequest' | 'laneQueryResponse';
-      readonly competitionId: string;
-      readonly laneId: string;
-      readonly requestId: string;
-    };
+  | TopicOfKind<LaneTopicKind, { laneId: string }>
+  | TopicOfKind<'laneCommand' | 'laneCommandAcknowledgement', { laneId: string; action: string }>
+  | TopicOfKind<CompetitionTopicKind, { competitionId: string }>
+  | TopicOfKind<'competitionCommand', { competitionId: string; action: string }>
+  | TopicOfKind<'competitionCommandAcknowledgement', { competitionId: string; action: string; laneId: string }>
+  | TopicOfKind<CompetitionLaneTopicKind, { competitionId: string; laneId: string }>
+  | TopicOfKind<
+      'laneCompetitionCommand' | 'laneCompetitionCommandAcknowledgement',
+      { competitionId: string; laneId: string; action: string }
+    >
+  | TopicOfKind<'laneQueryRequest' | 'laneQueryResponse', { competitionId: string; laneId: string; requestId: string }>;
+
+export type ParsedMqttTopicOf<Kind extends ParsedMqttTopic['kind']> = Extract<ParsedMqttTopic, { kind: Kind }>;
 
 const LANE_TOPIC_KINDS: Readonly<Record<string, LaneTopicKind>> = {
   'hardware/state': 'laneHardwareState',

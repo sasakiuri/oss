@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import { toShotMqttEvidencePayload } from '@/main/modules/mqtt/application/ShotMqttPayloadMapper';
 import type {
   IQualificationRecoveryControl,
@@ -86,7 +88,7 @@ export class QualificationRecoveryShotPublisher {
       for (const payload of pending) {
         if (!this.mqttClient.isConnected()) return;
         await this.mqttClient.publish(
-          `saika/competition/${payload.competitionId}/lane/${payload.laneId}/qualification-recovery/shot`,
+          mqttTopics.qualificationRecoveryShot(payload.competitionId, payload.laneId),
           JSON.stringify({ ...payload, publishedAt: new Date().toISOString() }),
           { qos: 1, retain: false },
         );

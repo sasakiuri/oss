@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Publishes and persists the lane's retained athlete assignment. */
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { Athlete, LaneAssignmentPayload } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
 import { LaneAssignmentPayloadSchema } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
@@ -63,7 +65,7 @@ export class LaneAssignmentPublisher {
       assignedAt: stored.assignedAt,
       publishedAt: new Date().toISOString(),
     });
-    const topic = `saika/competition/${stored.competitionId}/lane/${laneId}/assignment`;
+    const topic = mqttTopics.laneAssignment(stored.competitionId, laneId);
     await this.mqttClient.publish(topic, JSON.stringify(payload), { qos: 1, retain: true });
     return payload;
   }

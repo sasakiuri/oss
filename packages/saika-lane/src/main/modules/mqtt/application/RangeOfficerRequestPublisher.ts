@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
 import { RangeOfficerRequestPayloadSchema } from '@/shared/mqtt/RangeOfficerRequest';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
@@ -37,7 +39,7 @@ export class RangeOfficerRequestPublisher {
       clearedBy: state?.clearedBy ?? null,
       publishedAt: new Date().toISOString(),
     });
-    await this.mqttClient.publish(`saika/lane/${laneId}/range-officer/request`, JSON.stringify(payload), {
+    await this.mqttClient.publish(mqttTopics.laneRangeOfficerRequest(laneId), JSON.stringify(payload), {
       qos: 1,
       retain: true,
     });

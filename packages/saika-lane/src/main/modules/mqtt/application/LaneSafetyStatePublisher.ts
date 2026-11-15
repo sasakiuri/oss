@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
@@ -51,7 +53,7 @@ export class LaneSafetyStatePublisher {
       clearedAt: state?.clearedAt?.toISOString() ?? null,
       publishedAt: new Date().toISOString(),
     };
-    await this.mqttClient.publish(`saika/lane/${laneId}/safety/state`, JSON.stringify(payload), {
+    await this.mqttClient.publish(mqttTopics.laneSafetyState(laneId), JSON.stringify(payload), {
       qos: 1,
       retain: true,
     });

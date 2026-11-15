@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { ITimedTargetControl, TimedTargetState } from '@/main/modules/timed-target';
 import { toTimedTargetStateDto } from '@/main/modules/timed-target/toTimedTargetStateDto';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -56,6 +58,6 @@ export class TimedTargetStatePublisher {
   }
 
   private topic(competitionId: string, laneId: string): string {
-    return `saika/competition/${competitionId}/lane/${laneId}/timed-target/state`;
+    return mqttTopics.timedTargetState(competitionId, laneId);
   }
 }

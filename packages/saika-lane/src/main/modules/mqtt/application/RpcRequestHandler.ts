@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Answers competition query requests through QueryBus and the MQTT response topic. */
 
+import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
+
 import { GetCompetitionStateToken, GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { RpcRequestSchema } from '@/main/modules/mqtt/domain/MqttRpcSchemas';
@@ -8,12 +10,7 @@ import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-/** Parsed parts of the RPC request topic */
-interface ParsedRpcTopic {
-  competitionId: string;
-  laneId: string;
-  requestId: string;
-}
+type RpcRequestTopic = ParsedMqttTopicOf<'laneQueryRequest'>;
 
 export class RpcRequestHandler {
   private readonly mqttClient: IMqttClientService;
@@ -37,14 +34,14 @@ export class RpcRequestHandler {
     await this.unsubscribe();
 
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
-    const topic = `saika/competition/${competitionId}/lane/${laneId}/query/+/request`;
+    const topic = mqttTopicFilters.laneQueryRequests(competitionId, laneId);
     this.subscribedTopic = topic;
 
     await this.mqttClient.subscribe(topic, 1);
 
     this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
-      const parsed = this.parseTopic(msgTopic);
-      if (!parsed) return;
+      const parsed = parseMqttTopic(msgTopic);
+      if (parsed?.kind !== 'laneQueryRequest') return;
 
       // Verify the target laneId matches this lane's laneId
       const currentLaneId = this.storage.get<string>('mqtt.laneId') ?? '';
@@ -73,30 +70,11 @@ export class RpcRequestHandler {
   }
 
   /**
-   * Parses the topic and determines whether it is an RPC request topic
-   */
-  private parseTopic(topic: string): ParsedRpcTopic | null {
-    // saika/competition/{competitionId}/lane/{laneId}/query/{requestId}/request
-    const segments = topic.split('/');
-    if (segments.length !== 8) return null;
-    if (segments[0] !== 'saika' || segments[1] !== 'competition') return null;
-    if (segments[3] !== 'lane') return null;
-    if (segments[5] !== 'query') return null;
-    if (segments[7] !== 'request') return null;
-
-    return {
-      competitionId: segments[2]!,
-      laneId: segments[4]!,
-      requestId: segments[6]!,
-    };
-  }
-
-  /**
    * Processes an RPC request
    */
-  private async handleRequest(parsed: ParsedRpcTopic, payload: Buffer): Promise<void> {
+  private async handleRequest(parsed: RpcRequestTopic, payload: Buffer): Promise<void> {
     const logger = getLogger();
-    const responseTopic = `saika/competition/${parsed.competitionId}/lane/${parsed.laneId}/query/${parsed.requestId}/response`;
+    const responseTopic = mqttTopics.laneQueryResponse(parsed.competitionId, parsed.laneId, parsed.requestId);
 
     let rawData: unknown;
     try {

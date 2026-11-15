@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Handles competition membership and starts competition subscriptions after joining. */
 
+import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
+
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import type { CompetitionCueSubscriber } from '@/main/modules/mqtt/application/CompetitionCueSubscriber';
@@ -41,11 +43,7 @@ const ACTION_SCHEMAS: LaneCommandSchemas<Tier1Action> = {
   'clear-safety-stop': ClearSafetyStopCmdSchema,
 };
 
-/** Parsed parts of the topic */
-interface ParsedTier1Topic {
-  laneId: string;
-  action: string;
-}
+type Tier1Topic = ParsedMqttTopicOf<'laneCommand'>;
 
 export class LaneTier1CommandHandler {
   private readonly processor: LaneCommandProcessor;
@@ -86,12 +84,12 @@ export class LaneTier1CommandHandler {
   async subscribe(): Promise<void> {
     await this.unsubscribeTier1Topic();
 
-    const topic = `saika/lane/${this.getLaneId()}/command/+`;
+    const topic = mqttTopicFilters.laneCommands(this.getLaneId());
     this.subscribedTopic = topic;
 
     this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
-      const parsed = this.parseTopic(msgTopic);
-      if (!parsed) return;
+      const parsed = parseMqttTopic(msgTopic);
+      if (parsed?.kind !== 'laneCommand') return;
       if (parsed.laneId !== this.getLaneId()) return;
 
       void this.handleCommand(parsed, payload);
@@ -146,30 +144,14 @@ export class LaneTier1CommandHandler {
   }
 
   /**
-   * Parses the topic
-   * saika/lane/{laneId}/command/{action}
-   */
-  private parseTopic(topic: string): ParsedTier1Topic | null {
-    const segments = topic.split('/');
-    if (segments.length !== 5) return null;
-    if (segments[0] !== 'saika' || segments[1] !== 'lane') return null;
-    if (segments[3] !== 'command') return null;
-
-    return {
-      laneId: segments[2]!,
-      action: segments[4]!,
-    };
-  }
-
-  /**
    * Processes a command
    */
-  private handleCommand(parsed: ParsedTier1Topic, payload: Buffer): Promise<void> {
+  private handleCommand(parsed: Tier1Topic, payload: Buffer): Promise<void> {
     return this.processor.handle<Tier1Action>({
       action: parsed.action,
       payload,
       schemas: ACTION_SCHEMAS,
-      acknowledgementTopic: `saika/lane/${this.getLaneId()}/command/${parsed.action}/acknowledgement`,
+      acknowledgementTopic: mqttTopics.laneCommandAcknowledgement(this.getLaneId(), parsed.action),
       execute: (action, command, receivedAt) => this.executeAction(action, command, receivedAt),
     });
   }

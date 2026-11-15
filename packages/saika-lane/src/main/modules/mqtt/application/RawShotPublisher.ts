@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Publishes raw shot events at QoS 1 without retention. */
 
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -41,7 +43,7 @@ export class RawShotPublisher {
       timestamp: shot.timestamp.toISOString(),
     });
 
-    const topic = `saika/lane/${laneId}/hardware/shot`;
+    const topic = mqttTopics.laneHardwareShot(laneId);
 
     this.mqttClient.publish(topic, payload, { qos: 1, retain: false }).catch((err: unknown) => {
       const logger = getLogger();
