@@ -1,3 +1,5 @@
+import { scryptSync } from 'node:crypto';
+
 import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
 import { migration075OperatorAccess } from '@/main/infrastructure/database/migrations/075_operator_access';
@@ -43,11 +45,13 @@ const administrator = {
   disabled: false,
   password: 'correct horse battery',
 };
+// A low scrypt cost keeps these behaviour tests fast; one test below pins the production cost.
+const testHashCost = 1024;
 const request = { namespace: 'mqtt', operation: 'startMatch', kind: 'command' as const, senderId: 2 };
 async function setup() {
   const store = new MemoryStore();
   let time = Date.parse('2026-09-08T12:00:00Z');
-  const service = new OperatorAccessService(store, directorOperatorPermission, () => time);
+  const service = new OperatorAccessService(store, directorOperatorPermission, () => time, testHashCost);
   await service.saveAccount(1, administrator);
   service.setEnabled(1, true);
   return {
@@ -93,6 +97,14 @@ describe('Operator access', { timeout: 30_000 }, () => {
     expect(JSON.stringify(result)).not.toContain('password');
     expect(JSON.stringify(store.users)).not.toContain(administrator.password);
     expect(store.users[0]!.passwordHash).toHaveLength(128);
+    expect(store.users[0]!.passwordHash).toBe(
+      scryptSync(administrator.password, store.users[0]!.salt, 64, {
+        N: 131072,
+        r: 8,
+        p: 1,
+        maxmem: 256 * 1024 * 1024,
+      }).toString('hex'),
+    );
     expect(service.signingAccounts()).toEqual([{ id: result.actor!.id, name: administrator.name }]);
     store.users[0]!.disabled = true;
     expect(service.signingAccounts()).toEqual([]);
@@ -151,7 +163,7 @@ describe('Operator access', { timeout: 30_000 }, () => {
       await expect(service.signIn(2, administrator.name, 'incorrect')).rejects.toThrow('Invalid');
     await expect(service.signIn(2, administrator.name, administrator.password)).rejects.toThrow('wait one minute');
     const store = new MemoryStore();
-    const fresh = new OperatorAccessService(store, directorOperatorPermission);
+    const fresh = new OperatorAccessService(store, directorOperatorPermission, Date.now, testHashCost);
     const outcomes = await Promise.allSettled([
       fresh.saveAccount(1, administrator),
       fresh.saveAccount(2, { ...administrator, name: 'Second' }),
@@ -202,11 +214,16 @@ describe('Operator access', { timeout: 30_000 }, () => {
     try {
       migration075OperatorAccess.up(database);
       const store = new SqliteOperatorAccessStore(database);
-      const service = new OperatorAccessService(store, directorOperatorPermission);
+      const service = new OperatorAccessService(store, directorOperatorPermission, Date.now, testHashCost);
       await service.saveAccount(1, administrator);
       service.setEnabled(1, true);
       await service.invoke({ ...request, senderId: 1 }, async () => undefined);
-      const restarted = new OperatorAccessService(new SqliteOperatorAccessStore(database), directorOperatorPermission);
+      const restarted = new OperatorAccessService(
+        new SqliteOperatorAccessStore(database),
+        directorOperatorPermission,
+        Date.now,
+        testHashCost,
+      );
       expect(restarted.status(1)).toMatchObject({ enabled: true, actor: null });
       expect(store.audit()).toEqual(expect.arrayContaining([expect.objectContaining({ outcome: 'RETURNED' })]));
       expect(() => database.exec('DELETE FROM operator_access_audit')).toThrow('append-only');
