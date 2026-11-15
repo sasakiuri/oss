@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// @vitest-environment node
 import Database from 'better-sqlite3';
 import { expect, it } from 'vitest';
 import { migration087FinalResultSourceCompetition } from '@/main/infrastructure/database/migrations/087_final_result_source_competition';

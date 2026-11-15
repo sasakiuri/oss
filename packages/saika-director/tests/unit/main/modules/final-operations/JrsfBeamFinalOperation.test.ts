@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// @vitest-environment node
 import { randomUUID } from 'node:crypto';
 
 import { identifyRulePack, ISSF_2026_RULE_PACKS, JRSF_2026_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';

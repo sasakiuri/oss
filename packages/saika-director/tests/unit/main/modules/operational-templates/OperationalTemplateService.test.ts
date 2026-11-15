@@ -1,4 +1,3 @@
-// @vitest-environment node
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
