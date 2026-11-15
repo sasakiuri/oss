@@ -3,34 +3,29 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { UpdaterService } from '@sasakiuri/saika-updater/main';
-import {
-  app,
-  BrowserWindow,
-  dialog,
-  ipcMain,
-  nativeTheme,
-  powerMonitor,
-  powerSaveBlocker,
-  screen,
-  type IpcMainInvokeEvent,
-} from 'electron';
-import { z } from 'zod';
+import { app, BrowserWindow, dialog, nativeTheme, powerMonitor, screen } from 'electron';
 
-import type { ScreenConfig } from '../shared/model';
-
+import { registerIpcHandlers } from './ipcHandlers';
 import { setLoginStart } from './loginStart';
+import { OutputWindows } from './OutputWindows';
+import { protectWindow } from './protectWindow';
 import { VistaApplication } from './VistaApplication';
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const appIcon = join(directory, '../../resources/appIcon.png');
+const preload = join(directory, '../preload/preload.mjs');
 nativeTheme.themeSource = 'dark';
 // Test harnesses isolate userData through an explicit command-line switch.
 const dataDirectory = app.commandLine.getSwitchValue('vista-data-dir');
 if (dataDirectory) app.setPath('userData', dataDirectory);
 let application: VistaApplication | null = null;
 let operator: BrowserWindow | null = null;
-const outputs = new Map<string, { window: BrowserWindow; revision: number | null; renderedAt: number }>();
-let powerBlock: number | null = null;
+const outputs = new OutputWindows({
+  icon: appIcon,
+  preload,
+  load: loadAndReport,
+  closed: () => operator?.webContents.send('vista:changed'),
+});
 let quitting = false;
 let preparingUpdate = false;
 let recoveringUpdate = false;
@@ -81,14 +76,6 @@ const updater = new UpdaterService({
   },
 });
 
-function protect(window: BrowserWindow): void {
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  window.webContents.on('will-navigate', (event) => event.preventDefault());
-  window.webContents.on('will-attach-webview', (event) => event.preventDefault());
-  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-  window.webContents.session.setPermissionCheckHandler(() => false);
-}
-
 async function load(window: BrowserWindow, screenId?: string): Promise<void> {
   try {
     const dev = process.env.VITE_DEV_SERVER_URL;
@@ -104,6 +91,9 @@ async function load(window: BrowserWindow, screenId?: string): Promise<void> {
     // Closing a loading window rejects its load promise. Shutdown must not open a blocking error dialog.
     if (!quitting && !window.isDestroyed()) throw error;
   }
+}
+function loadAndReport(window: BrowserWindow, screenId?: string): void {
+  void load(window, screenId).catch((error: Error) => dialog.showErrorBox('Saika Vista', error.message));
 }
 
 function createOperator(): void {
@@ -121,97 +111,22 @@ function createOperator(): void {
     icon: appIcon,
     backgroundColor: '#14191d',
     webPreferences: {
-      preload: join(directory, '../preload/preload.mjs'),
+      preload,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
   });
-  protect(operator);
+  protectWindow(operator);
   operator.on('closed', () => {
     operator = null;
   });
-  void load(operator).catch((error: Error) => dialog.showErrorBox('Saika Vista', error.message));
-}
-
-function maintainPower(): void {
-  if (outputs.size && powerBlock === null) powerBlock = powerSaveBlocker.start('prevent-display-sleep');
-  else if (!outputs.size && powerBlock !== null) {
-    powerSaveBlocker.stop(powerBlock);
-    powerBlock = null;
-  }
-}
-
-function openOutput(config: ScreenConfig): void {
-  const display = screen.getAllDisplays().find((monitor) => String(monitor.id) === config.monitorId);
-  if (!display) throw new Error('The saved monitor is not connected. Select the replacement monitor explicitly.');
-  const existing = outputs.get(config.id);
-  if (existing) {
-    existing.window.setBounds(display.bounds);
-    existing.window.setFullScreen(true);
-    existing.window.showInactive();
-    if (existing.window.webContents.isCrashed())
-      void load(existing.window, config.id).catch((error: Error) => dialog.showErrorBox('Saika Vista', error.message));
-    else existing.window.webContents.send('vista:changed');
-    return;
-  }
-  const window = new BrowserWindow({
-    ...display.bounds,
-    title: config.name,
-    icon: appIcon,
-    backgroundColor: '#10191d',
-    frame: false,
-    fullscreen: true,
-    autoHideMenuBar: true,
-    show: false,
-    webPreferences: {
-      preload: join(directory, '../preload/preload.mjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      backgroundThrottling: false,
-    },
-  });
-  protect(window);
-  outputs.set(config.id, { window, revision: null, renderedAt: 0 });
-  window.on('ready-to-show', () => window.showInactive());
-  window.on('closed', () => {
-    outputs.delete(config.id);
-    maintainPower();
-    operator?.webContents.send('vista:changed');
-  });
-  window.webContents.on('render-process-gone', () => {
-    const output = outputs.get(config.id);
-    if (output) {
-      output.revision = null;
-      output.renderedAt = 0;
-    }
-  });
-  window.webContents.on('unresponsive', () => {
-    const output = outputs.get(config.id);
-    if (output) output.renderedAt = 0;
-  });
-  void load(window, config.id).catch((error: Error) => dialog.showErrorBox('Saika Vista', error.message));
-  maintainPower();
+  loadAndReport(operator);
 }
 
 function requireApplication(): VistaApplication {
   if (!application) throw new Error('Vista is starting');
   return application;
-}
-function isMainFrame(event: IpcMainInvokeEvent): boolean {
-  return event.senderFrame === event.sender.mainFrame;
-}
-function requireOperator(event: IpcMainInvokeEvent): VistaApplication {
-  if (!isMainFrame(event) || event.sender !== operator?.webContents)
-    throw new Error('This operation requires the local operator window');
-  if (preparingUpdate) throw new Error('Vista is restarting to install an update.');
-  return requireApplication();
-}
-function outputFor(event: IpcMainInvokeEvent) {
-  const entry = [...outputs.entries()].find(([, output]) => output.window.webContents === event.sender);
-  if (!isMainFrame(event) || !entry) throw new Error('This operation requires an audience window');
-  return entry;
 }
 
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -231,29 +146,12 @@ else {
   void app
     .whenReady()
     .then(async () => {
-      ipcMain.handle('vista:state', (event) => requireOperator(event).view());
-      ipcMain.handle('vista:command', (event, input: unknown) => requireOperator(event).command(input));
-      ipcMain.handle('vista:discover', (event) => requireOperator(event).discover());
-      ipcMain.handle('vista:updates-state', (event) => {
-        requireOperator(event);
-        return updater.getState();
-      });
-      ipcMain.handle('vista:updates-check', (event) => {
-        requireOperator(event);
-        return updater.checkForUpdates();
-      });
-      ipcMain.handle('vista:updates-install', (event) => {
-        requireOperator(event);
-        return updater.quitAndInstall();
-      });
-      ipcMain.handle('vista:audience', (event) => requireApplication().state.audience(outputFor(event)[0]));
-      ipcMain.handle('vista:rendered', (event, input: unknown) => {
-        const [id, output] = outputFor(event);
-        const revision = z.number().int().positive().parse(input);
-        if (requireApplication().state.document.screens.find((config) => config.id === id)?.revision !== revision)
-          return;
-        output.revision = revision;
-        output.renderedAt = Date.now();
+      registerIpcHandlers({
+        application: requireApplication,
+        operator: () => operator?.webContents,
+        updating: () => preparingUpdate,
+        updater,
+        outputs,
       });
       application = await VistaApplication.start(app.getPath('userData'), {
         monitors: () =>
@@ -264,23 +162,19 @@ else {
             height: display.size.height,
             primary: display.id === screen.getPrimaryDisplay().id,
           })),
-        open: openOutput,
-        close: (id) => outputs.get(id)?.window.close(),
-        status: (id) => {
-          const output = outputs.get(id);
-          return { revision: output?.revision ?? null, alive: !!output && Date.now() - output.renderedAt < 4000 };
-        },
+        open: (config) => outputs.open(config),
+        close: (id) => outputs.close(id),
+        status: (id) => outputs.status(id),
         loginStart: setLoginStart,
         changed: () => {
           if (operator && !operator.isDestroyed()) operator.webContents.send('vista:changed');
-          for (const output of outputs.values())
-            if (!output.window.isDestroyed()) output.window.webContents.send('vista:changed');
+          outputs.notify();
         },
       });
       void updater.checkForUpdates();
       screen.on('display-removed', (_event, removed) => {
         for (const config of requireApplication().state.document.screens)
-          if (config.monitorId === String(removed.id)) outputs.get(config.id)?.window.close();
+          if (config.monitorId === String(removed.id)) outputs.close(config.id);
         operator?.webContents.send('vista:changed');
       });
       screen.on('display-added', () => operator?.webContents.send('vista:changed'));
