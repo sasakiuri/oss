@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { VistaSnapshot } from '@sasakiuri/saika-protocol/Vista';
 
-import type { ScreenConfig } from '../src/shared/model';
+import type { Monitor, ScreenConfig } from '../src/shared/model';
+
+export function monitor(): Monitor {
+  return { id: 'monitor-one', name: 'Monitor', width: 1920, height: 1080, primary: true };
+}
 
 export function snapshot(revision = 1): VistaSnapshot {
   return {

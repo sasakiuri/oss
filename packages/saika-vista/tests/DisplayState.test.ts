@@ -9,7 +9,7 @@ import { AtomicStore } from '../src/main/AtomicStore';
 import { DisplayState } from '../src/main/DisplayState';
 import { DocumentSchema, newDocument } from '../src/main/document';
 
-import { screenConfig, snapshot } from './fixtures';
+import { monitor, screenConfig, snapshot } from './fixtures';
 
 let directory: string;
 beforeEach(async () => {
@@ -25,7 +25,7 @@ async function create() {
   const state = new DisplayState(await store.read(newDocument), store, vi.fn());
   return { state, store };
 }
-const monitors = [{ id: 'monitor-one', name: 'Monitor', width: 1920, height: 1080, primary: true }];
+const monitors = [monitor()];
 
 describe('durable display state', () => {
   it('restores settings, standby and the complete pinned target after restart without claiming live publication', async () => {

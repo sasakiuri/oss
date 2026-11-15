@@ -3,15 +3,16 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createVistaServer, requestVista } from '@sasakiuri/saika-protocol/vista-node';
+import { requestVista } from '@sasakiuri/saika-protocol/vista-node';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { AtomicStore, AtomicStoreSyncError } from '../src/main/AtomicStore';
 import { DisplayState } from '../src/main/DisplayState';
 import { DocumentSchema, newDocument } from '../src/main/document';
-import { VistaApplication, type DesktopPort } from '../src/main/VistaApplication';
+import { VistaApplication } from '../src/main/VistaApplication';
 import type { NodeState, ScreenConfig } from '../src/shared/model';
 
+import { desktopPort, internals, pausePolling, sourceServer } from './applicationFixtures';
 import { screenConfig, snapshot } from './fixtures';
 
 const fault = vi.hoisted(() => ({ directory: '', phase: '', persistent: false, skip: 0 }));
@@ -75,27 +76,18 @@ for (const phase of failureCases) {
     async (previous) => {
       const path = await directory();
       let osEnabled = false;
-      const desktop: DesktopPort = {
+      const desktop = desktopPort({
         monitors: () => [],
-        open: vi.fn(),
-        close: vi.fn(),
-        status: () => ({ revision: null, alive: false }),
-        changed: vi.fn(),
         loginStart: vi.fn(async (enabled) => {
           osEnabled = enabled;
         }),
-      };
+      });
       const app = await VistaApplication.start(path, desktop);
       cleanup.push(async () => {
         await app.command({ type: 'setLoginStart', enabled: previous });
         await app.stop();
       });
-      const internals = app as unknown as {
-        timer: ReturnType<typeof setTimeout> | null;
-        activeTasks: Set<Promise<void>>;
-      };
-      if (internals.timer) clearTimeout(internals.timer);
-      await Promise.allSettled([...internals.activeTasks]);
+      await pausePolling(app);
       await app.command({ type: 'setLoginStart', enabled: previous });
       vi.mocked(desktop.loginStart).mockClear();
       fault.phase = phase;
@@ -159,8 +151,7 @@ it.skipIf(process.platform === 'win32')(
 async function display() {
   const path = await directory();
   const outputs = new Map<string, ScreenConfig>();
-  const desktop: DesktopPort = {
-    monitors: () => [{ id: 'monitor-one', name: 'Monitor', width: 1920, height: 1080, primary: true }],
+  const desktop = desktopPort({
     open: (config) => {
       outputs.set(config.id, config);
     },
@@ -168,14 +159,10 @@ async function display() {
       outputs.delete(id);
     },
     status: (id) => ({ revision: outputs.get(id)?.revision ?? null, alive: outputs.has(id) }),
-    changed: vi.fn(),
-    loginStart: vi.fn(async () => undefined),
-  };
+  });
   const app = await VistaApplication.start(path, desktop);
   cleanup.push(() => app.stop());
-  const internals = app as unknown as { timer: ReturnType<typeof setTimeout> | null; activeTasks: Set<Promise<void>> };
-  if (internals.timer) clearTimeout(internals.timer);
-  await Promise.allSettled([...internals.activeTasks]);
+  await pausePolling(app);
   const endpoint = () => `http://127.0.0.1:${app.state.document.port}`;
   const request = (method: 'GET' | 'POST', operation: string, body?: unknown, secret = app.view().pairingSecret) =>
     requestVista<NodeState>(endpoint(), secret, method, `/vista/v1/display/${operation}`, body, app.identity.sourceId);
@@ -331,36 +318,8 @@ it.skipIf(process.platform === 'win32')(
   'finishes source connection and cache removal despite unconfirmed storage',
   async () => {
     const { app } = await display();
-    const identity = {
-      protocolVersion: 1 as const,
-      sourceId: 'lane-one',
-      bootId: 'boot-one',
-      kind: 'lane' as const,
-      name: 'Lane 1',
-    };
     const secret = 's'.repeat(43);
-    const server = await createVistaServer({
-      identity,
-      secret,
-      handle: (_method, path) => {
-        if (path.endsWith('/catalog'))
-          return {
-            identity,
-            subjects: [
-              {
-                id: 'session-one',
-                label: 'Session',
-                eventCode: 'AR60',
-                competition: null,
-                relay: null,
-                availability: 'available',
-                reason: null,
-              },
-            ],
-          };
-        return snapshot();
-      },
-    });
+    const server = await sourceServer({ secret });
     cleanup.push(() => server.close());
     fault.phase = 'directory-sync';
     await expect(
@@ -376,7 +335,7 @@ it.skipIf(process.platform === 'win32')(
     expect(app.view().sources).toEqual([]);
     expect(app.state.getEntries()[0]!.state).toBe('saved');
     expect(app.state.getEntries()[0]!.error).toBe('The source was disconnected by the operator');
-    const caches = app as unknown as { sourceViews: Map<string, unknown>; lastCatalog: Map<string, number> };
+    const caches = internals(app);
     expect(caches.sourceViews.has('lane-one')).toBe(false);
     expect(caches.lastCatalog.has('lane-one')).toBe(false);
   },

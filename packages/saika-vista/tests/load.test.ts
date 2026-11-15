@@ -6,15 +6,16 @@ import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 
 import type { VistaIdentity, VistaSnapshot } from '@sasakiuri/saika-protocol/Vista';
-import { createVistaServer, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
+import type { VistaServer } from '@sasakiuri/saika-protocol/vista-node';
 import { expect, it, vi } from 'vitest';
 
 import { AtomicStore } from '../src/main/AtomicStore';
 import { DocumentSchema } from '../src/main/document';
-import { VistaApplication, type DesktopPort } from '../src/main/VistaApplication';
+import { VistaApplication } from '../src/main/VistaApplication';
 import type { ScreenConfig, SnapshotEntry } from '../src/shared/model';
 import { SnapshotEntrySchema } from '../src/shared/model';
 
+import { desktopPort, sourceServer } from './applicationFixtures';
 import { screenConfig, snapshot } from './fixtures';
 
 const LANES = 100;
@@ -83,30 +84,12 @@ function recompute(current: VistaSnapshot): void {
   }));
 }
 async function listen(lane: Lane, port?: number): Promise<void> {
-  lane.server = await createVistaServer({
+  lane.server = await sourceServer({
     identity: lane.identity,
     secret: lane.secret,
     port,
-    handle: (method, path) => {
-      if (method !== 'GET') throw new Error('Read-only source');
-      if (path.endsWith('/catalog'))
-        return {
-          identity: lane.identity,
-          subjects: [
-            {
-              id: lane.current.subjectId,
-              label: lane.current.label,
-              eventCode: 'AR60',
-              competition: null,
-              relay: null,
-              availability: 'available',
-              reason: null,
-            },
-          ],
-        };
-      if (path.endsWith(`/snapshot/${lane.current.subjectId}`)) return { ...lane.current, capturedAt: Date.now() };
-      throw new Error('Unknown load-test subject');
-    },
+    subjects: [lane.current.subjectId],
+    current: () => ({ ...lane.current, capturedAt: Date.now() }),
   });
 }
 function publish(lanes: Lane[]): void {
@@ -139,7 +122,7 @@ it('acquires 100 encrypted Lane sources, durably publishes steady bursts, and is
   const directory = await mkdtemp(join(process.env.RUNNER_TEMP || tmpdir(), 'vista-100-lanes-'));
   const screens: ScreenConfig[] = [];
   const opened = new Set<string>();
-  const desktop: DesktopPort = {
+  const desktop = desktopPort({
     monitors: () =>
       Array.from({ length: LANES }, (_, index) => ({
         id: `load-monitor-${index}`,
@@ -154,10 +137,8 @@ it('acquires 100 encrypted Lane sources, durably publishes steady bursts, and is
     close: (id) => {
       opened.delete(id);
     },
-    status: () => ({ revision: null, alive: false }),
-    loginStart: async () => undefined,
     changed: () => undefined,
-  };
+  });
   const storeWrites = vi.spyOn(AtomicStore.prototype, 'write');
   let app: VistaApplication | undefined;
   const receiveToDurable: number[] = [];
