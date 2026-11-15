@@ -1,4 +1,3 @@
-// @vitest-environment node
 import {
   ISSF_2026_RFPM,
   ISSF_2026_STDP,

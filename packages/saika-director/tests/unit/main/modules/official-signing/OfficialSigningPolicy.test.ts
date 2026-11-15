@@ -1,4 +1,3 @@
-// @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { OfficialSigningPolicy, type SigningActor } from '@/main/modules/official-signing';
 

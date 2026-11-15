@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// @vitest-environment node
 import Database from 'better-sqlite3';
 import { connectAsync, type MqttClient } from 'mqtt';
 import { createConnection, type Socket } from 'node:net';

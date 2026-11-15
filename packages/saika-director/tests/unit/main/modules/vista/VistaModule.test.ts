@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-// @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InferHandlers } from '@/shared/ipc/defineContract';
 import { vistaContract } from '@/shared/ipc/contracts/vista.contract';

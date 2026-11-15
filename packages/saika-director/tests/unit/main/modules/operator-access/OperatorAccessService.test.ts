@@ -1,4 +1,3 @@
-// @vitest-environment node
 import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
 import { migration075OperatorAccess } from '@/main/infrastructure/database/migrations/075_operator_access';
