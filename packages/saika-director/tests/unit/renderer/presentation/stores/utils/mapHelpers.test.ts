@@ -3,8 +3,6 @@ import {
   createMapFromArray,
   setInMap,
   patchInMap,
-  deleteFromMap,
-  clearMap,
   mapToArray,
   toggleInSet,
   selectAllFromMap,
@@ -72,27 +70,6 @@ describe('mapHelpers', () => {
 
       expect(result.success).toBe(false);
       expect(result.previous).toBeUndefined();
-    });
-  });
-
-  describe('deleteFromMap', () => {
-    it('should delete entry immutably', () => {
-      const original = new Map([
-        ['1', { id: '1' }],
-        ['2', { id: '2' }],
-      ]);
-      const updated = deleteFromMap(original, '1');
-
-      expect(original.size).toBe(2);
-      expect(updated.size).toBe(1);
-      expect(updated.has('1')).toBe(false);
-    });
-  });
-
-  describe('clearMap', () => {
-    it('should return empty map', () => {
-      const map = clearMap<string, object>();
-      expect(map.size).toBe(0);
     });
   });
 

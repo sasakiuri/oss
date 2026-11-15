@@ -27,16 +27,6 @@ export function patchInMap<K, V extends object>(
   return { success: true, map: newMap, previous: existing };
 }
 
-export function deleteFromMap<K, V>(map: Map<K, V>, key: K): Map<K, V> {
-  const newMap = new Map(map);
-  newMap.delete(key);
-  return newMap;
-}
-
-export function clearMap<K, V>(): Map<K, V> {
-  return new Map();
-}
-
 export function mapToArray<K, V>(map: Map<K, V>): V[] {
   return Array.from(map.values());
 }
