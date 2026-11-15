@@ -1733,11 +1733,12 @@ export class DirectorMqttService {
   }
 
   private async clearCompetitionRetainedState(competitionId: string, laneIds: string[]): Promise<void> {
-    const retainedTopics = laneIds.flatMap((laneId) =>
-      ['state', 'score', 'assignment', 'timed-target/state'].map(
-        (kind) => `saika/competition/${competitionId}/lane/${laneId}/${kind}`,
-      ),
-    );
+    const retainedTopics = laneIds.flatMap((laneId) => [
+      mqttTopics.laneCompetitionState(competitionId, laneId),
+      mqttTopics.laneScore(competitionId, laneId),
+      mqttTopics.laneAssignment(competitionId, laneId),
+      mqttTopics.timedTargetState(competitionId, laneId),
+    ]);
     retainedTopics.push(mqttTopics.competitionCue(competitionId));
     const outcomes = await Promise.allSettled(
       retainedTopics.map((topic) => this.transport.publish(topic, '', { qos: 1, retain: true })),

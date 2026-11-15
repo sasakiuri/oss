@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { mqttTopicFilters, mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 export type MqttPrincipalRole = 'DIRECTOR' | 'LANE';
 
@@ -62,17 +63,12 @@ export class EmbeddedMqttAccessPolicy {
     if (principal.role === 'DIRECTOR') return topic.startsWith('saika/');
     const laneId = laneIdFromClientId(clientId);
     if (!laneId) return false;
-    if (topic === `saika/lane/${laneId}/command/+`) return true;
+    if (topic === mqttTopicFilters.laneCommands(laneId)) return true;
 
     const parts = topic.split('/');
-    if (parts[0] !== 'saika' || parts[1] !== 'competition' || !parts[2]) return false;
-    if (parts.length === 4) return parts[3] === 'state' || parts[3] === 'cue';
-    if (parts.length === 5) return parts[3] === 'command' && parts[4] === '+';
-    if (parts[3] !== 'lane' || parts[4] !== laneId) return false;
-    return (
-      (parts.length === 7 && parts[5] === 'command' && parts[6] === '+') ||
-      (parts.length === 8 && parts[5] === 'query' && parts[6] === '+' && parts[7] === 'request')
-    );
+    const competitionId = parts[2];
+    if (parts[0] !== 'saika' || parts[1] !== 'competition' || !competitionId) return false;
+    return laneCompetitionSubscriptions(competitionId, laneId).includes(topic);
   }
 }
 
@@ -101,6 +97,17 @@ function account(
   const password = environment[passwordKey];
   if (!username || !password) throw new Error(`Required MQTT authentication is missing ${usernameKey}/${passwordKey}`);
   return { username, password, role };
+}
+
+/** Every competition topic a Lane subscribes to; the competition ID may be any single level, including `+`. */
+function laneCompetitionSubscriptions(competitionId: string, laneId: string): string[] {
+  return [
+    mqttTopics.competitionState(competitionId),
+    mqttTopics.competitionCue(competitionId),
+    mqttTopicFilters.competitionCommands(competitionId),
+    mqttTopicFilters.laneCompetitionCommands(competitionId, laneId),
+    mqttTopicFilters.laneQueryRequests(competitionId, laneId),
+  ];
 }
 
 function safeEqual(left: Buffer, right: Buffer): boolean {
