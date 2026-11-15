@@ -8,10 +8,11 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AtomicStore } from '../src/main/AtomicStore';
 import { DisplayState } from '../src/main/DisplayState';
 import { DocumentSchema, newDocument } from '../src/main/document';
-import { VistaApplication, type DesktopPort } from '../src/main/VistaApplication';
+import { VistaApplication } from '../src/main/VistaApplication';
 import type { SnapshotEntry } from '../src/shared/model';
 
-import { screenConfig, snapshot } from './fixtures';
+import { desktopPort } from './applicationFixtures';
+import { monitor, screenConfig, snapshot } from './fixtures';
 
 let directory: string;
 let file: string;
@@ -67,7 +68,7 @@ const config = () => ({
   ...screenConfig(),
   selections: [...screenConfig().selections, { ...screenConfig().selections[0]!, subjectId: 'healthy-session' }],
 });
-const monitors = [{ id: 'monitor-one', name: 'Monitor', width: 1920, height: 1080, primary: true }];
+const monitors = [monitor()];
 async function restore() {
   const store = new AtomicStore(file, DocumentSchema);
   return { state: new DisplayState(await store.read(newDocument), store, vi.fn()), store };
@@ -261,14 +262,7 @@ it.each([
 it('starts audience screens and exposes isolated saved failures to the operator without blocking edits', async () => {
   const raw = invalidEntry('range');
   await writeFile(file, JSON.stringify({ ...newDocument(), screens: [config()], snapshots: [healthy(), raw, null] }));
-  const desktop: DesktopPort = {
-    monitors: () => monitors,
-    open: vi.fn(),
-    close: vi.fn(),
-    status: () => ({ revision: 1, alive: true }),
-    loginStart: async () => undefined,
-    changed: vi.fn(),
-  };
+  const desktop = desktopPort({ monitors: () => monitors, status: () => ({ revision: 1, alive: true }) });
   const app = await VistaApplication.start(directory, desktop);
   try {
     expect(desktop.open).toHaveBeenCalledWith(config());

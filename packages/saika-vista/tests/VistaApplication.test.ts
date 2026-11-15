@@ -4,16 +4,17 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createVistaServer, requestVista, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
+import { requestVista, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { AtomicStore } from '../src/main/AtomicStore';
 import { DocumentSchema, newDocument } from '../src/main/document';
 import { linuxAutostartEntry } from '../src/main/linuxAutostart';
 import { setLoginStart } from '../src/main/loginStart';
-import { VistaApplication, type DesktopPort } from '../src/main/VistaApplication';
+import { VistaApplication } from '../src/main/VistaApplication';
 import { publicationLabel } from '../src/renderer/viewModel';
 
+import { desktopPort, internals, pausePolling, sourceServer } from './applicationFixtures';
 import { screenConfig, snapshot } from './fixtures';
 
 vi.mock('electron', () => ({ app: { isPackaged: true, getPath: () => '/opt/saika-vista' } }));
@@ -27,66 +28,19 @@ afterEach(async () => {
   cleanup.length = 0;
 });
 const secret = 'a'.repeat(43);
-const desktop = (): DesktopPort => ({
-  monitors: () => [{ id: 'monitor-one', name: 'Monitor', width: 1920, height: 1080, primary: true }],
-  open: vi.fn(),
-  close: vi.fn(),
-  status: () => ({ revision: null, alive: false }),
-  loginStart: async () => undefined,
-  changed: vi.fn(),
-});
-async function start(port = desktop()) {
+async function start(port = desktopPort()) {
   const directory = await mkdtemp(join(tmpdir(), 'vista-app-'));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   const app = await VistaApplication.start(directory, port);
   cleanup.push(() => app.stop());
   return app;
 }
-async function pausePolling(app: VistaApplication) {
-  const scheduled = app as unknown as {
-    timer: ReturnType<typeof setTimeout> | null;
-    activeTasks: Set<Promise<void>>;
-    syncPeer(id: string): Promise<void>;
-  };
-  if (scheduled.timer) clearTimeout(scheduled.timer);
-  await Promise.allSettled([...scheduled.activeTasks]);
-  return scheduled;
-}
 async function source(
   current: (subjectId: string) => Promise<ReturnType<typeof snapshot>> = async () => snapshot(),
   kind: 'lane' | 'director' = 'lane',
   subjects = ['session-one'],
 ): Promise<VistaServer> {
-  const identity = {
-    protocolVersion: 1 as const,
-    sourceId: 'lane-one',
-    bootId: 'boot-one',
-    kind,
-    name: 'Lane 1',
-  };
-  const server = await createVistaServer({
-    identity,
-    secret,
-    handle: (method, path) => {
-      if (method !== 'GET') throw new Error('Read only');
-      if (path.endsWith('/catalog'))
-        return {
-          identity,
-          subjects: subjects.map((id) => ({
-            id,
-            label: 'Session 1',
-            eventCode: 'AR60',
-            competition: null,
-            relay: null,
-            availability: 'available',
-            reason: null,
-          })),
-        };
-      const subjectId = subjects.find((id) => path.endsWith(`/snapshot/${id}`));
-      if (subjectId) return current(subjectId);
-      throw new Error('Not found');
-    },
-  });
+  const server = await sourceServer({ secret, kind, subjects, current });
   cleanup.push(() => server.close());
   return server;
 }
@@ -105,7 +59,7 @@ it.skipIf(process.platform !== 'linux')(
       loginStart: true,
       screens: [screenConfig()],
     });
-    const port = desktop();
+    const port = desktopPort();
     port.loginStart = setLoginStart;
     let app: VistaApplication | null = null;
     cleanup.push(async () => app?.stop());
@@ -135,7 +89,7 @@ it('restores displays and source reception while reporting a failed login startu
     snapshots: [{ snapshot: snapshot(), state: 'live', receivedAt: Date.now(), error: null }],
   });
   const server = await source();
-  const port = desktop();
+  const port = desktopPort();
   port.loginStart = vi.fn().mockRejectedValueOnce(new Error('Access denied')).mockResolvedValue(undefined);
   const app = await VistaApplication.start(directory, port);
   cleanup.push(() => app.stop());
@@ -155,7 +109,7 @@ it('restores displays and source reception while reporting a failed login startu
 });
 
 it('leaves OS login startup alone when the saved setting is disabled', async () => {
-  const port = desktop();
+  const port = desktopPort();
   port.loginStart = vi.fn();
   const app = await start(port);
   expect(app.view().loginStart).toBe(false);
@@ -167,7 +121,7 @@ it.each([false, true])(
   async (storageFailure) => {
     const directory = await mkdtemp(join(tmpdir(), 'vista-stop-validation-'));
     cleanup.push(() => rm(directory, { recursive: true, force: true }));
-    const app = await VistaApplication.start(directory, desktop());
+    const app = await VistaApplication.start(directory, desktopPort());
     await pausePolling(app);
     const config = { ...screenConfig(), selections: [] };
     if (storageFailure) {
@@ -192,7 +146,7 @@ it.each([false, true])('restores OS login startup after a save failure (previous
   const directory = await mkdtemp(join(tmpdir(), 'vista-login-'));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
   let osEnabled = false;
-  const port = desktop();
+  const port = desktopPort();
   port.loginStart = vi.fn(async (enabled) => {
     osEnabled = enabled;
   });
@@ -220,7 +174,7 @@ it.each([false, true])('restores OS login startup after a save failure (previous
 });
 
 it('reports both the save failure and an OS login startup restoration failure', async () => {
-  const port = desktop();
+  const port = desktopPort();
   port.loginStart = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('Access denied'));
   const app = await start(port);
   await pausePolling(app);
@@ -235,7 +189,7 @@ it('reports both the save failure and an OS login startup restoration failure', 
 });
 
 it('keeps saved login startup unchanged when the OS rejects the change', async () => {
-  const port = desktop();
+  const port = desktopPort();
   port.loginStart = vi.fn().mockRejectedValue(new Error('OS setting rejected'));
   const app = await start(port);
   await pausePolling(app);
@@ -276,7 +230,7 @@ it('restores screens and continues source updates when its saved port is occupie
   );
   let application: VistaApplication | null = null;
   cleanup.push(async () => application?.stop());
-  application = await VistaApplication.start(directory, desktop());
+  application = await VistaApplication.start(directory, desktopPort());
   await application.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret });
   await application.command({ type: 'inspectSubject', sourceId: 'lane-one', subjectId: 'session-one' });
   await application.command({ type: 'apply', nodeId: application.identity.sourceId, config: screenConfig() });
@@ -289,7 +243,7 @@ it('restores screens and continues source updates when its saved port is occupie
     occupied.listen(savedPort, '0.0.0.0', resolve);
   });
 
-  const restoredDesktop = desktop();
+  const restoredDesktop = desktopPort();
   application = await VistaApplication.start(directory, restoredDesktop);
   expect(restoredDesktop.open).toHaveBeenCalledWith(screenConfig());
   expect(application.state.audience('screen-one').entries[0]).toMatchObject({
@@ -311,7 +265,7 @@ it('restores screens and continues source updates when its saved port is occupie
   await application.stop();
   application = null;
   await new Promise<void>((resolve, reject) => occupied.close((error) => (error ? reject(error) : resolve())));
-  const recoveredDesktop = desktop();
+  const recoveredDesktop = desktopPort();
   application = await VistaApplication.start(directory, recoveredDesktop);
   expect(recoveredDesktop.open).toHaveBeenCalledWith(screenConfig());
   expect(application.view().error).toBeNull();
@@ -337,7 +291,7 @@ it('keeps saved remote screens visible when the first connection after restart f
     ...newDocument(),
     peers: [{ id: 'saved-display', endpoint, secret, desired: [config] }],
   });
-  const app = await VistaApplication.start(directory, desktop());
+  const app = await VistaApplication.start(directory, desktopPort());
   cleanup.push(() => app.stop());
   const scheduled = await pausePolling(app);
   expect(app.view().peers[0]!.node?.screens[0]!.config).toEqual(config);
@@ -367,7 +321,7 @@ it('keeps invalid pairing authority fatal instead of treating it as an unavailab
     secret: 'a'.repeat(257),
     screens: [screenConfig()],
   });
-  const port = desktop();
+  const port = desktopPort();
   await expect(VistaApplication.start(directory, port)).rejects.toThrow('Invalid Vista pairing secret');
   expect(port.open).not.toHaveBeenCalled();
 });
@@ -382,7 +336,7 @@ it('keeps failure to persist an allocated listener port fatal', async () => {
     if (DocumentSchema.parse(value).port > 0) return Promise.reject(new Error('Disk full'));
     return write.call(this, value);
   });
-  const port = desktop();
+  const port = desktopPort();
   await expect(VistaApplication.start(directory, port)).rejects.toThrow('Disk full');
   expect(port.open).not.toHaveBeenCalled();
   expect(JSON.parse(await readFile(join(directory, 'vista.json'), 'utf8')).port).toBe(0);
@@ -470,7 +424,7 @@ it('isolates a replacement controller cache conflict and restores healthy remote
   });
   const store = new AtomicStore(join(directory, 'vista.json'), DocumentSchema);
   await store.write({ ...newDocument(), screens: [first, second], snapshots: [entry(5), entry(1, true)] });
-  const displayPort = desktop();
+  const displayPort = desktopPort();
   displayPort.monitors = () => [
     { id: 'monitor-one', name: 'Monitor 1', width: 1920, height: 1080, primary: true },
     { id: 'monitor-two', name: 'Monitor 2', width: 1920, height: 1080, primary: false },
@@ -615,20 +569,14 @@ it.each(['existing', 'new'] as const)(
       'session-two',
     ]);
     const controller = await start();
-    const displayPort = desktop();
+    const displayPort = desktopPort();
     displayPort.monitors = () => [
       { id: 'monitor-one', name: 'Monitor 1', width: 1920, height: 1080, primary: true },
       { id: 'monitor-two', name: 'Monitor 2', width: 1920, height: 1080, primary: false },
     ];
     displayPort.status = () => ({ revision: 1, alive: true });
     const display = await start(displayPort);
-    type ScheduledApplication = {
-      timer: ReturnType<typeof setTimeout> | null;
-      syncPeer(id: string): Promise<void>;
-      activeTasks: Set<Promise<void>>;
-      tick(): Promise<void>;
-    };
-    const scheduled = controller as unknown as ScheduledApplication;
+    const scheduled = internals(controller);
     if (scheduled.timer) clearTimeout(scheduled.timer);
     const endpoint = display.view().endpoints.find((value) => value.includes('127.0.0.1'))!;
     await controller.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret });
@@ -721,11 +669,7 @@ it('refreshes a source catalog after an active snapshot request spans its refres
     subjects,
   );
   const app = await start();
-  const scheduled = app as unknown as {
-    timer: ReturnType<typeof setTimeout> | null;
-    activeTasks: Set<Promise<void>>;
-    tick(): Promise<void>;
-  };
+  const scheduled = internals(app);
   const tick = async () => {
     await scheduled.tick();
     if (scheduled.timer) clearTimeout(scheduled.timer);
@@ -772,11 +716,7 @@ it('ignores a snapshot response that arrives after its source was disconnected',
     return snapshot(2);
   });
   const app = await start();
-  const scheduled = app as unknown as {
-    timer: ReturnType<typeof setTimeout> | null;
-    activeTasks: Set<Promise<void>>;
-    tick(): Promise<void>;
-  };
+  const scheduled = internals(app);
   if (scheduled.timer) clearTimeout(scheduled.timer);
   await app.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret });
   await app.command({ type: 'inspectSubject', sourceId: 'lane-one', subjectId: 'session-one' });
@@ -802,13 +742,8 @@ it('ignores a snapshot response that arrives after its source was disconnected',
 it('does not resurrect a removed remote screen when an earlier state request finishes late', async () => {
   const controller = await start();
   const display = await start();
-  type ScheduledApplication = {
-    timer: ReturnType<typeof setTimeout> | null;
-    syncPeer(id: string): Promise<void>;
-    handleRemote(method: string, path: string, body: unknown): Promise<unknown>;
-  };
-  const scheduledController = controller as unknown as ScheduledApplication;
-  const scheduledDisplay = display as unknown as ScheduledApplication;
+  const scheduledController = internals(controller);
+  const scheduledDisplay = internals(display);
   // Keep the production transport and persistence; control only the poll schedule.
   if (scheduledController.timer) clearTimeout(scheduledController.timer);
   if (scheduledDisplay.timer) clearTimeout(scheduledDisplay.timer);
@@ -957,14 +892,11 @@ it('acknowledges controller release and then rejects the old pairing secret', as
 
 it.each([false, true])('repairs pairing without reviving requests from revoked authority=%s', async (revoked) => {
   const controller = await start();
-  const scheduled = controller as unknown as {
-    timer: ReturnType<typeof setTimeout> | null;
-    syncPeer(id: string): Promise<void>;
-  };
+  const scheduled = internals(controller);
   if (scheduled.timer) clearTimeout(scheduled.timer);
   const directory = await mkdtemp(join(tmpdir(), 'vista-pairing-'));
   cleanup.push(() => rm(directory, { recursive: true, force: true }));
-  let display: VistaApplication | null = await VistaApplication.start(directory, desktop());
+  let display: VistaApplication | null = await VistaApplication.start(directory, desktopPort());
   cleanup.push(async () => display?.stop());
   const endpoint = `http://127.0.0.1:${display.state.document.port}`;
   const id = display.identity.sourceId;
@@ -976,7 +908,7 @@ it.each([false, true])('repairs pairing without reviving requests from revoked a
   const requested = { ...original, revision: 2, standby: true };
   await expect(controller.command({ type: 'apply', nodeId: id, config: requested })).rejects.toThrow();
   expect(controller.state.document.peers[0]?.desired).toEqual([requested]);
-  display = await VistaApplication.start(directory, desktop());
+  display = await VistaApplication.start(directory, desktopPort());
   if (revoked) await display.command({ type: 'revokeController' });
   await controller.command({ type: 'connectPeer', endpoint, secret: display.view().pairingSecret });
   expect(controller.state.document.peers[0]?.desired).toEqual([revoked ? original : requested]);
@@ -1032,7 +964,7 @@ it.each(['missing', 'unfinished', 'finished'] as const)('checks inherited %s dat
   const server = await source(async () => ({ ...snapshot(), finished: canResume }), 'director');
   const sourceCleanupIndex = cleanup.length - 1;
   const controller = await start();
-  const scheduled = controller as unknown as { timer: ReturnType<typeof setTimeout> | null };
+  const scheduled = internals(controller);
   if (scheduled.timer) clearTimeout(scheduled.timer);
   const display = await start();
   await controller.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret });
