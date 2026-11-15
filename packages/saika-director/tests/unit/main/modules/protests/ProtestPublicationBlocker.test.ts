@@ -1,8 +1,6 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   ProtestCase,
   ProtestEntry,
@@ -15,14 +13,15 @@ import { OptionalResultPublicationBlocker } from '@/main/modules/result-publicat
 import { ResultPublicationService } from '@/main/modules/result-publication/application/ResultPublicationService';
 import { SqliteResultPublicationRepository } from '@/main/modules/result-publication/infra/SqliteResultPublicationRepository';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 const eventId = 'event-a';
 describe('Protest publication review', () => {
   let db: Database.Database;
   let repository: SqliteProtestRepository;
   let blocker: ProtestPublicationBlocker;
   beforeEach(() => {
-    db = new Database(':memory:');
-    new MigrationRunner(db).run(allMigrations);
+    db = migratedDatabase();
     db.exec(`
       INSERT INTO championships (id, name, date, venue) VALUES ('champ-a', 'Meet', '2026-09-08', 'Range');
       INSERT INTO events (id, championship_id, name, event_type, round, sort_order)

@@ -1,12 +1,12 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   EstChampionshipInspectionService,
   SqliteEstChampionshipInspectionRepository,
 } from '@/main/modules/est-championship-inspections';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const CHAMPIONSHIP_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -16,9 +16,8 @@ describe('EstChampionshipInspectionService', () => {
   afterEach(() => database?.close());
 
   function setup() {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     database
       .prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)')
       .run(CHAMPIONSHIP_ID, 'ISSF Championship', '2026-09-02', 'Range A');

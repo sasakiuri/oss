@@ -1,14 +1,14 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   SqliteEstComplaintCaseLinkRepository,
   estComplaintSnapshotHash,
   type EstComplaintCaseLink,
 } from '@/main/modules/est-complaints';
 import { SqliteTargetExaminationRepository, TargetExaminationService } from '@/main/modules/target-examinations';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const signalId = '22222222-2222-4222-8222-222222222222';
@@ -17,9 +17,8 @@ describe('migration061EstComplaintTargetExaminationLinks', () => {
   let database: Database.Database;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
   });
 
   afterEach(() => database.close());

@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { EstBackupSourceService, SqliteEstBackupSourceRepository } from '@/main/modules/est-backup-sources';
 import {
   CompetitionEvidenceBundleBuilder,
@@ -15,15 +13,16 @@ import {
   SqlitePublicationReviewPolicyRepository,
 } from '@/main/modules/publication-review-policies';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 describe('CompetitionEvidenceBundleBuilder', () => {
   let database: Database.Database | undefined;
 
   afterEach(() => database?.close());
 
   it('collects every registered section against the current schema and produces stable hashes', () => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     const championshipId = '11111111-1111-4111-8111-111111111111';
     const eventId = '22222222-2222-4222-8222-222222222222';
     database

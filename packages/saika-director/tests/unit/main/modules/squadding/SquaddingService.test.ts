@@ -1,8 +1,6 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { SquaddingService } from '@/main/modules/squadding/application/SquaddingService';
 import type {
   ISquaddingRepository,
@@ -11,6 +9,8 @@ import type {
 import { SqliteSquaddingRepository } from '@/main/modules/squadding/infra/SqliteSquaddingRepository';
 import { CompetitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const CHAMPIONSHIP_ID = '11111111-1111-4111-8111-111111111111';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
@@ -27,9 +27,8 @@ describe('SquaddingService', () => {
   let registry: CompetitionTypeRegistry;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    new MigrationRunner(database).run(allMigrations);
     repository = new SqliteSquaddingRepository(database);
     registry = new CompetitionTypeRegistry();
     registry.register(BR60S);

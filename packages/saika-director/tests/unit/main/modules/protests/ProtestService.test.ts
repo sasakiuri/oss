@@ -1,10 +1,10 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { ProtestService, SqliteProtestRepository } from '@/main/modules/protests';
 import type { CreateProtestPayload } from '@/shared/ipc/contracts';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const receipt: CreateProtestPayload = {
   scopeType: 'EVENT',
@@ -24,8 +24,7 @@ describe('Protest receipt and history', () => {
   let db: Database.Database;
   let service: ProtestService;
   beforeEach(() => {
-    db = new Database(':memory:');
-    new MigrationRunner(db).run(allMigrations);
+    db = migratedDatabase();
     service = new ProtestService(new SqliteProtestRepository(db));
   });
   afterEach(() => db.close());

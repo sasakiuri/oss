@@ -1,14 +1,14 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   RelayReadinessService,
   SqliteRelayReadinessRepository,
   SqliteRelayStartSettingsRepository,
 } from '@/main/modules/relay-readiness';
 import { CompetitionStartReadiness } from '@/main/shared-infra/operations/CompetitionStartReadiness';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const scope = { competitionId: 'competition-a', phase: 'SIGHTING' as const, laneIds: ['lane-a'] };
 
@@ -25,8 +25,7 @@ describe('Relay start enforcement', () => {
     guard = new CompetitionStartReadiness([service]);
   };
   beforeEach(() => {
-    db = new Database(':memory:');
-    new MigrationRunner(db).run(allMigrations);
+    db = migratedDatabase();
     connect();
   });
   afterEach(() => db.close());

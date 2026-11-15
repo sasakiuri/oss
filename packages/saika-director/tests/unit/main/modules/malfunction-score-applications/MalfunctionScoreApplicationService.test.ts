@@ -6,11 +6,9 @@ import {
   assessQualificationMalfunctionClaim,
   type RulePack,
 } from '@sasakiuri/saika-rules';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import {
   EventId,
   ParticipantId,
@@ -40,12 +38,13 @@ import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/Scoring
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack, IssfStandardStrategy } from '@/shared/competitionTypes';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 let db: Database.Database;
 afterEach(() => db?.close());
 function setup(pack: RulePack = ISSF_2026_RFPM, nonAllowable = false) {
-  db = new Database(':memory:');
+  db = migratedDatabase();
   db.pragma('foreign_keys = ON');
-  new MigrationRunner(db).run(allMigrations);
   const championshipId = crypto.randomUUID(),
     eventId = crypto.randomUUID(),
     participantId = crypto.randomUUID(),

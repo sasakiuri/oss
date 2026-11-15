@@ -2,22 +2,20 @@
 import { randomUUID } from 'node:crypto';
 
 import { identifyRulePack, ISSF_2026_RULE_PACKS, JRSF_2026_RULE_PACKS, RulePackRegistry } from '@sasakiuri/saika-rules';
-import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 
-import { allMigrations } from '@/main/infrastructure/database/migrations';
-import { MigrationRunner } from '@/main/infrastructure/database/migrations/MigrationRunner';
 import { FinalOperationService, SqliteFinalOperationRepository } from '@/main/modules/final-operations';
 import { getLaneCompetitionDefinition } from '@/renderer/presentation/features/competition-control/supportedCompetitionTypes';
 import { competitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { registerBuiltinCompetitionTypes } from '@/shared/competitionTypes/registerBuiltinCompetitionTypes';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 describe('Built-in JRSF Beam Final operations', () => {
   it.each(JRSF_2026_RULE_PACKS)('creates and records a $eventCode shoot-off through the real service', (pack) => {
-    const database = new Database(':memory:');
+    const database = migratedDatabase();
     competitionTypeRegistry._reset();
     try {
-      new MigrationRunner(database).run(allMigrations);
       registerBuiltinCompetitionTypes();
       const definition = competitionTypeRegistry.get(pack.eventCode);
       expect(definition.rulePackIdentity).toEqual(identifyRulePack(pack));
