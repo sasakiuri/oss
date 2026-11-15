@@ -4,6 +4,9 @@ import { useSystemEvents } from '@/renderer/presentation/hooks/useSystemEvents';
 import { useConnectionStore } from '@/renderer/presentation/stores/system/connection.store';
 import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import { mqttService } from '@/renderer/services';
+import { ok } from '../../../../../helpers/renderer/serviceResponses';
+import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 
 // Suppress Logger output in tests
 vi.mock('@/shared/utils/Logger', () => ({
@@ -17,13 +20,10 @@ vi.mock('@/shared/utils/Logger', () => ({
   },
 }));
 
-const { getControlState } = vi.hoisted(() => ({
-  getControlState: vi.fn(),
-}));
-
-vi.mock('@/renderer/services', () => ({
-  mqttService: { getControlState },
-}));
+vi.mock('@/renderer/services', async () =>
+  (await import('../../../../../helpers/renderer/mockServices')).mockServices(),
+);
+const { getControlState } = vi.mocked(mqttService);
 
 // ---------------------------------------------------------------------------
 // Mock useEvent to capture event handlers
@@ -181,16 +181,15 @@ describe('useSystemEvents', () => {
 
   describe('mqttControlStateChanged event', () => {
     it('should hydrate the connection store from the current MQTT state on mount', async () => {
-      getControlState.mockResolvedValue({
-        success: true,
-        data: {
+      getControlState.mockResolvedValue(
+        ok({
           connected: true,
           lanes: [
             { firingPointNumber: 2, hardware: { connection: { status: 'connected' } } },
             { firingPointNumber: 4, hardware: { connection: { status: 'disconnected' } } },
           ],
-        },
-      });
+        } as MqttControlSnapshotDto),
+      );
 
       renderSystemEvents();
 
@@ -204,7 +203,7 @@ describe('useSystemEvents', () => {
     });
 
     it('should not overwrite a live event with an older initial query response', async () => {
-      let resolveInitialState: (value: unknown) => void = () => {};
+      let resolveInitialState: (value: ReturnType<typeof ok<MqttControlSnapshotDto>>) => void = () => {};
       getControlState.mockReturnValue(
         new Promise((resolve) => {
           resolveInitialState = resolve;
@@ -218,7 +217,7 @@ describe('useSystemEvents', () => {
       });
 
       await act(async () => {
-        resolveInitialState({ success: true, data: { connected: false, lanes: [] } });
+        resolveInitialState(ok({ connected: false, lanes: [] } as unknown as MqttControlSnapshotDto));
         await Promise.resolve();
       });
 
