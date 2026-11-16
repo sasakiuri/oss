@@ -1000,6 +1000,137 @@ describe('BroadcastCommandHandler', () => {
     expect(timerService.startAt).toHaveBeenCalled();
   });
 
+  describe('start commands waiting for their start time', () => {
+    type WaitingAction = 'start-sighting' | 'start-match' | 'advance-series' | 'start-shoot-off';
+    const WAITING_COMMAND_ID = 'd5555555-5555-4555-a555-555555555555';
+    const waiting: Record<WaitingAction, { state: () => CompetitionState; fields: Record<string, unknown> }> = {
+      'start-sighting': { state: () => createCompetitionState('IDLE', 0, 0), fields: { timerDurationSeconds: 600 } },
+      'start-match': {
+        state: () => createCompetitionState('SERIES_COMPLETE', 0, 0),
+        fields: { timerDurationSeconds: 600 },
+      },
+      'advance-series': {
+        state: () => createCompetitionState('SERIES_ENTERED', 1, 1),
+        fields: { stageIndex: 1, fromSeriesIndex: 0, timerDurationSeconds: 600 },
+      },
+      'start-shoot-off': {
+        state: () =>
+          CompetitionState.reconstruct({
+            id: COMPETITION_ID,
+            sessionId: 'd4444444-4444-4444-a444-444444444444',
+            config: { ...BR60S.config, name: 'Final' },
+            phase: 'SERIES_COMPLETE',
+            currentStageIndex: 0,
+            currentSeriesIndex: 0,
+            seriesShotCount: 0,
+            timer: Timer.create(0),
+            startedAt: null,
+            finishedAt: null,
+          }),
+        fields: {
+          runId: RUN_ID,
+          iteration: 1,
+          timerDurationSeconds: 50,
+          shotsPerLane: 1,
+          targetLaneIds: [LANE_ID, OTHER_LANE_ID],
+        },
+      },
+    };
+    const actions = Object.keys(waiting) as WaitingAction[];
+
+    async function receiveWaitingStart(action: WaitingAction) {
+      competitionState = waiting[action].state();
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-02-24T10:00:00.000Z'));
+      await handler.subscribeToCompetition(COMPETITION_ID);
+      const command = buildCommand({
+        commandId: WAITING_COMMAND_ID,
+        timerStartAt: '2026-02-24T10:00:03.000Z',
+        ...waiting[action].fields,
+      });
+      messageHandler(`saika/competition/${COMPETITION_ID}/command/${action}`, Buffer.from(JSON.stringify(command)));
+      await vi.advanceTimersByTimeAsync(1_000);
+    }
+
+    function expectNothingStarted() {
+      expect(commandBus.execute).not.toHaveBeenCalled();
+      expect(timerService.startAt).not.toHaveBeenCalled();
+      expect(shootOffControl.open).not.toHaveBeenCalled();
+    }
+
+    /** The command was accepted, then refused once, and never reported done. */
+    function expectCancelledAcknowledgements() {
+      const acknowledgements = vi
+        .mocked(mqttClient.publish)
+        .mock.calls.filter(([topic]) => topic.includes('/acknowledgement/'))
+        .map(([, payload]) => JSON.parse(payload as string) as { status: string; error?: { code: string } });
+      expect(acknowledgements).toEqual([
+        expect.objectContaining({ commandId: WAITING_COMMAND_ID, status: 'executing' }),
+        expect.objectContaining({
+          commandId: WAITING_COMMAND_ID,
+          status: 'error',
+          error: expect.objectContaining({ code: 'MQTT_NOT_IN_COMPETITION' }),
+        }),
+      ]);
+    }
+
+    it.each(actions)('runs %s at its start time while the Lane stays in the competition', async (action) => {
+      await receiveWaitingStart(action);
+      expectNothingStarted();
+
+      await vi.advanceTimersByTimeAsync(2_000);
+
+      const started =
+        vi.mocked(commandBus.execute).mock.calls.length + vi.mocked(shootOffControl.open).mock.calls.length;
+      expect(started).toBeGreaterThan(0);
+    });
+
+    it.each(actions)(
+      'does not run a pending %s after the Lane leaves the competition or disconnects',
+      async (action) => {
+        await receiveWaitingStart(action);
+
+        await handler.unsubscribeFromCompetition();
+        await vi.advanceTimersByTimeAsync(5_000);
+
+        expectNothingStarted();
+        expect(vi.getTimerCount()).toBe(0);
+        expectCancelledAcknowledgements();
+      },
+    );
+
+    it.each(['start-sighting', 'start-match'] as const)(
+      'does not run %s when the Lane leaves just after the start time, during the competition lookup',
+      async (action) => {
+        let leaveOnLookup = false;
+        competitionRepository = {
+          findById: vi.fn(async () => {
+            if (leaveOnLookup) void handler.unsubscribeFromCompetition();
+            return competitionState;
+          }),
+        };
+        handler = createHandler();
+        await receiveWaitingStart(action);
+        leaveOnLookup = true;
+
+        await vi.advanceTimersByTimeAsync(5_000);
+
+        expectNothingStarted();
+        expectCancelledAcknowledgements();
+      },
+    );
+
+    it('does not run a pending start of the previous competition after joining again', async () => {
+      await receiveWaitingStart('start-sighting');
+
+      await handler.subscribeToCompetition(COMPETITION_ID);
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      expectNothingStarted();
+      expectCancelledAcknowledgements();
+    });
+  });
+
   describe('idempotency', () => {
     it('skips duplicate commandId', async () => {
       const cmd = buildCommand();

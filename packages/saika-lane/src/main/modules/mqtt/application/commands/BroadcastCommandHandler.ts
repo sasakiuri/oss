@@ -175,6 +175,10 @@ export interface BroadcastCommandHandlerDeps {
 
 export class BroadcastCommandHandler {
   private readonly subscription: TopicSubscription;
+  /** Start times commands of the joined competition still wait for; leaving or disconnecting cancels them. */
+  private readonly pendingWaits = new Set<{ timer: ReturnType<typeof setTimeout>; cancel: () => void }>();
+  /** Changes whenever the competition subscription is closed or replaced. */
+  private subscriptionGeneration = 0;
 
   constructor(private readonly deps: BroadcastCommandHandlerDeps) {
     this.subscription = new TopicSubscription(deps.mqttClient, {
@@ -201,7 +205,17 @@ export class BroadcastCommandHandler {
    * Unsubscribes from the competition
    */
   async unsubscribeFromCompetition(): Promise<void> {
+    this.cancelPendingWaits();
     await this.subscription.close();
+  }
+
+  private cancelPendingWaits(): void {
+    this.subscriptionGeneration += 1;
+    for (const wait of this.pendingWaits) {
+      clearTimeout(wait.timer);
+      wait.cancel();
+    }
+    this.pendingWaits.clear();
   }
 
   /**
@@ -288,9 +302,11 @@ export class BroadcastCommandHandler {
 
     switch (action) {
       case 'start-sighting': {
-        await this.waitUntil(command.timerStartAt);
+        const assertStillJoined = await this.waitUntil(command.timerStartAt);
         this.assertSafetyAllows(action);
         const state = await this.requireCompetition(competitionId);
+        // The lookup yields: a leave or disconnect that landed meanwhile must still prevent the start.
+        assertStillJoined();
         if (state.phase === 'IDLE') {
           await this.deps.commandBus.execute(StartStageToken, { competitionId });
           await this.startTimer(command, competitionId);
@@ -322,9 +338,11 @@ export class BroadcastCommandHandler {
       }
 
       case 'start-match': {
-        await this.waitUntil(command.timerStartAt);
+        const assertStillJoined = await this.waitUntil(command.timerStartAt);
         this.assertSafetyAllows(action);
         const state = await this.requireCompetition(competitionId);
+        // The lookup yields: a leave or disconnect that landed meanwhile must still prevent the start.
+        assertStillJoined();
         const matchStageIndex = this.firstScoredStageIndex(state);
         if (matchStageIndex < 0) {
           throw this.invalidState(action, state, 'a configured scored stage');
@@ -664,11 +682,30 @@ export class BroadcastCommandHandler {
     throw new Error(`Safety stop ${safetyStopId} is active; ${action} is blocked`);
   }
 
-  private async waitUntil(absoluteTime: string): Promise<void> {
+  /**
+   * Waits for a Director start time; rejects if the Lane leaves the competition or disconnects first. The returned
+   * check rejects the same way later, for callers that yield again before they change the competition.
+   */
+  private async waitUntil(absoluteTime: string): Promise<() => void> {
+    const generation = this.subscriptionGeneration;
+    const assertStillJoined = () => {
+      if (generation !== this.subscriptionGeneration) throw ErrorCatalog.createError('MQTT_NOT_IN_COMPETITION');
+    };
     const delayMs = new Date(absoluteTime).getTime() - Date.now();
     if (delayMs > 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+      await new Promise<void>((resolve, reject) => {
+        const wait = {
+          timer: setTimeout(() => {
+            this.pendingWaits.delete(wait);
+            resolve();
+          }, delayMs),
+          cancel: () => reject(ErrorCatalog.createError('MQTT_NOT_IN_COMPETITION')),
+        };
+        this.pendingWaits.add(wait);
+      });
+      assertStillJoined();
     }
+    return assertStillJoined;
   }
 }
 
