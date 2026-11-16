@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { SqliteStartListRepository, StartListService } from '@/main/modules/start-lists';
 
+import { championshipSources } from '../../../../helpers/championshipSources';
 import { migratedDatabase } from '../../../../helpers/database';
 
 const championshipId = '11111111-1111-4111-8111-111111111111';
@@ -18,7 +19,7 @@ describe('StartListService', () => {
     database = migratedDatabase();
     database.pragma('foreign_keys = ON');
     seedEvent(database);
-    service = new StartListService(database, new SqliteStartListRepository(database));
+    service = new StartListService(new SqliteStartListRepository(database), championshipSources(database));
   });
 
   afterEach(() => database.close());
@@ -211,15 +212,19 @@ describe('StartListService', () => {
 
   it('makes an existing version stale and projects a sanctioned entry as a non-starter', () => {
     let blocked = false;
-    const sanctionAwareService = new StartListService(database, new SqliteStartListRepository(database), {
-      assess: (participantId) => ({
-        participantId,
-        eligible: !blocked || participantId !== athleteA,
-        blockingCode: blocked && participantId === athleteA ? 'AD_DSQ' : null,
-        decisionIds: blocked && participantId === athleteA ? ['sanction-1'] : [],
-        reason: blocked && participantId === athleteA ? 'Championship disqualification' : null,
-      }),
-    });
+    const sanctionAwareService = new StartListService(
+      new SqliteStartListRepository(database),
+      championshipSources(database),
+      {
+        assess: (participantId) => ({
+          participantId,
+          eligible: !blocked || participantId !== athleteA,
+          blockingCode: blocked && participantId === athleteA ? 'AD_DSQ' : null,
+          decisionIds: blocked && participantId === athleteA ? ['sanction-1'] : [],
+          reason: blocked && participantId === athleteA ? 'Championship disqualification' : null,
+        }),
+      },
+    );
     const before = sanctionAwareService.createVersion({
       eventId,
       listKind: 'QUALIFICATION',

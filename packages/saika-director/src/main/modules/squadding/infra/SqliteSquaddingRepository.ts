@@ -39,6 +39,10 @@ interface EntryRow {
 export class SqliteSquaddingRepository implements ISquaddingRepository {
   constructor(private readonly db: Database.Database) {}
 
+  transaction<T>(operation: () => T): T {
+    return this.db.transaction(operation)();
+  }
+
   appendDraw(draw: Omit<SquaddingDrawRecord, 'entries'>): void {
     this.db
       .prepare(

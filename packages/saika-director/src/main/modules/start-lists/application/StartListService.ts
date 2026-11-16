@@ -1,7 +1,9 @@
 import { createHash } from 'node:crypto';
-import type Database from 'better-sqlite3';
-
-import { SqliteFiringPointAssignmentRepository, SqliteParticipantRepository } from '@/main/modules/championship';
+import type {
+  IEventSummaryReader,
+  IFiringPointAssignmentRepository,
+  IParticipantRepository,
+} from '@/main/modules/championship';
 import type {
   CreateStartListVersionPayload,
   DistributeStartListPayload,
@@ -29,18 +31,19 @@ import { sha256Json } from '@/main/domain/sha256Json';
 
 type StartListStatus = StartListVersionDto['status'];
 
-export class StartListService {
-  private readonly participants;
-  private readonly assignments;
+/** The championship data a Start List snapshot is built from. */
+export interface StartListSources {
+  readonly events: IEventSummaryReader;
+  readonly participants: Pick<IParticipantRepository, 'findByEventId'>;
+  readonly assignments: Pick<IFiringPointAssignmentRepository, 'findByEventId'>;
+}
 
+export class StartListService {
   constructor(
-    private readonly database: Database.Database,
     private readonly repository: IStartListRepository,
+    private readonly sources: StartListSources,
     private readonly participantEligibility: IParticipantEligibilityReader = allowAllParticipantEligibility,
-  ) {
-    this.participants = new SqliteParticipantRepository(database);
-    this.assignments = new SqliteFiringPointAssignmentRepository(database);
-  }
+  ) {}
 
   list(eventId: string): StartListVersionDto[] {
     return this.projectEvent(this.repository.findByEvent(eventId), eventId);
@@ -57,7 +60,7 @@ export class StartListService {
     const sourceSnapshotJson = JSON.stringify(snapshot);
     const createdAt = validIso(input.createdAt ?? new Date().toISOString(), 'createdAt');
     let id = '';
-    this.database.transaction(() => {
+    this.repository.transaction(() => {
       id = crypto.randomUUID();
       this.repository.appendVersion({
         id,
@@ -75,7 +78,7 @@ export class StartListService {
         createdBy: requiredText(input.createdBy, 'createdBy'),
         createdAt,
       });
-    })();
+    });
     return this.projectOne(id, input.eventId);
   }
 
@@ -247,13 +250,12 @@ export class StartListService {
   }
 
   private buildSnapshot(eventId: string): StartListSnapshot {
-    const event = this.database.prepare('SELECT name, event_type FROM events WHERE id = ?').get(eventId) as
-      { name: string; event_type: string } | undefined;
+    const event = this.sources.events.findSummary(eventId);
     if (!event) throw new Error(`Event not found: ${eventId}`);
     const assignmentsByParticipant = new Map(
-      this.assignments.findByEventId(eventId).map((assignment) => [assignment.participantId.value, assignment]),
+      this.sources.assignments.findByEventId(eventId).map((assignment) => [assignment.participantId.value, assignment]),
     );
-    const rows = this.participants
+    const rows = this.sources.participants
       .findByEventId(eventId)
       .map((participant) => {
         const assignment = assignmentsByParticipant.get(participant.id.value);
@@ -278,7 +280,7 @@ export class StartListService {
         };
       })
       .sort(compareRows);
-    return { eventName: event.name, competitionTypeId: event.event_type, rows };
+    return { eventName: event.name, competitionTypeId: event.eventType, rows };
   }
 }
 

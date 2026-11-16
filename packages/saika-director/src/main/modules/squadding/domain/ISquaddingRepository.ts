@@ -37,4 +37,6 @@ export interface ISquaddingRepository {
   appendEntry(entry: SquaddingDrawEntryRecord): void;
   findByEvent(eventId: string): SquaddingDrawRecord[];
   findById(id: string): SquaddingDrawRecord | null;
+  /** Runs the operation in one database transaction. */
+  transaction<T>(operation: () => T): T;
 }

@@ -10,6 +10,7 @@ import { SqliteSquaddingRepository } from '@/main/modules/squadding/infra/Sqlite
 import { CompetitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
 
+import { championshipSources } from '../../../../helpers/championshipSources';
 import { migratedDatabase } from '../../../../helpers/database';
 
 const CHAMPIONSHIP_ID = '11111111-1111-4111-8111-111111111111';
@@ -38,7 +39,7 @@ describe('SquaddingService', () => {
   afterEach(() => database.close());
 
   it('keeps draw, Technical Delegate approval, and explicit assignment application separate', () => {
-    const service = new SquaddingService(database, repository, registry);
+    const service = new SquaddingService(repository, championshipSources(database), registry);
     const draw = service.createDraw(createInput());
 
     expect(draw.approval).toBeNull();
@@ -69,7 +70,7 @@ describe('SquaddingService', () => {
   });
 
   it('rejects approval after official entry data changes', () => {
-    const service = new SquaddingService(database, repository, registry);
+    const service = new SquaddingService(repository, championshipSources(database), registry);
     const draw = service.createDraw(createInput());
 
     database.prepare('UPDATE participants SET nation_code = ? WHERE id = ?').run('CAN', PARTICIPANTS[0][0]);
@@ -94,8 +95,9 @@ describe('SquaddingService', () => {
       },
       findByEvent: (eventId) => repository.findByEvent(eventId),
       findById: (id) => repository.findById(id),
+      transaction: (operation) => repository.transaction(operation),
     };
-    const service = new SquaddingService(database, failingRepository, registry);
+    const service = new SquaddingService(failingRepository, championshipSources(database), registry);
     const draw = service.createDraw(createInput());
     service.approve({
       drawId: draw.id,
