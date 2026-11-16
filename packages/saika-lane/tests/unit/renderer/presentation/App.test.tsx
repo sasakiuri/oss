@@ -18,14 +18,10 @@ vi.mock('@/renderer/presentation/hooks/useAudioPlayback', () => ({
 
 vi.mock('@/renderer/presentation/hooks/useCompetition', () => ({
   useCompetition: vi.fn().mockReturnValue({
-    startCompetition: vi.fn().mockResolvedValue({ competitionId: 'comp-1', sessionId: 'session-1' }),
     startStage: vi.fn().mockResolvedValue({ sessionId: 'session-1' }),
     endStage: vi.fn().mockResolvedValue(undefined),
     startNextSeries: vi.fn().mockResolvedValue(undefined),
     advanceStage: vi.fn().mockResolvedValue(undefined),
-    finishCompetition: vi.fn().mockResolvedValue(undefined),
-    loading: false,
-    error: null,
   }),
 }));
 
