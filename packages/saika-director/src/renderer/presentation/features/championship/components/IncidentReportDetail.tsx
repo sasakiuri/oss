@@ -10,7 +10,7 @@ import type {
 
 import { Button } from '../../shared/common/Button';
 import { fullWidthInputClass } from '../../shared/common/formClasses';
-import { RoleOptions } from './IncidentReportCreateForm';
+import { RoleOptions } from './IncidentReportRoleOptions';
 
 interface IncidentReportDetailProps {
   report: RangeIncidentReportDto;
