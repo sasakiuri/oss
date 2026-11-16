@@ -2,7 +2,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SafetyStopPanel } from '@/renderer/presentation/features/range-safety/SafetyStopPanel';
+import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import type { DirectorLaneSnapshotDto } from '@/shared/ipc/contracts';
+
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
 
 const { activateSafetyStop, clearSafetyStop, getSafetyStopAudit } = vi.hoisted(() => ({
   activateSafetyStop: vi.fn(),
@@ -124,5 +127,50 @@ describe('SafetyStopPanel', () => {
         ],
       }),
     );
+  });
+
+  it('notifies failed STOP and clearance commands with their messages or the fallback texts', async () => {
+    useNotificationStore.setState({ notifications: [] });
+    const lastNotification = () => {
+      const latest = useNotificationStore.getState().notifications.at(-1);
+      return latest && { type: latest.type, message: latest.message };
+    };
+    activateSafetyStop
+      .mockResolvedValueOnce(fail('Broker is not connected'))
+      .mockRejectedValueOnce(new Error('Command timed out'))
+      .mockRejectedValueOnce('offline');
+    const { unmount } = render(<SafetyStopPanel connected lanes={[lane()]} targetLaneIds={[LANE_ID]} />);
+    const stop = screen.getByRole('button', { name: /EMERGENCY STOP/ });
+    fireEvent.click(stop);
+    await waitFor(() => expect(lastNotification()).toEqual({ type: 'error', message: 'Broker is not connected' }));
+    await waitFor(() => expect(stop).toBeEnabled());
+    fireEvent.click(stop);
+    await waitFor(() => expect(lastNotification()).toEqual({ type: 'error', message: 'Command timed out' }));
+    await waitFor(() => expect(stop).toBeEnabled());
+    fireEvent.click(stop);
+    await waitFor(() =>
+      expect(lastNotification()).toEqual({ type: 'error', message: 'Failed to issue the safety STOP' }),
+    );
+    expect(getSafetyStopAudit).toHaveBeenCalledTimes(1);
+    unmount();
+
+    clearSafetyStop
+      .mockResolvedValueOnce(fail('Safety stop is not active', 'CONFLICT'))
+      .mockRejectedValueOnce('offline');
+    render(<SafetyStopPanel connected lanes={[lane(true, true)]} targetLaneIds={[LANE_ID]} />);
+    fireEvent.click(screen.getByLabelText('Select safety clearance for Firing point 1'));
+    fireEvent.change(screen.getByLabelText('Athlete confirmation for Firing point 1'), {
+      target: { value: 'CONFIRMED' },
+    });
+    fireEvent.click(screen.getByLabelText('Personnel clear for Firing point 1'));
+    const clear = screen.getByRole('button', { name: /Clear 1 verified Lane/ });
+    fireEvent.click(clear);
+    await waitFor(() => expect(lastNotification()).toEqual({ type: 'error', message: 'Safety stop is not active' }));
+    await waitFor(() => expect(clear).toBeEnabled());
+    fireEvent.click(clear);
+    await waitFor(() =>
+      expect(lastNotification()).toEqual({ type: 'error', message: 'Failed to clear the safety latch' }),
+    );
+    expect(getSafetyStopAudit).toHaveBeenCalledTimes(2);
   });
 });
