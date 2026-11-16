@@ -155,6 +155,18 @@ describe('StartListPanel', () => {
     expect(screen.getByText('CURRENT DISTRIBUTED VERSION')).toBeVisible();
   });
 
+  it('shows a successful command without a version as the fallback text and does not reload', async () => {
+    await renderWith([]);
+    vi.mocked(startListsService.createVersion).mockResolvedValueOnce({ success: true } as never);
+    fireEvent.change(screen.getByLabelText('Snapshot operator'), { target: { value: 'Operator' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create snapshot version' }));
+
+    expect(await screen.findByText(/^Start List operation failed$/)).toBeVisible();
+    expect(screen.getByLabelText('Snapshot operator')).toHaveValue('Operator');
+    expect(startListsService.list).toHaveBeenCalledTimes(1);
+  });
+
   it('shows a failed command as its message, its fallback text or the rejected value', async () => {
     await renderWith([]);
     vi.mocked(startListsService.createVersion)
@@ -400,7 +412,7 @@ describe('StartListPanel', () => {
     expect(click.mock.invocationCallOrder[0]).toBeLessThan(revokeObjectURL.mock.invocationCallOrder[0]!);
     expect(blob?.type).toBe('text/csv;charset=utf-8');
     const expected =
-      '﻿' +
+      '\uFEFF' +
       [
         '"Relay","Firing point","Bib","ISSF ID","Athlete","Family name","Nation","Affiliation","Status","Team"',
         '"1","12","101","SHMUSA0101","Zoë Müller","MÜLLER","GER","Club ""Adler"", Berlin","COMPETING","Germany 1"',
