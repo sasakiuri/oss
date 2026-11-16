@@ -37,10 +37,8 @@ export class AssignedMalfunctionFiringContextSource implements IMalfunctionFirin
       throw new Error('The Lane Rule Pack does not match the authorization');
     const stage = competition.currentStageConfig;
     const stageRule = config.qualificationMalfunction?.stages.find((rule) => rule.stageId === stage.id);
-    const matchProgram = config.timedTarget?.programs.find(
-      (program) => program.id === competition.currentSeriesConfig.timedTargetProgramId,
-    );
-    const targetProfileId = stage.targetProfileId ?? config.targetProfileId;
+    const matchProgram = competition.timedTargetProgram(competition.currentSeriesConfig.timedTargetProgramId);
+    const targetProfileId = competition.effectiveTargetProfileId;
     if (!stage.scored || !stageRule || !matchProgram || !targetProfileId)
       throw new Error('The Lane has no malfunction firing capability for this stage');
     if (!this.mayFire()) throw new Error('Range safety STOP is active');

@@ -38,10 +38,8 @@ export class AssignedFinalRecoveryFiringContextSource implements IMalfunctionFir
       throw new Error('The Final Rule Pack has changed');
     const stage = competition.currentStageConfig;
     const recovery = config.timedTarget?.recovery;
-    const matchProgram = config.timedTarget?.programs.find(
-      (program) => program.id === competition.currentSeriesConfig.timedTargetProgramId,
-    );
-    const targetProfileId = stage.targetProfileId ?? config.targetProfileId;
+    const matchProgram = competition.timedTargetProgram(competition.currentSeriesConfig.timedTargetProgramId);
+    const targetProfileId = competition.effectiveTargetProfileId;
     if (!stage.scored || recovery?.procedure !== 'FINAL' || !matchProgram || !targetProfileId)
       throw new Error('This stage has no 25m Final recovery firing capability');
     if (!this.mayFire()) throw new Error('Range safety STOP is active');
