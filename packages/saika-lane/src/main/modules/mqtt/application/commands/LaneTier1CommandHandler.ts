@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Handles competition membership and starts competition subscriptions after joining. */
 
+import { commandSchemasForScope, type MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
@@ -16,13 +17,7 @@ import {
   type ICommandAuthorizationPolicy,
 } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import {
-  ActivateSafetyStopCmdSchema,
-  ClearSafetyStopCmdSchema,
-  JoinCompetitionCmdSchema,
-  LeaveCompetitionCmdSchema,
-  ProbeClockCmdSchema,
-} from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -32,16 +27,9 @@ import type { BroadcastCommandHandler } from './BroadcastCommandHandler';
 import { LaneCommandProcessor, type LaneCommandSchemas } from './LaneCommandProcessor';
 import type { PerLaneCommandHandler } from './PerLaneCommandHandler';
 
-type Tier1Action =
-  'join-competition' | 'leave-competition' | 'probe-clock' | 'activate-safety-stop' | 'clear-safety-stop';
+type Tier1Action = MqttCommandActionOf<'lane'>;
 
-const ACTION_SCHEMAS: LaneCommandSchemas<Tier1Action> = {
-  'join-competition': JoinCompetitionCmdSchema,
-  'leave-competition': LeaveCompetitionCmdSchema,
-  'probe-clock': ProbeClockCmdSchema,
-  'activate-safety-stop': ActivateSafetyStopCmdSchema,
-  'clear-safety-stop': ClearSafetyStopCmdSchema,
-};
+const ACTION_SCHEMAS: LaneCommandSchemas<Tier1Action> = commandSchemasForScope(laneCommandSchemas, 'lane');
 
 type Tier1Topic = ParsedMqttTopicOf<'laneCommand'>;
 

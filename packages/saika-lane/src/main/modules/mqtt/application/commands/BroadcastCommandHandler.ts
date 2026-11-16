@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Handles competition-wide commands and acknowledges executing, done, or error states. */
 
+import { commandSchemasForScope, type MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
 import {
@@ -23,20 +24,7 @@ import {
   type ICommandAuthorizationPolicy,
 } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import {
-  AdvanceSeriesCmdSchema,
-  CancelTimedTargetCmdSchema,
-  RecordTimedTargetUnloadCmdSchema,
-  EndSightingCmdSchema,
-  FinishCompetitionCmdSchema,
-  StartMatchCmdSchema,
-  StartSightingCmdSchema,
-  StartShootOffCmdSchema,
-  StartTimedTargetCmdSchema,
-  StopShootOffCmdSchema,
-  TimerExpiredCmdSchema,
-  TimerStartedCmdSchema,
-} from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { timedTargetProgramDurationMilliseconds } from '@/main/modules/timed-target/domain/TimedTargetSchedule';
@@ -46,19 +34,7 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import { LaneCommandProcessor, type LaneCommandSchemas, type CommandPreparation } from './LaneCommandProcessor';
 
-type BroadcastAction =
-  | 'start-sighting'
-  | 'end-sighting'
-  | 'start-match'
-  | 'advance-series'
-  | 'finish-competition'
-  | 'timer-started'
-  | 'timer-expired'
-  | 'start-shoot-off'
-  | 'stop-shoot-off'
-  | 'start-timed-target'
-  | 'cancel-timed-target'
-  | 'record-timed-target-unload';
+type BroadcastAction = MqttCommandActionOf<'competition'>;
 
 const CLOCK_DRIFT_WARNING_THRESHOLD_MS = 5_000;
 const CLOCK_DRIFT_REJECT_THRESHOLD_MS = 30_000;
@@ -71,20 +47,7 @@ const TIMER_ACTIONS: ReadonlySet<BroadcastAction> = new Set([
   'start-timed-target',
 ]);
 
-const ACTION_SCHEMAS: LaneCommandSchemas<BroadcastAction> = {
-  'start-sighting': StartSightingCmdSchema,
-  'end-sighting': EndSightingCmdSchema,
-  'start-match': StartMatchCmdSchema,
-  'advance-series': AdvanceSeriesCmdSchema,
-  'finish-competition': FinishCompetitionCmdSchema,
-  'timer-started': TimerStartedCmdSchema,
-  'timer-expired': TimerExpiredCmdSchema,
-  'start-shoot-off': StartShootOffCmdSchema,
-  'stop-shoot-off': StopShootOffCmdSchema,
-  'start-timed-target': StartTimedTargetCmdSchema,
-  'cancel-timed-target': CancelTimedTargetCmdSchema,
-  'record-timed-target-unload': RecordTimedTargetUnloadCmdSchema,
-};
+const ACTION_SCHEMAS: LaneCommandSchemas<BroadcastAction> = commandSchemasForScope(laneCommandSchemas, 'competition');
 
 type BroadcastTopic = ParsedMqttTopicOf<'competitionCommand'>;
 

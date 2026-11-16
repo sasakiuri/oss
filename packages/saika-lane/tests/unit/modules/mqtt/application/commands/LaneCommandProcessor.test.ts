@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
+import type { CommandAcknowledgement } from '@sasakiuri/saika-protocol/Acknowledgement';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import { LaneCommandProcessor } from '@/main/modules/mqtt/application/commands/LaneCommandProcessor';
 import { CommandAuthorizationPolicy } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
-import { ProbeClockCmdSchema, type CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
@@ -16,7 +17,7 @@ const now = '2026-09-09T00:00:00.000Z';
 const command = { commandId, issuedBy: 'director', issuedAt: now, directorSentAt: now };
 
 function setup(policy = new CommandAuthorizationPolicy(), canExecute = () => true) {
-  const publications: CommandAckPayload[] = [];
+  const publications: CommandAcknowledgement[] = [];
   const mqtt = {
     publish: vi.fn(async (_topic: string, payload: string) => {
       publications.push(JSON.parse(payload));
@@ -29,7 +30,7 @@ function setup(policy = new CommandAuthorizationPolicy(), canExecute = () => tru
     action: 'probe-clock',
     payload: Buffer.from(JSON.stringify(command)),
     acknowledgementTopic: 'ack',
-    schemas: { 'probe-clock': ProbeClockCmdSchema },
+    schemas: { 'probe-clock': laneCommandSchemas.ProbeClockCommandSchema },
     execute,
   };
   return { processor, mqtt, guard, publications, execute, request };

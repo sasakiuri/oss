@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
+import type { CommandAcknowledgement } from '@sasakiuri/saika-protocol/Acknowledgement';
 import type { z } from 'zod';
 
 import type { ICommandAuthorizationPolicy } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import type { CommandAckPayload } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
@@ -109,8 +109,11 @@ export class LaneCommandProcessor {
     }
   }
 
-  private async publishAck(topic: string, result: Omit<CommandAckPayload, 'laneId' | 'acknowledgedAt'>): Promise<void> {
-    const ack: CommandAckPayload = {
+  private async publishAck(
+    topic: string,
+    result: Omit<CommandAcknowledgement, 'laneId' | 'acknowledgedAt'>,
+  ): Promise<void> {
+    const ack: CommandAcknowledgement = {
       ...result,
       // DomainError contains internal metadata; only the wire error fields belong in an ACK.
       ...(result.error ? { error: { code: result.error.code, message: result.error.message } } : {}),
