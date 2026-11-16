@@ -18,6 +18,7 @@ import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTime
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import {
@@ -44,7 +45,7 @@ export class LaneVistaSource {
   private readonly rejectedArchives = new Map<string, VistaCatalog['subjects'][number]>();
   private readonly blockedFiles = new Set<string>();
   private readonly blockedCompetitions = new Set<string>();
-  private queue: Promise<void> = Promise.resolve();
+  private readonly refreshes = new SerialQueue();
   private pendingRefresh: { ids: Set<string> | null; promise: Promise<void> } | null = null;
   private archiveError: string | null = null;
   private refreshError: string | null = null;
@@ -134,21 +135,23 @@ export class LaneVistaSource {
       else this.pendingRefresh.ids?.add(competitionId);
       return this.pendingRefresh.promise;
     }
-    const request = { ids: competitionId === undefined ? null : new Set([competitionId]), promise: this.queue };
-    const next = this.queue.then(async () => {
-      // Let serial data and IPC run before projection work. Events arriving
-      // during a capture schedule a subsequent pass; pending events share one.
-      await setImmediate();
-      this.pendingRefresh = null;
-      await this.capture(request.ids);
-      this.refreshError = null;
-    });
-    request.promise = next;
+    const request = {
+      ids: competitionId === undefined ? null : new Set([competitionId]),
+      promise: this.refreshes.run(async () => {
+        // Let serial data and IPC run before projection work. Events arriving
+        // during a capture schedule a subsequent pass; pending events share one.
+        await setImmediate();
+        this.pendingRefresh = null;
+        await this.capture(request.ids);
+        this.refreshError = null;
+      }),
+    };
     this.pendingRefresh = request;
-    this.queue = next.catch((error: unknown) => {
+    // Recorded before the next queued pass starts, as that pass clears it on success.
+    void request.promise.catch((error: unknown) => {
       this.refreshError = error instanceof Error ? error.message : 'Vista snapshot persistence failed';
     });
-    return next;
+    return request.promise;
   }
 
   async handle(method: string, path: string): Promise<unknown> {
