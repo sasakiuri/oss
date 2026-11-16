@@ -1,29 +1,31 @@
 // SPDX-License-Identifier: MIT
 import assert from 'node:assert/strict';
 
+import { CommandAcknowledgementSchema } from '@sasakiuri/saika-protocol/Acknowledgement';
 import { describe, expect, it } from 'vitest';
 
-import {
-  AdvanceSeriesCmdSchema,
-  ApplyQualificationRecoveryCmdSchema,
-  AssignAthleteCmdSchema,
-  CancelQualificationRecoveryCmdSchema,
-  CommandAckPayloadSchema,
-  EndSightingCmdSchema,
-  FinishCompetitionCmdSchema,
-  JoinCompetitionCmdSchema,
-  LeaveCompetitionCmdSchema,
-  PauseTimerCmdSchema,
-  ResetSessionCmdSchema,
-  ResumeMatchCmdSchema,
-  ResumeTimerCmdSchema,
-  StartMatchCmdSchema,
-  StartQualificationRecoveryCmdSchema,
-  StartSightingCmdSchema,
-  StartShootOffCmdSchema,
-  TimerExpiredCmdSchema,
-  TimerStartedCmdSchema,
-} from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+
+const {
+  AdvanceSeriesCommandSchema,
+  ApplyQualificationRecoveryCommandSchema,
+  AssignAthleteCommandSchema,
+  CancelQualificationRecoveryCommandSchema,
+  EndSightingCommandSchema,
+  FinishCompetitionCommandSchema,
+  JoinCompetitionCommandSchema,
+  LeaveCompetitionCommandSchema,
+  PauseTimerCommandSchema,
+  ResetSessionCommandSchema,
+  ResumeMatchCommandSchema,
+  ResumeTimerCommandSchema,
+  StartMatchCommandSchema,
+  StartQualificationRecoveryCommandSchema,
+  StartSightingCommandSchema,
+  StartShootOffCommandSchema,
+  TimerExpiredCommandSchema,
+  TimerStartedCommandSchema,
+} = laneCommandSchemas;
 
 const validBase = () => ({
   commandId: crypto.randomUUID(),
@@ -38,7 +40,7 @@ describe('MqttCommandSchemas', () => {
 
   describe('CommandBase fields', () => {
     it('rejects non-UUID commandId', () => {
-      const result = JoinCompetitionCmdSchema.safeParse({
+      const result = JoinCompetitionCommandSchema.safeParse({
         ...validBase(),
         commandId: 'not-a-uuid',
         competitionId: crypto.randomUUID(),
@@ -47,7 +49,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects non-datetime issuedAt', () => {
-      const result = JoinCompetitionCmdSchema.safeParse({
+      const result = JoinCompetitionCommandSchema.safeParse({
         ...validBase(),
         issuedAt: 'yesterday',
         competitionId: crypto.randomUUID(),
@@ -57,7 +59,7 @@ describe('MqttCommandSchemas', () => {
 
     it('rejects missing issuedBy', () => {
       const { issuedBy: _, ...base } = validBase();
-      const result = JoinCompetitionCmdSchema.safeParse({
+      const result = JoinCompetitionCommandSchema.safeParse({
         ...base,
         competitionId: crypto.randomUUID(),
       });
@@ -69,9 +71,9 @@ describe('MqttCommandSchemas', () => {
   // Tier 1 Lane Commands
   // ============================================================
 
-  describe('JoinCompetitionCmdSchema', () => {
+  describe('JoinCompetitionCommandSchema', () => {
     it('accepts valid data', () => {
-      const result = JoinCompetitionCmdSchema.safeParse({
+      const result = JoinCompetitionCommandSchema.safeParse({
         ...validBase(),
         competitionId: crypto.randomUUID(),
       });
@@ -79,7 +81,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects non-UUID competitionId', () => {
-      const result = JoinCompetitionCmdSchema.safeParse({
+      const result = JoinCompetitionCommandSchema.safeParse({
         ...validBase(),
         competitionId: 'abc',
       });
@@ -87,14 +89,14 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects missing competitionId', () => {
-      const result = JoinCompetitionCmdSchema.safeParse(validBase());
+      const result = JoinCompetitionCommandSchema.safeParse(validBase());
       expect(result.success).toBe(false);
     });
   });
 
-  describe('LeaveCompetitionCmdSchema', () => {
+  describe('LeaveCompetitionCommandSchema', () => {
     it('accepts valid data', () => {
-      const result = LeaveCompetitionCmdSchema.safeParse({
+      const result = LeaveCompetitionCommandSchema.safeParse({
         ...validBase(),
         competitionId: crypto.randomUUID(),
       });
@@ -102,7 +104,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects missing competitionId', () => {
-      const result = LeaveCompetitionCmdSchema.safeParse(validBase());
+      const result = LeaveCompetitionCommandSchema.safeParse(validBase());
       expect(result.success).toBe(false);
     });
   });
@@ -111,9 +113,9 @@ describe('MqttCommandSchemas', () => {
   // Broadcast Commands
   // ============================================================
 
-  describe('StartSightingCmdSchema', () => {
+  describe('StartSightingCommandSchema', () => {
     it('accepts valid data without targetLaneIds', () => {
-      const result = StartSightingCmdSchema.safeParse({
+      const result = StartSightingCommandSchema.safeParse({
         ...validBase(),
         timerStartAt: new Date().toISOString(),
         timerDurationSeconds: 900,
@@ -122,7 +124,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts valid data with targetLaneIds', () => {
-      const result = StartSightingCmdSchema.safeParse({
+      const result = StartSightingCommandSchema.safeParse({
         ...validBase(),
         timerStartAt: new Date().toISOString(),
         timerDurationSeconds: 900,
@@ -132,7 +134,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects non-positive timerDurationSeconds', () => {
-      const result = StartSightingCmdSchema.safeParse({
+      const result = StartSightingCommandSchema.safeParse({
         ...validBase(),
         timerStartAt: new Date().toISOString(),
         timerDurationSeconds: 0,
@@ -141,7 +143,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects non-integer timerDurationSeconds', () => {
-      const result = StartSightingCmdSchema.safeParse({
+      const result = StartSightingCommandSchema.safeParse({
         ...validBase(),
         timerStartAt: new Date().toISOString(),
         timerDurationSeconds: 10.5,
@@ -150,16 +152,16 @@ describe('MqttCommandSchemas', () => {
     });
   });
 
-  describe('EndSightingCmdSchema', () => {
+  describe('EndSightingCommandSchema', () => {
     it('accepts valid base data', () => {
-      const result = EndSightingCmdSchema.safeParse(validBase());
+      const result = EndSightingCommandSchema.safeParse(validBase());
       expect(result.success).toBe(true);
     });
   });
 
-  describe('StartMatchCmdSchema', () => {
+  describe('StartMatchCommandSchema', () => {
     it('accepts valid data', () => {
-      const result = StartMatchCmdSchema.safeParse({
+      const result = StartMatchCommandSchema.safeParse({
         ...validBase(),
         timerStartAt: new Date().toISOString(),
         timerDurationSeconds: 3600,
@@ -168,7 +170,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts a missing generic duration for independently timed-target matches', () => {
-      const result = StartMatchCmdSchema.safeParse({
+      const result = StartMatchCommandSchema.safeParse({
         ...validBase(),
         timerStartAt: new Date().toISOString(),
       });
@@ -176,7 +178,7 @@ describe('MqttCommandSchemas', () => {
     });
   });
 
-  describe('StartShootOffCmdSchema', () => {
+  describe('StartShootOffCommandSchema', () => {
     const shootOff = () => ({
       ...validBase(),
       runId: crypto.randomUUID(),
@@ -187,9 +189,9 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts either a generic window or a RulePack timed-target program', () => {
-      expect(StartShootOffCmdSchema.safeParse({ ...shootOff(), timerDurationSeconds: 60 }).success).toBe(true);
+      expect(StartShootOffCommandSchema.safeParse({ ...shootOff(), timerDurationSeconds: 60 }).success).toBe(true);
       expect(
-        StartShootOffCmdSchema.safeParse({
+        StartShootOffCommandSchema.safeParse({
           ...shootOff(),
           timedTarget: {
             programId: 'P25_FINAL_SHOOT_OFF_RAPID_3_7',
@@ -200,9 +202,9 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects an ambiguous or missing shoot-off timing source', () => {
-      expect(StartShootOffCmdSchema.safeParse(shootOff()).success).toBe(false);
+      expect(StartShootOffCommandSchema.safeParse(shootOff()).success).toBe(false);
       expect(
-        StartShootOffCmdSchema.safeParse({
+        StartShootOffCommandSchema.safeParse({
           ...shootOff(),
           timerDurationSeconds: 60,
           timedTarget: { programId: 'RFPM_FINAL_SHOOT_OFF_4', participantExecution: 'SEQUENTIAL' },
@@ -211,9 +213,9 @@ describe('MqttCommandSchemas', () => {
     });
   });
 
-  describe('TimerStartedCmdSchema', () => {
+  describe('TimerStartedCommandSchema', () => {
     it('accepts valid data with nullable seriesIndex', () => {
-      const result = TimerStartedCmdSchema.safeParse({
+      const result = TimerStartedCommandSchema.safeParse({
         ...validBase(),
         timerScope: 'STAGE',
         timerStartAt: new Date().toISOString(),
@@ -225,7 +227,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts valid data with seriesIndex', () => {
-      const result = TimerStartedCmdSchema.safeParse({
+      const result = TimerStartedCommandSchema.safeParse({
         ...validBase(),
         timerScope: 'SERIES',
         timerStartAt: new Date().toISOString(),
@@ -237,7 +239,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects invalid timerScope', () => {
-      const result = TimerStartedCmdSchema.safeParse({
+      const result = TimerStartedCommandSchema.safeParse({
         ...validBase(),
         timerScope: 'INVALID',
         timerStartAt: new Date().toISOString(),
@@ -249,7 +251,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects negative stageIndex', () => {
-      const result = TimerStartedCmdSchema.safeParse({
+      const result = TimerStartedCommandSchema.safeParse({
         ...validBase(),
         timerScope: 'STAGE',
         timerStartAt: new Date().toISOString(),
@@ -261,9 +263,9 @@ describe('MqttCommandSchemas', () => {
     });
   });
 
-  describe('TimerExpiredCmdSchema', () => {
+  describe('TimerExpiredCommandSchema', () => {
     it('accepts valid data', () => {
-      const result = TimerExpiredCmdSchema.safeParse({
+      const result = TimerExpiredCommandSchema.safeParse({
         ...validBase(),
         timerScope: 'SERIES',
         stageIndex: 1,
@@ -274,7 +276,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects missing expiredAt', () => {
-      const result = TimerExpiredCmdSchema.safeParse({
+      const result = TimerExpiredCommandSchema.safeParse({
         ...validBase(),
         timerScope: 'SERIES',
         stageIndex: 1,
@@ -284,9 +286,9 @@ describe('MqttCommandSchemas', () => {
     });
   });
 
-  describe('AdvanceSeriesCmdSchema', () => {
+  describe('AdvanceSeriesCommandSchema', () => {
     it('accepts valid data without optional timerStartAt', () => {
-      const result = AdvanceSeriesCmdSchema.safeParse({
+      const result = AdvanceSeriesCommandSchema.safeParse({
         ...validBase(),
         stageIndex: 0,
         fromSeriesIndex: 1,
@@ -295,7 +297,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts valid data with timerStartAt', () => {
-      const result = AdvanceSeriesCmdSchema.safeParse({
+      const result = AdvanceSeriesCommandSchema.safeParse({
         ...validBase(),
         stageIndex: 0,
         fromSeriesIndex: 1,
@@ -308,7 +310,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects negative fromSeriesIndex', () => {
-      const result = AdvanceSeriesCmdSchema.safeParse({
+      const result = AdvanceSeriesCommandSchema.safeParse({
         ...validBase(),
         stageIndex: 0,
         fromSeriesIndex: -1,
@@ -317,9 +319,9 @@ describe('MqttCommandSchemas', () => {
     });
   });
 
-  describe('FinishCompetitionCmdSchema', () => {
+  describe('FinishCompetitionCommandSchema', () => {
     it('accepts valid base data', () => {
-      const result = FinishCompetitionCmdSchema.safeParse(validBase());
+      const result = FinishCompetitionCommandSchema.safeParse(validBase());
       expect(result.success).toBe(true);
     });
   });
@@ -328,9 +330,9 @@ describe('MqttCommandSchemas', () => {
   // Per-Lane Commands
   // ============================================================
 
-  describe('AssignAthleteCmdSchema', () => {
+  describe('AssignAthleteCommandSchema', () => {
     it('accepts valid athlete data', () => {
-      const result = AssignAthleteCmdSchema.safeParse({
+      const result = AssignAthleteCommandSchema.safeParse({
         ...validBase(),
         athlete: {
           startNumber: 1,
@@ -342,7 +344,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts athlete with optional fields', () => {
-      const result = AssignAthleteCmdSchema.safeParse({
+      const result = AssignAthleteCommandSchema.safeParse({
         ...validBase(),
         athlete: {
           startNumber: 1,
@@ -356,7 +358,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts null athlete (unassign)', () => {
-      const result = AssignAthleteCmdSchema.safeParse({
+      const result = AssignAthleteCommandSchema.safeParse({
         ...validBase(),
         athlete: null,
       });
@@ -364,7 +366,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects non-positive startNumber', () => {
-      const result = AssignAthleteCmdSchema.safeParse({
+      const result = AssignAthleteCommandSchema.safeParse({
         ...validBase(),
         athlete: {
           startNumber: 0,
@@ -376,19 +378,19 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects missing athlete field', () => {
-      const result = AssignAthleteCmdSchema.safeParse(validBase());
+      const result = AssignAthleteCommandSchema.safeParse(validBase());
       expect(result.success).toBe(false);
     });
   });
 
-  describe('ResetSessionCmdSchema', () => {
+  describe('ResetSessionCommandSchema', () => {
     it('accepts valid data without reason', () => {
-      const result = ResetSessionCmdSchema.safeParse(validBase());
+      const result = ResetSessionCommandSchema.safeParse(validBase());
       expect(result.success).toBe(true);
     });
 
     it('accepts valid data with reason', () => {
-      const result = ResetSessionCmdSchema.safeParse({
+      const result = ResetSessionCommandSchema.safeParse({
         ...validBase(),
         reason: 'equipment malfunction',
       });
@@ -401,14 +403,14 @@ describe('MqttCommandSchemas', () => {
 
     it('accepts pause, timed resume, and MATCH resume commands', () => {
       expect(
-        PauseTimerCmdSchema.safeParse({
+        PauseTimerCommandSchema.safeParse({
           ...validBase(),
           interruptionId,
           pausedAt: new Date().toISOString(),
         }).success,
       ).toBe(true);
       expect(
-        ResumeTimerCmdSchema.safeParse({
+        ResumeTimerCommandSchema.safeParse({
           ...validBase(),
           interruptionId,
           timerStartAt: new Date().toISOString(),
@@ -416,12 +418,12 @@ describe('MqttCommandSchemas', () => {
           unlimitedSightingShots: true,
         }).success,
       ).toBe(true);
-      expect(ResumeMatchCmdSchema.safeParse({ ...validBase(), interruptionId }).success).toBe(true);
+      expect(ResumeMatchCommandSchema.safeParse({ ...validBase(), interruptionId }).success).toBe(true);
     });
 
     it('rejects a resume without a positive authorized duration', () => {
       expect(
-        ResumeTimerCmdSchema.safeParse({
+        ResumeTimerCommandSchema.safeParse({
           ...validBase(),
           interruptionId,
           timerStartAt: new Date().toISOString(),
@@ -459,16 +461,16 @@ describe('MqttCommandSchemas', () => {
 
     it('accepts a firing-only official recovery and its independent cancellation', () => {
       const command = start();
-      expect(StartQualificationRecoveryCmdSchema.safeParse(command).success).toBe(true);
+      expect(StartQualificationRecoveryCommandSchema.safeParse(command).success).toBe(true);
       expect(
-        CancelQualificationRecoveryCmdSchema.safeParse({
+        CancelQualificationRecoveryCommandSchema.safeParse({
           ...validBase(),
           runId: command.runId,
           reason: 'Jury cancelled this recovery window',
         }).success,
       ).toBe(true);
       expect(
-        ApplyQualificationRecoveryCmdSchema.safeParse({
+        ApplyQualificationRecoveryCommandSchema.safeParse({
           ...validBase(),
           runId: command.runId,
           appliedBy: 'Range Officer B',
@@ -480,7 +482,7 @@ describe('MqttCommandSchemas', () => {
 
     it('rejects KEEP_RECORDED_SERIES and zero-shot firing commands', () => {
       expect(
-        StartQualificationRecoveryCmdSchema.safeParse({
+        StartQualificationRecoveryCommandSchema.safeParse({
           ...start(),
           authorization: {
             phase: 'SERIES_RECOVERY',
@@ -489,13 +491,13 @@ describe('MqttCommandSchemas', () => {
         }).success,
       ).toBe(false);
       expect(
-        StartQualificationRecoveryCmdSchema.safeParse({
+        StartQualificationRecoveryCommandSchema.safeParse({
           ...start(),
           authorization: { phase: 'EXTRA_SIGHTING', shotsToFire: 0 },
         }).success,
       ).toBe(false);
       expect(
-        ApplyQualificationRecoveryCmdSchema.safeParse({
+        ApplyQualificationRecoveryCommandSchema.safeParse({
           ...validBase(),
           runId: crypto.randomUUID(),
           appliedBy: '',
@@ -510,9 +512,9 @@ describe('MqttCommandSchemas', () => {
   // ACK
   // ============================================================
 
-  describe('CommandAckPayloadSchema', () => {
+  describe('CommandAcknowledgementSchema', () => {
     it('accepts valid ACK without error/warning', () => {
-      const result = CommandAckPayloadSchema.safeParse({
+      const result = CommandAcknowledgementSchema.safeParse({
         commandId: crypto.randomUUID(),
         laneId: crypto.randomUUID(),
         status: 'done',
@@ -522,7 +524,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts valid ACK with error', () => {
-      const result = CommandAckPayloadSchema.safeParse({
+      const result = CommandAcknowledgementSchema.safeParse({
         commandId: crypto.randomUUID(),
         laneId: crypto.randomUUID(),
         status: 'error',
@@ -533,7 +535,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts valid ACK with warning', () => {
-      const result = CommandAckPayloadSchema.safeParse({
+      const result = CommandAcknowledgementSchema.safeParse({
         commandId: crypto.randomUUID(),
         laneId: crypto.randomUUID(),
         status: 'executing',
@@ -544,7 +546,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('accepts structured command result data', () => {
-      const result = CommandAckPayloadSchema.safeParse({
+      const result = CommandAcknowledgementSchema.safeParse({
         commandId: crypto.randomUUID(),
         laneId: crypto.randomUUID(),
         status: 'done',
@@ -555,7 +557,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects invalid status', () => {
-      const result = CommandAckPayloadSchema.safeParse({
+      const result = CommandAcknowledgementSchema.safeParse({
         commandId: crypto.randomUUID(),
         laneId: crypto.randomUUID(),
         status: 'pending',
@@ -565,7 +567,7 @@ describe('MqttCommandSchemas', () => {
     });
 
     it('rejects non-UUID laneId', () => {
-      const result = CommandAckPayloadSchema.safeParse({
+      const result = CommandAcknowledgementSchema.safeParse({
         commandId: crypto.randomUUID(),
         laneId: 'lane-1',
         status: 'done',

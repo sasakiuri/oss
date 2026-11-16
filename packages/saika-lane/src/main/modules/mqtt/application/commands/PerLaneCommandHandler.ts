@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Handles commands addressed to one Lane within a competition. */
 
+import { commandSchemasForScope, type MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
 import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
@@ -18,22 +19,7 @@ import {
 } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { Athlete } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
-import {
-  ReserveLaneTransferCmdSchema,
-  ApplyQualificationRecoveryCmdSchema,
-  StartMalfunctionFiringCmdSchema,
-  ReadMalfunctionFiringCmdSchema,
-  CancelMalfunctionFiringCmdSchema,
-  AssignAthleteCmdSchema,
-  CancelQualificationRecoveryCmdSchema,
-  PauseTimerCmdSchema,
-  ResetSessionCmdSchema,
-  RetireFinalistCmdSchema,
-  ResumeMatchCmdSchema,
-  ResumeTimerCmdSchema,
-  SettleQualificationRecoveryCmdSchema,
-  StartQualificationRecoveryCmdSchema,
-} from '@/main/modules/mqtt/domain/MqttCommandSchemas';
+import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type {
   IQualificationRecoveryAdjudicationControl,
   IQualificationRecoveryControl,
@@ -49,38 +35,12 @@ import type { ReserveLaneTransferAction } from '@/shared/mqtt/ReserveLaneTransfe
 
 import { LaneCommandProcessor, type LaneCommandSchemas } from './LaneCommandProcessor';
 
-type PerLaneAction =
-  | 'reserve-lane-transfer'
-  | 'start-malfunction-firing'
-  | 'read-malfunction-firing'
-  | 'cancel-malfunction-firing'
-  | 'assign-athlete'
-  | 'reset-session'
-  | 'pause-timer'
-  | 'resume-timer'
-  | 'resume-match'
-  | 'start-qualification-recovery'
-  | 'cancel-qualification-recovery'
-  | 'apply-qualification-recovery'
-  | 'settle-qualification-recovery'
-  | 'retire-finalist';
+type PerLaneAction = MqttCommandActionOf<'competition-lane'>;
 
-const ACTION_SCHEMAS: LaneCommandSchemas<PerLaneAction> = {
-  'reserve-lane-transfer': ReserveLaneTransferCmdSchema,
-  'start-malfunction-firing': StartMalfunctionFiringCmdSchema,
-  'read-malfunction-firing': ReadMalfunctionFiringCmdSchema,
-  'cancel-malfunction-firing': CancelMalfunctionFiringCmdSchema,
-  'assign-athlete': AssignAthleteCmdSchema,
-  'reset-session': ResetSessionCmdSchema,
-  'pause-timer': PauseTimerCmdSchema,
-  'resume-timer': ResumeTimerCmdSchema,
-  'resume-match': ResumeMatchCmdSchema,
-  'start-qualification-recovery': StartQualificationRecoveryCmdSchema,
-  'cancel-qualification-recovery': CancelQualificationRecoveryCmdSchema,
-  'apply-qualification-recovery': ApplyQualificationRecoveryCmdSchema,
-  'settle-qualification-recovery': SettleQualificationRecoveryCmdSchema,
-  'retire-finalist': RetireFinalistCmdSchema,
-};
+const ACTION_SCHEMAS: LaneCommandSchemas<PerLaneAction> = commandSchemasForScope(
+  laneCommandSchemas,
+  'competition-lane',
+);
 
 type PerLaneTopic = ParsedMqttTopicOf<'laneCompetitionCommand'>;
 
