@@ -21,9 +21,6 @@ const mockClearError = vi.fn();
 
 const defaultConnectionResult: UseConnectionResult = {
   status: 'disconnected',
-  connectionId: null,
-  portName: null,
-  manufacturer: null,
   connect: mockConnect,
   disconnect: mockDisconnect,
   isConnecting: false,
@@ -346,7 +343,6 @@ describe('SettingsConnectionTab', () => {
       mockUseConnection.mockReturnValue({
         ...defaultConnectionResult,
         status: 'connected',
-        connectionId: 'conn-1',
       });
 
       render(<SettingsConnectionTab />);
@@ -359,7 +355,6 @@ describe('SettingsConnectionTab', () => {
       mockUseConnection.mockReturnValue({
         ...defaultConnectionResult,
         status: 'connected',
-        connectionId: 'conn-1',
       });
 
       render(<SettingsConnectionTab />);
@@ -375,7 +370,6 @@ describe('SettingsConnectionTab', () => {
       mockUseConnection.mockReturnValue({
         ...defaultConnectionResult,
         status: 'connected',
-        connectionId: 'conn-1',
         isDisconnecting: true,
       });
 

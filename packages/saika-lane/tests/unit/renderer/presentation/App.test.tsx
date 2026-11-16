@@ -45,9 +45,6 @@ vi.mock('@/renderer/services/competitionService', () => ({
 vi.mock('@/renderer/presentation/hooks/useConnection', () => ({
   useConnection: vi.fn().mockReturnValue({
     status: 'disconnected',
-    connectionId: null,
-    portName: null,
-    manufacturer: null,
     connect: vi.fn(),
     disconnect: vi.fn(),
     isConnecting: false,
