@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
 
 import { championshipService, estChampionshipInspectionsService } from '@/renderer/services';
-import type { ChampionshipDto, EstChampionshipInspectionAssessmentDto } from '@/shared/ipc/contracts';
-import type { EstInspectionStartSettingsDto } from '@/shared/ipc/contracts';
+import { unwrap } from '@/renderer/services/serviceError';
+import type {
+  ChampionshipDto,
+  EstChampionshipInspectionAssessmentDto,
+  EstInspectionStartSettingsDto,
+} from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 
@@ -28,10 +32,10 @@ export function EstInspectionStartPanel({
     ])
       .then(([config, all]) => {
         if (disposed) return;
-        if (!config.success) throw new Error(config.error.message);
-        if (!all.success) throw new Error(all.error.message);
-        setSettings(config.data);
-        setChampionships(all.data.championships);
+        const loadedSettings = unwrap(config);
+        const loaded = unwrap(all);
+        setSettings(loadedSettings);
+        setChampionships(loaded.championships);
       })
       .catch((caught: unknown) => {
         if (!disposed) setError(String(caught));
@@ -49,8 +53,7 @@ export function EstInspectionStartPanel({
         .get({ championshipId })
         .then((response) => {
           if (disposed) return;
-          if (!response.success) throw new Error(response.error.message);
-          setInspection(response.data);
+          setInspection(unwrap(response));
         })
         .catch((caught: unknown) => {
           if (!disposed) setError(String(caught));
@@ -73,8 +76,7 @@ export function EstInspectionStartPanel({
         ...settings,
         laneTargets: settings.laneTargets.filter((binding) => lanes.some((lane) => lane.laneId === binding.laneId)),
       });
-      if (!response.success) throw new Error(response.error.message);
-      setSettings(response.data);
+      setSettings(unwrap(response));
       setSaved(true);
       setRefresh((value) => value + 1);
     } catch (caught) {
