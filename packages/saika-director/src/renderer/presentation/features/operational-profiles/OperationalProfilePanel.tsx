@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { operationalProfilesService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   OperationalProfileMode,
   OperationalProfilePreviewDto,
@@ -42,8 +43,7 @@ function OperationalProfileEditor({ competitionId, onApplied }: OperationalProfi
       .preview({ competitionId, modes })
       .then((response) => {
         if (disposed) return;
-        if (!response.success) throw new Error(response.error.message);
-        setPreview(response.data);
+        setPreview(unwrap(response));
       })
       .catch((caught: unknown) => {
         if (!disposed) setError(String(caught));
@@ -80,11 +80,10 @@ function OperationalProfileEditor({ competitionId, onApplied }: OperationalProfi
         fingerprint: preview.fingerprint,
       });
       if (!mounted.current) return;
-      if (!response.success) throw new Error(response.error.message);
-      setResult(response.data);
+      setResult(unwrap(response));
       onApplied();
     } catch (caught) {
-      if (mounted.current) setError(caught instanceof Error ? caught.message : String(caught));
+      if (mounted.current) setError(errorMessage(caught));
     } finally {
       if (mounted.current) {
         setBusy(false);
