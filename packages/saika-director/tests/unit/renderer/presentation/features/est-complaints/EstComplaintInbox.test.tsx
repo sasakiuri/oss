@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EstComplaintInbox } from '@/renderer/presentation/features/est-complaints';
 import type { EstComplaintObservationDto } from '@/shared/ipc/contracts';
 
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
+
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const signalId = '22222222-2222-4222-8222-222222222222';
 const caseId = '33333333-3333-4333-8333-333333333333';
@@ -58,6 +60,29 @@ describe('EstComplaintInbox', () => {
     );
     expect(await screen.findByText(`Case ${caseId.slice(0, 8)}`)).toBeInTheDocument();
     expect(onCaseOpened).toHaveBeenCalledWith(caseId);
+  });
+
+  it('shows failed loads and openings as their messages, and other failures as the fallback texts', async () => {
+    listByCompetition.mockResolvedValueOnce(fail('Lane observations are unavailable'));
+    render(<EstComplaintInbox competitionId={competitionId} observedSignalIds={[signalId]} />);
+    expect(await screen.findByText('Lane observations are unavailable')).toBeInTheDocument();
+
+    listByCompetition.mockRejectedValueOnce('offline');
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByText('Failed to load Lane EST complaints')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await screen.findByRole('button', { name: 'Open examination' });
+    fireEvent.change(screen.getByLabelText('Official opening the examination'), { target: { value: 'RTS A' } });
+    openTargetExamination.mockResolvedValueOnce(fail('The signal is already linked', 'CONFLICT'));
+    fireEvent.click(screen.getByRole('button', { name: 'Open examination' }));
+    expect(await screen.findByText('The signal is already linked')).toBeInTheDocument();
+
+    openTargetExamination.mockRejectedValueOnce('offline');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Open examination' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Open examination' }));
+    expect(await screen.findByText('Failed to open the target examination')).toBeInTheDocument();
+    expect(screen.queryByText('The signal is already linked')).not.toBeInTheDocument();
   });
 });
 

@@ -5,6 +5,8 @@ import { BackupCaptureReadinessPanel } from '@/renderer/presentation/features/ba
 import { backupCaptureReadinessService } from '@/renderer/services';
 import type { BackupCaptureReadinessDto } from '@/shared/ipc/contracts/backupCaptureReadiness.contract';
 
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
+
 vi.mock('@/renderer/services', () => ({
   backupCaptureReadinessService: { get: vi.fn(), save: vi.fn(), sources: vi.fn() },
 }));
@@ -58,5 +60,23 @@ describe('backup capture readiness controls', () => {
     await screen.findByText('Settings changed');
     fireEvent.click(screen.getByRole('button', { name: 'Reload saved settings' }));
     expect(screen.getByLabelText('Backup check mode')).toHaveValue('ADVISORY');
+  });
+  it('shows failed readiness and source loads and a failed save as their messages', async () => {
+    vi.mocked(backupCaptureReadinessService.get).mockResolvedValueOnce(fail('Readiness is unavailable'));
+    const { unmount: unmountReadiness } = render(<BackupCaptureReadinessPanel competitionId="competition" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Readiness is unavailable$/);
+    unmountReadiness();
+
+    vi.mocked(backupCaptureReadinessService.sources).mockResolvedValueOnce(fail('Backup sources are unavailable'));
+    const { unmount: unmountSources } = render(<BackupCaptureReadinessPanel competitionId="competition" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Backup sources are unavailable$/);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    unmountSources();
+
+    vi.mocked(backupCaptureReadinessService.save).mockResolvedValue(fail('Settings changed', 'CONFLICT'));
+    render(<BackupCaptureReadinessPanel competitionId="competition" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Save backup checks' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Settings changed$/);
+    expect(screen.queryByText('Backup capture settings saved.')).not.toBeInTheDocument();
   });
 });
