@@ -3,12 +3,16 @@ import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useRangeInterruptionCases } from '@/renderer/presentation/features/range-interruptions/useRangeInterruptionCases';
+import { rangeInterruptionsService } from '@/renderer/services';
 import type { RangeInterruptionCaseDto, RangeInterruptionScopePayload } from '@/shared/ipc/contracts';
 
+import { ok } from '../../../../../helpers/renderer/serviceResponses';
 import { fixture } from './fixtures';
 
-const { listAll, listByScope } = vi.hoisted(() => ({ listAll: vi.fn(), listByScope: vi.fn() }));
-vi.mock('@/renderer/services', () => ({ rangeInterruptionsService: { listAll, listByScope } }));
+vi.mock('@/renderer/services', async () =>
+  (await import('../../../../../helpers/renderer/mockServices')).mockServices(),
+);
+const { listAll, listByScope } = vi.mocked(rangeInterruptionsService);
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -19,7 +23,7 @@ function deferred<T>() {
   });
   return { promise, resolve, reject };
 }
-const response = (...data: RangeInterruptionCaseDto[]) => ({ success: true as const, data });
+const response = (...data: RangeInterruptionCaseDto[]) => ok(data);
 const scope = (scopeId: string): RangeInterruptionScopePayload => ({ scopeType: 'COMPETITION', scopeId });
 
 beforeEach(() => {
