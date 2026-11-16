@@ -33,6 +33,11 @@ function createWindow(): BrowserWindow {
   // Capture renderer console.log and write to file
   window.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     const logMessage = `[renderer:${level}] ${message} (${sourceId}:${line})`;
+    // Renderer errors, such as an event payload the preload rejected, stay visible at the default log level.
+    if (level >= 3) {
+      getLogger().error(logMessage, 'renderer');
+      return;
+    }
     getLogger().debug(logMessage, 'renderer');
   });
 
