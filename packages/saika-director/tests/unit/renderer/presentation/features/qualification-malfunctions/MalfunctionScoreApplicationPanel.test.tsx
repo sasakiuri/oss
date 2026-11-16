@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MalfunctionScoreApplicationPanel } from '@/renderer/presentation/features/qualification-malfunctions/MalfunctionScoreApplicationPanel';
 import type { MalfunctionScoreSheetDto, QualificationMalfunctionCaseDto } from '@/shared/ipc/contracts';
+
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
 const api = vi.hoisted(() => ({
   list: vi.fn(),
   preview: vi.fn(),
@@ -118,5 +120,75 @@ describe('Malfunction score application UI', () => {
         }),
       ),
     );
+  });
+
+  it('shows a failed load, preview and application as the response message', async () => {
+    api.list.mockResolvedValueOnce(fail('Applications are unavailable'));
+    api.preview.mockResolvedValueOnce(fail('The calculation was superseded'));
+    api.apply.mockResolvedValue(fail('The Director result changed'));
+    const changed = vi.fn();
+    render(<MalfunctionScoreApplicationPanel value={value} sheets={[sheet]} disabled={false} onChanged={changed} />);
+    fireEvent.click(screen.getByText('Review score applications'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Applications are unavailable$/);
+
+    identify();
+    fireEvent.change(screen.getByLabelText(/Counted position 5/), { target: { value: 'ORDINARY' } });
+    fireEvent.click(screen.getByText('Preview Director score change'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^The calculation was superseded$/));
+
+    fireEvent.click(screen.getByText('Preview Director score change'));
+    fireEvent.click(await screen.findByText('Confirm evidence and apply to Director result'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^The Director result changed$/));
+    expect(api.getById).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('shows a failed case reload after an application and a rejected preview as text', async () => {
+    api.getById.mockResolvedValue(fail('Case not found'));
+    const changed = vi.fn();
+    render(<MalfunctionScoreApplicationPanel value={value} sheets={[sheet]} disabled={false} onChanged={changed} />);
+    fireEvent.click(screen.getByText('Review score applications'));
+    identify();
+    fireEvent.change(screen.getByLabelText(/Counted position 5/), { target: { value: 'ORDINARY' } });
+    api.preview.mockRejectedValueOnce('Preview service offline');
+    fireEvent.click(screen.getByText('Preview Director score change'));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Preview service offline$/);
+
+    fireEvent.click(screen.getByText('Preview Director score change'));
+    fireEvent.click(await screen.findByText('Confirm evidence and apply to Director result'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Case not found$/));
+    expect(api.apply).toHaveBeenCalledOnce();
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it('shows a failed withdrawal as the response message', async () => {
+    api.list.mockResolvedValue({
+      success: true,
+      data: [
+        {
+          application: {
+            id: 'application',
+            seriesIndex: 11,
+            request: { officialName: 'Previous RTS', statement: 'Original application' },
+          },
+          withdrawal: null,
+        },
+      ],
+    });
+    api.withdraw.mockResolvedValue(fail('The application was already withdrawn'));
+    render(
+      <MalfunctionScoreApplicationPanel
+        value={{ ...value, status: 'SETTLED' }}
+        sheets={[sheet]}
+        disabled={false}
+        onChanged={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText('Review score applications'));
+    const withdraw = await screen.findByText('Withdraw and reopen scoring');
+    identify();
+    fireEvent.click(withdraw);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^The application was already withdrawn$/);
+    expect(api.getById).not.toHaveBeenCalled();
   });
 });
