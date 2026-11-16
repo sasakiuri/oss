@@ -11,13 +11,14 @@ import { buildCompetitionState } from '../../../../helpers/factories';
 import { createMockStorage } from '../../../../helpers/mockDependencies';
 
 // createLogger mock
+const logger = vi.hoisted(() => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+  debug: vi.fn(),
+}));
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
-  getLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  }),
+  getLogger: () => logger,
 }));
 
 describe('LaneTimerService', () => {
@@ -639,6 +640,258 @@ describe('LaneTimerService', () => {
 
       expect(current.timer).toMatchObject({ remainingSeconds: 540, totalSeconds: 540 });
       expect(vi.getTimerCount()).toBe(1);
+    });
+  });
+
+  describe('expiry paths', () => {
+    beforeEach(() => {
+      logger.error.mockClear();
+    });
+
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>((res) => {
+        resolve = res;
+      });
+      return { promise, resolve };
+    }
+
+    const emittedTypes = (): string[] => vi.mocked(mockEventBus.emit).mock.calls.map(([event]) => event.type);
+    const savedRemaining = (): number[] =>
+      vi.mocked(mockCompetitionRepo.save).mock.calls.map(([state]) => state.timer.remainingSeconds);
+
+    function gatedService(isPermitted: () => boolean): LaneTimerService {
+      return new LaneTimerService(mockCompetitionRepo, mockEventBus, createMockStorage(), isPermitted);
+    }
+
+    describe('startAt() past its deadline', () => {
+      const pastStart = (): string => new Date(Date.now() - 120_000).toISOString();
+
+      it('counts down the commanded duration, saves twice and samples the stopped clock', async () => {
+        const state = buildCompetitionState().startStage();
+        vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+
+        await timerService.startAt('comp-1', pastStart(), 60);
+
+        expect(savedRemaining()).toEqual([state.timer.remainingSeconds - 60, 0]);
+        expect(vi.mocked(mockCompetitionRepo.save).mock.calls[1]![0].phase).toBe('SERIES_COMPLETE');
+        expect(emittedTypes()).toEqual(['TimerExpired', 'PhaseChanged']);
+        expect(timerService.sample('comp-1')).toMatchObject({ running: false, remainingMs: 0 });
+      });
+
+      it('abandons the expiry when a newer start replaces it while loading', async () => {
+        const read = deferred<CompetitionState>();
+        vi.mocked(mockCompetitionRepo.findById).mockReturnValueOnce(read.promise);
+
+        const expiry = timerService.startAt('comp-1', pastStart(), 60);
+        timerService.start('comp-1', 300, 300);
+        vi.mocked(mockEventBus.emit).mockClear();
+        read.resolve(buildCompetitionState().startStage());
+        await expiry;
+
+        expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
+        expect(mockEventBus.emit).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(1);
+      });
+
+      it('abandons the expiry when a newer start replaces it between the two saves', async () => {
+        const firstSave = deferred<void>();
+        vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(buildCompetitionState().startStage());
+        vi.mocked(mockCompetitionRepo.save).mockReturnValueOnce(firstSave.promise);
+
+        const expiry = timerService.startAt('comp-1', pastStart(), 60);
+        await vi.waitFor(() => expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(1));
+        timerService.start('comp-1', 300, 300);
+        vi.mocked(mockEventBus.emit).mockClear();
+        firstSave.resolve();
+        await expiry;
+
+        expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(1);
+        expect(mockEventBus.emit).not.toHaveBeenCalled();
+      });
+
+      it.each(['loading', 'the first save'] as const)(
+        'rethrows the execution gate when it closes during %s',
+        async (step) => {
+          let permitted = true;
+          timerService = gatedService(() => permitted);
+          vi.mocked(mockCompetitionRepo.findById).mockImplementation(async () => {
+            if (step === 'loading') permitted = false;
+            return buildCompetitionState().startStage();
+          });
+          vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(async () => {
+            permitted = false;
+          });
+
+          await expect(timerService.startAt('comp-1', pastStart(), 60)).rejects.toMatchObject({
+            code: 'LANE_TIMER_RUN_BLOCKED',
+          });
+          expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(step === 'loading' ? 0 : 1);
+          expect(mockEventBus.emit).not.toHaveBeenCalled();
+        },
+      );
+
+      it('logs other failures without rejecting', async () => {
+        vi.mocked(mockCompetitionRepo.findById).mockRejectedValue(new Error('DB error'));
+
+        await expect(timerService.startAt('comp-1', pastStart(), 60)).resolves.toBeUndefined();
+        expect(logger.error).toHaveBeenCalledWith('Failed to expire timer in startAt', 'domain', {
+          error: expect.stringContaining('DB error'),
+        });
+      });
+
+      it('does nothing for a competition whose timer cannot change', async () => {
+        vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(buildCompetitionState());
+
+        await timerService.startAt('comp-1', pastStart(), 60);
+
+        expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
+        expect(mockEventBus.emit).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('expire()', () => {
+      it('counts down the persisted remaining time and samples the stopped clock', async () => {
+        const state = buildCompetitionState().startStage().tickTimerBy(15);
+        vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+
+        await timerService.expire('comp-1');
+
+        expect(savedRemaining()).toEqual([0, 0]);
+        expect(emittedTypes()).toEqual(['TimerExpired', 'PhaseChanged']);
+        expect(timerService.sample('comp-1')).toMatchObject({ running: false, remainingMs: 0 });
+      });
+
+      it('still persists the expiry when a newer start replaces the clock while loading, without sampling it', async () => {
+        const read = deferred<CompetitionState>();
+        vi.mocked(mockCompetitionRepo.findById).mockReturnValueOnce(read.promise);
+
+        const expiry = timerService.expire('comp-1');
+        timerService.start('comp-1', 300, 300);
+        read.resolve(buildCompetitionState().startStage());
+        await expiry;
+
+        expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(2);
+        expect(emittedTypes()).toEqual(['TimerTick', 'TimerExpired', 'PhaseChanged']);
+        expect(timerService.sample('comp-1')).toMatchObject({ running: true });
+      });
+
+      it('rethrows the execution gate when it closes while loading', async () => {
+        let permitted = true;
+        timerService = gatedService(() => permitted);
+        vi.mocked(mockCompetitionRepo.findById).mockImplementation(async () => {
+          permitted = false;
+          return buildCompetitionState().startStage();
+        });
+
+        await expect(timerService.expire('comp-1')).rejects.toMatchObject({ code: 'LANE_TIMER_RUN_BLOCKED' });
+        expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
+      });
+
+      it('propagates repository failures', async () => {
+        vi.mocked(mockCompetitionRepo.findById).mockRejectedValue(new Error('DB error'));
+
+        await expect(timerService.expire('comp-1')).rejects.toThrow('DB error');
+      });
+
+      it('does nothing for a competition whose timer cannot change', async () => {
+        vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(buildCompetitionState());
+
+        await expect(timerService.expire('comp-1')).resolves.toBeUndefined();
+        expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('processTick() at the deadline', () => {
+      const tickToDeadline = async (): Promise<void> => {
+        vi.setSystemTime(Date.now() + 1000);
+        await timerService.processTick();
+      };
+
+      it('counts down the persisted remaining time, emits after the last tick and stops the clock', async () => {
+        const state = buildCompetitionState().startStage().tickTimerBy(15);
+        vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
+        timerService.start('comp-1', 1, 600);
+        vi.mocked(mockEventBus.emit).mockClear();
+
+        await tickToDeadline();
+
+        expect(savedRemaining()).toEqual([0, 0]);
+        expect(emittedTypes()).toEqual(['TimerTick', 'TimerExpired', 'PhaseChanged']);
+        expect(vi.getTimerCount()).toBe(0);
+        expect(timerService.sample('comp-1')).toMatchObject({ running: false, remainingMs: 0 });
+      });
+
+      it('stops the clock for a competition whose timer cannot change', async () => {
+        vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(buildCompetitionState());
+        timerService.start('comp-1', 1, 600);
+
+        await tickToDeadline();
+
+        expect(vi.getTimerCount()).toBe(0);
+        expect(mockCompetitionRepo.save).not.toHaveBeenCalled();
+      });
+
+      it.each(['loading', 'the first save'] as const)(
+        'stops without expiring when the execution gate closes during %s',
+        async (step) => {
+          let permitted = true;
+          timerService = gatedService(() => permitted);
+          vi.mocked(mockCompetitionRepo.findById).mockImplementation(async () => {
+            if (step === 'loading') permitted = false;
+            return buildCompetitionState().startStage();
+          });
+          vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(async () => {
+            permitted = false;
+          });
+          timerService.start('comp-1', 1, 600);
+          vi.mocked(mockEventBus.emit).mockClear();
+
+          await expect(tickToDeadline()).resolves.toBeUndefined();
+
+          expect(vi.getTimerCount()).toBe(0);
+          expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(step === 'loading' ? 0 : 1);
+          expect(emittedTypes()).toEqual(['TimerTick']);
+        },
+      );
+
+      it.each(['loading', 'the first save'] as const)(
+        'leaves a newer clock running when it replaces the expiring one during %s',
+        async (step) => {
+          const pending = deferred<void>();
+          const state = buildCompetitionState().startStage();
+          vi.mocked(mockCompetitionRepo.findById).mockImplementation(async () => {
+            if (step === 'loading') await pending.promise;
+            return state;
+          });
+          vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(() => pending.promise);
+          timerService.start('comp-1', 1, 600);
+
+          const tick = tickToDeadline();
+          await vi.waitFor(() =>
+            expect(step === 'loading' ? mockCompetitionRepo.findById : mockCompetitionRepo.save).toHaveBeenCalled(),
+          );
+          timerService.start('comp-1', 300, 300);
+          vi.mocked(mockEventBus.emit).mockClear();
+          pending.resolve();
+          await tick;
+
+          expect(mockCompetitionRepo.save).toHaveBeenCalledTimes(step === 'loading' ? 0 : 1);
+          expect(mockEventBus.emit).not.toHaveBeenCalled();
+          expect(vi.getTimerCount()).toBe(1);
+        },
+      );
+
+      it('logs a failed expiry', async () => {
+        vi.mocked(mockCompetitionRepo.findById).mockRejectedValue(new Error('DB error'));
+        timerService.start('comp-1', 1, 600);
+
+        await tickToDeadline();
+
+        expect(logger.error).toHaveBeenCalledWith('Timer expiry failed', 'domain', {
+          error: expect.stringContaining('DB error'),
+        });
+      });
     });
   });
 });
