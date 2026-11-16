@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { planFinalRecoveryFiring } from '@sasakiuri/saika-rules';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';

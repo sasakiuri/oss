@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { RecoveryFiringPlan } from '@sasakiuri/saika-rules';
 
 export const MALFUNCTION_FIRING_OWNER = 'qualification-malfunction';

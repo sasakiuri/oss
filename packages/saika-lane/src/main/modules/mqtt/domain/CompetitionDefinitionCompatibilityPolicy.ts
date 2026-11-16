@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import type { RulePackIdentity } from '@sasakiuri/saika-rules';
 

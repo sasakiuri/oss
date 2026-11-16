@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { useSafetyStopStore } from '@/renderer/presentation/stores/safetyStopStore';
 
 /** Non-dismissible, top-most Lane indication required while the safety latch is active. */

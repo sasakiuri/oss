@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { useEffect } from 'react';
 
 import { useSafetyStopStore } from '@/renderer/presentation/stores/safetyStopStore';

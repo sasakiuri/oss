@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { create } from 'zustand';
 
 import type { LaneSafetyStateDto } from '@/shared/ipc/contracts';

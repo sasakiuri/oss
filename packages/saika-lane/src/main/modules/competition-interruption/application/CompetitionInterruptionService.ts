@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { SwitchModeToken } from '@/main/composition/tokens';
 import { isAthleteTargetSwitchSeries } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';

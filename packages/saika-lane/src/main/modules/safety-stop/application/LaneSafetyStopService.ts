@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
 import type {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { useFinalCueStore } from '@/renderer/presentation/stores/finalCueStore';
 
 export function FinalCommandCue() {

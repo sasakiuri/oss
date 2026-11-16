@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { ICompetitionInterruptionRepository } from '../domain/ICompetitionInterruptionRepository';

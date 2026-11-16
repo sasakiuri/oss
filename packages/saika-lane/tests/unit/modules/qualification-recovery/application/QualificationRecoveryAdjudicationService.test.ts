@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import Database from 'better-sqlite3';
 import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

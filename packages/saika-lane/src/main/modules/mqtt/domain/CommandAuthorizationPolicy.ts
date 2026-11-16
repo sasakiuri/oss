@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 export type CommandAuthorizationMode = 'DISABLED' | 'ADVISORY' | 'REQUIRED';
 
 export interface CommandIssuer {

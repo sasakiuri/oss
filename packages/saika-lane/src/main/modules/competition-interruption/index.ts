@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 export * from './application/CompetitionInterruptionService';
 export * from './domain/ICompetitionInterruptionControl';
 export * from './domain/ICompetitionInterruptionRepository';
