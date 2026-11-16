@@ -23,6 +23,7 @@ const state = vi.hoisted(() => ({
     loadFile: vi.fn(),
   },
   createLaneApp: vi.fn(),
+  logger: { debug: vi.fn(), error: vi.fn() },
 }));
 
 vi.mock('electron', () => ({
@@ -44,11 +45,14 @@ vi.mock('@/main/startup/restoreActiveRun', () => ({
 }));
 
 vi.mock('@/main/shared-infra/compat/setupCjsCompat', () => ({}));
-vi.mock('@/main/shared-infra/logging', () => ({ getLogger: () => ({ debug: vi.fn() }) }));
+vi.mock('@/main/shared-infra/logging', () => ({ getLogger: () => state.logger }));
 vi.mock('@/main/composition/createLaneApp', () => ({ createLaneApp: state.createLaneApp }));
 
 beforeEach(() => {
   vi.resetModules();
+  state.window.webContents.on.mockClear();
+  state.logger.debug.mockClear();
+  state.logger.error.mockClear();
   state.app.isPackaged = false;
   state.window.webContents.getURL.mockReturnValue('');
   vi.stubEnv('VITE_DEV_SERVER_URL', undefined);
@@ -137,5 +141,39 @@ describe('main window protection', () => {
     expect(state.window.webContents.on).toHaveBeenCalledWith('will-attach-webview', expect.any(Function));
     expect(state.window.webContents.session.setPermissionRequestHandler).toHaveBeenCalledOnce();
     expect(state.window.webContents.session.setPermissionCheckHandler).toHaveBeenCalledOnce();
+  });
+});
+
+describe('renderer console forwarding', () => {
+  function emitConsoleMessage(level: number, message: string): void {
+    const handler = state.window.webContents.on.mock.calls.find(([event]) => event === 'console-message')?.[1] as (
+      event: unknown,
+      level: number,
+      message: string,
+      line: number,
+      sourceId: string,
+    ) => void;
+    handler({}, level, message, 12, 'preload.mjs');
+  }
+
+  it('records a renderer error at error level so it reaches the log file by default', async () => {
+    await startApplication();
+
+    emitConsoleMessage(3, '[IPC] Ignored invalid event payload for "timer:tick"');
+
+    expect(state.logger.error).toHaveBeenCalledWith(
+      '[renderer:3] [IPC] Ignored invalid event payload for "timer:tick" (preload.mjs:12)',
+      'renderer',
+    );
+    expect(state.logger.debug).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 1, 2])('records a renderer console message of level %i at debug level', async (level) => {
+    await startApplication();
+
+    emitConsoleMessage(level, 'hello');
+
+    expect(state.logger.debug).toHaveBeenCalledWith(`[renderer:${level}] hello (preload.mjs:12)`, 'renderer');
+    expect(state.logger.error).not.toHaveBeenCalled();
   });
 });
