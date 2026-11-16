@@ -75,6 +75,8 @@ export function mockElectronMain(electron: ElectronMainMock): void {
         focus: vi.fn(),
       },
       BrowserWindow,
+      // AppUpdater registers its install-restart listener when the main window is bound.
+      autoUpdater: { on: vi.fn() },
       dialog: {
         showMessageBox: electron.showMessageBox,
       },
