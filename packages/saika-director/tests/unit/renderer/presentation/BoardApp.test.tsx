@@ -72,6 +72,14 @@ describe('BoardApp', () => {
     expect(await screen.findByText('configuration unavailable')).toBeInTheDocument();
   });
 
+  it('shows the fallback text when loading the configuration fails without an error', async () => {
+    getConfig.mockRejectedValue('offline');
+
+    render(<BoardApp />);
+
+    expect(await screen.findByText('Failed to load configuration')).toBeInTheDocument();
+  });
+
   it('provides the event bus required by live board screens', async () => {
     getConfig.mockResolvedValue({
       success: true,
