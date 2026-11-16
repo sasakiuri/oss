@@ -1,5 +1,7 @@
 import { dialog } from 'electron';
-import { writeFile, rename, unlink } from 'node:fs/promises';
+import { writeFile, unlink } from 'node:fs/promises';
+
+import { replaceFileAtomic } from '@/main/shared-infra/files/replaceFileAtomic';
 
 import type { ArchiveFileGateway } from '../application/OperationalArchivePorts';
 
@@ -44,34 +46,10 @@ export class ElectronArchiveFileGateway implements ArchiveFileGateway {
     const temporary = `${destination}.partial-${crypto.randomUUID()}`;
     try {
       await writeFile(temporary, content, { encoding: 'utf8', flag: 'wx' });
-      await replaceFile(temporary, destination);
+      await replaceFileAtomic(temporary, destination);
     } catch (error) {
       await unlink(temporary).catch(() => undefined);
       throw error;
     }
   }
-}
-
-async function replaceFile(source: string, destination: string): Promise<void> {
-  const displaced = `${destination}.previous-${crypto.randomUUID()}`;
-  let hadDestination = false;
-  try {
-    await rename(destination, displaced);
-    hadDestination = true;
-  } catch (error) {
-    if (!isMissing(error)) throw error;
-  }
-  try {
-    await rename(source, destination);
-  } catch (error) {
-    if (hadDestination) await rename(displaced, destination).catch(() => undefined);
-    throw error;
-  }
-  // The replacement is already committed. A failed cleanup must not report
-  // the export as failed or attempt to overwrite the newly written file.
-  if (hadDestination) await unlink(displaced).catch(() => undefined);
-}
-
-function isMissing(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }

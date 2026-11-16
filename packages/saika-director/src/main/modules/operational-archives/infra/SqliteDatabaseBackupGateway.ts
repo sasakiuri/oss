@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { copyFile, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
+import { copyFile, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 
 import Database from 'better-sqlite3';
 import type BetterSqlite3 from 'better-sqlite3';
 
 import { assertEvidenceFileContents } from '@/main/infrastructure/database/EvidenceFileContents';
+import { replaceFileAtomic } from '@/main/shared-infra/files/replaceFileAtomic';
 
 import type {
   DatabaseBackupGateway,
@@ -37,7 +38,7 @@ export class SqliteDatabaseBackupGateway implements DatabaseBackupGateway {
       await this.database.backup(temporary);
       const temporaryInspection = await this.inspect(temporary);
       if (!temporaryInspection.integrityOk) throw new Error('The created database backup failed its integrity check');
-      await replaceFile(temporary, destination);
+      await replaceFileAtomic(temporary, destination);
       return this.inspect(destination);
     } catch (error) {
       await unlink(temporary).catch(() => undefined);
@@ -105,7 +106,7 @@ export class SqliteDatabaseBackupGateway implements DatabaseBackupGateway {
       await copyFile(inspection.path, temporary);
       if ((await hashFile(temporary)) !== inspection.sha256)
         throw new Error('The staged restore copy failed verification');
-      await replaceFile(temporary, pendingPath);
+      await replaceFileAtomic(temporary, pendingPath);
       const marker: RestoreMarker = {
         sourceFileName: inspection.fileName,
         stagedSha256: inspection.sha256,
@@ -188,7 +189,7 @@ async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
   const temporary = `${path}.partial-${crypto.randomUUID()}`;
   try {
     await writeFile(temporary, `${JSON.stringify(value)}\n`, { encoding: 'utf8', flag: 'wx' });
-    await replaceFile(temporary, path);
+    await replaceFileAtomic(temporary, path);
   } catch (error) {
     await unlink(temporary).catch(() => undefined);
     throw error;
@@ -201,24 +202,4 @@ function isMissing(error: unknown): boolean {
 
 function ignoreMissing(error: unknown): void {
   if (!isMissing(error)) throw error;
-}
-
-async function replaceFile(source: string, destination: string): Promise<void> {
-  const displaced = `${destination}.previous-${crypto.randomUUID()}`;
-  let hadDestination = false;
-  try {
-    await rename(destination, displaced);
-    hadDestination = true;
-  } catch (error) {
-    if (!isMissing(error)) throw error;
-  }
-  try {
-    await rename(source, destination);
-  } catch (error) {
-    if (hadDestination) await rename(displaced, destination).catch(() => undefined);
-    throw error;
-  }
-  // The replacement is already committed. Keep an undeletable displaced file
-  // as a recoverable artifact instead of reporting a false failure.
-  if (hadDestination) await unlink(displaced).catch(() => undefined);
 }
