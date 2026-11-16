@@ -137,9 +137,39 @@ const documents: ReadonlyArray<readonly [name: string, sourcePath: string, sourc
   ],
 ];
 
+function render(sourcePath: string, source: string): string {
+  return renderToStaticMarkup(<DocumentMarkdown document={parseDocument(sourcePath, source)} />);
+}
+
+function rendered(sourcePath: string, source: string): HTMLElement {
+  const container = document.createElement('div');
+  container.innerHTML = render(sourcePath, source);
+  return container;
+}
+
+/** The in-page links whose fragment names no element id of the same document. */
+function unresolvedFragments(container: HTMLElement, selector = 'a[href^="#"]'): string[] {
+  const ids = new Set([...container.querySelectorAll('[id]')].map((element) => element.id));
+  return [...container.querySelectorAll(selector)]
+    .map((anchor) => decodeURIComponent(anchor.getAttribute('href')!.slice(1)))
+    .filter((fragment) => !ids.has(fragment));
+}
+
 describe('Document HTML golden files', () => {
   it.each(documents)('renders %s exactly as before', async (name, sourcePath, source) => {
-    const html = renderToStaticMarkup(<DocumentMarkdown document={parseDocument(sourcePath, source)} />);
-    await expect(`${html}\n`).toMatchFileSnapshot(`./__golden__/${name}.html`);
+    await expect(`${render(sourcePath, source)}\n`).toMatchFileSnapshot(`./__golden__/${name}.html`);
+  });
+
+  it.each(documents)('links %s only to fragments in the same document', (_name, sourcePath, source) => {
+    expect(unresolvedFragments(rendered(sourcePath, source))).toEqual([]);
+  });
+
+  it('links footnote references and back-references to their targets', () => {
+    const [, sourcePath, source] = documents.find(([name]) => name === 'links')!;
+    const container = rendered(sourcePath, source);
+    const footnoteLinks = 'a[data-footnote-ref], a[data-footnote-backref]';
+
+    expect(container.querySelectorAll(footnoteLinks)).toHaveLength(2);
+    expect(unresolvedFragments(container, footnoteLinks)).toEqual([]);
   });
 });
