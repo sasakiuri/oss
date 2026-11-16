@@ -21,6 +21,7 @@ const {
   startTimedTargetDirector,
   startEmbeddedBroker,
   stopEmbeddedBroker,
+  setClockQualityPolicyDirector,
   directorCallbacks,
 } = vi.hoisted(() => ({
   applyQualificationRecoveryDirector: vi.fn(),
@@ -41,6 +42,7 @@ const {
   startTimedTargetDirector: vi.fn(),
   startEmbeddedBroker: vi.fn().mockResolvedValue(undefined),
   stopEmbeddedBroker: vi.fn().mockResolvedValue(undefined),
+  setClockQualityPolicyDirector: vi.fn(),
   directorCallbacks: {
     onStateChanged: null as ((snapshot: unknown) => void) | null,
     onCompetitionShotObserved: null as ((shot: Record<string, unknown>, payloadJson: string) => void) | null,
@@ -80,6 +82,7 @@ vi.mock('@/main/modules/mqtt/application/DirectorMqttService', () => ({
     getClockStartIssues = getClockStartIssues;
     getTimedTargetStartIssues = getTimedTargetStartIssues;
     setTimedTargetReadinessPolicy = vi.fn();
+    setClockQualityPolicy = setClockQualityPolicyDirector;
     setTimingEvidencePolicy = vi.fn();
     getTimingEvidenceStartIssues = getTimingEvidenceStartIssues;
     startMatch = startMatchDirector;
@@ -99,6 +102,7 @@ vi.mock('@/main/modules/mqtt/infra/EmbeddedMqttBroker', () => ({
   },
 }));
 
+import { ClockQualityPolicy } from '@/main/modules/mqtt/domain/ClockQualityPolicy';
 import { mqttDirectorIdFromEnvironment, mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import {
   booleanOperationalSetting,
@@ -576,6 +580,188 @@ describe('mqttModule broker transitions', () => {
 
     expect(disconnectDirector).toHaveBeenCalledTimes(1);
     expect(connectDirector).toHaveBeenCalledWith('mqtt://broker-b:1883');
+  });
+});
+
+describe('mqttModule operational setting targets', () => {
+  const injectedTargets = (): OperationalSettingTarget[] => {
+    let shared = false;
+    let competitionMode: 'DISABLED' | 'ADVISORY' | 'REQUIRED' = 'ADVISORY';
+    return [
+      booleanOperationalSetting({
+        id: 'shared-policy',
+        label: 'Shared policy',
+        read: () => shared,
+        write: (required) => {
+          shared = required;
+        },
+      }),
+      {
+        id: 'competition-policy',
+        label: 'Competition policy',
+        scope: 'COMPETITION',
+        read: () => ({ mode: competitionMode, context: 'competition context' }),
+        write: (_competitionId, mode) => {
+          competitionMode = mode;
+        },
+      },
+    ];
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getSnapshot.mockReturnValue({ competitions: [{ competitionId: COMPETITION_ID, phase: 'NOT_STARTED' }] });
+  });
+
+  it('lists the injected targets first, then the relay, inspection, timing, clock and timed target policies', async () => {
+    const { profiles } = registerModule('BR60S', injectedTargets());
+
+    const preview = await profiles.preview({ competitionId: COMPETITION_ID, modes: {} });
+
+    expect(preview.changes).toEqual([
+      {
+        id: 'shared-policy',
+        label: 'Shared policy',
+        scope: 'DIRECTOR',
+        supportedModes: ['DISABLED', 'REQUIRED'],
+        before: 'DISABLED',
+        after: 'DISABLED',
+        context: 'false',
+      },
+      {
+        id: 'competition-policy',
+        label: 'Competition policy',
+        scope: 'COMPETITION',
+        supportedModes: ['DISABLED', 'ADVISORY', 'REQUIRED'],
+        before: 'ADVISORY',
+        after: 'ADVISORY',
+        context: 'competition context',
+      },
+      {
+        id: 'relay',
+        label: 'Relay readiness',
+        scope: 'COMPETITION',
+        supportedModes: ['DISABLED', 'ADVISORY', 'REQUIRED'],
+        before: 'ADVISORY',
+        after: 'ADVISORY',
+        context: '{"mode":"ADVISORY"}',
+      },
+      {
+        id: 'inspection',
+        label: 'EST inspection',
+        scope: 'COMPETITION',
+        supportedModes: ['DISABLED', 'ADVISORY', 'REQUIRED'],
+        before: 'ADVISORY',
+        after: 'ADVISORY',
+        context: '{"mode":"ADVISORY"}',
+      },
+      {
+        id: 'timing-evidence',
+        label: 'Lane measurement evidence, expiry and installation match',
+        scope: 'DIRECTOR',
+        supportedModes: ['DISABLED', 'ADVISORY', 'REQUIRED'],
+        before: 'DISABLED',
+        after: 'DISABLED',
+        context: 'Applies before timed commands on every selected Lane.',
+      },
+      {
+        id: 'clock',
+        label: 'Clock quality',
+        scope: 'DIRECTOR',
+        supportedModes: ['DISABLED', 'ADVISORY', 'REQUIRED'],
+        before: 'ADVISORY',
+        after: 'ADVISORY',
+        context: JSON.stringify({
+          mode: 'ADVISORY',
+          maxAbsoluteOffsetMilliseconds: undefined,
+          maxUncertaintyMilliseconds: undefined,
+          maxSampleAgeMilliseconds: undefined,
+        }),
+      },
+      ...(
+        [
+          ['windowEnforcement', 'Lane firing-window enforcement'],
+          ['boundedShotTiming', 'Lane measured shot timing'],
+          ['physicalSignals', 'Integrated target signals'],
+        ] as const
+      ).map(([key, label]) => ({
+        id: `timed-target-${key}`,
+        label,
+        scope: 'DIRECTOR',
+        supportedModes: ['DISABLED', 'ADVISORY', 'REQUIRED'],
+        before: 'ADVISORY',
+        after: 'ADVISORY',
+        context: 'Applies before timed target firing on every selected Lane.',
+      })),
+    ]);
+  });
+
+  it('refuses every shared policy with its own message while another competition is active', async () => {
+    const { profiles, config } = registerModule('BR60S', injectedTargets());
+    getSnapshot.mockReturnValue({
+      competitions: [
+        { competitionId: COMPETITION_ID, phase: 'NOT_STARTED' },
+        { competitionId: 'finished', phase: 'MATCH_COMPLETE' },
+        { competitionId: 'running', phase: 'SIGHTING' },
+      ],
+    });
+    const selection = {
+      competitionId: COMPETITION_ID,
+      modes: {
+        'shared-policy': 'REQUIRED' as const,
+        'competition-policy': 'REQUIRED' as const,
+        relay: 'REQUIRED' as const,
+        inspection: 'REQUIRED' as const,
+        'timing-evidence': 'REQUIRED' as const,
+        clock: 'REQUIRED' as const,
+        'timed-target-windowEnforcement': 'REQUIRED' as const,
+        'timed-target-boundedShotTiming': 'REQUIRED' as const,
+        'timed-target-physicalSignals': 'REQUIRED' as const,
+      },
+    };
+
+    const result = await profiles.apply({ ...selection, fingerprint: (await profiles.preview(selection)).fingerprint });
+
+    expect(result.results).toEqual([
+      {
+        id: 'shared-policy',
+        status: 'FAILED',
+        message: 'Finish active competitions before changing a shared Director policy',
+      },
+      { id: 'competition-policy', status: 'APPLIED', message: 'Saved and confirmed' },
+      { id: 'relay', status: 'FAILED', message: 'The setting was not confirmed' },
+      { id: 'inspection', status: 'FAILED', message: 'The setting was not confirmed' },
+      {
+        id: 'timing-evidence',
+        status: 'FAILED',
+        message: 'Finish active competitions before changing shared timing evidence policy',
+      },
+      { id: 'clock', status: 'FAILED', message: 'Finish active competitions before changing the shared clock policy' },
+      ...['windowEnforcement', 'boundedShotTiming', 'physicalSignals'].map((key) => ({
+        id: `timed-target-${key}`,
+        status: 'FAILED',
+        message: 'Finish active competitions before changing a shared timed target policy',
+      })),
+    ]);
+    expect(config.get('timingEvidence.mode')).toBe('DISABLED');
+    expect(config.get('clockQuality.mode')).toBe('ADVISORY');
+    expect(config.get('timedTargetReadiness.windowEnforcement')).toBe('ADVISORY');
+    expect(setClockQualityPolicyDirector).not.toHaveBeenCalled();
+  });
+
+  it('saves the clock mode and applies the new clock policy while no competition is active', async () => {
+    const { profiles, config } = registerModule('BR60S');
+    const selection = { competitionId: COMPETITION_ID, modes: { clock: 'REQUIRED' as const } };
+
+    const result = await profiles.apply({ ...selection, fingerprint: (await profiles.preview(selection)).fingerprint });
+
+    expect(result.results.find(({ id }) => id === 'clock')).toEqual({
+      id: 'clock',
+      status: 'APPLIED',
+      message: 'Saved and confirmed',
+    });
+    expect(config.get('clockQuality.mode')).toBe('REQUIRED');
+    expect(setClockQualityPolicyDirector).toHaveBeenCalledExactlyOnceWith(expect.any(ClockQualityPolicy));
   });
 });
 
