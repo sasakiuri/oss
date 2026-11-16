@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 import {
   correctionSeriesIndex,
-  scoreCorrectionDigest as digest,
   type IResultScoreCorrectionSource,
   type ScoreCorrectionBasis,
   type ScoreCorrectionProjection,
@@ -15,6 +14,7 @@ import type {
   ScoreCorrectionPreview,
   ScoreCorrectionWithdrawal,
 } from '../domain/ScoreCorrection';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 /** Official corrections are separate from raw results, scoring penalties and firing authorization. */
 export class ScoreCorrectionService implements IResultScoreCorrectionSource {
@@ -99,7 +99,7 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
       ranking: { ...shot.ranking, seriesIndex: correctionSeriesIndex(basis.seriesShotCounts, index) },
     }));
     const content = { request: structuredClone(request), basis, caseRevision, shots: corrected };
-    return { ...content, digest: digest(content) };
+    return { ...content, digest: sha256Json(content) };
   }
 
   apply(input: { id: string; request: ScoreCorrectionRequest; expectedDigest: string; confirmed: true }) {
@@ -107,7 +107,7 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
     return this.repository.transaction(() => {
       const existing = this.repository.find(input.id);
       if (existing) {
-        if (existing.digest !== input.expectedDigest || digest(existing.request) !== digest(input.request))
+        if (existing.digest !== input.expectedDigest || sha256Json(existing.request) !== sha256Json(input.request))
           throw new Error('Correction ID is bound to different evidence');
         return existing;
       }
@@ -127,7 +127,8 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
       const existing = this.repository.withdrawal(input.applicationId);
       if (existing) {
         const { recordedAt: _time, ...saved } = existing;
-        if (digest(saved) !== digest(input)) throw new Error('Correction already withdrawn with different evidence');
+        if (sha256Json(saved) !== sha256Json(input))
+          throw new Error('Correction already withdrawn with different evidence');
         return existing;
       }
       const value = { ...input, recordedAt: this.now().toISOString() };
@@ -144,7 +145,7 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
     const result = {
       shots: basis.shots,
       shotOrigins: basis.shots.map((_, sourceShotIndex) => ({ sourceShotIndex, corrected: false })),
-      revision: history.length ? digest(history) : '',
+      revision: history.length ? sha256Json(history) : '',
       ids: active.map((item) => item.id),
       remarks: active.map(() => 'Jury score correction applied'),
       issues: [] as string[],
@@ -154,7 +155,7 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
     const correction = active[0]!;
     try {
       if (
-        digest(correction.basis) !== digest(basis) ||
+        sha256Json(correction.basis) !== sha256Json(basis) ||
         this.cases.revision(correction.request.caseId, correction.request.decisionId, basis) !== correction.caseRevision
       ) {
         throw new Error('Source result or Jury evidence changed; withdraw and review the correction');

@@ -3,7 +3,6 @@ import type { IEventRepository } from '@/main/modules/championship';
 import {
   finalCorrectionBasis,
   qualificationCorrectionBasis,
-  scoreCorrectionDigest,
   type IFinalResultRepository,
   type IResultRepository,
   type IQualificationScoreOverlaySource,
@@ -17,6 +16,7 @@ import {
 } from '@/shared/competitionTypes';
 
 import type { IScoreCorrectionTargetSource, IScoreCorrectionCaseSource } from '../domain/ScoreCorrection';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export class StoredScoreCorrectionTargetSource implements IScoreCorrectionTargetSource {
   constructor(
@@ -84,7 +84,7 @@ export class ExaminationScoreCorrectionCaseSource implements IScoreCorrectionCas
     if (!option)
       throw new Error('Select the current Jury decision from an examination linked to this event or competition');
     const entries = this.examinations.findEntriesByCaseIds([caseId]).get(caseId) ?? [];
-    return scoreCorrectionDigest({
+    return sha256Json({
       case: this.examinations.findCaseById(caseId),
       decision: entries.find((entry) => entry.id === decisionId),
       evidence: this.examinations.findEvidenceByCaseIds([caseId]).get(caseId) ?? [],

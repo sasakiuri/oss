@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type {
   CompetitionStartIssue,
   CompetitionStartScope,
@@ -16,6 +14,7 @@ import {
   type BackupCaptureHealthFacts,
   type IBackupCaptureHealthPolicy,
 } from './BackupCaptureHealthPolicy';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface IBackupCaptureReadinessSettingsRepository {
   find(competitionId: string): BackupCaptureReadinessSettings | null;
@@ -39,7 +38,7 @@ export class BackupCaptureReadinessService implements ICompetitionStartReadiness
       mode: 'DISABLED',
       maximumAgeMilliseconds: 15_000,
     };
-    const revision = createHash('sha256').update(JSON.stringify(settings)).digest('hex');
+    const revision = sha256Json(settings);
     if (settings.mode === 'DISABLED') return { settings, revision, health: { state: 'DISABLED', issues: [] } };
     if (!settings.eventId || !this.eventExists(settings.eventId))
       return {

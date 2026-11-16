@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
 import {
   getCurrentFinalPlacementReview,
@@ -37,6 +35,7 @@ import {
   noResultScoreCorrections,
   type IResultScoreCorrectionSource,
 } from './ResultScoreCorrectionSource';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface IFinalResultsReader {
   getByEvent(eventId: string): Promise<FinalRankedResultDto[]>;
@@ -334,7 +333,7 @@ function calculateResultScoringRevision(
       issues: projection.issues,
     },
   };
-  return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+  return sha256Json(canonical);
 }
 
 function calculateSnapshotRevision(eventId: string, results: readonly FinalRankedResultDto[]): string {
@@ -348,7 +347,7 @@ function calculateSnapshotRevision(eventId: string, results: readonly FinalRanke
       classificationCode: result.classificationCode,
     })),
   };
-  return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+  return sha256Json(canonical);
 }
 
 function validateCurrentReview(

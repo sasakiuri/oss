@@ -1,6 +1,5 @@
-import { createHash } from 'node:crypto';
-
 import { assessOperationalPresets, type OperationalProfilePreset } from './OperationalProfilePreset';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export type OperationalMode = 'DISABLED' | 'ADVISORY' | 'REQUIRED';
 const allModes: readonly OperationalMode[] = ['DISABLED', 'ADVISORY', 'REQUIRED'];
@@ -67,9 +66,7 @@ export class OperationalProfileService {
       competitionId: input.competitionId,
       presets: assessOperationalPresets(this.presets, this.targets),
       changes,
-      fingerprint: createHash('sha256')
-        .update(JSON.stringify({ competitionId: input.competitionId, changes }))
-        .digest('hex'),
+      fingerprint: sha256Json({ competitionId: input.competitionId, changes }),
     };
   }
 

@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type { IParticipantRepository } from '@/main/modules/championship';
 import { backupRecordsDigest, type IEstBackupSourceReader } from '@/main/modules/est-backup-sources';
 import type {
@@ -20,6 +18,7 @@ import { compareEstBackup, type OfficialBackupSubject } from '../domain/EstBacku
 import type { IEstBackupVerificationRepository } from '../domain/IEstBackupVerificationRepository';
 
 import type { IEstBackupSubjectSource } from './IEstBackupSubjectSource';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 const ISSF_TEAM_RESULTS_TO_VERIFY = 3;
 
@@ -232,7 +231,7 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
 }
 
 function calculateSubjectRevision(subjects: readonly OfficialBackupSubject[]): string {
-  return createHash('sha256').update(JSON.stringify(subjects)).digest('hex');
+  return sha256Json(subjects);
 }
 
 function teamResultLabel(kind: TeamResultVerificationKind): string {

@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { GetEventByIdToken, type GetEventByIdResponse, type IParticipantRepository } from '@/main/modules/championship';
 import {
   ScoringDecisionProjector,
@@ -34,6 +32,7 @@ import {
   type IResultScoreCorrectionSource,
   type ScoreCorrectionProjection,
 } from './ResultScoreCorrectionSource';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface IQualificationResultsReader {
   getByEvent(eventId: string): Promise<RankedResultDto[]>;
@@ -288,7 +287,7 @@ function calculateResultRevision(
     ...(scoreOverlayRevision ? { scoreOverlayRevision } : {}),
     projected,
   };
-  return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+  return sha256Json(canonical);
 }
 
 function compareDecisionOrder(left: ScoringDecision, right: ScoringDecision): number {

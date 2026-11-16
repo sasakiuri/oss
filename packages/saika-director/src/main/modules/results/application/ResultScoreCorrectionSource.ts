@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-import { createHash } from 'node:crypto';
 
 import type { RankingShotEvidence } from '@/shared/competitionTypes';
 
@@ -11,6 +10,7 @@ import {
   qualificationScoreSourceDigest,
   type QualificationScoreOverlayHistory,
 } from './QualificationScoreOverlaySource';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface CorrectableShot {
   readonly scoreX10: number;
@@ -50,9 +50,6 @@ export const noResultScoreCorrections: IResultScoreCorrectionSource = {
     issues: [],
   }),
 };
-export function scoreCorrectionDigest(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
-}
 export function qualificationCorrectionBasis(
   result: Result,
   history: QualificationScoreOverlayHistory,
@@ -66,7 +63,7 @@ export function qualificationCorrectionBasis(
     participantId: result.participantId.value,
     relayNumber: result.relayNumber,
     competitionId: result.sourceCompetitionId,
-    sourceRevision: scoreCorrectionDigest([qualificationScoreSourceDigest(result), history.revision]),
+    sourceRevision: sha256Json([qualificationScoreSourceDigest(result), history.revision]),
     seriesShotCounts: result.seriesScores.map(() => size),
     shots: base.shotsX10.map((scoreX10, index) => ({
       scoreX10,
@@ -90,7 +87,7 @@ export function finalCorrectionBasis(result: FinalResult, seriesShotCounts: read
     participantId: result.participantId.value,
     relayNumber: 1,
     competitionId: null,
-    sourceRevision: scoreCorrectionDigest(result),
+    sourceRevision: sha256Json(result),
     seriesShotCounts,
     shots: scores.map((score, index) => ({
       scoreX10: Math.round(score * 10),

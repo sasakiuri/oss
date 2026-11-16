@@ -1,8 +1,9 @@
 import { finalRecoveryStatus, type IFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import type { IFinalFiringRepository } from '@/main/modules/final-recovery-firing';
-import { scoreCorrectionDigest, type ScoreCorrectionBasis } from '@/main/modules/results';
+import { type ScoreCorrectionBasis } from '@/main/modules/results';
 
 import type { IScoreCorrectionCaseSource, ScoreCorrectionRequest } from '../domain/ScoreCorrection';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 /** Adapts completed Final recovery evidence to score review without making the firing executor own scores. */
 export class FinalFiringScoreCorrectionCaseSource implements IScoreCorrectionCaseSource {
@@ -20,7 +21,7 @@ export class FinalFiringScoreCorrectionCaseSource implements IScoreCorrectionCas
   }
   revision(caseId: string, decisionId: string, basis: ScoreCorrectionBasis) {
     const source = this.require(caseId, decisionId, basis);
-    return scoreCorrectionDigest(source);
+    return sha256Json(source);
   }
   validate(request: ScoreCorrectionRequest, basis: ScoreCorrectionBasis) {
     const { run, value } = this.require(request.caseId, request.decisionId, basis);

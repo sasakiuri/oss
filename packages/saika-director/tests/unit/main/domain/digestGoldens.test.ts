@@ -9,6 +9,7 @@ import Database from 'better-sqlite3';
 import { ISSF_2026_ARMIX_FINAL, ISSF_2026_RFPM, assessQualificationMalfunctionClaim } from '@sasakiuri/saika-rules';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { sha256Json } from '@/main/domain/sha256Json';
 import { BackupCaptureReadinessService } from '@/main/modules/backup-capture-readiness/BackupCaptureReadinessService';
 import { EventId, Participant, ParticipantId } from '@/main/modules/championship';
 import { SqliteEliminationPlanningSource } from '@/main/modules/elimination-planning';
@@ -22,8 +23,6 @@ import {
 import { estComplaintSnapshotHash } from '@/main/modules/est-complaints/domain/EstComplaintSnapshot';
 import type { EstComplaintSignalSnapshot } from '@/main/modules/est-complaints/domain/IEstComplaintSignalSource';
 import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review/domain/IFinalPlacementReviewRepository';
-import { hash as malfunctionScoreApplicationHash } from '@/main/modules/malfunction-score-applications/application/MalfunctionScoreApplicationService';
-import { reviewDigest } from '@/main/modules/observation-reviews/ObservationReviewService';
 import { OperationalProfileService } from '@/main/modules/operational-profiles/OperationalProfileService';
 import {
   PolicyBoundVerificationSource,
@@ -50,7 +49,6 @@ import { QualificationResultsReader } from '@/main/modules/results/application/Q
 import {
   finalCorrectionBasis,
   qualificationCorrectionBasis,
-  scoreCorrectionDigest,
 } from '@/main/modules/results/application/ResultScoreCorrectionSource';
 import { FinalResult } from '@/main/modules/results/domain/FinalResult';
 import { FinalResultId } from '@/main/modules/results/domain/FinalResultId';
@@ -288,9 +286,9 @@ function mixedTeamResult(rank: number): MixedTeamFinalResultRecord {
 }
 
 describe('exported JSON digest functions', () => {
-  it('pins reviewDigest (observation-reviews)', () => {
+  it('pins sha256Json for observation review revisions', () => {
     expect(
-      reviewDigest({
+      sha256Json({
         subjectId: 'observation-1',
         scoresX10: [104, 99, 100],
         remark: 'Zoë Müller — reviewed',
@@ -299,9 +297,9 @@ describe('exported JSON digest functions', () => {
     ).toBe('8b01483897c92f1804f8d661833ba1d031c2756103aded4824cc320ab759cabf');
   });
 
-  it('pins hash (malfunction-score-applications)', () => {
+  it('pins sha256Json for malfunction score application digests', () => {
     expect(
-      malfunctionScoreApplicationHash({
+      sha256Json({
         input: { sheetId: RESULT_ID, seriesIndex: 0, statement: 'Applied after RTS review' },
         calculation: {
           form: 'RFPM',
@@ -316,8 +314,8 @@ describe('exported JSON digest functions', () => {
     ).toBe('6df899cdecfd9adbac6820de2227e8e3d684d5fe96c6a1c40bc24a55451bceb0');
   });
 
-  it('pins scoreCorrectionDigest (results), including the correction-basis source revisions', () => {
-    expect(scoreCorrectionDigest(['a'.repeat(64), 'correction-v1'])).toBe(
+  it('pins sha256Json for score corrections, including the correction-basis source revisions', () => {
+    expect(sha256Json(['a'.repeat(64), 'correction-v1'])).toBe(
       'b4b6a79b5da5b47de6ea4697d408bb73f274950ffd71cac2a7ee9180ecb308bf',
     );
     expect(finalCorrectionBasis(finalResult(), [5, 5, 14]).sourceRevision).toBe(

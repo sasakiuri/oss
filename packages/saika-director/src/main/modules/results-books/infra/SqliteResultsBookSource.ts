@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type Database from 'better-sqlite3';
 
 import type {
@@ -12,6 +10,7 @@ import type {
   ResultsBookBuildResult,
   ResultsBookProjectedResult,
 } from '../domain/ResultsBookModels';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 interface EventRow {
   id: string;
@@ -186,7 +185,7 @@ export class SqliteResultsBookSource implements IResultsBookSource {
       if (missing.length > 0) findings.push(`Participant ${participant.player_name} is missing ${missing.join(', ')}`);
     }
     findings.push(...(await this.recordClaimFindings(championshipId, claims)));
-    return { content, findings: [...new Set(findings)], sourceHash: digest(content) };
+    return { content, findings: [...new Set(findings)], sourceHash: sha256Json(content) };
   }
 
   async eligibleRecordResults(championshipId: string): Promise<readonly EligibleRecordResult[]> {
@@ -433,8 +432,4 @@ function uniqueRecordCandidates(candidates: readonly EligibleRecordResult[]): El
     if (!existing) byKey.set(key, candidate);
   }
   return [...byKey.values()];
-}
-
-function digest(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }

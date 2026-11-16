@@ -11,6 +11,7 @@ import type {
   ResultsBookQualificationTeamResult,
   ResultsBookResultSnapshot,
 } from '../domain/ResultsBookModels';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 interface EventRow {
   readonly id: string;
@@ -135,13 +136,9 @@ function toCandidate(
     nationCode: team.nationCode,
     entryStatus: 'COMPETING',
     scoreX10: Math.round(team.totalScore * 10),
-    snapshotRevision: digest(source),
+    snapshotRevision: sha256Json(source),
     members,
   };
-}
-
-function digest(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }
 
 /** RFC 4122 UUIDv5 using the standard URL namespace, implemented without another runtime dependency. */

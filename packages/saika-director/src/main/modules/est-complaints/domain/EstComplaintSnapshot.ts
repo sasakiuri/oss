@@ -1,6 +1,5 @@
-import { createHash } from 'crypto';
-
 import type { EstComplaintSignalSnapshot } from './IEstComplaintSignalSource';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface SerializedEstComplaintSignalSnapshot {
   readonly signalId: string;
@@ -29,7 +28,5 @@ export function serializeEstComplaintSnapshot(
 }
 
 export function estComplaintSnapshotHash(snapshot: EstComplaintSignalSnapshot): string {
-  return createHash('sha256')
-    .update(JSON.stringify(serializeEstComplaintSnapshot(snapshot)))
-    .digest('hex');
+  return sha256Json(serializeEstComplaintSnapshot(snapshot));
 }
