@@ -1,7 +1,6 @@
-/** Builds Director's validated event subscriptions and aliased preload methods from IPC contracts. */
+/** Builds Director's validated event subscriptions from the event contract. */
 import { ipcRenderer } from 'electron';
-import { z } from 'zod';
-import type { Contract, ProcedureMap, EventContract, EventMap, InferEventBridge } from '@sasakiuri/saika-ipc';
+import type { EventContract, EventMap, InferEventBridge } from '@sasakiuri/saika-ipc';
 
 // ---------------------------------------------------------------------------
 // Event bridge
@@ -37,50 +36,4 @@ export function buildEventBridge<C extends EventContract<string, EventMap>>(cont
   }
 
   return bridge as InferEventBridge<C>;
-}
-
-// ---------------------------------------------------------------------------
-// Aliased bridge (for namespaces with renamed methods)
-// ---------------------------------------------------------------------------
-
-/**
- * Build a procedure bridge with key aliasing.
- *
- * `aliasMap` maps preload method names to contract procedure keys.
- * Contract keys that appear as alias targets are exposed under the
- * alias name only; all other keys keep their original names.
- *
- * Used for the championship namespace where renderer-facing method
- * names differ from contract keys (e.g. `createChampionship` → `create`).
- */
-export function buildAliasedBridge<C extends Contract<string, ProcedureMap>>(
-  contract: C,
-  aliasMap: Record<string, string>,
-): Record<string, (...args: unknown[]) => Promise<unknown>> {
-  const bridge: Record<string, (...args: unknown[]) => Promise<unknown>> = {};
-  const aliasedKeys = new Set(Object.values(aliasMap));
-
-  for (const key of Object.keys(contract.procedures)) {
-    const channel = (contract.channels as Record<string, string>)[key]!;
-    const proc = contract.procedures[key]!;
-    const invokeFn =
-      proc.input instanceof z.ZodVoid
-        ? () => ipcRenderer.invoke(channel)
-        : (payload: unknown) => ipcRenderer.invoke(channel, payload);
-
-    if (!aliasedKeys.has(key)) {
-      bridge[key] = invokeFn;
-    }
-  }
-
-  for (const [alias, contractKey] of Object.entries(aliasMap)) {
-    const channel = (contract.channels as Record<string, string>)[contractKey]!;
-    const proc = contract.procedures[contractKey]!;
-    bridge[alias] =
-      proc.input instanceof z.ZodVoid
-        ? () => ipcRenderer.invoke(channel)
-        : (payload: unknown) => ipcRenderer.invoke(channel, payload);
-  }
-
-  return bridge;
 }

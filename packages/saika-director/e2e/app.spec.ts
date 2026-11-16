@@ -28,7 +28,7 @@ test.describe('Saika Director', () => {
     await expect(page.getByRole('heading', { name: 'Competition Control' })).toBeVisible();
     await page.evaluate(async () => {
       const api = window.electronAPI.championship;
-      const championship = await api.createChampionship({
+      const championship = await api.create({
         name: 'Venue test',
         date: '2026-09-12',
         venue: 'Main range',

@@ -24,7 +24,7 @@ export function EstInspectionStartPanel({
     let disposed = false;
     void Promise.all([
       estChampionshipInspectionsService.getStartSettings({ competitionId }),
-      championshipService.getChampionships(),
+      championshipService.getAll(),
     ])
       .then(([config, all]) => {
         if (disposed) return;

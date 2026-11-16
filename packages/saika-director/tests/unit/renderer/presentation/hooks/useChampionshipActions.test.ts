@@ -70,13 +70,13 @@ vi.mock('@/renderer/presentation/stores/domain/championship.store', () => {
 // --- Mock: Service ---
 vi.mock('@/renderer/services', () => ({
   championshipService: {
-    getChampionships: mockGetChampionships,
-    getChampionshipDetail: mockGetChampionshipDetail,
+    getAll: mockGetChampionships,
+    getDetail: mockGetChampionshipDetail,
     getParticipants: mockGetParticipants,
     getFiringPointAssignments: mockGetFiringPointAssignments,
-    createChampionship: mockCreateChampionship,
-    updateChampionship: mockUpdateChampionship,
-    deleteChampionship: mockDeleteChampionship,
+    create: mockCreateChampionship,
+    update: mockUpdateChampionship,
+    delete: mockDeleteChampionship,
     createEvent: mockCreateEvent,
     updateEvent: mockUpdateEvent,
     deleteEvent: mockDeleteEvent,

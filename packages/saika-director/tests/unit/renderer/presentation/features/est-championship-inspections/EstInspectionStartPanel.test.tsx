@@ -8,7 +8,7 @@ const { get, getStartSettings, setStartSettings } = vi.hoisted(() => ({
 }));
 vi.mock('@/renderer/services', () => ({
   championshipService: {
-    getChampionships: async () => ({
+    getAll: async () => ({
       success: true,
       data: { championships: [{ id: 'championship', name: 'Championship' }] },
     }),

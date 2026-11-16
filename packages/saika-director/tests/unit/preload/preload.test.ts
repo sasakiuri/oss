@@ -27,15 +27,6 @@ const contracts = Object.values(
       typeof value === 'object' && value !== null && 'procedures' in value,
   );
 
-/** Preload method names that differ from their championship contract keys. */
-const championshipAliases: Record<string, string> = {
-  createChampionship: 'create',
-  updateChampionship: 'update',
-  deleteChampionship: 'delete',
-  getChampionships: 'getAll',
-  getChampionshipDetail: 'getDetail',
-};
-
 describe('preload API', () => {
   const api = electron.exposeInMainWorld.mock.calls[0]?.[1] as Record<string, unknown>;
 
@@ -69,7 +60,7 @@ describe('preload API', () => {
         const [channel, ...args] = electron.invoke.mock.calls[0]! as [string, ...unknown[]];
         const procedure = procedures.get(channel);
         expect(procedure, `${namespace}.${name} -> ${channel}`).toBeDefined();
-        expect(procedure!.key).toBe(namespace === 'championship' ? (championshipAliases[name] ?? name) : name);
+        expect(procedure!.key).toBe(name);
         expect(args, `${namespace}.${name}`).toEqual(procedure!.voidInput ? [] : [payload]);
         contractOfNamespace[namespace] ??= procedure!.namespace;
         expect(procedure!.namespace, `${namespace}.${name}`).toBe(contractOfNamespace[namespace]);
