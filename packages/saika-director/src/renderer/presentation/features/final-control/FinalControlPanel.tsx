@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Medal, RefreshCw } from 'lucide-react';
 
 import { finalControlService, mqttService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   DirectorLaneSnapshotDto,
   FinalCheckpointAssessmentDto,
@@ -75,24 +76,21 @@ export function FinalControlPanel({
         finalControlService.list({ competitionId }),
         finalControlService.assess(input),
       ]);
-      if (!listResponse.success) throw new Error(listResponse.error.message);
-      if (!assessmentResponse.success) throw new Error(assessmentResponse.error.message);
-      setDecisions(listResponse.data);
-      setAssessment(assessmentResponse.data);
-      const candidate = assessmentResponse.data.candidateLaneIds[0] ?? '';
-      setSelectedLaneId((current) =>
-        assessmentResponse.data.candidateLaneIds.includes(current) ? current : candidate,
-      );
+      const listed = unwrap(listResponse);
+      const assessed = unwrap(assessmentResponse);
+      setDecisions(listed);
+      setAssessment(assessed);
+      const candidate = assessed.candidateLaneIds[0] ?? '';
+      setSelectedLaneId((current) => (assessed.candidateLaneIds.includes(current) ? current : candidate));
       setResolution(
-        assessmentResponse.data.resolutionRequirement === 'COUNTBACK' ||
-          assessmentResponse.data.resolutionRequirement === 'FINAL_START_NUMBER'
-          ? assessmentResponse.data.resolutionRequirement
-          : assessmentResponse.data.status === 'TIE'
+        assessed.resolutionRequirement === 'COUNTBACK' || assessed.resolutionRequirement === 'FINAL_START_NUMBER'
+          ? assessed.resolutionRequirement
+          : assessed.status === 'TIE'
             ? 'SHOOT_OFF'
             : 'CLEAR_LOWEST',
       );
     } catch (caught) {
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     } finally {
       setLoading(false);
     }
@@ -121,18 +119,17 @@ export function FinalControlPanel({
           ...(statement.trim() ? { resolutionStatement: statement.trim() } : {}),
           officialName: officialName.trim(),
         });
-        if (!recorded.success) throw new Error(recorded.error.message);
-        decision = recorded.data;
+        decision = unwrap(recorded);
       }
-      const command = await mqttService.retireFinalist({
+      const retirement = await mqttService.retireFinalist({
         competitionId,
         laneId: decision.selectedLaneId,
         checkpointId: decision.id,
         rank: decision.rank,
         afterShot: decision.afterShot,
       });
-      if (!command.success) throw new Error(command.error.message);
-      const laneResult = command.data.lanes.find((lane) => lane.laneId === decision!.selectedLaneId);
+      const command = unwrap(retirement);
+      const laneResult = command.lanes.find((lane) => lane.laneId === decision!.selectedLaneId);
       const status = laneResult?.status === 'done' ? 'DONE' : laneResult?.status === 'error' ? 'ERROR' : 'TIMEOUT';
       const detail =
         laneResult?.error?.message ??
@@ -141,17 +138,17 @@ export function FinalControlPanel({
           : `Lane command ended with ${status.toLowerCase()}`);
       const recordedResult = await finalControlService.recordCommandResult({
         decisionId: decision.id,
-        commandId: command.data.commandId,
+        commandId: command.commandId,
         status,
         statement: detail,
         officialName: officialName.trim(),
       });
-      if (!recordedResult.success) throw new Error(recordedResult.error.message);
+      unwrap(recordedResult);
       setStatement('');
       await load();
     } catch (caught) {
       await load();
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     } finally {
       setSaving(false);
     }
@@ -167,11 +164,11 @@ export function FinalControlPanel({
         reason: statement.trim(),
         officialName: officialName.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       setStatement('');
       await load();
     } catch (caught) {
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     } finally {
       setSaving(false);
     }
@@ -357,7 +354,3 @@ export function FinalControlPanel({
 
 const inputClass =
   'mt-1 block min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
