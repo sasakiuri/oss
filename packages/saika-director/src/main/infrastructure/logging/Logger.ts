@@ -35,7 +35,3 @@ export class DebugLogStore implements IDebugLogStore {
     });
   }
 }
-
-// Re-export Logger from shared logging module
-export { Logger } from '@/shared/logging';
-export type { LogLevel, LoggerConfig } from '@/shared/logging';

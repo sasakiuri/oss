@@ -105,19 +105,6 @@ export function buildRoundConfig(def: CompetitionTypeDefinition, participantCoun
 // Utilities
 // ---------------------------------------------------------------------------
 
-/** Returns the total number of scoring shots in a RoundConfig. */
-export function getTotalScoredShots(config: RoundConfig): number {
-  let total = 0;
-  for (const stage of config.stages) {
-    if (stage.type === 'match') {
-      for (const series of stage.series) {
-        total += series.shots;
-      }
-    }
-  }
-  return total;
-}
-
 /** Returns the scoring-shot total before the specified stage. */
 export function totalShotsBeforeStage(config: RoundConfig, stageIndex: number): number {
   let total = 0;
