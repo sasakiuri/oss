@@ -246,4 +246,4 @@ Director 参加中の通常時計は、射撃や次シリーズの開始が可�
 
 [操作確認シナリオ](./TESTS.md) に代表的な確認手順を示します。装置・OS・接続構成ごとの実機検証状況は、機器資料を参照してください。応答時間、描画速度、メモリ使用量について、全環境で共通の保証値は設けていません。
 
-実装上の定義が必要な場合は、[設定の入力形式](../../saika-lane/src/shared/ipc/contracts/settings.contract.ts)、[機器の定義](../../saika-lane/src/main/modules/target/domain/targetDeviceDefinitions.ts)、[アプリの構成](../../../ARCHITECTURE.md) を参照してください。
+実装上の定義が必要な場合は、[設定の入力形式](../../saika-lane/src/shared/ipc/contracts/settings.contract.ts)、[機器の定義](../../saika-lane/src/shared/target/targetDevices.ts)、[アプリの構成](../../../ARCHITECTURE.md) を参照してください。

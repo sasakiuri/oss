@@ -35,7 +35,7 @@ Saika Lane の既定値は次のとおりです。
 | ストップビット |            1 |
 | パリティ       |       `none` |
 
-設定値は [`targetDeviceDefinitions.ts`](../../../../../saika-lane/src/main/modules/target/domain/targetDeviceDefinitions.ts) で定義します。接続先は OS が列挙したシリアルポートから選択します。
+設定値は [`targetDevices.ts`](../../../../../saika-lane/src/shared/target/targetDevices.ts) で定義します。接続先は OS が列挙したシリアルポートから選択します。
 
 Saika は接続時と試射・本射の切り替え時に、終端文字なしの ASCII `S` / `R` を送ります。
 
