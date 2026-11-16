@@ -245,12 +245,12 @@ describe('calculateAutoZoom', () => {
 });
 
 describe('getNextZoomMode', () => {
-  it('cycles in order AUTO -> RING_8 -> RING_6 -> RING_4 -> FULL -> AUTO', () => {
-    expect(getNextZoomMode('AUTO')).toBe('RING_8');
-    expect(getNextZoomMode('RING_8')).toBe('RING_6');
-    expect(getNextZoomMode('RING_6')).toBe('RING_4');
-    expect(getNextZoomMode('RING_4')).toBe('FULL');
-    expect(getNextZoomMode('FULL')).toBe('AUTO');
+  it('cycles in order AUTO -> FULL -> RING_4 -> RING_6 -> RING_8 -> AUTO', () => {
+    expect(getNextZoomMode('AUTO')).toBe('FULL');
+    expect(getNextZoomMode('FULL')).toBe('RING_4');
+    expect(getNextZoomMode('RING_4')).toBe('RING_6');
+    expect(getNextZoomMode('RING_6')).toBe('RING_8');
+    expect(getNextZoomMode('RING_8')).toBe('AUTO');
   });
 
   it('throws error for invalid mode', () => {
@@ -259,12 +259,12 @@ describe('getNextZoomMode', () => {
 });
 
 describe('getPrevZoomMode', () => {
-  it('cycles in reverse order RING_8 -> AUTO, RING_6 -> RING_8, RING_4 -> RING_6, FULL -> RING_4, AUTO -> FULL', () => {
-    expect(getPrevZoomMode('RING_8')).toBe('AUTO');
-    expect(getPrevZoomMode('RING_6')).toBe('RING_8');
-    expect(getPrevZoomMode('RING_4')).toBe('RING_6');
-    expect(getPrevZoomMode('FULL')).toBe('RING_4');
-    expect(getPrevZoomMode('AUTO')).toBe('FULL');
+  it('cycles in reverse order AUTO -> RING_8 -> RING_6 -> RING_4 -> FULL -> AUTO', () => {
+    expect(getPrevZoomMode('AUTO')).toBe('RING_8');
+    expect(getPrevZoomMode('RING_8')).toBe('RING_6');
+    expect(getPrevZoomMode('RING_6')).toBe('RING_4');
+    expect(getPrevZoomMode('RING_4')).toBe('FULL');
+    expect(getPrevZoomMode('FULL')).toBe('AUTO');
   });
 
   it('throws error for invalid mode', () => {

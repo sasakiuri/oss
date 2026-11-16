@@ -2,17 +2,19 @@
 /**
  * Zoom mode type
  *
- * The types of zoom modes selectable by the user.
- * Cyclic order: AUTO -> RING_8 -> RING_6 -> RING_4 -> FULL -> AUTO
+ * The types of zoom modes selectable by the user. RING_n fits the n ring to the screen and FULL the whole target,
+ * so the magnification rises from FULL through RING_4 and RING_6 to RING_8.
+ * Zoom In order: AUTO -> FULL -> RING_4 -> RING_6 -> RING_8 -> AUTO
  */
 export type ZoomMode = 'AUTO' | 'RING_8' | 'RING_6' | 'RING_4' | 'FULL';
 
 /**
  * Cyclic order of zoom modes
  *
- * Each click of the zoom button cycles through the modes in this array order.
+ * Zoom In (the zoom button, Numpad6 and View > Zoom In) steps through this array toward higher magnification and
+ * wraps from the closest view back to AUTO, so one key cycles through every mode. Zoom Out steps the other way.
  */
-export const ZOOM_MODE_SEQUENCE: ZoomMode[] = ['AUTO', 'RING_8', 'RING_6', 'RING_4', 'FULL'];
+export const ZOOM_MODE_SEQUENCE: ZoomMode[] = ['AUTO', 'FULL', 'RING_4', 'RING_6', 'RING_8'];
 
 /**
  * Get the next zoom mode
