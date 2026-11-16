@@ -11,10 +11,10 @@ import { BPT216Adapter } from '@/main/modules/target/adapters/BPT216Adapter';
 import { CustomAdapter } from '@/main/modules/target/adapters/CustomAdapter';
 import type { ITargetAdapter } from '@/main/modules/target/adapters/ITargetAdapter';
 import { MT201Adapter } from '@/main/modules/target/adapters/MT201Adapter';
+import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
-import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { DomainError } from '@/shared/errors/DomainError';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({

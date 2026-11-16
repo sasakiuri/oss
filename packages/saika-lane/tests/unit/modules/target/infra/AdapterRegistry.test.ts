@@ -7,9 +7,9 @@ import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import type { ITargetAdapter } from '@/main/modules/target/adapters/ITargetAdapter';
+import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
-import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { DomainError } from '@/shared/errors/DomainError';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({

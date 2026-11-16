@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+import type { ISerialDataParser, RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-import type { ISerialDataParser, RawData } from './ISerialDataParser';
 import { CustomFormatParser } from './parsers/CustomFormatParser';
 import { DisagFormatParser } from './parsers/DisagFormatParser';
 import type { IManufacturerParser } from './parsers/IManufacturerParser';

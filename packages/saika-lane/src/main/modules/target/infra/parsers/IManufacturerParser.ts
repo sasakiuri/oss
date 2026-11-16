@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
-
-import type { RawData } from '../ISerialDataParser';
 
 export interface ParseResult {
   results: RawData[];
