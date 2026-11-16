@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { boardModule } from '@/main/modules/board/board.module';
-import { GetEventByIdToken } from '@/main/modules/championship/championship.module';
+import { GetEventByIdToken } from '@/main/modules/championship';
 import { GetAllLanesToken } from '@/main/modules/lane-control';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';

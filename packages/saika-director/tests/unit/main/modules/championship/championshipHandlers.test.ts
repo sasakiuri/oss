@@ -3,7 +3,8 @@ import { ISSF_2026_AR60 } from '@sasakiuri/saika-rules';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { championshipModule, GetEventByIdToken } from '@/main/modules/championship/championship.module';
+import { GetEventByIdToken } from '@/main/modules/championship/application/championshipQueries';
+import { championshipModule } from '@/main/modules/championship/championship.module';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';

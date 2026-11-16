@@ -1,10 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type Database from 'better-sqlite3';
 
-import {
-  championshipModule,
-  GetFiringPointAssignmentsByRelayToken,
-} from '@/main/modules/championship/championship.module';
+import { GetFiringPointAssignmentsByRelayToken } from '@/main/modules/championship/application/championshipQueries';
+import { championshipModule } from '@/main/modules/championship/championship.module';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';

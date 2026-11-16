@@ -15,13 +15,13 @@ export { SqliteFiringPointAssignmentRepository } from './infra/SqliteFiringPoint
 export { SqliteEventSummaryReader } from './infra/SqliteEventSummaryReader';
 
 // Cross-module query token & types (used by board & results modules)
-export { GetEventByIdToken, GetFiringPointAssignmentsByRelayToken } from './championship.module';
+export { GetEventByIdToken, GetFiringPointAssignmentsByRelayToken } from './application/championshipQueries';
 export type {
   GetEventByIdQuery,
   GetEventByIdResponse,
   GetFiringPointAssignmentsByRelayQuery,
   RelayFiringPointAssignment,
-} from './championship.module';
+} from './application/championshipQueries';
 
 // Module definition
 export { championshipModule } from './championship.module';
