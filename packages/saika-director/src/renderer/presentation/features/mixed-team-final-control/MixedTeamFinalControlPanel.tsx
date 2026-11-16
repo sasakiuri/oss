@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, UsersRound } from 'lucide-react';
 import { mixedTeamFinalControlService, mqttService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   DirectorLaneSnapshotDto,
   MixedTeamFinalAssessmentDto,
@@ -42,20 +43,20 @@ export function MixedTeamFinalControlPanel({
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [list, assessed] = await Promise.all([
+      const [listResponse, assessmentResponse] = await Promise.all([
         mixedTeamFinalControlService.list({ competitionId }),
         mixedTeamFinalControlService.assess(input),
       ]);
-      if (!list.success) throw new Error(list.error.message);
-      if (!assessed.success) throw new Error(assessed.error.message);
-      setDecisions(list.data);
-      setAssessment(assessed.data);
+      const listed = unwrap(listResponse);
+      const assessed = unwrap(assessmentResponse);
+      setDecisions(listed);
+      setAssessment(assessed);
       setSelectedTeamId((current) =>
-        assessed.data.candidateTeamIds.includes(current) ? current : (assessed.data.candidateTeamIds[0] ?? ''),
+        assessed.candidateTeamIds.includes(current) ? current : (assessed.candidateTeamIds[0] ?? ''),
       );
-      setResolution(assessed.data.status === 'TIE' ? 'SHOOT_OFF' : 'CLEAR_LOWEST');
+      setResolution(assessed.status === 'TIE' ? 'SHOOT_OFF' : 'CLEAR_LOWEST');
     } catch (caught) {
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     }
   }, [competitionId, input]);
 
@@ -80,8 +81,7 @@ export function MixedTeamFinalControlPanel({
           ...(statement.trim() ? { resolutionStatement: statement.trim() } : {}),
           officialName: officialName.trim(),
         });
-        if (!recorded.success) throw new Error(recorded.error.message);
-        decision = recorded.data;
+        decision = unwrap(recorded);
       }
       const incompleteLaneIds = decision.memberLaneIds.filter(
         (laneId) => decision!.latestLaneStatuses[laneId] !== 'DONE',
@@ -122,7 +122,7 @@ export function MixedTeamFinalControlPanel({
           statement: `Retirement command for ${decision.selectedTeamId}: ${laneResults.map((result) => `${result.laneId.slice(0, 8)}=${result.status}`).join(', ')}`,
           officialName: officialName.trim(),
         });
-        if (!recorded.success) throw new Error(recorded.error.message);
+        unwrap(recorded);
       }
       const transportErrors = commandResponses.filter((response) => !response.success);
       await load();
@@ -132,7 +132,7 @@ export function MixedTeamFinalControlPanel({
       setStatement('');
     } catch (caught) {
       await load();
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     } finally {
       setSaving(false);
     }
@@ -300,6 +300,3 @@ function buildTeams(competitionId: string, lanes: readonly DirectorLaneSnapshotD
 
 const inputClass =
   'mt-1 block min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
