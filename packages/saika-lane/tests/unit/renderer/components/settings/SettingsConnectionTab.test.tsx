@@ -15,7 +15,7 @@ import type { TargetDeviceDto, TargetManufacturer } from '@/shared/ipc/contracts
 // Mocks
 // ============================================================
 
-const mockConnect = vi.fn().mockResolvedValue(undefined);
+const mockConnect = vi.fn().mockResolvedValue(true);
 const mockDisconnect = vi.fn().mockResolvedValue(undefined);
 const mockClearError = vi.fn();
 
@@ -496,6 +496,21 @@ describe('SettingsConnectionTab', () => {
         expect(mockSaveConnectionSettings).toHaveBeenCalled();
       });
 
+      expect(mockSaveUserPreferences).not.toHaveBeenCalled();
+    });
+
+    it('keeps the saved connection settings and discipline when the connection fails', async () => {
+      mockConnect.mockResolvedValueOnce(false);
+      useSessionStore.getState().setDiscipline('AIR_RIFLE_10M');
+
+      render(<SettingsConnectionTab />);
+
+      fireEvent.click(screen.getByTestId('port-select-trigger'));
+      fireEvent.click(screen.getByText('Connect'));
+
+      await waitFor(() => expect(mockConnect).toHaveBeenCalled());
+      await Promise.resolve();
+      expect(mockSaveConnectionSettings).not.toHaveBeenCalled();
       expect(mockSaveUserPreferences).not.toHaveBeenCalled();
     });
 
