@@ -120,8 +120,16 @@ vi.mock('@/renderer/presentation/components/SidePanel', () => ({
   SidePanel: (props: Record<string, unknown>) => <div data-testid="side-panel" {...filterProps(props)} />,
 }));
 vi.mock('@/renderer/presentation/components/TargetDisplay', () => ({
-  TargetDisplay: ({ shots, discipline }: { shots: { length: number }[]; discipline: string }) => (
-    <div data-testid="target-display">
+  TargetDisplay: ({
+    shots,
+    discipline,
+    zoomMode,
+  }: {
+    shots: { length: number }[];
+    discipline: string;
+    zoomMode: string;
+  }) => (
+    <div data-testid="target-display" data-zoom-mode={zoomMode}>
       {shots.length} shots {discipline}
     </div>
   ),
@@ -758,6 +766,28 @@ describe('MainScreen', () => {
         vi.useRealTimers();
         document.documentElement.classList.remove('cursor-hidden');
       }
+    });
+  });
+
+  describe('View menu zoom', () => {
+    it('steps Zoom In and Zoom Out through the zoom modes in opposite directions', () => {
+      vi.mocked(useSessionModule.useSession).mockReturnValue({
+        ...defaultMockSession,
+        currentSessionId: 'session-123',
+      });
+      render(<MainScreen modeSwitchActions={modeSwitchActions} />);
+      const chooseFromViewMenu = (label: string) => {
+        fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
+        fireEvent.click(screen.getByRole('menuitem', { name: label }));
+      };
+
+      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'AUTO');
+      chooseFromViewMenu('Zoom In');
+      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'RING_8');
+      chooseFromViewMenu('Zoom Out');
+      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'AUTO');
+      chooseFromViewMenu('Zoom Out');
+      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'FULL');
     });
   });
 
