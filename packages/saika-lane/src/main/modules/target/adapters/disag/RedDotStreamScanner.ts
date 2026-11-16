@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
+import { RED_DOT_FRAME_LENGTH } from '@/main/modules/target/infra/parsers/disag/RedDotChecksum';
+
 import {
   getRedDotFixedStructureError,
   RedDotFrameDecodeError,
   RedDotFrameDecoder,
   type RedDotParsedFrame,
-} from '@/main/modules/target/adapters/disag/RedDotFrameDecoder';
-
-import { RED_DOT_FRAME_LENGTH } from './RedDotChecksum';
+} from './RedDotFrameDecoder';
 
 const STX = 0x02;
 const ACK = 0x06;
