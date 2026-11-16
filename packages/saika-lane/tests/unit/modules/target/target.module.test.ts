@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BPT216Adapter } from '@/main/modules/target/adapters/BPT216Adapter';
 import { targetModule } from '@/main/modules/target/target.module';
@@ -81,6 +81,25 @@ describe('target.module', () => {
       targetModule.register({ adapterRegistry });
 
       expect(adapterRegistry.registerAdapter).toHaveBeenCalledTimes(3);
+    });
+
+    it('registers a device adapter for every definition that declares one, and none for the others', () => {
+      targetModule.register({ adapterRegistry });
+
+      const assigned = vi.mocked(adapterRegistry.assignDeviceAdapter).mock.calls;
+      const registered = vi.mocked(adapterRegistry.registerDeviceAdapter).mock.calls.map(([deviceId]) => deviceId);
+      expect(new Map(assigned)).toEqual(
+        new Map([
+          ['MT201', 'KOHTO'],
+          ['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG'],
+          ['DISAG_KT_RDT_ZIE_1_PISTOL', 'DISAG'],
+          ['CUSTOM', 'CUSTOM'],
+        ]),
+      );
+      expect(registered.sort()).toEqual(['BP216', 'BPT216', 'BPT216_RS232']);
+      expect(
+        new Set(vi.mocked(adapterRegistry.registerDeviceAdapter).mock.calls.map(([, adapter]) => adapter)).size,
+      ).toBe(1);
     });
 
     it('should assign 4 manufacturer-backed device adapters total', () => {

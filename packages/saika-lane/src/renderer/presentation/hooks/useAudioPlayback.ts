@@ -3,15 +3,7 @@ import { useCallback, useEffect } from 'react';
 
 import shotSound from '@/assets/sounds/shot.wav';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-
-const SHOT_SOUND_DEVICE_IDS = new Set([
-  'MT201',
-  'BPT216',
-  'BP216',
-  'BPT216_RS232',
-  'DISAG_KT_RDT_ZIE_1_RIFLE',
-  'DISAG_KT_RDT_ZIE_1_PISTOL',
-]);
+import { IMMEDIATE_SHOT_FEEDBACK_DEVICE_IDS } from '@/shared/target/targetDevices';
 
 // Share one audio context and decoded buffer across hook instances.
 
@@ -179,7 +171,7 @@ export function useAudioPlayback() {
   /** Play impact sound at the store's audioVolume when a supported target is connected. */
   const playShotSound = useCallback(() => {
     const { deviceId, audioVolume } = useSessionStore.getState();
-    if (deviceId === null || !SHOT_SOUND_DEVICE_IDS.has(deviceId)) return;
+    if (deviceId === null || !IMMEDIATE_SHOT_FEEDBACK_DEVICE_IDS.has(deviceId)) return;
     if (audioVolume === 0) return;
     playBuffer(audioVolume / 100);
   }, [playBuffer]);

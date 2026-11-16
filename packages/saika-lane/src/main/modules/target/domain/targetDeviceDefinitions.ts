@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
-import type { Discipline } from '@/shared/ipc/schemas/common';
-
-import type { SerialConfig } from './TargetDevice';
-
-export const DISAG_RED_DOT_RIFLE_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_RIFLE';
-export const DISAG_RED_DOT_PISTOL_DEVICE_ID = 'DISAG_KT_RDT_ZIE_1_PISTOL';
+import {
+  BPT216_DEVICE_ID,
+  BPT216_RS232_DEVICE_ID,
+  DEVICE_DEFINITIONS,
+  DISAG_RED_DOT_PISTOL_DEVICE_ID,
+  DISAG_RED_DOT_RIFLE_DEVICE_ID,
+  LEGACY_BP216_DEVICE_ID,
+  type DeviceDefinition,
+} from '@/shared/target/targetDevices';
 
 export const DISAG_RED_DOT_DEVICE_IDS = [DISAG_RED_DOT_RIFLE_DEVICE_ID, DISAG_RED_DOT_PISTOL_DEVICE_ID] as const;
-
-export const BPT216_DEVICE_ID = 'BPT216';
-export const BPT216_RS232_DEVICE_ID = 'BPT216_RS232';
-export const LEGACY_BP216_DEVICE_ID = 'BP216';
 
 export type DisagRedDotDeviceId = (typeof DISAG_RED_DOT_DEVICE_IDS)[number];
 export type DisagRedDotDiscipline = 'AIR_RIFLE_10M' | 'AIR_PISTOL_10M';
@@ -43,115 +42,6 @@ export function getDisagRedDotTargetType(deviceId: string | undefined): DisagRed
   }
   return null;
 }
-
-/**
- * DeviceDefinition — Static definition data for target devices
- *
- * Data-driven definition replacing TargetDevice static factory methods.
- * Adding a new device only requires adding an entry to this array.
- */
-export interface DeviceDefinition {
-  readonly id: string;
-  readonly aliases?: readonly string[];
-  readonly manufacturer: 'KOHTO' | 'SIUS' | 'MEYTON' | 'DISAG' | 'CUSTOM';
-  readonly modelName: string;
-  readonly displayName: string;
-  readonly serialConfig: SerialConfig;
-  readonly supportedDisciplines: readonly Discipline[];
-}
-
-export const DEVICE_DEFINITIONS: readonly DeviceDefinition[] = [
-  {
-    id: 'MT201',
-    manufacturer: 'KOHTO',
-    modelName: 'MT201',
-    displayName: 'Kohto Electronics MT201',
-    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['BEAM_RIFLE_10M'],
-  },
-  {
-    id: BPT216_DEVICE_ID,
-    aliases: [LEGACY_BP216_DEVICE_ID],
-    manufacturer: 'KOHTO',
-    modelName: 'BPT-216',
-    displayName: 'Kohto Electronics BPT-216 (BP-217 I/F)',
-    serialConfig: { baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['BEAM_PISTOL_10M'],
-  },
-  {
-    id: BPT216_RS232_DEVICE_ID,
-    manufacturer: 'KOHTO',
-    modelName: 'BPT-216',
-    displayName: 'Kohto Electronics BPT-216 (RS-232C)',
-    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['BEAM_PISTOL_10M'],
-  },
-  {
-    id: 'HS10',
-    manufacturer: 'SIUS',
-    modelName: 'HS10',
-    displayName: 'SIUS HS10',
-    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['AIR_RIFLE_10M', 'AIR_PISTOL_10M'],
-  },
-  {
-    id: 'HS25',
-    manufacturer: 'SIUS',
-    modelName: 'HS25',
-    displayName: 'SIUS HS25',
-    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['PISTOL_25M'],
-  },
-  {
-    id: 'MEYTON_DEFAULT',
-    manufacturer: 'MEYTON',
-    modelName: 'Meyton',
-    displayName: 'Meyton Standard',
-    serialConfig: { baudRate: 19200, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['AIR_RIFLE_10M', 'AIR_PISTOL_10M', 'RIFLE_50M', 'PISTOL_25M'],
-  },
-  {
-    id: 'DISAG_DEFAULT',
-    manufacturer: 'DISAG',
-    modelName: 'DISAG',
-    displayName: 'DISAG Standard',
-    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['AIR_RIFLE_10M', 'AIR_PISTOL_10M', 'RIFLE_50M', 'PISTOL_25M'],
-  },
-  {
-    id: DISAG_RED_DOT_RIFLE_DEVICE_ID,
-    manufacturer: 'DISAG',
-    modelName: 'KT RDT ZIE 1',
-    displayName: 'DISAG RedDot Rifle',
-    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['AIR_RIFLE_10M'],
-  },
-  {
-    id: DISAG_RED_DOT_PISTOL_DEVICE_ID,
-    manufacturer: 'DISAG',
-    modelName: 'KT RDT ZIE 1',
-    displayName: 'DISAG RedDot Pistol',
-    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: ['AIR_PISTOL_10M'],
-  },
-  {
-    id: 'CUSTOM',
-    manufacturer: 'CUSTOM',
-    modelName: 'Custom',
-    displayName: 'Custom Device',
-    serialConfig: { baudRate: 9600, dataBits: 8, stopBits: 1, parity: 'none' },
-    supportedDisciplines: [
-      'AIR_RIFLE_10M',
-      'AIR_PISTOL_10M',
-      'RIFLE_50M',
-      'RIFLE_300M',
-      'PISTOL_50M',
-      'PISTOL_25M',
-      'BEAM_RIFLE_10M',
-      'BEAM_PISTOL_10M',
-    ],
-  },
-] as const;
 
 /** Resolves a canonical or legacy device ID to its static definition. */
 export function findTargetDeviceDefinition(deviceId: string | undefined): DeviceDefinition | undefined {

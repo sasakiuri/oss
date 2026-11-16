@@ -4,12 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { TargetDevice } from '@/main/modules/target/domain/TargetDevice';
 import {
-  DEVICE_DEFINITIONS,
   findTargetDeviceDefinition,
   getDisagRedDotTargetType,
 } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { DomainError } from '@/shared/errors/DomainError';
+import { DEVICE_DEFINITIONS } from '@/shared/target/targetDevices';
 
 describe('TargetDevice value object', () => {
   // ============================
