@@ -7,6 +7,7 @@ import { unwrapData } from '@/renderer/services/serviceError';
 import type { SquaddingDrawDto } from '@/shared/ipc/contracts';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { Button } from '../../shared/common/Button';
+import { mutedLabelClass, smallInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface SquaddingPanelProps {
   eventId: string;
@@ -126,29 +127,29 @@ export function SquaddingPanel({
 
       {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Seed
           <div className="mt-1 flex gap-1">
-            <input className={inputClass} value={seed} onChange={(event) => setSeed(event.target.value)} />
+            <input className={smallInputClass} value={seed} onChange={(event) => setSeed(event.target.value)} />
             <Button size="sm" variant="secondary" onClick={() => setSeed(crypto.randomUUID())}>
               New
             </Button>
           </div>
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           First firing point
           <input
-            className={inputClass}
+            className={smallInputClass}
             type="number"
             min={1}
             value={firstFiringPoint}
             onChange={(event) => setFirstFiringPoint(Number(event.target.value))}
           />
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           MQS/RPO/OOC section
           <select
-            className={inputClass}
+            className={smallInputClass}
             value={statusSectionPolicy}
             onChange={(event) => setStatusSectionPolicy(event.target.value as 'OFF' | 'END_OF_RELAY')}
           >
@@ -156,18 +157,18 @@ export function SquaddingPanel({
             <option value="END_OF_RELAY">End of each relay</option>
           </select>
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Official / operator
           <input
-            className={inputClass}
+            className={smallInputClass}
             value={officialName}
             onChange={(event) => setOfficialName(event.target.value)}
           />
         </label>
       </div>
-      <label className={labelClass}>
+      <label className={mutedLabelClass}>
         Audit statement
-        <input className={inputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
+        <input className={smallInputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
       </label>
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" onClick={() => void createDraw()} disabled={busy || !officialName.trim() || !seed.trim()}>
@@ -233,7 +234,3 @@ export function SquaddingPanel({
     </section>
   );
 }
-
-const labelClass = 'text-xs text-vscode-text-muted';
-const inputClass =
-  'mt-1 min-h-8 w-full rounded border border-vscode-border bg-vscode-input px-2 text-xs text-vscode-text';

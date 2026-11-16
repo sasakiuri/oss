@@ -8,6 +8,7 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { readOnlyMutedInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 type RecoveryPhase = QualificationRecoveryExecutionDto['phase'];
 
@@ -392,7 +393,7 @@ function CancelRecoveryForm({
           rows={2}
           value={reason}
           onChange={(event) => setReason(event.target.value)}
-          className={inputClass}
+          className={readOnlyMutedInputClass}
         />
       </Field>
       <FormButtons saving={saving} submitLabel="Cancel recovery run" onCancel={onCancel} danger />
@@ -446,7 +447,7 @@ function AdjudicateRecoveryForm({
             readOnly={priorRequest !== null}
             value={appliedBy}
             onChange={(event) => setAppliedBy(event.target.value)}
-            className={inputClass}
+            className={readOnlyMutedInputClass}
           />
         </Field>
         <div className="text-xs leading-5 text-vscode-text-muted">
@@ -461,7 +462,7 @@ function AdjudicateRecoveryForm({
           rows={3}
           value={statement}
           onChange={(event) => setStatement(event.target.value)}
-          className={inputClass}
+          className={readOnlyMutedInputClass}
         />
       </Field>
       <label className="flex items-start gap-2 text-xs text-vscode-warning">
@@ -582,6 +583,4 @@ function FormButtons({
   );
 }
 
-const inputClass =
-  'w-full rounded-[2px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text outline-none focus:border-vscode-focus read-only:text-vscode-text-muted';
 const formClass = 'mt-3 space-y-3 border-t border-vscode-border pt-3';

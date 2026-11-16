@@ -7,6 +7,7 @@ import {
   type ProtestFormPhase,
   type ProtestFormTransfer,
 } from '@/shared/forms/ProtestFormDraft';
+import { printInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTransfer }) {
   const [overrides, setOverrides] = useState<Record<string, string>>({});
@@ -80,7 +81,7 @@ export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTr
             {field.label} (draft)
             {field.id === 'decision' ? (
               <select
-                className={inputClass}
+                className={printInputClass}
                 value={field.value}
                 onChange={(event) => setOverrides({ ...overrides, [field.id]: event.target.value })}
               >
@@ -90,7 +91,7 @@ export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTr
               </select>
             ) : (
               <textarea
-                className={inputClass}
+                className={printInputClass}
                 value={overrides[field.id] ?? field.value}
                 rows={field.id === 'reason' || field.id === 'decisionReason' || field.id === 'subject' ? 4 : 1}
                 maxLength={4000}
@@ -106,7 +107,7 @@ export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTr
       <label>
         Additional supporting attachments (one reference per line)
         <textarea
-          className={inputClass}
+          className={printInputClass}
           rows={3}
           maxLength={4000}
           value={attachmentsText}
@@ -116,7 +117,7 @@ export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTr
       <label>
         Check completion through
         <select
-          className={inputClass}
+          className={printInputClass}
           value={phase}
           onChange={(event) => setPhase(event.target.value as ProtestFormPhase)}
         >
@@ -183,4 +184,3 @@ export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTr
     </details>
   );
 }
-const inputClass = 'block w-full rounded border p-2 text-black bg-white';

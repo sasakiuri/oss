@@ -13,6 +13,7 @@ import { Button } from '../../shared/common/Button';
 import { EstBackupCapturePanel } from './EstBackupCapturePanel';
 import { EstBackupResultChecksPanel } from './EstBackupResultChecksPanel';
 import { EstBackupSourcesPanel } from './EstBackupSourcesPanel';
+import { inputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 export function EstBackupVerificationPanel({
   eventId,
@@ -420,5 +421,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </label>
   );
 }
-const inputClass =
-  'min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1 text-[13px] text-vscode-text';

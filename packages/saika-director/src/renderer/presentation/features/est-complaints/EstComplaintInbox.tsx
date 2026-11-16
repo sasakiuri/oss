@@ -98,7 +98,7 @@ export function EstComplaintInbox({
           value={openedBy}
           onChange={(event) => setOpenedBy(event.target.value)}
           maxLength={200}
-          className="mt-1 w-full rounded-[2px] border border-vscode-border bg-vscode-input px-2.5 py-1.5 text-[13px] text-vscode-text outline-none focus:border-vscode-focus"
+          className="mt-1 w-full rounded-[2px] border border-vscode-border bg-vscode-input px-2.5 py-1.5 text-[13px] text-vscode-text outline-none"
           placeholder="Name or role"
         />
       </label>

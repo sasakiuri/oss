@@ -7,15 +7,13 @@ import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { FinalResultDeclarationStatusDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
+import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface FinalResultDeclarationPanelProps {
   eventId: string;
   eventName?: string;
   onClose: () => void;
 }
-
-const inputClass =
-  'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
 
 export function FinalResultDeclarationPanel({ eventId, eventName, onClose }: FinalResultDeclarationPanelProps) {
   const [status, setStatus] = useState<FinalResultDeclarationStatusDto | null>(null);
@@ -124,7 +122,7 @@ export function FinalResultDeclarationPanel({ eventId, eventName, onClose }: Fin
             <label className="block text-xs text-vscode-text-muted">
               CRO / responsible official
               <input
-                className={`${inputClass} mt-1`}
+                className={`${fullWidthInputClass} mt-1`}
                 value={officialName}
                 onChange={(event) => setOfficialName(event.target.value)}
               />
@@ -132,7 +130,7 @@ export function FinalResultDeclarationPanel({ eventId, eventName, onClose }: Fin
             <label className="block text-xs text-vscode-text-muted">
               Declaration statement
               <textarea
-                className={`${inputClass} mt-1 min-h-16 resize-y`}
+                className={`${fullWidthInputClass} mt-1 min-h-16 resize-y`}
                 value={statement}
                 onChange={(event) => setStatement(event.target.value)}
               />

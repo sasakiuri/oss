@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { QualificationRecoverySettlementDto, RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { readOnlyMutedInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface QualificationRecoverySettlementPanelProps {
   interruption: RangeInterruptionCaseDto;
@@ -135,7 +136,7 @@ function SettlementForm({
           readOnly={prior !== null}
           value={appliedBy}
           onChange={(event) => setAppliedBy(event.target.value)}
-          className={inputClass}
+          className={readOnlyMutedInputClass}
         />
       </label>
       <label className="block text-xs font-medium text-vscode-text">
@@ -146,7 +147,7 @@ function SettlementForm({
           rows={3}
           value={statement}
           onChange={(event) => setStatement(event.target.value)}
-          className={inputClass}
+          className={readOnlyMutedInputClass}
         />
       </label>
       <label className="flex items-start gap-2 text-xs text-vscode-warning">
@@ -193,6 +194,3 @@ function formatStatus(value: string): string {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
-
-const inputClass =
-  'w-full rounded-[2px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text outline-none focus:border-vscode-focus read-only:text-vscode-text-muted';

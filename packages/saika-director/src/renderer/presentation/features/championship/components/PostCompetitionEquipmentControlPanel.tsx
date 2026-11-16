@@ -9,6 +9,7 @@ import type { PostCompetitionEquipmentCheckDto, RecordEquipmentControlTestPayloa
 import type { ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
 
 import { Button } from '../../shared/common/Button';
+import { inputClass, sectionClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 type SelectionBasis = PostCompetitionEquipmentCheckDto['selectionBasis'];
 type Outcome = Extract<PostCompetitionEquipmentCheckDto['entries'][number], { type: 'TEST_RECORDED' }>['outcome'];
@@ -667,7 +668,3 @@ function parseItems(value: string): string[] {
     ),
   ];
 }
-
-const sectionClass = 'rounded-[3px] border border-vscode-border p-3';
-const inputClass =
-  'min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1 text-[13px] text-vscode-text';

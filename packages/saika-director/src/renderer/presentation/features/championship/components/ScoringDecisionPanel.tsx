@@ -8,6 +8,7 @@ import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
 
 import { ScoreCorrectionPanel } from './ScoreCorrectionPanel';
+import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface ScoringDecisionPanelProps {
   result: {
@@ -37,9 +38,6 @@ const DECISION_OPTIONS: Array<{ value: AddDecisionType; label: string }> = [
   { value: 'REPEAT_SERIES', label: 'Repeated series' },
   { value: 'REMARK', label: 'Remark only' },
 ];
-
-const inputClass =
-  'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
 
 export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }: ScoringDecisionPanelProps) {
   const [decisions, setDecisions] = useState<ScoringDecisionDto[]>([]);
@@ -210,7 +208,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
           <label className="block text-xs text-vscode-text-muted">
             Decision
             <select
-              className={`${inputClass} mt-1`}
+              className={`${fullWidthInputClass} mt-1`}
               value={type}
               onChange={(event) => setType(event.target.value as AddDecisionType)}
             >
@@ -227,7 +225,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
               <label className="text-xs text-vscode-text-muted">
                 Application
                 <select
-                  className={`${inputClass} mt-1`}
+                  className={`${fullWidthInputClass} mt-1`}
                   value={policy}
                   onChange={(event) => setPolicy(event.target.value as typeof policy)}
                 >
@@ -238,7 +236,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
               <label className="text-xs text-vscode-text-muted">
                 Points
                 <input
-                  className={`${inputClass} mt-1`}
+                  className={`${fullWidthInputClass} mt-1`}
                   type="number"
                   min="0.1"
                   step="0.1"
@@ -256,7 +254,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
                 <label className="text-xs text-vscode-text-muted">
                   Series #
                   <input
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     type="number"
                     min="1"
                     required
@@ -269,7 +267,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
                 <label className="text-xs text-vscode-text-muted">
                   Absolute shot #
                   <input
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     type="number"
                     min="1"
                     required
@@ -285,7 +283,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
             <label className="text-xs text-vscode-text-muted">
               ISSF rule reference
               <input
-                className={`${inputClass} mt-1`}
+                className={`${fullWidthInputClass} mt-1`}
                 required
                 value={ruleReference}
                 onChange={(event) => setRuleReference(event.target.value)}
@@ -294,7 +292,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
             <label className="text-xs text-vscode-text-muted">
               Incident report #
               <input
-                className={`${inputClass} mt-1`}
+                className={`${fullWidthInputClass} mt-1`}
                 value={incidentReportNumber}
                 onChange={(event) => setIncidentReportNumber(event.target.value)}
               />
@@ -303,7 +301,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
           <label className="block text-xs text-vscode-text-muted">
             Public result-list remark
             <textarea
-              className={`${inputClass} mt-1 min-h-16 resize-y`}
+              className={`${fullWidthInputClass} mt-1 min-h-16 resize-y`}
               required
               value={publicRemark}
               onChange={(event) => setPublicRemark(event.target.value)}
@@ -312,7 +310,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
           <label className="block text-xs text-vscode-text-muted">
             Internal note
             <textarea
-              className={`${inputClass} mt-1 min-h-12 resize-y`}
+              className={`${fullWidthInputClass} mt-1 min-h-12 resize-y`}
               value={internalNote}
               onChange={(event) => setInternalNote(event.target.value)}
             />
@@ -320,7 +318,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
           <label className="block text-xs text-vscode-text-muted">
             Official / jury member
             <input
-              className={`${inputClass} mt-1`}
+              className={`${fullWidthInputClass} mt-1`}
               required
               value={officialName}
               onChange={(event) => setOfficialName(event.target.value)}
@@ -384,7 +382,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
               <label className="block text-xs text-vscode-text-muted">
                 Revocation reason
                 <textarea
-                  className={`${inputClass} mt-1 min-h-14 resize-y`}
+                  className={`${fullWidthInputClass} mt-1 min-h-14 resize-y`}
                   required
                   value={revokeReason}
                   onChange={(event) => setRevokeReason(event.target.value)}

@@ -10,6 +10,7 @@ import type {
   FinalControlLaneSnapshotDto,
 } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
+import { blockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface FinalControlPanelProps {
   competitionId: string;
@@ -242,7 +243,7 @@ export function FinalControlPanel({
             <input
               value={officialName}
               onChange={(event) => setOfficialName(event.target.value)}
-              className={inputClass}
+              className={blockInputClass}
             />
           </label>
           {!pendingDecision && (
@@ -251,7 +252,7 @@ export function FinalControlPanel({
               <select
                 value={selectedLaneId}
                 onChange={(event) => setSelectedLaneId(event.target.value)}
-                className={inputClass}
+                className={blockInputClass}
               >
                 {assessment?.candidateLaneIds.map((laneId) => {
                   const lane = laneSnapshots.find((item) => item.laneId === laneId);
@@ -270,7 +271,7 @@ export function FinalControlPanel({
               <select
                 value={resolution}
                 onChange={(event) => setResolution(event.target.value as 'SHOOT_OFF' | 'JURY_DECISION')}
-                className={inputClass}
+                className={blockInputClass}
               >
                 <option value="SHOOT_OFF">Shoot-off</option>
                 <option value="JURY_DECISION">Jury decision</option>
@@ -280,13 +281,13 @@ export function FinalControlPanel({
           {!pendingDecision && assessment?.resolutionRequirement === 'COUNTBACK' && (
             <div className="text-xs text-vscode-text-muted">
               Resolution
-              <div className={`${inputClass} flex items-center`}>ISSF countback</div>
+              <div className={`${blockInputClass} flex items-center`}>ISSF countback</div>
             </div>
           )}
           {!pendingDecision && assessment?.resolutionRequirement === 'FINAL_START_NUMBER' && (
             <div className="text-xs text-vscode-text-muted">
               Resolution
-              <div className={`${inputClass} flex items-center`}>ISSF Finals Start Number</div>
+              <div className={`${blockInputClass} flex items-center`}>ISSF Finals Start Number</div>
             </div>
           )}
           <label className="text-xs text-vscode-text-muted md:col-span-2">
@@ -298,7 +299,7 @@ export function FinalControlPanel({
             <textarea
               value={statement}
               onChange={(event) => setStatement(event.target.value)}
-              className={`${inputClass} min-h-16`}
+              className={`${blockInputClass} min-h-16`}
             />
           </label>
           <div className="flex flex-wrap gap-2 md:col-span-2">
@@ -351,6 +352,3 @@ export function FinalControlPanel({
     </div>
   );
 }
-
-const inputClass =
-  'mt-1 block min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';

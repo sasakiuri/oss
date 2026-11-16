@@ -9,15 +9,13 @@ import type { ResultPublicationStatusDto } from '@/shared/ipc/contracts';
 import { ObservationReviewsPanel } from '../../observation-reviews/ObservationReviewsPanel';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
+import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface ResultPublicationPanelProps {
   eventId: string;
   eventName?: string;
   onClose: () => void;
 }
-
-const inputClass =
-  'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
 
 export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPublicationPanelProps) {
   const [status, setStatus] = useState<ResultPublicationStatusDto | null>(null);
@@ -156,7 +154,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
               Responsible official
               <input
                 aria-label="Result publication official"
-                className={`${inputClass} mt-1`}
+                className={`${fullWidthInputClass} mt-1`}
                 value={officialName}
                 onChange={(event) => setOfficialName(event.target.value)}
               />
@@ -172,7 +170,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
                 <label className="block text-xs">
                   Posting destination
                   <input
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     value={postingLocation}
                     maxLength={300}
                     onChange={(event) => setPostingLocation(event.target.value)}
@@ -181,7 +179,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
                 <label className="block text-xs">
                   Posting time
                   <select
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     value={postingTimeMode}
                     onChange={(event) => setPostingTimeMode(event.target.value)}
                   >
@@ -193,7 +191,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
                   <label className="block text-xs">
                     Actual posting time (local)
                     <input
-                      className={`${inputClass} mt-1`}
+                      className={`${fullWidthInputClass} mt-1`}
                       type="datetime-local"
                       step="1"
                       value={postingTime}
@@ -204,7 +202,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
                 <label className="block text-xs">
                   Posting reference (optional)
                   <input
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     value={postingReference}
                     maxLength={1000}
                     onChange={(event) => setPostingReference(event.target.value)}
@@ -248,7 +246,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
                   <form className="flex gap-2" onSubmit={registerProtest}>
                     <input
                       aria-label="Score protest reference"
-                      className={inputClass}
+                      className={fullWidthInputClass}
                       placeholder="Form P / protest reference"
                       required
                       value={protestReference}
@@ -279,7 +277,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
                       <div className="mt-3 space-y-2">
                         <textarea
                           aria-label={`Resolution for ${reference}`}
-                          className={`${inputClass} min-h-16 resize-y`}
+                          className={`${fullWidthInputClass} min-h-16 resize-y`}
                           required
                           value={resolution}
                           onChange={(event) => setResolution(event.target.value)}
