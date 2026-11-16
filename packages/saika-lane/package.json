@@ -57,7 +57,7 @@
     "license-report:check": "node ../../scripts/generate-third-party-licenses.mjs --check --workspace=@sasakiuri/saika-lane",
     "license-artifacts:check": "node ../../scripts/verify-packaged-licenses.mjs --workspace=@sasakiuri/saika-lane",
     "size-limit": "size-limit",
-    "analyze": "cross-env ANALYZE=1 tsc && cross-env ANALYZE=1 vite build",
+    "analyze": "tsc && cross-env ANALYZE=1 vite build",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
