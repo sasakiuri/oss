@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Loads session shots and refreshes them when a shot is recorded. */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { mergeShots, useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { calculateSeriesScores } from '@/renderer/presentation/utils/scoreUtils';
@@ -14,12 +14,8 @@ import type { ShotDto } from '@/shared/ipc/contracts';
 export interface UseShotResult {
   /** Shot history */
   shots: ShotDto[];
-  /** Latest shot (null when there are no shots) */
-  latestShot: ShotDto | null;
   /** Action to re-fetch shot history */
   refreshShotHistory: () => Promise<void>;
-  /** Loading in-progress flag */
-  isLoading: boolean;
 }
 
 export function useShot(): UseShotResult {
@@ -27,19 +23,6 @@ export function useShot(): UseShotResult {
   const shots = useSessionStore((state) => state.shots);
   const setShots = useSessionStore((state) => state.setShots);
   const updateScores = useSessionStore((state) => state.updateScores);
-
-  // Loading state
-  const [isLoading, setIsLoading] = useState(false);
-
-  /**
-   * Get the latest shot
-   */
-  const latestShot = useMemo((): ShotDto | null => {
-    if (shots.length === 0) {
-      return null;
-    }
-    return shots[shots.length - 1] ?? null;
-  }, [shots]);
 
   /**
    * Calculate scores and update the store
@@ -69,7 +52,6 @@ export function useShot(): UseShotResult {
       return;
     }
 
-    setIsLoading(true);
     let resetDuringQuery = false;
     const unsubscribe = window.electronAPI.on.sessionReset(() => {
       resetDuringQuery = true;
@@ -89,7 +71,6 @@ export function useShot(): UseShotResult {
       // Shot history refresh failure — non-critical, will retry on next event
     } finally {
       unsubscribe();
-      setIsLoading(false);
     }
   }, [currentSessionId, setShots, calculateScores]);
 
@@ -121,8 +102,6 @@ export function useShot(): UseShotResult {
 
   return {
     shots,
-    latestShot,
     refreshShotHistory,
-    isLoading,
   };
 }

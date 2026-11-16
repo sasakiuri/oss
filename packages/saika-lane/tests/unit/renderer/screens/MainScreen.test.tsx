@@ -198,9 +198,7 @@ describe('MainScreen', () => {
 
   const defaultMockShot: UseShotResult = {
     shots: [],
-    latestShot: null,
     refreshShotHistory: vi.fn(),
-    isLoading: false,
   };
 
   // getState mock for useSessionStore.getState()
