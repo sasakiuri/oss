@@ -7,7 +7,7 @@ import {
   defineContract,
   query,
   queryResponseSchema,
-} from '../defineContract';
+} from '@sasakiuri/saika-ipc';
 import { OperationalModesSchema } from './operationalSettings.schema';
 
 const details = z.object({

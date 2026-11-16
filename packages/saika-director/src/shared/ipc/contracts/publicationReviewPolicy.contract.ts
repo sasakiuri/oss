@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { officialSigningEvidenceSchema } from './officialSigning.schema';
 import { reviewSettingsSchema } from './resultPublication.contract';
 

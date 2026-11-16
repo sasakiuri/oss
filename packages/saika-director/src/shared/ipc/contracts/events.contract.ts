@@ -5,7 +5,7 @@ import {
   MqttControlSnapshotSchema,
   ShotObservationEvidenceDtoSchema,
 } from './mqtt.contract';
-import { defineEventContract, defineEvent } from '../defineContract';
+import { defineEventContract, defineEvent } from '@sasakiuri/saika-ipc';
 
 // ---------------------------------------------------------------------------
 // Shared sub-schemas

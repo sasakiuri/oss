@@ -7,7 +7,7 @@ import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { boardContract } from '@/shared/ipc/contracts';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
 
 import { QUALIFICATION_CONFIG } from '../../../../helpers/testConfigs';
 

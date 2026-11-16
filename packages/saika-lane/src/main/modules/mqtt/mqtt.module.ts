@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import { AthleteSchema } from '@sasakiuri/saika-protocol/LaneAssignment';
 import { app } from 'electron';
 
@@ -22,7 +23,6 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ConnectMqttInput } from '@/shared/ipc/contracts';
 import { mqttContract } from '@/shared/ipc/contracts';
 import type { MqttSettings } from '@/shared/ipc/contracts/mqtt.contract';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 import { AssignedFinalRecoveryFiringContextSource } from './application/AssignedFinalRecoveryFiringContextSource';
 import { AssignedMalfunctionFiringContextSource } from './application/AssignedMalfunctionFiringContextSource';

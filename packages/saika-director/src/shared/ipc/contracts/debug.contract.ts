@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { defineContract, query, queryResponseSchema } from '../defineContract';
+import { defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 // ---------------------------------------------------------------------------
 // Response schemas

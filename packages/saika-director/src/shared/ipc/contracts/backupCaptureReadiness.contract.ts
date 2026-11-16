@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 export const BackupCaptureReadinessSettingsSchema = z.object({
   competitionId: z.string().uuid(),

@@ -18,7 +18,7 @@ import type { ICompetitionDataGuard } from '@/main/shared-infra/operations/Compe
 import type { ICompetitionStartReadiness } from '@/main/shared-infra/operations/CompetitionStartReadiness';
 import type { IParticipantEligibilityReader } from '@/main/shared-infra/operations/ParticipantEligibility';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import type { CompetitionStatePayload } from '@/shared/mqtt';
 import { getLaneCompetitionMetadata, getNextSeriesTimer } from './CompetitionSeriesNavigation';
 

@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-import { z } from 'zod';
-
 import {
   CommandResponseSchema,
   command,
@@ -8,7 +6,8 @@ import {
   defineContract,
   query,
   queryResponseSchema,
-} from '../defineContract';
+} from '@sasakiuri/saika-ipc';
+import { z } from 'zod';
 
 // ============================================================
 // DTO schemas

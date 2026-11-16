@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const phaseSchema = z.enum(['PRE_RELAY', 'POST_RELAY']);
 const requirementSchema = z.enum([

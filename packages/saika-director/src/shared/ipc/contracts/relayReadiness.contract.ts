@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { commandDataResponseSchema, defineContract, query, queryResponseSchema, command } from '../defineContract';
+import { commandDataResponseSchema, defineContract, query, queryResponseSchema, command } from '@sasakiuri/saika-ipc';
 
 const startSettingsSchema = z.object({
   competitionId: z.string().min(1),

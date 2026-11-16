@@ -1,6 +1,6 @@
 /** Channel overrides preserve the kebab-case unified-lane-control channel names. */
 import { z } from 'zod';
-import { defineContract, command, query, CommandResponseSchema, queryResponseSchema } from '../defineContract';
+import { defineContract, command, query, CommandResponseSchema, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 // ---------------------------------------------------------------------------
 // Shared sub-schemas

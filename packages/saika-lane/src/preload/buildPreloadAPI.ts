@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: MIT
+import { createProcedureBridge } from '@sasakiuri/saika-ipc/preload';
+import { ipcRenderer } from 'electron';
+
 import {
   startupContract,
   competitionContract,
@@ -15,7 +18,6 @@ import {
 } from '@/shared/ipc/contracts';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
-import { createBridgeNamespace } from './createBridge';
 import { createEventBridge } from './createEventBridge';
 
 /**
@@ -25,20 +27,20 @@ import { createEventBridge } from './createEventBridge';
  * expected by the Renderer process.
  */
 export function buildPreloadAPI(): ElectronAPI {
-  const session = createBridgeNamespace(sessionContract);
-  const connection = createBridgeNamespace(connectionContract);
-  const competition = createBridgeNamespace(competitionContract);
-  const settings = createBridgeNamespace(settingsContract);
+  const session = createProcedureBridge(ipcRenderer, sessionContract);
+  const connection = createProcedureBridge(ipcRenderer, connectionContract);
+  const competition = createProcedureBridge(ipcRenderer, competitionContract);
+  const settings = createProcedureBridge(ipcRenderer, settingsContract);
   const events = createEventBridge(eventsContract);
-  const report = createBridgeNamespace(reportContract);
-  const window = createBridgeNamespace(windowContract);
-  const mqtt = createBridgeNamespace(mqttContract);
-  const updates = createBridgeNamespace(updaterContract);
-  const timedTarget = createBridgeNamespace(timedTargetContract);
+  const report = createProcedureBridge(ipcRenderer, reportContract);
+  const window = createProcedureBridge(ipcRenderer, windowContract);
+  const mqtt = createProcedureBridge(ipcRenderer, mqttContract);
+  const updates = createProcedureBridge(ipcRenderer, updaterContract);
+  const timedTarget = createProcedureBridge(ipcRenderer, timedTargetContract);
   const hasNativeWindowFrame = process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME === '1';
 
   return {
-    startup: createBridgeNamespace(startupContract),
+    startup: createProcedureBridge(ipcRenderer, startupContract),
     platform: process.platform,
     hasNativeWindowFrame,
     appVersion: __APP_VERSION__,
@@ -121,7 +123,7 @@ export function buildPreloadAPI(): ElectronAPI {
     },
 
     timedTarget,
-    vista: createBridgeNamespace(vistaContract),
+    vista: createProcedureBridge(ipcRenderer, vistaContract),
 
     updates: {
       getUpdateState: updates.getUpdateState,

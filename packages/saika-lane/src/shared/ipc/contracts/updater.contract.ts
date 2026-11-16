@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-import { AppUpdateStateSchema } from '@sasakiuri/saika-updater';
-
 import {
   command,
   commandDataResponseSchema,
@@ -8,7 +6,8 @@ import {
   defineContract,
   query,
   queryResponseSchema,
-} from '../defineContract';
+} from '@sasakiuri/saika-ipc';
+import { AppUpdateStateSchema } from '@sasakiuri/saika-updater';
 
 export { AppUpdateStateSchema } from '@sasakiuri/saika-updater';
 export type { AppUpdateStateDto, AppUpdateStatus } from '@sasakiuri/saika-updater';

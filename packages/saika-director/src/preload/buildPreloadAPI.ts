@@ -1,42 +1,7 @@
-/** Builds preload methods and event subscriptions from IPC contracts. */
+/** Builds Director's validated event subscriptions and aliased preload methods from IPC contracts. */
 import { ipcRenderer } from 'electron';
 import { z } from 'zod';
-import type {
-  Contract,
-  ProcedureMap,
-  EventContract,
-  EventMap,
-  InferBridge,
-  InferEventBridge,
-} from '@/shared/ipc/defineContract';
-
-// ---------------------------------------------------------------------------
-// Procedure bridge
-// ---------------------------------------------------------------------------
-
-/**
- * Build an invoke bridge from a procedure contract.
- *
- * Each contract key becomes a method that calls `ipcRenderer.invoke`
- * with the corresponding channel string. Void-input procedures accept
- * no arguments; others accept a single payload argument.
- */
-export function buildProcedureBridge<C extends Contract<string, ProcedureMap>>(contract: C): InferBridge<C> {
-  const bridge: Record<string, (...args: unknown[]) => Promise<unknown>> = {};
-
-  for (const key of Object.keys(contract.procedures)) {
-    const channel = (contract.channels as Record<string, string>)[key]!;
-    const proc = contract.procedures[key]!;
-
-    if (proc.input instanceof z.ZodVoid) {
-      bridge[key] = () => ipcRenderer.invoke(channel);
-    } else {
-      bridge[key] = (payload: unknown) => ipcRenderer.invoke(channel, payload);
-    }
-  }
-
-  return bridge as InferBridge<C>;
-}
+import type { Contract, ProcedureMap, EventContract, EventMap, InferEventBridge } from '@sasakiuri/saika-ipc';
 
 // ---------------------------------------------------------------------------
 // Event bridge

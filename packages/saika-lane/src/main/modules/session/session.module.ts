@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
+
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import {
   GetSessionScoreToken,
@@ -14,7 +16,6 @@ import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { sessionContract } from '@/shared/ipc/contracts';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 import { createGetSessionScoreHandler } from './application/handlers/GetSessionScoreHandler';
 import { createGetShotHistoryHandler } from './application/handlers/GetShotHistoryHandler';

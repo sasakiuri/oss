@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { defineEvent, defineEventContract } from '@/shared/ipc/defineContract';
+import { defineEvent, defineEventContract } from '@sasakiuri/saika-ipc';
 
 const electronMocks = vi.hoisted(() => ({
   on: vi.fn(),

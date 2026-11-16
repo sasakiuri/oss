@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import type { Contract, ProcedureMap } from '@/shared/ipc/defineContract';
+import type { Contract, ProcedureMap } from '@sasakiuri/saika-ipc';
 
 const electron = vi.hoisted(() => ({
   exposeInMainWorld: vi.fn(),

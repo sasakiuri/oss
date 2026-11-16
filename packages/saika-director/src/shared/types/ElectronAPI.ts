@@ -4,7 +4,6 @@ import type {
   boardContract,
   ChampionshipDetailDto,
   ChampionshipListResponse,
-  CommandResponseDto,
   competitionAnnouncementsContract,
   CompetitionTypeListResponse,
   CreateChampionshipPayload,
@@ -25,7 +24,6 @@ import type {
   finalRecoveriesContract,
   FiringPointAssignmentListResponse,
   incidentReportsContract,
-  IpcErrorDto,
   irregularShotCasesContract,
   laneControlContract,
   malfunctionScoreApplicationsContract,
@@ -73,7 +71,7 @@ import type { operatorAccessContract } from '@/shared/ipc/contracts/operatorAcce
  * Uses InferBridge/InferEventBridge where method names match contract keys.
  * Championship uses manual types because their method names differ from contract keys.
  */
-import type { InferBridge, InferEventBridge } from '@/shared/ipc/defineContract';
+import type { CommandResponseDto, InferBridge, InferEventBridge, IpcErrorDto } from '@sasakiuri/saika-ipc';
 
 // ---------------------------------------------------------------------------
 // Championship namespace (custom method names, not InferBridge-compatible)

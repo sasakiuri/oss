@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
+import type { Contract, InferHandlers, IpcErrorDto, ProcedureMap } from '@sasakiuri/saika-ipc';
+import { toIpcError } from '@sasakiuri/saika-ipc/main';
 import { ipcMain } from 'electron';
 import { z } from 'zod';
 
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
-import type { Contract, InferHandlers, IpcErrorDto, ProcedureMap } from '@/shared/ipc/defineContract';
-
-import { toIpcError } from './toIpcError';
+import { isDomainError } from '@/shared/errors/isDomainError';
 
 /** Command response shape */
 interface CommandResponse {
@@ -152,7 +152,7 @@ export class IpcRouter {
       });
       return {
         success: false,
-        error: toIpcError(err, { operation: operationName }),
+        error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
       };
     }
   }
@@ -190,7 +190,7 @@ export class IpcRouter {
       return {
         success: false,
         data: null,
-        error: toIpcError(err, { operation: operationName }),
+        error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
       };
     }
   }

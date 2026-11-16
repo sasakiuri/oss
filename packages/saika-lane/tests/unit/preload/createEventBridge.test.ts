@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { defineEvent, defineEventContract } from '@sasakiuri/saika-ipc';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
@@ -14,7 +15,6 @@ vi.mock('electron', () => ({
 }));
 
 import { createEventBridge } from '@/preload/createEventBridge';
-import { defineEvent, defineEventContract } from '@/shared/ipc/defineContract';
 
 describe('createEventBridge', () => {
   beforeEach(() => {

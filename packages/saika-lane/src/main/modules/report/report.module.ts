@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import type { IpcMainInvokeEvent } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { GetScoreSheetToken, OpenPrintWindowToken } from '@/main/composition/tokens';
 import { reportContract } from '@/shared/ipc/contracts';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 import { createGetScoreSheetHandler } from './application/handlers/GetScoreSheetHandler';
 import { createOpenPrintWindowHandler } from './application/handlers/OpenPrintWindowHandler';

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 import { participantEntryStatusSchema } from './championship.contract';
 import { officialSigningEvidenceSchema, officialSigningRequestFields } from './officialSigning.schema';

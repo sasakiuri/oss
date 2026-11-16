@@ -27,7 +27,7 @@ import {
   defineContract,
   query,
   queryResponseSchema,
-} from '../defineContract';
+} from '@sasakiuri/saika-ipc';
 
 import { FinalOperationScriptStepDtoSchema } from './finalOperations.contract';
 

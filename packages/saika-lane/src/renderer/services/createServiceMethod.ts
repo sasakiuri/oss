@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { IpcErrorDto } from '@/shared/ipc/defineContract';
+import type { IpcErrorDto } from '@sasakiuri/saika-ipc';
 
 export class ServiceError extends Error {
   readonly code: string;

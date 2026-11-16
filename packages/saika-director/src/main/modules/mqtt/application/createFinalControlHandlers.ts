@@ -8,7 +8,7 @@ import { assertPhaseStartReady } from './PhaseStartGuard';
 import type { FinalOperationService } from '@/main/modules/final-operations';
 import type { FinalResultDeclarationService } from '@/main/modules/result-publication';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import type { CompetitionStatePayload } from '@/shared/mqtt';
 import { getNextSeriesTimer, getPreviousSeriesPosition } from './CompetitionSeriesNavigation';
 

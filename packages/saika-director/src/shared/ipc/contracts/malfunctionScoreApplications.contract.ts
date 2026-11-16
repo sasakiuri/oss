@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { defineContract, query, command, queryResponseSchema, commandDataResponseSchema } from '../defineContract';
+import { defineContract, query, command, queryResponseSchema, commandDataResponseSchema } from '@sasakiuri/saika-ipc';
 
 const uuid = z.string().uuid();
 const digest = z.string().regex(/^[a-f0-9]{64}$/);

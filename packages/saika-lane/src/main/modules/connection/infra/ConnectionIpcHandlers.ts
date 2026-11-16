@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
+
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import type { ITargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
@@ -8,7 +10,6 @@ import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { connectionContract } from '@/shared/ipc/contracts';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 export interface ConnectionIpcHandlersDeps {
   commandBus: CommandBus;

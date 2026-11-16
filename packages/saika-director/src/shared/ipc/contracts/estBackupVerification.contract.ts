@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const resultKind = z.enum(['INDIVIDUAL', 'TEAM', 'MIXED_TEAM']);
 const keyType = z.enum(['PARTICIPANT_ID', 'START_NUMBER', 'ISSF_ID', 'TEAM_ID']);

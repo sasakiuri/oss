@@ -10,7 +10,7 @@ import {
   defineContract,
   query,
   queryResponseSchema,
-} from '../defineContract';
+} from '@sasakiuri/saika-ipc';
 
 const grant = z.object({
   id: z.string().uuid(),

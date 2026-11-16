@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { EventContract, EventMap, InferEventBridge } from '@sasakiuri/saika-ipc';
 import { ipcRenderer } from 'electron';
-
-import type { EventContract, EventMap, InferEventBridge } from '@/shared/ipc/defineContract';
 
 /**
  * Create an event subscription bridge from an event contract.
