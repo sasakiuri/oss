@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 
+import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert';
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { mqttService } from '@/renderer/services/mqttService';
@@ -208,16 +209,7 @@ export const MqttSettingsTab: React.FC = () => {
       </div>
 
       {/* Error display */}
-      {error && (
-        <div
-          className="rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
-          role="alert"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {error}
-        </div>
-      )}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
       {/* Action buttons */}
       <div className="mt-2 flex justify-end gap-3">

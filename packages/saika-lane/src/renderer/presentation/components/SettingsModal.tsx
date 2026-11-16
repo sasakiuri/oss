@@ -2,6 +2,7 @@
 import { Volume2, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
+import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
@@ -531,16 +532,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* Save error */}
-              {saveError && (
-                <div
-                  className="mx-4 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
-                  role="alert"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  {saveError}
-                </div>
-              )}
+              {saveError && <ErrorAlert inset>{saveError}</ErrorAlert>}
 
               {/* Footer */}
               <div className="flex items-center justify-end gap-2 border-t border-zinc-700 bg-zinc-900 px-4 py-3">
@@ -601,16 +593,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               </div>
 
-              {jsonError && (
-                <div
-                  className="mx-4 rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
-                  role="alert"
-                  aria-live="polite"
-                  aria-atomic="true"
-                >
-                  {jsonError}
-                </div>
-              )}
+              {jsonError && <ErrorAlert inset>{jsonError}</ErrorAlert>}
 
               <div className="flex items-center justify-end gap-2 border-t border-zinc-700 bg-zinc-900 px-4 py-3">
                 <button
