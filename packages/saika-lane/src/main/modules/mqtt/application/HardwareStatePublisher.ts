@@ -7,7 +7,7 @@ import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import type { RulePackIdentity } from '@sasakiuri/saika-rules';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import { MIRRORED_LANE_ID_KEY, readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { ConnectionEstablishedEvent, ConnectionLostEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -77,9 +77,10 @@ export class HardwareStatePublisher {
     });
   }
 
-  private getTopic(): string {
-    // String() keeps the topic byte-identical for a missing ID ("undefined"); the payload uses an empty laneId.
-    return mqttTopics.laneHardwareState(String(this.storage.get<string>(MIRRORED_LANE_ID_KEY)));
+  /** The retained hardware topic, or null until settings give this Lane its ID. */
+  private getTopic(): string | null {
+    const laneId = this.getLaneId();
+    return laneId ? mqttTopics.laneHardwareState(laneId) : null;
   }
 
   private getLaneId(): string {
@@ -108,12 +109,13 @@ export class HardwareStatePublisher {
     });
   }
 
+  /** Publishes the current state; without a Lane ID it waits for the next change or heartbeat after the ID is set. */
   publishState(): void {
-    if (!this.publishingEnabled || !this.mqttClient.isConnected()) {
+    const topic = this.getTopic();
+    if (!this.publishingEnabled || topic === null || !this.mqttClient.isConnected()) {
       return;
     }
 
-    const topic = this.getTopic();
     const payload = this.buildPayload();
 
     this.mqttClient.publish(topic, payload, { qos: 1, retain: true }).catch((err: unknown) => {
@@ -126,10 +128,11 @@ export class HardwareStatePublisher {
 
   async publishOfflineState(): Promise<void> {
     this.publishingEnabled = false;
-    if (!this.mqttClient.isConnected()) return;
+    const topic = this.getTopic();
+    if (topic === null || !this.mqttClient.isConnected()) return;
 
     try {
-      await this.mqttClient.publish(this.getTopic(), this.buildPayload({ status: 'offline' }), {
+      await this.mqttClient.publish(topic, this.buildPayload({ status: 'offline' }), {
         qos: 1,
         retain: true,
       });
@@ -157,7 +160,8 @@ export class HardwareStatePublisher {
     }
   }
 
-  getWillTopic(): string {
+  /** The topic for the broker's offline will, or null while this Lane has no ID to leave one under. */
+  getWillTopic(): string | null {
     return this.getTopic();
   }
 

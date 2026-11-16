@@ -146,6 +146,24 @@ describe('MqttClientService', () => {
       );
     });
 
+    it('leaves no will after clearWill, also when an earlier connection had one', async () => {
+      service.setWill('lane/status', 'offline', 1, true);
+      service.clearWill();
+
+      mockClient.on.mockImplementation((event: string, handler: Function) => {
+        if (event === 'connect') {
+          setTimeout(() => handler(), 0);
+        }
+      });
+
+      await service.connect({
+        brokerUrl: 'mqtt://localhost:1883',
+        clientId: 'test-client',
+      });
+
+      expect(vi.mocked(mqtt.connect).mock.calls.at(-1)![1]).toHaveProperty('will', undefined);
+    });
+
     it('should reject with MQTT_CONNECTION_FAILED on error event', async () => {
       mockClient.on.mockImplementation((event: string, handler: Function) => {
         if (event === 'error') {

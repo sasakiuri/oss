@@ -27,6 +27,7 @@ function setup(ready = true) {
   const mqttClient = {
     isConnected: () => connected,
     setWill: vi.fn(record('setWill')),
+    clearWill: vi.fn(record('clearWill')),
     connect: vi.fn(async () => {
       calls.push('connect');
       connected = true;
@@ -100,6 +101,17 @@ describe('MqttConnectionController', () => {
     expect(eventBus.emit).toHaveBeenLastCalledWith(
       expect.objectContaining({ brokerUrl: 'mqtt://***@broker:1883', laneId: LANE_ID, aggregateId: LANE_ID }),
     );
+  });
+
+  it('connects without a will while the hardware topic has no Lane ID', async () => {
+    const { controller, calls, deps } = setup();
+    deps.hardwarePublisher.getWillTopic = () => null;
+
+    await controller.connect({ brokerUrl: 'mqtt://broker:1883' });
+
+    expect(deps.mqttClient.setWill).not.toHaveBeenCalled();
+    // A will left from an earlier connection must not be reused either.
+    expect(calls.slice(0, 4)).toEqual(['alias ["Lane 4"]', 'clearWill', 'connect', 'callbacks [true]']);
   });
 
   it('skips competition-owned states until READY and joins an identical in-flight connection', async () => {

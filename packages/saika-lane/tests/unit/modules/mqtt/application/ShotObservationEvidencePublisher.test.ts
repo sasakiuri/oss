@@ -91,6 +91,7 @@ function createMqtt(): IMqttClientService {
     subscribe: vi.fn(),
     unsubscribe: vi.fn(),
     setWill: vi.fn(),
+    clearWill: vi.fn(),
     onMessage: vi.fn(() => () => undefined),
     onConnect: vi.fn(() => () => undefined),
     onDisconnect: vi.fn(() => () => undefined),
