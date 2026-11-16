@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 
-import { ResultsView } from '../championship/components/ResultsView';
+import { ResultsView } from '../results/ResultsView';
 import { Button } from '../shared/common/Button';
 
 import { PublishedResultsSummary } from './PublishedResultsSummary';

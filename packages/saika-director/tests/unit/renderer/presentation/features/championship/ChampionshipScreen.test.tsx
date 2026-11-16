@@ -151,27 +151,30 @@ vi.mock('@/renderer/presentation/features/championship/components/FiringPointAss
   };
 });
 
-vi.mock('@/renderer/presentation/features/championship/components/IncidentReportsView', () => ({
+vi.mock('@/renderer/presentation/features/incident-reports/IncidentReportsView', () => ({
   IncidentReportsView: ({ eventId }: { eventId: string }) => <div>incident workspace {eventId}</div>,
 }));
 
-vi.mock('@/renderer/presentation/features/championship/components/EquipmentRegistryPanel', () => ({
+vi.mock('@/renderer/presentation/features/equipment-registry/EquipmentRegistryPanel', () => ({
   EquipmentRegistryPanel: () => null,
 }));
 
-vi.mock('@/renderer/presentation/features/championship/components/EstChampionshipInspectionPanel', () => ({
+vi.mock('@/renderer/presentation/features/est-championship-inspections/EstChampionshipInspectionPanel', () => ({
   EstChampionshipInspectionPanel: () => null,
 }));
 
-vi.mock('@/renderer/presentation/features/championship/components/ResultsBookPanel', () => ({
+vi.mock('@/renderer/presentation/features/results-books/ResultsBookPanel', () => ({
   ResultsBookPanel: () => null,
 }));
 
-vi.mock('@/renderer/presentation/features/championship/components/PostCompetitionEquipmentControlPanel', () => ({
-  PostCompetitionEquipmentControlPanel: ({ eventId }: { eventId: string }) => (
-    <div>equipment control workspace {eventId}</div>
-  ),
-}));
+vi.mock(
+  '@/renderer/presentation/features/post-competition-equipment-control/PostCompetitionEquipmentControlPanel',
+  () => ({
+    PostCompetitionEquipmentControlPanel: ({ eventId }: { eventId: string }) => (
+      <div>equipment control workspace {eventId}</div>
+    ),
+  }),
+);
 
 vi.mock('@/renderer/presentation/features/athlete-sanctions', () => ({
   AthleteSanctionsPanel: () => null,

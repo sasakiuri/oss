@@ -6,8 +6,8 @@ import { ParticipantPool } from './ParticipantPool';
 import { ConfigBar } from './ConfigBar';
 import { useGridDragDrop } from '../../../hooks/useGridDragDrop';
 import type { FiringPointAssignmentDto, ParticipantDto } from '@/shared/ipc/contracts';
-import { SquaddingPanel } from './SquaddingPanel';
-import { StartListPanel } from './StartListPanel';
+import { SquaddingPanel } from '../../squadding/SquaddingPanel';
+import { StartListPanel } from '../../start-lists/StartListPanel';
 
 interface AssignmentRow {
   relayNumber: number;
