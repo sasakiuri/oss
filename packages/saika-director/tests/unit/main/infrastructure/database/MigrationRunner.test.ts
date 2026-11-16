@@ -24,23 +24,7 @@ describe('MigrationRunner', () => {
     });
   });
 
-  describe('Migration interface', () => {
-    it('should accept a valid migration', () => {
-      const migration: Migration = {
-        version: 99,
-        name: 'test_migration',
-        up: () => {},
-      };
-      expect(migration.version).toBe(99);
-      expect(migration.name).toBe('test_migration');
-    });
-  });
-
   describe('MigrationRunner class', () => {
-    it('exports MigrationRunner', () => {
-      expect(MigrationRunner).toBeDefined();
-    });
-
     it('rolls back the legacy reset when a replacement migration fails', () => {
       let state = { version: 2, legacyTableExists: true };
       const db = {
