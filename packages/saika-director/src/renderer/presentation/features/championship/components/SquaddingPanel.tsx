@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Dices, RefreshCw, ShieldCheck } from 'lucide-react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { squaddingService } from '@/renderer/services';
+import { unwrapData } from '@/renderer/services/serviceError';
 import type { SquaddingDrawDto } from '@/shared/ipc/contracts';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { Button } from '../../shared/common/Button';
@@ -28,8 +30,7 @@ export function SquaddingPanel({
   const [statusSectionPolicy, setStatusSectionPolicy] = useState<'OFF' | 'END_OF_RELAY'>('OFF');
   const [officialName, setOfficialName] = useState('');
   const [statement, setStatement] = useState('Range constraints and draw evidence reviewed');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run: perform } = useAsyncAction();
   const selected = draws.find((draw) => draw.id === selectedId) ?? draws[0] ?? null;
 
   const load = useCallback(async () => {
@@ -47,22 +48,11 @@ export function SquaddingPanel({
     void load();
   }, [load]);
 
-  const run = async (
-    operation: () => Promise<{ success: boolean; data?: SquaddingDrawDto; error?: { message: string } }>,
-  ) => {
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await operation();
-      if (!response.success || !response.data) throw new Error(response.error?.message ?? 'Squadding operation failed');
-      setSelectedId(response.data.id);
+  const run = (operation: () => ReturnType<typeof squaddingService.createDraw>) =>
+    perform(async () => {
+      setSelectedId(unwrapData(await operation(), 'Squadding operation failed').id);
       await load();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const createDraw = () =>
     run(() =>
