@@ -4,13 +4,14 @@ import { findEstComplaintProcedure, missingShotComplaintGuidance } from '@sasaki
 import { CheckCircle2, MonitorX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
+import { useIncidentSignal } from '@/renderer/presentation/hooks/useIncidentSignal';
 import { mqttService } from '@/renderer/services/mqttService';
 import type { DeclareEstComplaintInput, EstComplaintContextDto, EstComplaintSignalDto } from '@/shared/ipc/contracts';
 
 import { Button } from './common/Button';
 import { Modal } from './common/Modal';
 import type { IncidentReportDialogProps } from './IncidentReportDialogProps';
+import { IncidentSnapshot, StoredOnLaneNotice } from './IncidentSignalParts';
 
 const issues: Array<{ value: DeclareEstComplaintInput['issue']; label: string }> = [
   { value: 'SHOT_VALUE', label: 'Displayed shot value' },
@@ -21,33 +22,17 @@ const issues: Array<{ value: DeclareEstComplaintInput['issue']; label: string }>
 ];
 
 export function EstComplaintSignalControl({ isOpen, onClose, onActiveChange }: IncidentReportDialogProps) {
-  const [state, setState] = useState<EstComplaintSignalDto | null>(null);
+  const { state, active, message, setMessage, mqttConnected, busy, error, declare, clear } =
+    useIncidentSignal<EstComplaintSignalDto>({
+      isOpen,
+      onActiveChange,
+      get: () => mqttService.getEstComplaintSignal(),
+      idOf: (signal) => signal.signalId,
+      clearById: (signalId) => mqttService.clearEstComplaintSignal({ signalId }),
+    });
   const [issue, setIssue] = useState<DeclareEstComplaintInput['issue']>('SHOT_VALUE');
-  const [message, setMessage] = useState('');
-  const [mqttConnected, setMqttConnected] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<EstComplaintContextDto | null>(null);
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
-
-  const refresh = async () => {
-    try {
-      const [nextState, mqtt] = await Promise.all([mqttService.getEstComplaintSignal(), mqttService.getMqttStatus()]);
-      setState(nextState);
-      setMqttConnected(mqtt.status === 'connected');
-      setError(null);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    }
-  };
-
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) void refresh();
-  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || state?.status === 'ACTIVE') return;
@@ -80,48 +65,18 @@ export function EstComplaintSignalControl({ isOpen, onClose, onActiveChange }: I
     };
   }, [isOpen, state?.status]);
 
-  const declare = async () => {
-    setBusy(true);
-    setError(null);
-    try {
+  const raiseComplaint = () =>
+    declare(() => {
       const normalizedMessage = message.trim();
-      const next = await mqttService.declareEstComplaint({
+      return mqttService.declareEstComplaint({
         issue,
         ...(normalizedMessage ? { message: normalizedMessage } : {}),
       });
-      setState(next);
-      const mqtt = await mqttService.getMqttStatus();
-      setMqttConnected(mqtt.status === 'connected');
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
-  const clear = async () => {
-    if (!state?.signalId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const next = await mqttService.clearEstComplaintSignal({ signalId: state.signalId });
-      setState(next);
-      setMessage('');
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const active = state?.status === 'ACTIVE';
-
-  useEffect(() => {
-    onActiveChange(active);
-  }, [active, onActiveChange]);
-  const snapshot = state?.context;
-  const issueLabel = issues.find((item) => item.value === state?.issue)?.label ?? state?.issue;
-  const displayedIssue = active ? state.issue : issue;
+  const snapshot = active?.context;
+  const issueLabel = issues.find((item) => item.value === active?.issue)?.label ?? active?.issue;
+  const displayedIssue = active ? active.issue : issue;
   const displayedContext = active ? snapshot : preview;
   const procedure = displayedContext?.missingShotProcedure;
   const ruleProcedure =
@@ -150,49 +105,13 @@ export function EstComplaintSignalControl({ isOpen, onClose, onActiveChange }: I
         <div className="space-y-4">
           <div className="rounded border border-cyan-500 bg-cyan-950/40 p-4" role="status" aria-live="assertive">
             <p className="font-semibold text-cyan-100">{issueLabel}</p>
-            {snapshot && (
-              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-zinc-200">
-                <dt className="text-zinc-400">Athlete</dt>
-                <dd>
-                  {snapshot.startNumber ? `#${snapshot.startNumber} ` : ''}
-                  {snapshot.participantName}
-                </dd>
-                <dt className="text-zinc-400">Position</dt>
-                <dd>
-                  {snapshot.phase}, stage {snapshot.stageIndex + 1}, series {snapshot.seriesIndex + 1}
-                </dd>
-                <dt className="text-zinc-400">Shots recorded</dt>
-                <dd>
-                  {snapshot.recordedShots}
-                  {snapshot.seriesShotLimit === null ? '' : ` / ${snapshot.seriesShotLimit}`}
-                </dd>
-                {snapshot.lastShot && (
-                  <>
-                    <dt className="text-zinc-400">Last recorded shot</dt>
-                    <dd>
-                      #{snapshot.lastShot.shotNumberInSeries} at{' '}
-                      {new Date(snapshot.lastShot.receivedAt).toLocaleTimeString()}
-                    </dd>
-                  </>
-                )}
-                {snapshot.exposureIndex !== null && (
-                  <>
-                    <dt className="text-zinc-400">Exposure</dt>
-                    <dd>{snapshot.exposureIndex + 1}</dd>
-                  </>
-                )}
-              </dl>
-            )}
-            {state.message && <p className="mt-3 text-sm text-zinc-100">{state.message}</p>}
-            {state.signalledAt && (
-              <p className="mt-2 text-xs text-zinc-400">Raised {new Date(state.signalledAt).toLocaleString()}</p>
+            {snapshot && <IncidentSnapshot snapshot={snapshot} lastShot={snapshot.lastShot} />}
+            {active.message && <p className="mt-3 text-sm text-zinc-100">{active.message}</p>}
+            {active.signalledAt && (
+              <p className="mt-2 text-xs text-zinc-400">Raised {new Date(active.signalledAt).toLocaleString()}</p>
             )}
           </div>
-          {!mqttConnected && (
-            <p className="text-sm text-amber-300">
-              Stored on this Lane. It will be published automatically after MQTT reconnects.
-            </p>
-          )}
+          {!mqttConnected && <StoredOnLaneNotice />}
           <p className="rounded border border-amber-500 bg-amber-950/40 p-3 text-sm text-amber-100">
             Follow range commands, including STOP and UNLOAD. This signal does not decide whether the complaint is
             timely or valid and does not change a score or timer.
@@ -240,7 +159,7 @@ export function EstComplaintSignalControl({ isOpen, onClose, onActiveChange }: I
             <Button variant="secondary" disabled={busy} onClick={onClose}>
               Cancel
             </Button>
-            <Button disabled={busy} onClick={() => void declare()}>
+            <Button disabled={busy} onClick={() => void raiseComplaint()}>
               <MonitorX className="mr-2 inline" size={18} /> {busy ? 'Raising…' : 'Raise EST complaint'}
             </Button>
           </div>
