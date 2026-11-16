@@ -37,7 +37,8 @@ export class CommandBus {
   register<TInput, TOutput>(token: CommandToken<TInput, TOutput>, handler: CommandHandler<TInput, TOutput>): void {
     const name = token.name;
     if (this.handlers.has(name)) {
-      logger.warn(`Command handler for "${name}" is already registered. Overwriting.`);
+      logger.error(`Duplicate command handler registration: "${name}"`);
+      throw new Error(`CommandBus: duplicate command handler registration: "${name}"`);
     }
     this.handlers.set(name, handler as CommandHandler<unknown, unknown>);
   }
