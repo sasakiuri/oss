@@ -416,10 +416,7 @@ export type {
 export type {
   IpcEvents,
   ShotReceivedEvent,
-  PhaseChangedEvent,
   LaneConnectedEvent,
-  TimerTickEvent,
-  TimerExpiredEvent,
   DebugLogEvent,
   LaneTimerTickEvent,
   LaneTimerExpiredEvent,

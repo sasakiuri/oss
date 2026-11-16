@@ -256,8 +256,18 @@ describe('Director application composition', () => {
     const disconnect = vi.spyOn(MqttTransport.prototype, 'disconnect');
     await application!.lifecycle.startAll();
     expect(desktop.brokerRunning).toBe(true);
-    registry.eventBus.emit({ type: 'TimerTick', remainingTime: 42, phase: 'MATCH', timestamp: 1 });
-    expect(send).toHaveBeenCalledWith(eventsContract.channels.timerTick, { remainingTime: 42, phase: 'MATCH' });
+    registry.eventBus.emit({
+      type: 'LaneTimerTick',
+      laneId: 'lane-1',
+      remainingTime: 42,
+      phase: 'ACTIVE',
+      timestamp: 1,
+    });
+    expect(send).toHaveBeenCalledWith(eventsContract.channels.laneTimerTick, {
+      laneId: 'lane-1',
+      remainingTime: 42,
+      phase: 'ACTIVE',
+    });
     disconnect.mockClear();
     const stopCapture = vi.spyOn(registry.estBackupCaptureService, 'dispose');
     const closeDatabase = vi.spyOn(application!.databaseManager, 'close');
@@ -269,7 +279,13 @@ describe('Director application composition', () => {
     expect(desktop.brokerRunning).toBe(false);
     expect(registry.database.open).toBe(false);
     send.mockClear();
-    registry.eventBus.emit({ type: 'TimerTick', remainingTime: 41, phase: 'MATCH', timestamp: 2 });
+    registry.eventBus.emit({
+      type: 'LaneTimerTick',
+      laneId: 'lane-1',
+      remainingTime: 41,
+      phase: 'ACTIVE',
+      timestamp: 2,
+    });
     expect(send).not.toHaveBeenCalled();
     application = undefined;
   });

@@ -10,10 +10,7 @@ import type {
 } from '@/main/shared-infra/ipc/EventForwardingRule';
 import type {
   ShotReceived,
-  PhaseChanged,
   LaneConnected,
-  TimerTick,
-  TimerExpired,
   LaneTimerTick,
   LaneTimerExpired,
   LaneControlUpdated,
@@ -163,37 +160,6 @@ function buildTestRules(): (EventForwardingRule | TransformerForwardingRule)[] {
         };
       },
     },
-    // Core event rules (from Composition Root)
-    {
-      eventType: 'PhaseChanged',
-      channel: eventsContract.channels.phaseChanged,
-      extractPayload: (event: AnyDomainEvent) => {
-        const e = event as PhaseChanged;
-        return {
-          phase: e.phase,
-          remainingTime: e.remainingTime,
-        };
-      },
-    },
-    {
-      eventType: 'TimerTick',
-      channel: eventsContract.channels.timerTick,
-      extractPayload: (event: AnyDomainEvent) => {
-        const e = event as TimerTick;
-        return {
-          remainingTime: e.remainingTime,
-          phase: e.phase,
-        };
-      },
-    },
-    {
-      eventType: 'TimerExpired',
-      channel: eventsContract.channels.timerExpired,
-      extractPayload: (event: AnyDomainEvent) => {
-        const e = event as TimerExpired;
-        return { phase: e.phase };
-      },
-    },
   ];
 }
 
@@ -233,10 +199,7 @@ describe('DomainEventForwarder', () => {
 
       const expectedEventTypes = [
         'ShotReceived',
-        'PhaseChanged',
         'LaneConnected',
-        'TimerTick',
-        'TimerExpired',
         'LaneTimerTick',
         'LaneTimerExpired',
         'LaneControlUpdated',
@@ -636,26 +599,6 @@ describe('DomainEventForwarder', () => {
   });
 
   describe('Other event forwarding', () => {
-    it('should forward PhaseChanged event', () => {
-      forwarder.start();
-
-      const event: PhaseChanged = {
-        type: 'PhaseChanged',
-        timestamp: Date.now(),
-        competitionId: 'test-competition',
-        phase: 'ACTIVE',
-        remainingTime: 2700,
-      };
-
-      const handler = eventHandlers.get('PhaseChanged');
-      handler!(event);
-
-      expect(mockWindowManager.broadcast).toHaveBeenCalledWith(eventsContract.channels.phaseChanged, {
-        phase: 'ACTIVE',
-        remainingTime: 2700,
-      });
-    });
-
     it('should forward LaneConnected event', () => {
       forwarder.start();
 
@@ -670,42 +613,6 @@ describe('DomainEventForwarder', () => {
       handler!(event);
 
       expect(mockWindowManager.broadcast).toHaveBeenCalledWith(eventsContract.channels.laneConnected, { channel: 3 });
-    });
-
-    it('should forward TimerTick event', () => {
-      forwarder.start();
-
-      const event: TimerTick = {
-        type: 'TimerTick',
-        timestamp: Date.now(),
-        remainingTime: 2699,
-        phase: 'ACTIVE',
-      };
-
-      const handler = eventHandlers.get('TimerTick');
-      handler!(event);
-
-      expect(mockWindowManager.broadcast).toHaveBeenCalledWith(eventsContract.channels.timerTick, {
-        remainingTime: 2699,
-        phase: 'ACTIVE',
-      });
-    });
-
-    it('should forward TimerExpired event', () => {
-      forwarder.start();
-
-      const event: TimerExpired = {
-        type: 'TimerExpired',
-        timestamp: Date.now(),
-        phase: 'ACTIVE',
-      };
-
-      const handler = eventHandlers.get('TimerExpired');
-      handler!(event);
-
-      expect(mockWindowManager.broadcast).toHaveBeenCalledWith(eventsContract.channels.timerExpired, {
-        phase: 'ACTIVE',
-      });
     });
 
     it('should forward LaneTimerTick event', () => {

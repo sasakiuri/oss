@@ -33,19 +33,7 @@ const shotReceivedSchema = z.object({
   seriesNumber: z.number(),
 });
 
-const phaseChangedSchema = z.object({
-  phase: phaseSchema,
-  remainingTime: z.number(),
-});
-
 const laneConnectedSchema = z.object({ channel: z.number() });
-
-const timerTickSchema = z.object({
-  remainingTime: z.number(),
-  phase: phaseSchema,
-});
-
-const timerExpiredSchema = z.object({ phase: phaseSchema });
 
 const debugLogSchema = z.object({
   timestamp: z.number(),
@@ -142,10 +130,7 @@ const laneControlPatchedSchema = z.object({
 // ---------------------------------------------------------------------------
 
 export type ShotReceivedEvent = z.infer<typeof shotReceivedSchema>;
-export type PhaseChangedEvent = z.infer<typeof phaseChangedSchema>;
 export type LaneConnectedEvent = z.infer<typeof laneConnectedSchema>;
-export type TimerTickEvent = z.infer<typeof timerTickSchema>;
-export type TimerExpiredEvent = z.infer<typeof timerExpiredSchema>;
 export type DebugLogEvent = z.infer<typeof debugLogSchema>;
 export type LaneTimerTickEvent = z.infer<typeof laneTimerTickSchema>;
 export type LaneTimerExpiredEvent = z.infer<typeof laneTimerExpiredSchema>;
@@ -160,10 +145,7 @@ export type LaneControlPatchedEvent = z.infer<typeof laneControlPatchedSchema>;
 export interface IpcEvents {
   appUpdateStateChanged: AppUpdateStateDto;
   shotReceived: ShotReceivedEvent;
-  phaseChanged: PhaseChangedEvent;
   laneConnected: LaneConnectedEvent;
-  timerTick: TimerTickEvent;
-  timerExpired: TimerExpiredEvent;
   debugLog: DebugLogEvent;
   mqttConnectionError: MqttConnectionErrorEvent;
   mqttControlStateChanged: MqttControlStateChangedEvent;
@@ -183,10 +165,7 @@ export interface IpcEvents {
 export const eventsContract = defineEventContract('event', {
   appUpdateStateChanged: defineEvent(AppUpdateStateSchema),
   shotReceived: defineEvent(shotReceivedSchema),
-  phaseChanged: defineEvent(phaseChangedSchema),
   laneConnected: defineEvent(laneConnectedSchema),
-  timerTick: defineEvent(timerTickSchema),
-  timerExpired: defineEvent(timerExpiredSchema),
   debugLog: defineEvent(debugLogSchema),
   mqttConnectionError: defineEvent(mqttConnectionErrorSchema),
   mqttControlStateChanged: defineEvent(mqttControlStateChangedSchema),

@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAppRuntime } from '@/main/composition/createAppRuntime';
+import type { LaneTimerTick } from '@/main/modules/lane-control';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { eventsContract } from '@/shared/ipc/contracts';
 
@@ -43,7 +44,13 @@ function setup(failStartup = false, boardsClosed: Promise<void> = Promise.resolv
         },
       },
     ],
-    eventForwardingRules: [],
+    eventForwardingRules: [
+      {
+        eventType: 'LaneTimerTick',
+        channel: eventsContract.channels.laneTimerTick,
+        extractPayload: (event: LaneTimerTick) => ({ laneId: event.laneId, remainingTime: event.remainingTime }),
+      },
+    ],
   } as unknown as Parameters<typeof createAppRuntime>[0];
   return { ...createAppRuntime(dependencies), order, eventBus, broadcast };
 }
@@ -52,8 +59,11 @@ describe('application runtime composition', () => {
   it('keeps the database open until modules, timers and repository flushes finish', async () => {
     const { lifecycle, order, eventBus, broadcast } = setup();
     await lifecycle.startAll();
-    eventBus.emit({ type: 'TimerTick', remainingTime: 12, phase: 'MATCH', timestamp: 1 });
-    expect(broadcast).toHaveBeenCalledWith(eventsContract.channels.timerTick, { remainingTime: 12, phase: 'MATCH' });
+    eventBus.emit({ type: 'LaneTimerTick', laneId: 'lane-1', remainingTime: 12, phase: 'ACTIVE', timestamp: 1 });
+    expect(broadcast).toHaveBeenCalledWith(eventsContract.channels.laneTimerTick, {
+      laneId: 'lane-1',
+      remainingTime: 12,
+    });
     await lifecycle.stopAll();
     expect(order).toEqual([
       'restore',
@@ -66,7 +76,7 @@ describe('application runtime composition', () => {
       'database',
     ]);
     broadcast.mockClear();
-    eventBus.emit({ type: 'TimerTick', remainingTime: 11, phase: 'MATCH', timestamp: 2 });
+    eventBus.emit({ type: 'LaneTimerTick', laneId: 'lane-1', remainingTime: 11, phase: 'ACTIVE', timestamp: 2 });
     expect(broadcast).not.toHaveBeenCalled();
   });
 
