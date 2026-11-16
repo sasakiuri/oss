@@ -11,10 +11,6 @@ import type { ShotDto } from '@/shared/ipc/contracts';
 // Mock service modules
 vi.mock('@/renderer/services/sessionService', () => ({
   sessionService: {
-    startSession: vi.fn(),
-    switchMode: vi.fn(),
-    resetSession: vi.fn(),
-    getSessionScore: vi.fn(),
     getShotHistory: vi.fn(),
   },
 }));
