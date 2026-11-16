@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const logger = vi.hoisted(() => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
-  getLogger: () => ({
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
+  getLogger: () => logger,
   initializeLogger: vi.fn(),
   resetLogger: vi.fn(),
 }));
@@ -40,6 +41,7 @@ describe('ShotIngestionHandler', () => {
   let shotData: ShotData;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     commandBus = createMockCommandBus();
     sessionRepository = createMockSessionRepository();
     competitionRepository = createMockCompetitionRepository();
@@ -728,5 +730,324 @@ describe('ShotIngestionHandler', () => {
     const callArgs = (commandBus.execute as ReturnType<typeof vi.fn>).mock.calls[0]!;
     const input = callArgs[1] as { mode?: unknown };
     expect(input.mode).toBeUndefined();
+  });
+
+  describe('routing outcomes and failures', () => {
+    const outcomeTypes = (): string[] =>
+      vi.mocked(shotObservationRepository.appendOutcomeWithEvidence).mock.calls.map(([outcome]) => outcome.type);
+
+    function timedTargetCompetition() {
+      const competitionSession = buildSession();
+      const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, P25.config)
+        .startStage()
+        .expireTimer()
+        .advanceToNextStage()
+        .startNextSeries();
+      sessionRepository.findById = vi.fn().mockResolvedValue(competitionSession);
+      competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+      return { competitionSession, activeCompetition };
+    }
+
+    it('passes the exact RecordShot input for a shot outside a competition', async () => {
+      const session = buildSession();
+      sessionRepository.findActive = vi.fn().mockResolvedValue(session);
+
+      await createShotIngestionHandler(deps)({ ...shotData, mode: 'MATCH' });
+
+      const input = vi.mocked(commandBus.execute).mock.calls[0]![1] as Record<string, unknown>;
+      expect(Object.keys(input)).toEqual([
+        'sessionId',
+        'impactPoint',
+        'timestamp',
+        'receivedAt',
+        'deviceScore',
+        'reportedMode',
+        'sourceObservationId',
+        'mode',
+      ]);
+      expect(input).toMatchObject({ sessionId: session.id, deviceScore: 9.8, reportedMode: 'MATCH' });
+    });
+
+    it('passes the competition context, profiles and execution context to RecordShot in order', async () => {
+      const { competitionSession, activeCompetition } = timedTargetCompetition();
+      deps.timedTargetReader = {
+        tryAcceptShot: vi.fn().mockReturnValue({
+          governed: true,
+          allowed: true,
+          purpose: 'MATCH',
+          targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+          sequenceId: '00000000-0000-4000-8000-000000000001',
+          exposureIndex: 0,
+          warning: 'late frame',
+          timingEvidence: 'evidence',
+          reason: 'Shot is inside the valid EST recording window',
+          executionContext: { shotDisposition: 'SERIES', owner: 'competition', referenceId: 'ref-1' },
+        }),
+      };
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      const input = vi.mocked(commandBus.execute).mock.calls[0]![1] as Record<string, unknown>;
+      expect(Object.keys(input)).toEqual([
+        'sessionId',
+        'impactPoint',
+        'timestamp',
+        'receivedAt',
+        'deviceScore',
+        'reportedMode',
+        'sourceObservationId',
+        'competitionContext',
+        'mode',
+        'targetProfileId',
+        'scoringGaugeProfileId',
+        'acquisitionContext',
+      ]);
+      expect(input.competitionContext).toEqual({
+        competitionId: activeCompetition.id,
+        stageIndex: 1,
+        seriesIndex: 0,
+      });
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'RECORDED', sessionId: competitionSession.id, detail: 'late frame' }),
+        expect.objectContaining({
+          competition: {
+            competitionId: activeCompetition.id,
+            phase: 'ACTIVE',
+            stageIndex: 1,
+            seriesIndex: 0,
+            stageScored: true,
+          },
+        }),
+      );
+    });
+
+    it('records the timing evidence as the detail when there is no warning', async () => {
+      timedTargetCompetition();
+      deps.timedTargetReader = {
+        tryAcceptShot: vi.fn().mockReturnValue({
+          governed: true,
+          allowed: true,
+          purpose: 'MATCH',
+          targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+          sequenceId: '00000000-0000-4000-8000-000000000001',
+          exposureIndex: 0,
+          warning: null,
+          timingEvidence: 'measured 12 ms',
+          reason: 'Shot is inside the valid EST recording window',
+        }),
+      };
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'RECORDED', detail: 'measured 12 ms' }),
+        expect.anything(),
+      );
+    });
+
+    it('records PROCESSING_FAILED with the error message when RecordShot fails', async () => {
+      const session = buildSession();
+      sessionRepository.findActive = vi.fn().mockResolvedValue(session);
+      vi.mocked(commandBus.execute).mockRejectedValue(new Error('Command failed'));
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(outcomeTypes()).toEqual(['PROCESSING_FAILED']);
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'PROCESSING_FAILED', sessionId: null, detail: 'Command failed' }),
+        expect.anything(),
+      );
+      expect(logger.error).toHaveBeenCalledWith('Failed to record shot', 'usb', { error: expect.any(String) });
+    });
+
+    it('records no outcome when the observation itself cannot be stored', async () => {
+      vi.mocked(shotObservationRepository.append).mockRejectedValue(new Error('disk full'));
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(competitionRepository.findActive).not.toHaveBeenCalled();
+      expect(shotObservationRepository.appendOutcomeWithEvidence).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith('Failed to record shot', 'usb', { error: expect.any(String) });
+    });
+
+    it('logs when the failure outcome cannot be stored either', async () => {
+      const session = buildSession();
+      sessionRepository.findActive = vi.fn().mockResolvedValue(session);
+      vi.mocked(commandBus.execute).mockRejectedValue(new Error('Command failed'));
+      vi.mocked(shotObservationRepository.appendOutcomeWithEvidence).mockRejectedValue(new Error('disk full'));
+
+      await expect(createShotIngestionHandler(deps)(shotData)).resolves.toBeUndefined();
+
+      expect(logger.error).toHaveBeenCalledWith('Failed to record shot observation outcome', 'usb', {
+        error: expect.stringContaining('disk full'),
+      });
+      expect(logger.error).toHaveBeenCalledWith('Failed to record shot', 'usb', {
+        error: expect.stringContaining('Command failed'),
+      });
+    });
+
+    it('notifies each finalized evidence id, and a failing notification does not change the outcome', async () => {
+      const session = buildSession();
+      sessionRepository.findActive = vi.fn().mockResolvedValue(session);
+      const onObservationFinalized = vi.fn(() => {
+        throw new Error('listener failed');
+      });
+
+      await createShotIngestionHandler({ ...deps, onObservationFinalized })(shotData);
+
+      const [outcome, evidence] = vi.mocked(shotObservationRepository.appendOutcomeWithEvidence).mock.calls[0]!;
+      expect(outcomeTypes()).toEqual(['RECORDED']);
+      expect(evidence.evidenceId).toBe(outcome.id);
+      expect(onObservationFinalized).toHaveBeenCalledExactlyOnceWith(evidence.evidenceId);
+      expect(logger.warn).toHaveBeenCalledWith('Shot observation evidence notification failed', 'usb', {
+        error: 'listener failed',
+      });
+    });
+
+    it.each([
+      ['target scoring profile', { targetProfileId: 'NOT_A_FACE' }, 'Unknown target scoring profile: NOT_A_FACE'],
+      ['scoring gauge profile', { scoringGaugeProfileId: 'NOT_A_GAUGE' }, 'Unknown scoring gauge profile: NOT_A_GAUGE'],
+    ])('fails processing for an unknown %s', async (_, override, message) => {
+      const session = buildSession();
+      sessionRepository.findById = vi.fn().mockResolvedValue(session);
+      competitionRepository.findActive = vi
+        .fn()
+        .mockResolvedValue(
+          CompetitionState.create(crypto.randomUUID(), session.id, { ...BR60S.config, ...override }).startStage(),
+        );
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(commandBus.execute).not.toHaveBeenCalled();
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'PROCESSING_FAILED', detail: message }),
+        expect.anything(),
+      );
+    });
+
+    it('fails processing for a timed-target series without the enforcement service', async () => {
+      timedTargetCompetition();
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(commandBus.execute).not.toHaveBeenCalled();
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'PROCESSING_FAILED',
+          detail: 'Timed target enforcement service is unavailable',
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('fails processing for a timed-target series without a target scoring profile', async () => {
+      const competitionSession = buildSession();
+      const config = { ...P25.config, targetProfileId: undefined };
+      const activeCompetition = CompetitionState.create('competition-001', competitionSession.id, {
+        ...config,
+        stages: config.stages.map((stage) => ({ ...stage, targetProfileId: undefined })),
+      })
+        .startStage()
+        .expireTimer()
+        .advanceToNextStage()
+        .startNextSeries();
+      competitionRepository.findActive = vi.fn().mockResolvedValue(activeCompetition);
+      deps.timedTargetReader = { tryAcceptShot: vi.fn() };
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(deps.timedTargetReader.tryAcceptShot).not.toHaveBeenCalled();
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'PROCESSING_FAILED',
+          detail: 'Timed target stage has no target scoring profile',
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('consults no other gate and reads no session while the safety latch is stopped', async () => {
+      const { activeCompetition } = timedTargetCompetition();
+      deps.safetyStopReader = { isStopped: () => true, getState: () => null };
+      deps.shootOffReader = { canAcceptShot: vi.fn(), getState: vi.fn() };
+      deps.timedTargetReader = { tryAcceptShot: vi.fn() };
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(deps.shootOffReader.canAcceptShot).not.toHaveBeenCalled();
+      expect(deps.timedTargetReader.tryAcceptShot).not.toHaveBeenCalled();
+      expect(sessionRepository.findById).not.toHaveBeenCalled();
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'QUARANTINED_SAFETY_STOP',
+          sessionId: activeCompetition.sessionId,
+          detail: 'safetyStopId=unknown',
+        }),
+        expect.anything(),
+      );
+      expect(logger.warn).toHaveBeenCalledWith('Shot quarantined while Lane safety stop is active', 'usb', {
+        safetyStopId: 'unknown',
+      });
+    });
+
+    it('quarantines without a competition while the safety latch is stopped', async () => {
+      deps.safetyStopReader = { isStopped: () => true, getState: () => null };
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(sessionRepository.findActive).not.toHaveBeenCalled();
+      const [outcome] = vi.mocked(shotObservationRepository.appendOutcomeWithEvidence).mock.calls[0]!;
+      expect(outcome).toMatchObject({ type: 'QUARANTINED_SAFETY_STOP', sessionId: null });
+    });
+
+    it('logs the timed-target rejection with its sequence and reason', async () => {
+      timedTargetCompetition();
+      deps.timedTargetReader = {
+        tryAcceptShot: vi.fn().mockReturnValue({
+          governed: true,
+          allowed: false,
+          purpose: 'MATCH',
+          targetProfileId: 'ISSF_PISTOL_25M_PRECISION_2026',
+          sequenceId: 'sequence-1',
+          exposureIndex: null,
+          warning: null,
+          reason: 'outside',
+        }),
+      };
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(sessionRepository.findById).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledWith('Shot rejected outside the timed target recording window', 'usb', {
+        sequenceId: 'sequence-1',
+        reason: 'outside',
+      });
+    });
+
+    it('rejects a phase-guarded shot without reading the session', async () => {
+      const session = buildSession();
+      competitionRepository.findActive = vi
+        .fn()
+        .mockResolvedValue(CompetitionState.create(crypto.randomUUID(), session.id, BR60S.config).finish());
+
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(sessionRepository.findById).not.toHaveBeenCalled();
+      expect(shotObservationRepository.appendOutcomeWithEvidence).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'REJECTED_COMPETITION_PHASE',
+          sessionId: session.id,
+          detail: 'phase=FINISHED',
+        }),
+        expect.anything(),
+      );
+      expect(logger.debug).toHaveBeenCalledWith('Shot rejected by competition guard', 'usb', { phase: 'FINISHED' });
+    });
+
+    it('logs a missing session', async () => {
+      await createShotIngestionHandler(deps)(shotData);
+
+      expect(logger.warn).toHaveBeenCalledWith('No active session for shot data', 'usb');
+    });
   });
 });
