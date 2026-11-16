@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type {
   PhaseChangedEvent,
   ShotRecordedEvent,
@@ -66,7 +66,7 @@ export function createShotRecordedHandler(deps: {
  */
 export function createPhaseChangedHandler(deps: {
   competitionRepository: ICompetitionRepository;
-  timerService: LaneTimerService;
+  timerService: ICompetitionTimer;
 }): (event: PhaseChangedEvent) => void {
   const { competitionRepository, timerService } = deps;
 

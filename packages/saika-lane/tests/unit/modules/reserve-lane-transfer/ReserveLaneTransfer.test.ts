@@ -10,8 +10,8 @@ import { CompetitionState } from '@/main/modules/competition/domain/CompetitionS
 import type { CompetitionTypeDefinition } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
 import { AR60, R3P60 } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import { Timer } from '@/main/modules/competition/domain/Timer';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import { CompetitionInterruptionService } from '@/main/modules/competition-interruption/application/CompetitionInterruptionService';
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
@@ -299,7 +299,7 @@ describe('reserve Lane state transfer', () => {
       {
         pause: async () => ({ remainingSeconds: 240, totalSeconds: 4500 }),
         resumeAt: async () => undefined,
-      } as unknown as LaneTimerService,
+      } as unknown as ICompetitionTimer,
       commands,
       events,
       target.sessions,

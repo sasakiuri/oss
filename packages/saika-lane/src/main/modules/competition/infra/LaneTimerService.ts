@@ -2,6 +2,7 @@
 import { emitPhaseChanged } from '@/main/modules/competition/application/emitPhaseChanged';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { CompetitionClockSample, ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
@@ -14,7 +15,7 @@ export interface SavedLaneClock {
 }
 
 /** Ticks once per second with drift correction. Remaining time is kept in memory and persisted on expiry. */
-export class LaneTimerService {
+export class LaneTimerService implements ICompetitionTimer {
   private static readonly CLOCK_KEY = 'competitionClock';
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private expiresAtMs: number = 0;
@@ -23,13 +24,7 @@ export class LaneTimerService {
   private remainingSeconds: number = 0;
   private totalSeconds: number = 0;
   private startGeneration: number = 0;
-  private stoppedSample: {
-    competitionId: string;
-    running: boolean;
-    remainingMs: number;
-    sampledAt: number;
-    generation: number;
-  } | null = null;
+  private stoppedSample: (CompetitionClockSample & { competitionId: string }) | null = null;
 
   constructor(
     private readonly competitionRepository: ICompetitionRepository,
@@ -177,9 +172,7 @@ export class LaneTimerService {
   }
 
   /** Read-only sample of the actual in-memory clock; persisted timer values may be stale. */
-  sample(
-    competitionId: string,
-  ): { running: boolean; remainingMs: number; sampledAt: number; generation: number } | null {
+  sample(competitionId: string): CompetitionClockSample | null {
     if (this.competitionId !== competitionId || this.intervalId === null) {
       return this.stoppedSample?.competitionId === competitionId ? this.stoppedSample : null;
     }

@@ -5,7 +5,7 @@ import type { SwitchModeInput } from '@/main/composition/tokens';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import { CompetitionInterruptionService } from '@/main/modules/competition-interruption/application/CompetitionInterruptionService';
 import type { ICompetitionInterruptionRepository } from '@/main/modules/competition-interruption/domain/ICompetitionInterruptionRepository';
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
@@ -32,7 +32,7 @@ describe('CompetitionInterruptionService', () => {
   let stored: LaneInterruptionRecord | null;
   let repository: ICompetitionInterruptionRepository;
   let competitionRepository: ICompetitionRepository;
-  let timerService: LaneTimerService;
+  let timerService: ICompetitionTimer;
   let commandBus: CommandBus;
   let eventBus: IEventBus;
   let service: CompetitionInterruptionService;
@@ -61,7 +61,7 @@ describe('CompetitionInterruptionService', () => {
       stop: vi.fn(),
       pause: vi.fn().mockResolvedValue({ remainingSeconds: 240, totalSeconds: 600 }),
       resumeAt: vi.fn().mockResolvedValue(undefined),
-    } as unknown as LaneTimerService;
+    } as unknown as ICompetitionTimer;
     commandBus = createMockCommandBus();
     vi.mocked(commandBus.execute).mockResolvedValue(undefined);
     eventBus = createMockEventBus();
