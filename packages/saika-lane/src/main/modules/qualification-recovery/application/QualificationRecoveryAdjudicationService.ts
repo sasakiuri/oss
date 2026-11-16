@@ -32,6 +32,7 @@ import {
   type QualificationRecoveryAdjudicationRecord,
   type QualificationRecoveryAdjudicationShot,
 } from '../domain/QualificationRecoveryAdjudication';
+import { compareRecordedShots, resolveQualificationRecoveryPlacement } from '../domain/QualificationRecoveryPlacement';
 import type { QualificationRecoveryRunRecord } from '../domain/QualificationRecoveryRun';
 
 /** Applies completed firing evidence to score only after a distinct official command. */
@@ -83,8 +84,8 @@ export class QualificationRecoveryAdjudicationService implements IQualificationR
     if (!session) throw new Error(`Session not found: ${competition.sessionId}`);
     if (session.isFinished) throw new Error(`Session ${session.id} is already finished`);
 
-    const placement = resolveSessionPlacement(competition);
-    const matchShots = [...session.matchShots].sort(compareShots);
+    const placement = resolveQualificationRecoveryPlacement(competition);
+    const matchShots = [...session.matchShots].sort(compareRecordedShots);
     const expectedVisibleShots = placement.priorShots + run.expectedRecordedShots;
     if (matchShots.length !== expectedVisibleShots) {
       throw new Error(
@@ -320,27 +321,6 @@ function recoveryEvidenceToShot(
   });
 }
 
-function resolveSessionPlacement(competition: CompetitionState): { priorShots: number; seriesNumber: number } {
-  let sessionBoundaryStage = 0;
-  for (let stageIndex = 0; stageIndex <= competition.currentStageIndex; stageIndex += 1) {
-    if (competition.config.stages[stageIndex]?.requiresNewSession) sessionBoundaryStage = stageIndex;
-  }
-  let priorShots = 0;
-  let priorSeries = 0;
-  for (let stageIndex = sessionBoundaryStage; stageIndex <= competition.currentStageIndex; stageIndex += 1) {
-    const stage = competition.config.stages[stageIndex]!;
-    if (!stage.scored) continue;
-    const end = stageIndex === competition.currentStageIndex ? competition.currentSeriesIndex : stage.series.length;
-    for (let seriesIndex = 0; seriesIndex < end; seriesIndex += 1) {
-      const series = stage.series[seriesIndex]!;
-      if (series.maxShots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
-      priorShots += series.maxShots;
-      priorSeries += 1;
-    }
-  }
-  return { priorShots, seriesNumber: priorSeries + 1 };
-}
-
 function resolveScoringGaugeProfileId(competition: CompetitionState): ScoringGaugeProfileId | undefined {
   return parseScoringGaugeProfileId(competition.effectiveScoringGaugeProfileId);
 }
@@ -360,9 +340,4 @@ function authorizedShotCount(run: QualificationRecoveryRunRecord): number {
   return run.authorization.phase === 'EXTRA_SIGHTING'
     ? run.authorization.shotsToFire
     : run.authorization.seriesRecovery.shotsToFire;
-}
-
-function compareShots(left: Shot, right: Shot): number {
-  const number = left.shotNumber - right.shotNumber;
-  return number === 0 ? left.timestamp.getTime() - right.timestamp.getTime() : number;
 }
