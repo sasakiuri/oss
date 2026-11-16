@@ -25,6 +25,7 @@ import { SessionContextCache } from '@/main/modules/connection/infra/SessionCont
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
+import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
@@ -88,7 +89,7 @@ describe('connection.module', () => {
       expect(connectionModule.deps).toEqual([
         'adapterRegistry',
         'commandBus',
-        'database',
+        'shotObservationRepository',
         'startup',
         'sessionContextCache',
         'eventBus',
@@ -122,7 +123,7 @@ describe('connection.module', () => {
           },
         },
         commandBus,
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         eventBus,
         connectionRepository,
         sessionRepository,
