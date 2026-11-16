@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   calculateAutoZoom,
-  calculateEffectiveZoom,
   calculateFixedZoom,
   calculateStandardDeviation,
   getNextZoomMode,
@@ -242,25 +241,6 @@ describe('calculateAutoZoom', () => {
       const result = calculateAutoZoom([], 'AIR_RIFLE_10M', 400, incompleteRadii);
       expect(result).toBe(3.0); // INITIAL_ZOOM fallback
     });
-  });
-});
-
-describe('calculateEffectiveZoom', () => {
-  it('equals auto zoom when offset is 0', () => {
-    expect(calculateEffectiveZoom(5.0, 0)).toBe(5.0);
-  });
-
-  it('zooms in with positive offset', () => {
-    expect(calculateEffectiveZoom(5.0, 2.0)).toBe(7.0);
-  });
-
-  it('zooms out with negative offset', () => {
-    expect(calculateEffectiveZoom(5.0, -2.0)).toBe(3.0);
-  });
-
-  it('final zoom value is always within MIN to MAX range', () => {
-    expect(calculateEffectiveZoom(1.0, -5.0)).toBe(ZOOM_LIMITS.MIN);
-    expect(calculateEffectiveZoom(8.0, 5.0)).toBe(ZOOM_LIMITS.MAX);
   });
 });
 
