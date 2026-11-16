@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicationReviewPolicyPanel } from '@/renderer/presentation/features/championship/components/PublicationReviewPolicyPanel';
 import type { PublicationReviewPolicyStatus } from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
 
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
+
 const { get, save } = vi.hoisted(() => ({ get: vi.fn(), save: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ publicationReviewPolicyService: { get, save } }));
 const defaults = {
@@ -68,7 +70,7 @@ describe('Event review settings', () => {
       target: { value: 'Use shared process' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save event settings' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('changed');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^The event policy changed; reload before saving$/);
     expect(screen.getByLabelText('Reason for these event settings')).toHaveValue('Use shared process');
     expect(onChanged).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Reload event settings' }));
@@ -106,5 +108,29 @@ describe('Event review settings', () => {
     fireEvent.click(screen.getByText('Event setting history (1)'));
     expect(screen.getByText('Championship review procedure')).toBeVisible();
     expect(screen.getByText(/RTS lead/)).toBeVisible();
+  });
+});
+
+describe('Event review settings errors', () => {
+  it('shows a failed load as its message or the fallback text', async () => {
+    get.mockResolvedValueOnce(fail('Event not found'));
+    const { unmount } = render(
+      <PublicationReviewPolicyPanel eventId="event" resultScope="FINAL" onChanged={async () => undefined} />,
+    );
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Event not found$/);
+    unmount();
+
+    get.mockRejectedValueOnce('offline');
+    render(<PublicationReviewPolicyPanel eventId="event" resultScope="FINAL" onChanged={async () => undefined} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Failed to load event review settings$/);
+  });
+
+  it('shows the fallback text when a save fails without an error', async () => {
+    save.mockRejectedValue('offline');
+    render(<PublicationReviewPolicyPanel eventId="event" resultScope="FINAL" onChanged={async () => undefined} />);
+    fireEvent.change(await screen.findByLabelText('Responsible official'), { target: { value: 'RTS' } });
+    fireEvent.change(screen.getByLabelText('Reason for these event settings'), { target: { value: 'Shared' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save event settings' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Failed to save event review settings$/);
   });
 });
