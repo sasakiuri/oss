@@ -9,7 +9,6 @@ export {
   type VerifiableResult,
 } from './application/ResultVerificationSource';
 export {
-  UnsupportedTeamResultVerificationReadiness,
   type ITeamResultVerificationReadiness,
   type TeamResultVerificationKind,
   type TeamResultVerificationReadiness,
