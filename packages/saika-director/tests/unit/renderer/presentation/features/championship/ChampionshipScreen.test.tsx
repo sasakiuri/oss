@@ -319,6 +319,8 @@ describe('ChampionshipScreen', () => {
       ]) {
         action.mockReset();
       }
+      loadParticipants.mockResolvedValue(ok({ participants: [] }));
+      loadFiringPointAssignments.mockResolvedValue(ok({ assignments: [] }));
       exportCompetitionEvidence.mockReset();
     });
 
@@ -461,7 +463,9 @@ describe('ChampionshipScreen', () => {
     it('closes the event form before loading the entries of an added event', async () => {
       createEvent.mockResolvedValue(ok(NEW_EVENT_ID));
       let finishLoading!: () => void;
-      loadParticipants.mockReturnValue(new Promise<void>((resolve) => (finishLoading = resolve)));
+      loadParticipants.mockReturnValue(
+        new Promise((resolve) => (finishLoading = () => resolve(ok({ participants: [] })))),
+      );
       await openDetail();
 
       fireEvent.click(screen.getByRole('button', { name: 'Add event' }));
@@ -505,15 +509,32 @@ describe('ChampionshipScreen', () => {
       expect(loadParticipants).not.toHaveBeenCalled();
     });
 
-    it('reports a rejected entry load of an added event as a failure to add it', async () => {
+    it.each([
+      ['a rejected entry load', () => loadParticipants.mockRejectedValue(new Error('offline')), 'offline'],
+      ['a rejected value', () => loadParticipants.mockRejectedValue('offline'), 'offline'],
+      [
+        'a failed entry response',
+        () => loadParticipants.mockResolvedValue(fail('Entries unavailable')),
+        'Entries unavailable',
+      ],
+      [
+        'a failed assignment response',
+        () => loadFiringPointAssignments.mockResolvedValue(fail('Assignments unavailable')),
+        'Assignments unavailable',
+      ],
+    ])('reports %s of an added event as a load failure, not as a failure to add it', async (_case, arrange, text) => {
       createEvent.mockResolvedValue(ok(NEW_EVENT_ID));
-      loadParticipants.mockRejectedValue('offline');
+      arrange();
       await openDetail();
 
       fireEvent.click(screen.getByRole('button', { name: 'Add event' }));
       fireEvent.click(screen.getByRole('button', { name: 'Submit Event Test' }));
 
-      await waitFor(() => expect(addNotification.mock.calls).toEqual([['error', 'Failed to add the event']]));
+      await waitFor(() =>
+        expect(addNotification.mock.calls).toEqual([
+          ['error', `The event was added, but loading its entries failed: ${text}`],
+        ]),
+      );
       expect(screen.queryByText('Event form for a new event')).not.toBeInTheDocument();
       expect(setSelectedEventId).toHaveBeenCalledWith(NEW_EVENT_ID);
     });

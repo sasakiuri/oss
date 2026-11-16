@@ -6,6 +6,7 @@ import { useChampionshipStore } from '../../../stores/domain/championship.store'
 import { useChampionshipActions } from '../../../hooks/useChampionshipActions';
 import type { ChampionshipDto } from '@/shared/ipc/contracts';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
+import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 
 interface ChampionshipListProps {
   onSelect: (championship: ChampionshipDto) => void;
@@ -22,9 +23,16 @@ export function ChampionshipList({ onSelect, onCreate }: ChampionshipListProps) 
 
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (await useConfirmDialogStore.getState().openConfirm('Delete this championship?')) {
-      await deleteChampionship(id);
+    if (!(await useConfirmDialogStore.getState().openConfirm('Delete this championship?'))) return;
+    const fallback = 'Failed to delete the championship';
+    let failure: string | null;
+    try {
+      const result = await deleteChampionship(id);
+      failure = result.success ? null : (result.error?.message ?? fallback);
+    } catch (error) {
+      failure = error instanceof Error ? error.message : fallback;
     }
+    if (failure !== null) useNotificationStore.getState().addNotification('error', failure);
   };
 
   return (
