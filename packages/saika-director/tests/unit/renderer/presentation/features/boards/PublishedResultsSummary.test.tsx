@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublishedResultsSummary } from '@/renderer/presentation/features/boards/PublishedResultsSummary';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
 
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
+
 const { getBoardSnapshot } = vi.hoisted(() => ({ getBoardSnapshot: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ resultPublicationService: { getBoardSnapshot } }));
 
@@ -161,5 +163,28 @@ describe('PublishedResultsSummary', () => {
     expect(screen.getByText('Next athlete')).toBeInTheDocument();
     expect(screen.queryByText('Athlete')).not.toBeInTheDocument();
     expect(screen.queryByText(/Protest deadline:/)).not.toBeInTheDocument();
+  });
+
+  it('shows each failed update as its message, and a failure that is not an error as text', async () => {
+    getBoardSnapshot.mockResolvedValueOnce(fail('Results are unavailable'));
+    render(<PublishedResultsSummary eventId="event" resultScope="QUALIFICATION" />);
+    await flush();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /^Updates unavailable · Publication status unconfirmedResults are unavailable$/,
+    );
+    expect(screen.getByText('Results are unavailable')).toBeInTheDocument();
+
+    getBoardSnapshot.mockResolvedValueOnce(response({ eventId: 'other' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.getByText('The results update belongs to another event')).toBeInTheDocument();
+
+    getBoardSnapshot.mockRejectedValueOnce('offline');
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.getByText('offline')).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
