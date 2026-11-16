@@ -157,7 +157,8 @@ describe('useResults', () => {
         await result.current.confirmResults('event-1', ['r1']);
       });
 
-      expect(result.current.error).toBe('Confirm failed');
+      expect(result.current.confirmError).toBe('Confirm failed');
+      expect(result.current.error).toBeNull();
     });
 
     it('should handle an unsuccessful confirm response', async () => {
@@ -174,7 +175,8 @@ describe('useResults', () => {
       });
 
       expect(response!).toBeNull();
-      expect(result.current.error).toBe('Result no longer exists');
+      expect(result.current.confirmError).toBe('Result no longer exists');
+      expect(result.current.error).toBeNull();
       expect(result.current.loading).toBe(false);
     });
 
@@ -199,6 +201,29 @@ describe('useResults', () => {
       });
       expect(result.current.results).toEqual([{ id: 'newer' }]);
       expect(result.current.loading).toBe(false);
+    });
+  });
+
+  describe('a failed confirmation', () => {
+    it('keeps the loaded results and is cleared by the next request', async () => {
+      mockGetByEvent.mockResolvedValue({ success: true, data: { results: [{ id: 'r1' }] } });
+      mockConfirm.mockResolvedValue({ success: false, error: { message: 'Refused' } });
+      const { result } = renderHook(() => useResults());
+      await act(async () => {
+        await result.current.getEventResults('event-1');
+      });
+
+      await act(async () => {
+        await result.current.confirmResults('event-1', ['r1']);
+      });
+      expect(result.current.results).toEqual([{ id: 'r1' }]);
+      expect(result.current.confirmError).toBe('Refused');
+
+      await act(async () => {
+        await result.current.getEventResults('event-1');
+      });
+      expect(result.current.confirmError).toBeNull();
+      expect(result.current.results).toEqual([{ id: 'r1' }]);
     });
   });
 
@@ -252,7 +277,8 @@ describe('useResults', () => {
             returned = await run(result.current, query);
           });
           expect(returned).toBeNull();
-          expect(result.current.error).toBe(message);
+          expect(query === 'confirmResults' ? result.current.confirmError : result.current.error).toBe(message);
+          expect(query === 'confirmResults' ? result.current.error : result.current.confirmError).toBeNull();
           expect(result.current.loading).toBe(false);
         }
       },
@@ -269,7 +295,7 @@ describe('useResults', () => {
           await run(result.current, query);
         });
 
-        expect(result.current.error).toBe(fallback);
+        expect(query === 'confirmResults' ? result.current.confirmError : result.current.error).toBe(fallback);
         expect(result.current.loading).toBe(false);
       },
     );

@@ -36,6 +36,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     results: qualificationResults,
     loading: qLoading,
     error: qError,
+    confirmError,
     getEventResults,
     getRelayResults,
     confirmResults,
@@ -415,6 +416,11 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
 
   return (
     <div className="space-y-3">
+      {confirmError && (
+        <InlineError size="13px" role="alert">
+          {confirmError}
+        </InlineError>
+      )}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <label htmlFor="relay-filter" className="text-base text-vscode-text">

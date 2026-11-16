@@ -675,15 +675,32 @@ describe('ResultsView', () => {
     it.each([
       ['a failed confirmation', fail('Confirmation refused'), 'Confirmation refused'],
       ['a failed confirmation without an error', { success: false }, 'Failed to confirm results'],
-    ])('replaces the results with %s and does not reload them', async (_case, response, message) => {
+    ])('reports %s above the results, which stay with their filter', async (_case, response, message) => {
       confirm.mockResolvedValue(response);
       render(<ResultsView eventId="event-1" />);
 
       fireEvent.click(await screen.findByRole('button', { name: 'Confirm (2)' }));
 
-      expect((await screen.findByText(message)).outerHTML).toBe(`<p class="${errorBannerClass}">${message}</p>`);
-      expect(screen.queryByText('Relay One Athlete')).not.toBeInTheDocument();
+      expect((await screen.findByRole('alert')).outerHTML).toBe(
+        `<p role="alert" class="${errorBannerClass}">${message}</p>`,
+      );
+      expect(screen.getByText('Relay One Athlete')).toBeInTheDocument();
+      expect(screen.getByLabelText('Relay:')).toHaveValue('all');
+      expect(screen.getByRole('button', { name: 'Confirm (2)' })).toBeEnabled();
       expect(getByEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears a failed confirmation when the results are loaded again', async () => {
+      confirm.mockResolvedValue(fail('Confirmation refused'));
+      render(<ResultsView eventId="event-1" />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirm (2)' }));
+      await screen.findByRole('alert');
+
+      fireEvent.change(screen.getByLabelText('Relay:'), { target: { value: '2' } });
+
+      await waitFor(() => expect(getByRelay).toHaveBeenCalledWith({ eventId: 'event-1', relayNumber: 2 }));
+      await screen.findByText('Relay Two Athlete');
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     it('opens the print window for the selected relay and disables printing while it opens', async () => {
