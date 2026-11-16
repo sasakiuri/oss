@@ -5,13 +5,9 @@ import { app } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
-import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
 import { MalfunctionFiringService, SqliteMalfunctionFiringRepository } from '@/main/modules/malfunction-firing';
-import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery';
 import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
 import { StoredReserveLaneTransferState } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
-import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
-import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { mqttContract } from '@/shared/ipc/contracts';
 
@@ -73,6 +69,10 @@ type MqttDeps =
   | 'estComplaintSignalService'
   | 'timingProfileService'
   | 'timedTargetControl'
+  | 'timedTargetSequenceRepository'
+  | 'qualificationRecoveryShotOutbox'
+  | 'competitionShootOffShotOutbox'
+  | 'shotObservationEvidenceOutbox'
   | 'sessionRepository'
   | 'database';
 
@@ -112,6 +112,10 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'qualificationMalfunctionSignalService',
     'estComplaintSignalService',
     'timedTargetControl',
+    'timedTargetSequenceRepository',
+    'qualificationRecoveryShotOutbox',
+    'competitionShootOffShotOutbox',
+    'shotObservationEvidenceOutbox',
     'timingProfileService',
     'sessionRepository',
     'database',
@@ -138,6 +142,10 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     qualificationMalfunctionSignalService,
     estComplaintSignalService,
     timedTargetControl,
+    timedTargetSequenceRepository,
+    qualificationRecoveryShotOutbox,
+    competitionShootOffShotOutbox,
+    shotObservationEvidenceOutbox,
     timingProfileService,
     sessionRepository,
     database,
@@ -175,9 +183,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       eventBus,
       storage,
       competitionShootOffControl,
-      new SqliteCompetitionShootOffShotOutbox(database),
+      competitionShootOffShotOutbox,
     );
-    const qualificationRecoveryShotOutbox = new SqliteQualificationRecoveryShotOutbox(database);
     new QualificationRecoveryShotPublisher(
       mqttClient,
       eventBus,
@@ -186,12 +193,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       qualificationRecoveryShotOutbox,
     );
     new RawShotPublisher(mqttClient, eventBus, storage);
-    new ShotObservationEvidencePublisher(
-      mqttClient,
-      eventBus,
-      storage,
-      new SqliteShotObservationEvidenceOutbox(database),
-    );
+    new ShotObservationEvidencePublisher(mqttClient, eventBus, storage, shotObservationEvidenceOutbox);
 
     // Initialize competition publishers
     const competitionStatePublisher = new LaneCompetitionStatePublisher(
@@ -250,7 +252,6 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       assignmentPublisher,
       mayFire,
     );
-    const timedTargetSequences = new SqliteTimedTargetSequenceRepository(database);
     const malfunctionFiringControl = new MalfunctionFiringService(
       new SqliteMalfunctionFiringRepository(database),
       {
@@ -262,7 +263,8 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       timedTargetControl,
       eventBus,
       undefined,
-      (runId) => timedTargetSequences.findBySequenceId(runId)?.acceptedShots.map((shot) => shot.observationId) ?? [],
+      (runId) =>
+        timedTargetSequenceRepository.findBySequenceId(runId)?.acceptedShots.map((shot) => shot.observationId) ?? [],
     );
     eventBus.on('MqttConnected', (event) => {
       if (startup.isReady() && !event.error) malfunctionFiringControl.restore();

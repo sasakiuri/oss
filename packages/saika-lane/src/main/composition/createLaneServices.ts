@@ -14,7 +14,10 @@ import {
   CompetitionInterruptionService,
   LocalCompetitionInterruptionRepository,
 } from '@/main/modules/competition-interruption';
-import { LocalCompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import {
+  LocalCompetitionShootOffControl,
+  SqliteCompetitionShootOffShotOutbox,
+} from '@/main/modules/competition-shoot-off';
 import { ConnectionRepositoryImpl } from '@/main/modules/connection/infra/ConnectionRepositoryImpl';
 import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
@@ -45,6 +48,7 @@ import {
 import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
 import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore';
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
+import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import {
   BoundedShotTimingPolicy,
@@ -143,8 +147,9 @@ export function createLaneServices(
     connection: () => ConnectionSettingsSchema.nullable().parse(storage.get('connectionSettings') ?? null),
     hasActiveCompetition: async () => !!(await competitionRepository.findActive()),
   });
+  const timedTargetSequenceRepository = new SqliteTimedTargetSequenceRepository(db);
   const timedTargetControl = new TimedTargetSequenceService(
-    new SqliteTimedTargetSequenceRepository(db),
+    timedTargetSequenceRepository,
     {
       publish: (state) => {
         eventBus.emit({
@@ -171,9 +176,10 @@ export function createLaneServices(
     timedTargetControl,
     eventBus,
   );
+  const qualificationRecoveryShotOutbox = new SqliteQualificationRecoveryShotOutbox(db);
   const qualificationRecoveryAdjudicationControl = new QualificationRecoveryAdjudicationService(
     qualificationRecoveryControl,
-    new SqliteQualificationRecoveryShotOutbox(db),
+    qualificationRecoveryShotOutbox,
     new SqliteQualificationRecoveryAdjudicationRepository(db),
     sessionRepository,
     competitionRepository,
@@ -188,6 +194,10 @@ export function createLaneServices(
     qualificationRecoveryControl,
     eventBus,
   );
+
+  // Outboxes the MQTT module drains; their rows are written by the features that record the shots.
+  const competitionShootOffShotOutbox = new SqliteCompetitionShootOffShotOutbox(db);
+  const shotObservationEvidenceOutbox = new SqliteShotObservationEvidenceOutbox(db);
 
   // Lane-owned signals keep their state in SQLite; the MQTT module publishes them and serves their IPC.
   const rangeOfficerRequestService = new RangeOfficerRequestService(new SqliteRangeOfficerRequestRepository(db));
@@ -247,6 +257,10 @@ export function createLaneServices(
     qualificationMalfunctionSignalService,
     estComplaintSignalService,
     timedTargetControl,
+    timedTargetSequenceRepository,
+    qualificationRecoveryShotOutbox,
+    competitionShootOffShotOutbox,
+    shotObservationEvidenceOutbox,
     timingProfileService,
     mainWindow,
     userDataPath,
