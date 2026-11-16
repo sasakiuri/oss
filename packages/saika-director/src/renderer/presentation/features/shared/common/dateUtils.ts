@@ -108,3 +108,9 @@ export function autoFormatDate(input: string): string {
 
   return result;
 }
+
+/** Local wall-clock time as a `datetime-local` input value: `YYYY-MM-DDTHH:mm`, or with `:ss` for seconds. */
+export function toDateTimeLocalValue(date: Date, precision: 'minutes' | 'seconds'): string {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, precision === 'minutes' ? 16 : 19);
+}
