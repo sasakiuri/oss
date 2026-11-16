@@ -13,7 +13,7 @@ import { MqttTransport } from '@/main/modules/mqtt/infra/MqttTransport';
 import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
 import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
 import { competitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
-import { championshipContract, eventsContract } from '@/shared/ipc/contracts';
+import { championshipContract, eventsContract, resultPublicationContract } from '@/shared/ipc/contracts';
 import {
   backupCaptureReadinessContract,
   type BackupCaptureReadinessDto,
@@ -244,6 +244,35 @@ describe('Director application composition', () => {
     const authentication = registry.operationalSettingTargets.find(({ id }) => id === 'operator-access')!;
     expect((await authentication.read(eventId)).mode).toBe('DISABLED');
     expect(() => authentication.write(eventId, 'REQUIRED')).toThrow('administrator');
+  });
+
+  it('saves publication review settings and serves them as live policy defaults', async () => {
+    const { eventId } = await createEvent();
+    const settings = {
+      requireObservationReviews: true,
+      requireIncidentReports: false,
+      requireFinalRecoveriesComplete: true,
+      requireProtestCasesComplete: false,
+      requireEquipmentChecksComplete: true,
+    };
+
+    expect(await invoke(resultPublicationContract.channels.setReviewSettings, settings)).toEqual({
+      success: true,
+      data: settings,
+    });
+
+    expect(await invoke(resultPublicationContract.channels.getReviewSettings)).toEqual({
+      success: true,
+      data: settings,
+    });
+    for (const [key, value] of Object.entries(settings)) {
+      expect(application!.appConfigService.get(`resultPublication.${key}` as never)).toBe(value);
+    }
+    const status = await invoke<{ success: true; data: PublicationReviewPolicyStatus }>(
+      publicationReviewPolicyContract.channels.get,
+      { eventId, resultScope: 'FINAL' },
+    );
+    expect(status.data.defaults).toEqual(settings);
   });
 
   it('starts module transports and stops them before closing the database and event forwarding', async () => {
