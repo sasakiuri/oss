@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useLayoutEffect, useRef } from 'react';
 
+import { drawShotMarker, EARLIER_SHOT_FILL } from '@/renderer/presentation/components/target/ShotRenderer';
 import { getTargetRadii } from '@/renderer/presentation/components/target/targetRadii';
 import { drawTarget } from '@/renderer/presentation/components/target/TargetRingRenderer';
 import { SHOT_RADIUS_BY_DISCIPLINE } from '@/renderer/presentation/utils/targetDimensions';
@@ -77,32 +78,18 @@ export function SeriesTargetCanvas({
 
     // Draw shots -- for print: uniform grey for all shots, with numbers
     const shotRadius = SHOT_RADIUS_BY_DISCIPLINE[discipline] * scale;
-    const borderWidth = 0.5;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     for (const shot of validShots) {
-      const x = centerX + shot.x * scale;
-      const y = centerY - shot.y * scale;
-
-      // Uniform grey (opacity 0.7)
-      ctx.fillStyle = 'rgba(68, 68, 68, 0.7)';
-      ctx.beginPath();
-      ctx.arc(x, y, shotRadius, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // Border
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = borderWidth;
-      ctx.beginPath();
-      ctx.arc(x, y, shotRadius, 0, 2 * Math.PI);
-      ctx.stroke();
-
-      // Shot number (white text)
-      const fontSize = Math.min(shotRadius * 1.4, 56);
-      ctx.font = `bold ${fontSize}px sans-serif`;
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(`${shot.shotNumber}`, x, y);
+      drawShotMarker(ctx, {
+        x: centerX + shot.x * scale,
+        y: centerY - shot.y * scale,
+        radius: shotRadius,
+        fill: EARLIER_SHOT_FILL,
+        textColor: '#FFFFFF',
+        label: `${shot.shotNumber}`,
+      });
     }
   }, [shots, discipline, size, sequentialShotNumbers]);
 

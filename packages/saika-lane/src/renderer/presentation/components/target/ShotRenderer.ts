@@ -2,6 +2,35 @@
 import { SHOT_RADIUS_BY_DISCIPLINE } from '@/renderer/presentation/utils/targetDimensions';
 import type { Discipline, ShotDto } from '@/shared/ipc/contracts';
 
+/** Fill of earlier shots on screen and of every shot in print (opacity lets the rings show through). */
+export const EARLIER_SHOT_FILL = 'rgba(68, 68, 68, 0.7)';
+
+/**
+ * Draws one shot marker: a filled disc with the thinnest black border and its label sized to fit inside.
+ * The caller sets `textAlign = 'center'` and `textBaseline = 'middle'` once before drawing markers.
+ */
+export function drawShotMarker(
+  ctx: CanvasRenderingContext2D,
+  marker: { x: number; y: number; radius: number; fill: string; textColor: string; label: string },
+): void {
+  const { x, y, radius } = marker;
+  ctx.fillStyle = marker.fill;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, 2 * Math.PI);
+  ctx.fill();
+
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, 2 * Math.PI);
+  ctx.stroke();
+
+  const fontSize = Math.min(radius * 1.4, 56);
+  ctx.font = `bold ${fontSize}px sans-serif`;
+  ctx.fillStyle = marker.textColor;
+  ctx.fillText(marker.label, x, y);
+}
+
 export function drawShots(
   ctx: CanvasRenderingContext2D,
   centerX: number,
@@ -23,12 +52,8 @@ export function drawShots(
       return;
     }
 
-    const x = centerX + shot.x * scale;
-    const y = centerY - shot.y * scale;
-
     // Scoring-gauge footprint: event selection overrides the discipline fallback.
     // No upper limit so it scales at the same rate as the target
-    const borderWidth = 0.5; // as thin a border as possible
     const shotRadius = scoringGaugeRadiusMm * scale;
 
     // Determine if this is the latest shot
@@ -46,8 +71,7 @@ export function drawShots(
         color = 'rgba(0, 102, 255, 0.7)'; // other: blue (transparent)
       }
     } else {
-      // Previous: grey (transparent)
-      color = 'rgba(68, 68, 68, 0.7)';
+      color = EARLIER_SHOT_FILL;
     }
 
     // Remove shadow (keep it simple)
@@ -56,26 +80,14 @@ export function drawShots(
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // Draw impact point circle
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, shotRadius, 0, 2 * Math.PI);
-    ctx.fill();
-
-    // Draw border (as thin as possible)
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = borderWidth;
-    ctx.beginPath();
-    ctx.arc(x, y, shotRadius, 0, 2 * Math.PI);
-    ctx.stroke();
-
-    // Draw shot number (sized to fit within the marker)
-    const fontSize = Math.min(shotRadius * 1.4, 56);
-    ctx.font = `bold ${fontSize}px sans-serif`;
-    ctx.fillStyle =
-      isLatest && shot.score < 100 && shot.score >= 90
-        ? '#000000' // yellow background → black text
-        : '#FFFFFF'; // others → white text
-    ctx.fillText(`${shot.shotNumber}`, x, y);
+    drawShotMarker(ctx, {
+      x: centerX + shot.x * scale,
+      y: centerY - shot.y * scale,
+      radius: shotRadius,
+      fill: color,
+      // Yellow background → black text; others → white text
+      textColor: isLatest && shot.score < 100 && shot.score >= 90 ? '#000000' : '#FFFFFF',
+      label: `${shot.shotNumber}`,
+    });
   });
 }
