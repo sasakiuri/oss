@@ -561,11 +561,18 @@ describe('FinalOperationPanel official-selected Lanes', () => {
     laneSnapshot(LANE_D, null, { name: 'Athlete D', startNumber: 7 }, { alias: 'West 4' }),
   ];
 
+  /**
+   * A step change clears the selection in an effect after the step renders. The reset leaves nothing to wait for
+   * on screen, so flush the pending effects and their state updates before selecting.
+   */
+  const settle = () => act(async () => {});
+
   it('confirms exactly the required number of active Lanes', async () => {
     getByCompetition.mockResolvedValue(ok(finalRun(stepProjection(timed('series-1', 2)))));
     confirmStep.mockResolvedValue(fail('The step was already confirmed'));
     renderPanel({ lanes });
     await screen.findByText('Select exactly 2 firing Lanes');
+    await settle();
 
     expect(screen.queryByLabelText(/Athlete C/)).not.toBeInTheDocument();
     expect(screen.getByLabelText('FP 2 · Start number missing')).not.toBeChecked();
@@ -595,16 +602,18 @@ describe('FinalOperationPanel official-selected Lanes', () => {
       .mockResolvedValueOnce(ok(finalRun(stepProjection(timed('series-2', 1)))));
     renderPanel({ lanes });
     await screen.findByText('Select exactly 1 firing Lane');
+    await settle();
     fireEvent.click(screen.getByLabelText('FP 1 · Athlete A · Start 3'));
 
     click('Refresh');
     await waitFor(() => expect(getByCompetition).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeEnabled());
+    await settle();
     expect(screen.getByLabelText('FP 1 · Athlete A · Start 3')).toBeChecked();
 
     click('Refresh');
     await screen.findByText('Timed series series-2');
-    expect(screen.getByLabelText('FP 1 · Athlete A · Start 3')).not.toBeChecked();
+    await waitFor(() => expect(screen.getByLabelText('FP 1 · Athlete A · Start 3')).not.toBeChecked());
   });
 
   it('does not ask for Lanes once the step awaits execution', async () => {
