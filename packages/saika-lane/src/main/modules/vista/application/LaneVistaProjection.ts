@@ -7,6 +7,7 @@ import {
   type VistaDefinition,
   type VistaSnapshot,
 } from '@sasakiuri/saika-protocol/Vista';
+import { canonicalJson } from '@sasakiuri/saika-rules';
 
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
@@ -15,23 +16,12 @@ import type { LaneInterruptionRecord } from '@/main/modules/competition-interrup
 import type { Session } from '@/main/modules/session/domain/Session';
 import { getDefaultTargetScoringProfile, getScoringGaugeProfile } from '@/shared/target';
 
-export function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (value !== null && typeof value === 'object')
-    return `{${Object.entries(value)
-      .filter(([, entry]) => entry !== undefined)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, entry]) => `${JSON.stringify(key)}:${canonical(entry)}`)
-      .join(',')}}`;
-  return JSON.stringify(value) ?? 'null';
-}
-
 /** Exact standard configuration matching prevents custom rules from masquerading as a supported event. */
 export function laneVistaDefinition(competition: CompetitionState, session: Session): VistaDefinition | null {
   const standard = ALL_COMPETITION_TYPES.find(
     (candidate) =>
       candidate.discipline === session.discipline.value &&
-      canonical(candidate.config) === canonical(competition.config),
+      canonicalJson(candidate.config) === canonicalJson(competition.config),
   );
   if (
     !standard ||
@@ -51,7 +41,7 @@ export function laneVistaDefinition(competition: CompetitionState, session: Sess
     outerDiameter: Math.max(...profile.ringLines.map((ring) => ring.radiusMm)) * 2,
     shotDiameter: getScoringGaugeProfile(profile.defaultScoringGaugeProfileId).diameterMm,
   };
-  const fingerprint = createHash('sha256').update(canonical({ standard, target })).digest('hex');
+  const fingerprint = createHash('sha256').update(canonicalJson({ standard, target })).digest('hex');
   return VistaDefinitionSchema.parse({
     id: standard.rulePackId ?? `JRSF-2026:${standard.id}`,
     fingerprint,
