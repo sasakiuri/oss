@@ -7,7 +7,6 @@ import type {
   startupContract,
   competitionContract,
   connectionContract,
-  AppUpdateStateDto,
   AppSettingsInputDto,
   ConnectionSettingsDto,
   eventsContract,
@@ -112,16 +111,10 @@ export interface ElectronAPI {
   readonly vista: InferBridge<typeof vistaContract>;
 
   /** Application update methods */
-  readonly updates: {
-    getUpdateState: UpdaterBridge['getUpdateState'];
-    checkForUpdates: UpdaterBridge['checkForUpdates'];
-    quitAndInstall: UpdaterBridge['quitAndInstall'];
-  };
+  readonly updates: UpdaterBridge;
 
   /** Event subscription methods */
-  readonly on: EventBridge & {
-    updateStateChanged: (callback: (data: AppUpdateStateDto) => void) => () => void;
-  };
+  readonly on: EventBridge;
 }
 
 // ---------------------------------------------------------------------------
