@@ -12,6 +12,7 @@ import {
 } from '@sasakiuri/saika-protocol/vista-node';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import { vistaContract } from '@/shared/ipc/contracts/vista.contract';
 
 import { readVistaLaneAlias } from './application/readVistaLaneAlias';
@@ -106,7 +107,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
     let discovery: { close(): void } | null = null;
     let error: string | null = null;
     let disposed = false;
-    let changes = Promise.resolve();
+    const changes = new SerialQueue();
     const status = () => ({
       enabled: server !== null,
       sourceId: identity.sourceId,
@@ -115,7 +116,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
       error: error ?? source.getError(),
     });
     const configure = (enabled: boolean, resetPairing = false): Promise<void> => {
-      const next = changes.then(async () => {
+      const next = changes.run(async () => {
         if (disposed) return;
         error = null;
         discovery?.close();
@@ -141,7 +142,8 @@ export const vistaModule: ModuleDefinition<Deps> = {
         }
         storage.set('vista.enabled', enabled);
       });
-      changes = next.catch((cause: unknown) => {
+      // Recorded before the next queued change starts, as that change clears it first.
+      void next.catch((cause: unknown) => {
         error = cause instanceof Error ? cause.message : 'Vista source failed';
       });
       return next;
