@@ -8,6 +8,8 @@ import type {
   RangeInterruptionCaseDto,
 } from '@/shared/ipc/contracts';
 
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
+
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
 const INTERRUPTION_ID = '33333333-3333-4333-8333-333333333333';
@@ -648,6 +650,184 @@ describe('RangeInterruptionsPanel', () => {
     expect(await screen.findByRole('button', { name: 'Supersede recovery decision' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Record action' }));
     expect(screen.getByRole('option', { name: 'Close record and release hold' })).toBeInTheDocument();
+  });
+
+  it('shows a failed record creation and a failed scope link as the response message', async () => {
+    create.mockResolvedValue(fail('The competition scope is closed'));
+    linkScope.mockResolvedValue(fail('The event is already linked'));
+    render(
+      <RangeInterruptionsPanel
+        primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
+        additionalScopes={[{ scopeType: 'EVENT', scopeId: EVENT_ID }]}
+        competitionId={COMPETITION_ID}
+      />,
+    );
+
+    fireEvent.change(await screen.findByLabelText('Linked by'), { target: { value: 'Officer B' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Link scope' }));
+    expect(await screen.findByText('The event is already linked')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open record' }));
+    fireEvent.change(screen.getByLabelText('Summary'), { target: { value: 'Target carrier interruption' } });
+    fireEvent.change(screen.getByLabelText('Observed facts'), { target: { value: 'Carrier stopped.' } });
+    fireEvent.change(screen.getByLabelText('Opened by'), { target: { value: 'Officer B' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Open record' }).at(-1)!);
+    expect(await screen.findByText('The competition scope is closed')).toBeInTheDocument();
+    expect(screen.queryByText('The event is already linked')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Summary')).toHaveValue('Target carrier interruption');
+  });
+
+  it('shows a failed Lane STOP as its message and a failed ledger entry with the audit prefix', async () => {
+    pauseLaneTimer.mockResolvedValueOnce(fail('Lane 12 is offline'));
+    render(
+      <RangeInterruptionsPanel
+        primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
+        competitionId={COMPETITION_ID}
+        lanes={[{ laneId: LANE_ID, label: 'Firing point 12', firingPointNumber: 12 }]}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Apply Lane STOP' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send STOP' }));
+    expect(await screen.findByText('Lane 12 is offline')).toBeInTheDocument();
+    expect(appendEntry).not.toHaveBeenCalled();
+
+    appendEntry.mockResolvedValueOnce(fail('The ledger is read-only'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send STOP' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Send STOP' }));
+    expect(
+      await screen.findByText(
+        'The Lane command succeeded, but its audit entry could not be recorded: The ledger is read-only',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('shows failed end and audit entries as the response message and keeps the form open', async () => {
+    appendEntry.mockResolvedValue(fail('The record is not open'));
+    render(
+      <RangeInterruptionsPanel
+        primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
+        competitionId={COMPETITION_ID}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'End interruption' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'End interruption' }).at(-1)!);
+    expect(await screen.findByText('The record is not open')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ended at')).toBeInTheDocument();
+
+    appendEntry.mockResolvedValue(fail('Statement rejected'));
+    fireEvent.click(screen.getByRole('button', { name: 'Record action' }));
+    fireEvent.change(screen.getByLabelText('Official name'), { target: { value: 'Officer A' } });
+    fireEvent.change(screen.getByLabelText('Statement'), { target: { value: 'Noted.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Append action' }));
+    expect(await screen.findByText('Statement rejected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Append action' })).toBeInTheDocument();
+  });
+
+  it('shows a failed time grant and a failed target recovery record as the response message', async () => {
+    listByScope.mockResolvedValue({
+      success: true,
+      data: [fixture({ status: 'ENDED', cause: 'SINGLE_TARGET_FAILURE' })],
+    });
+    appendEntry.mockResolvedValue(fail('The grant exceeds the recorded lost time'));
+    recordTargetRecovery.mockResolvedValue(fail('The reserve firing point is occupied'));
+    render(
+      <RangeInterruptionsPanel
+        primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
+        competitionId={COMPETITION_ID}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Record official grant' }));
+    fireEvent.change(screen.getByLabelText('Range Incident Report reference'), { target: { value: 'RIR-42' } });
+    fireEvent.change(screen.getByLabelText('Official name'), { target: { value: 'Jury Member C' } });
+    fireEvent.change(screen.getByLabelText('Decision statement'), { target: { value: 'The Jury grants time.' } });
+    fireEvent.click(screen.getByLabelText(/I confirm this is an official grant/i));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Record official grant' }).at(-1)!);
+    expect(await screen.findByText('The grant exceeds the recorded lost time')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Record target recovery' }));
+    fireEvent.change(screen.getByLabelText('Observed recovery facts'), { target: { value: 'Target replaced.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record recovery facts' }));
+    expect(await screen.findByText('The reserve firing point is occupied')).toBeInTheDocument();
+  });
+
+  it('shows a failed 25m decision and a failed recovery start as the response message', async () => {
+    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture()] });
+    recordQualificationTimedTargetRecoveryDecision.mockResolvedValue(fail('The decision was superseded'));
+    startQualificationRecoveryExecution.mockResolvedValue(fail('The Lane is not paused'));
+    render(
+      <RangeInterruptionsPanel
+        primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
+        competitionId={COMPETITION_ID}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Supersede recovery decision' }));
+    fireEvent.change(screen.getByLabelText('Range Incident Report reference'), { target: { value: 'RIR-25M-002' } });
+    fireEvent.change(screen.getByLabelText('Official name'), { target: { value: 'Jury Member C' } });
+    fireEvent.change(screen.getByLabelText('Decision statement'), { target: { value: 'The Jury revises it.' } });
+    fireEvent.click(screen.getByLabelText(/I confirm this is an official recovery decision/i));
+    fireEvent.click(screen.getByRole('button', { name: 'Supersede decision' }));
+    expect(await screen.findByText('The decision was superseded')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start series recovery' }));
+    fireEvent.click(screen.getByLabelText(/I confirm the Lane is paused, clear and ready/i));
+    fireEvent.click(screen.getByRole('button', { name: 'Start competition series recovery' }));
+    expect(await screen.findByText('The Lane is not paused')).toBeInTheDocument();
+  });
+
+  it('shows a failed recovery cancellation as the response message', async () => {
+    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture('RUNNING')] });
+    cancelQualificationRecoveryExecution.mockResolvedValue(fail('The run already completed'));
+    render(
+      <RangeInterruptionsPanel
+        primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
+        competitionId={COMPETITION_ID}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel run' }));
+    fireEvent.change(screen.getByLabelText('Cancellation reason'), { target: { value: 'Withdrawn.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel recovery run' }));
+    expect(await screen.findByText('The run already completed')).toBeInTheDocument();
+  });
+
+  it('shows a failed recovery score application as the response message', async () => {
+    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture('COMPLETED')] });
+    adjudicateQualificationRecoveryExecution.mockResolvedValue(fail('The Lane evidence changed'));
+    render(
+      <RangeInterruptionsPanel
+        primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
+        competitionId={COMPETITION_ID}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and apply score' }));
+    fireEvent.change(screen.getByLabelText('Adjudicating official'), { target: { value: 'Jury Member B' } });
+    fireEvent.change(screen.getByLabelText('Adjudication statement'), { target: { value: 'Checked.' } });
+    fireEvent.click(screen.getByLabelText(/authorize this MATCH score change/i));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply recovery score' }));
+    expect(await screen.findByText('The Lane evidence changed')).toBeInTheDocument();
+  });
+
+  it('shows a failed retain-series settlement as the response message', async () => {
+    listByScope.mockResolvedValue({ success: true, data: [retainSeriesFixture()] });
+    applyQualificationRecoverySettlement.mockResolvedValue(fail('The series is incomplete'));
+    render(
+      <RangeInterruptionsPanel
+        primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
+        competitionId={COMPETITION_ID}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Review and retain recorded series' }));
+    fireEvent.change(screen.getByLabelText('Applying official'), { target: { value: 'Jury Member B' } });
+    fireEvent.change(screen.getByLabelText('Settlement statement'), { target: { value: 'Checked.' } });
+    fireEvent.click(screen.getByLabelText(/confirm the full recorded series/i));
+    fireEvent.click(screen.getByRole('button', { name: 'Retain recorded series' }));
+    expect(await screen.findByText('The series is incomplete')).toBeInTheDocument();
   });
 });
 
