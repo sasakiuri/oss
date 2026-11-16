@@ -18,10 +18,22 @@ export const VistaIdentitySchema = z.object({
 });
 export type VistaIdentity = z.infer<typeof VistaIdentitySchema>;
 
+/** Events a Vista definition can describe: the standard individual 10m air and beam Qualifications and Finals. */
+export const VISTA_EVENT_CODES = [
+  'AR60',
+  'AP60',
+  'BR60S',
+  'BP60',
+  'AR60_FINAL',
+  'AP60_FINAL',
+  'BR60S_FINAL',
+  'BP60_FINAL',
+] as const;
+
 export const VistaDefinitionSchema = z.object({
   id: Id,
   fingerprint: Id,
-  eventCode: z.enum(['AR60', 'AP60', 'BR60S', 'BP60', 'AR60_FINAL', 'AP60_FINAL', 'BR60S_FINAL', 'BP60_FINAL']),
+  eventCode: z.enum(VISTA_EVENT_CODES),
   name: Text,
   scoring: z.enum(['RING', 'DECIMAL']),
   target: z.object({
