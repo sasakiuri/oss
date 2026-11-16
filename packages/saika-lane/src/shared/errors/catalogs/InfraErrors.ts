@@ -2,7 +2,6 @@
 import type { ErrorDefinition } from '../ErrorCatalog';
 
 export type InfraErrorCode =
-  | 'EVENTBUS_ERROR'
   | 'COMMAND_HANDLER_NOT_FOUND'
   | 'COMMAND_DUPLICATE_HANDLER'
   | 'QUERY_HANDLER_NOT_FOUND'
@@ -12,19 +11,9 @@ export type InfraErrorCode =
   | 'LOGGER_NOT_INITIALIZED'
   | 'SETTINGS_NOT_FOUND'
   | 'STORAGE_DATA_CORRUPTED'
-  | 'WINDOW_NOT_FOUND'
   | 'UNKNOWN_ERROR';
 
 export const INFRA_ERRORS: ReadonlyArray<[InfraErrorCode, ErrorDefinition]> = [
-  [
-    'EVENTBUS_ERROR',
-    {
-      code: 'EVENTBUS_ERROR',
-      message: 'EventBus operation failed',
-      userMessage: 'EventBus operation failed',
-      severity: 'error',
-    },
-  ],
   [
     'COMMAND_HANDLER_NOT_FOUND',
     {
@@ -103,15 +92,6 @@ export const INFRA_ERRORS: ReadonlyArray<[InfraErrorCode, ErrorDefinition]> = [
       code: 'STORAGE_DATA_CORRUPTED',
       message: 'Storage data is corrupted',
       userMessage: 'Storage data is corrupted',
-      severity: 'error',
-    },
-  ],
-  [
-    'WINDOW_NOT_FOUND',
-    {
-      code: 'WINDOW_NOT_FOUND',
-      message: 'No focused window found',
-      userMessage: 'No focused window found',
       severity: 'error',
     },
   ],
