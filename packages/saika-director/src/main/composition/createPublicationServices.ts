@@ -12,11 +12,7 @@ import {
   SqliteEstChampionshipInspectionRepository,
   SqliteEstInspectionStartSettingsRepository,
 } from '@/main/modules/est-championship-inspections';
-import {
-  FinalRecoveryPublicationBlocker,
-  SqliteFinalRecoveryEventScope,
-  SqliteFinalRecoveryRepository,
-} from '@/main/modules/final-recoveries';
+import { FinalRecoveryPublicationBlocker, SqliteFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import { IncidentReportPublicationBlocker } from '@/main/modules/incident-reports';
 import { IrregularShotPublicationBlocker } from '@/main/modules/irregular-shot-cases';
 import { ObservationReviewPublicationBlocker } from '@/main/modules/observation-reviews';
@@ -25,7 +21,8 @@ import {
   SqlitePostCompetitionEquipmentCheckRepository,
   StoredEquipmentControlPublicationSource,
 } from '@/main/modules/post-competition-equipment-control';
-import { ProtestPublicationBlocker, SqliteProtestEventScope, SqliteProtestRepository } from '@/main/modules/protests';
+import { ProtestPublicationBlocker, SqliteProtestRepository } from '@/main/modules/protests';
+import { SqliteResultCompetitionScope } from '@/main/modules/results';
 import { PolicyBoundVerificationSource } from '@/main/modules/publication-review-policies';
 import {
   QualificationMalfunctionPublicationBlocker,
@@ -117,6 +114,7 @@ export function createPublicationServices({
   archiveFileGateway,
   rulePackRegistry,
 }: PublicationServicesDependencies) {
+  const resultCompetitionScope = new SqliteResultCompetitionScope(database);
   const resultVerificationService = new ResultVerificationService(
     resultVerificationRepository,
     new ResultVerificationSourceRegistry(
@@ -181,7 +179,7 @@ export function createPublicationServices({
     ),
     new OptionalResultPublicationBlocker(
       new ProtestPublicationBlocker(new SqliteProtestRepository(database), (eventId, resultScope) =>
-        new SqliteProtestEventScope(database).competitionIds(eventId, resultScope),
+        resultCompetitionScope.competitionIds(eventId, resultScope),
       ),
       (eventId, scope) => publicationReviewPolicies.get(eventId, scope).effectiveSettings.requireProtestCasesComplete,
     ),
@@ -197,7 +195,7 @@ export function createPublicationServices({
     ),
     new OptionalResultPublicationBlocker(
       new FinalRecoveryPublicationBlocker(new SqliteFinalRecoveryRepository(database), (eventId) =>
-        new SqliteFinalRecoveryEventScope(database).competitionIds(eventId),
+        resultCompetitionScope.competitionIds(eventId, 'FINAL'),
       ),
       (eventId, scope) =>
         publicationReviewPolicies.get(eventId, scope).effectiveSettings.requireFinalRecoveriesComplete,

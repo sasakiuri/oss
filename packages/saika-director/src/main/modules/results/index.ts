@@ -28,6 +28,7 @@ export {
 
 // Composition-root adapter
 export { SqliteResultRepository } from './infra/SqliteResultRepository';
+export { SqliteResultCompetitionScope } from './infra/SqliteResultCompetitionScope';
 export { SqliteFinalResultRepository } from './infra/SqliteFinalResultRepository';
 
 // Module definition
