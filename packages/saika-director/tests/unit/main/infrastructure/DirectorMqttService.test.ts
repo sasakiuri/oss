@@ -4276,3 +4276,367 @@ describe('DirectorMqttService timed target commands', () => {
     await service.disconnect();
   });
 });
+
+describe('DirectorMqttService Final commands', () => {
+  const RUN_ID = RECOVERY_RUN_ID;
+  const CHECKPOINT_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  const rulePackBinding = {
+    definitionBinding: {
+      protocolVersion: 1,
+      compatibilityMode: 'REQUIRED',
+      rulePack: { id: 'P25_FINAL', schemaVersion: 1, fingerprint: { algorithm: 'SHA-256', value: 'a'.repeat(64) } },
+    },
+  };
+  let transport: FakeMqttTransport;
+
+  beforeEach(() => {
+    transport = new FakeMqttTransport();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function completeSeries(laneIds = [LANE_ID, SECOND_LANE_ID]) {
+    for (const laneId of laneIds)
+      transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${laneId}/state`, {
+        ...activeTimedLaneState(laneId),
+        phase: 'SERIES_COMPLETE',
+      });
+  }
+
+  function clearLane(laneId: string) {
+    transport.emitMessage(`saika/lane/${laneId}/safety/state`, {
+      laneId,
+      status: 'CLEAR',
+      safetyStopId: null,
+      reason: null,
+      stoppedBy: null,
+      stoppedAt: null,
+      timerSnapshot: null,
+      clearedBy: null,
+      clearanceReason: null,
+      clearedAt: null,
+      publishedAt: new Date().toISOString(),
+    });
+  }
+
+  function competitionCommandTopic(action: string) {
+    return `saika/competition/${COMPETITION_ID}/command/${action}`;
+  }
+
+  function finalRequest() {
+    return {
+      workflow: 'FINAL_RECOVERY' as const,
+      finalIncident: 'MALFUNCTION' as const,
+      runId: RUN_ID,
+      caseId: INTERRUPTION_ID,
+      authorizationId: RECOVERY_DECISION_ID,
+      competitionId: COMPETITION_ID,
+      sessionId: SESSION_ID,
+      participantId: PARTICIPANT_ID,
+      rulePackFingerprint: 'a'.repeat(64),
+      stageIndex: 1,
+      seriesIndex: 0,
+      recordedShots: 0,
+      remedy: 'COMPLETE_REMAINING_SHOTS' as const,
+      shotsToFire: 5,
+      officialName: 'Jury',
+      decidedAt: '2026-09-03T00:00:00.000Z',
+      loadAt: '2026-09-03T00:01:00.000Z',
+    };
+  }
+
+  function assignFinalist() {
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`, activeTimedLaneState(LANE_ID));
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/assignment`, {
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      athlete: { id: PARTICIPANT_ID, name: 'Finalist', startNumber: 1 },
+      assignedAt: null,
+      publishedAt: new Date().toISOString(),
+    });
+  }
+
+  it('retires a Final competitor through its Lane after checking round, phase and membership', async () => {
+    const qualification = createService(transport);
+    await startMatchCompetition(qualification, transport);
+    await expect(qualification.retireFinalist(COMPETITION_ID, LANE_ID, CHECKPOINT_ID, 8, 12)).rejects.toThrow(
+      new Error('Only a Final competitor can be retired'),
+    );
+    await qualification.disconnect();
+
+    transport = new FakeMqttTransport();
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    const created = await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID, SECOND_LANE_ID]);
+    await expect(service.retireFinalist(COMPETITION_ID, LANE_ID, CHECKPOINT_ID, 8, 12)).rejects.toThrow(
+      new Error(`Cannot retire a finalist while competition ${COMPETITION_ID} is in phase NOT_STARTED`),
+    );
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+      ...created,
+      phase: 'MATCH',
+      roundName: 'Final',
+      publishedAt: new Date(Date.parse(created.publishedAt) + 1).toISOString(),
+    });
+    await expect(service.retireFinalist(COMPETITION_ID, THIRD_LANE_ID, CHECKPOINT_ID, 8, 12)).rejects.toThrow(
+      new Error(`Lane ${THIRD_LANE_ID} is not joined to competition ${COMPETITION_ID}`),
+    );
+
+    const retiring = service.retireFinalist(COMPETITION_ID, LANE_ID, CHECKPOINT_ID, 8, 12);
+    const { command } = await waitForPublication(transport, laneCompetitionCommandTopic(LANE_ID, 'retire-finalist'));
+    expect(command).toEqual({
+      commandId: expect.any(String),
+      issuedBy: 'director-test',
+      issuerId: 'director-test',
+      issuedAt: expect.any(String),
+      checkpointId: CHECKPOINT_ID,
+      rank: 8,
+      afterShot: 12,
+    });
+    acknowledgeLaneCompetitionCommand(transport, LANE_ID, 'retire-finalist', { commandId: command.commandId });
+    await expect(retiring).resolves.toMatchObject({ action: 'retire-finalist', success: true });
+    await service.disconnect();
+  });
+
+  it('starts a generic shoot-off only for at least two Lanes at a completed Final series', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport, 'Final');
+    const start = (laneIds: readonly string[]) =>
+      service.startShootOff(COMPETITION_ID, RUN_ID, 2, { type: 'GENERIC', durationSeconds: 50 }, 1, laneIds);
+
+    await expect(start([LANE_ID, LANE_ID])).rejects.toThrow(
+      new Error('A shoot-off requires at least two eligible Lanes'),
+    );
+    await expect(start([LANE_ID, THIRD_LANE_ID])).rejects.toThrow(
+      new Error(`Lane ${THIRD_LANE_ID} is not joined to competition ${COMPETITION_ID}`),
+    );
+    completeSeries([LANE_ID]);
+    await expect(start([LANE_ID, SECOND_LANE_ID])).rejects.toThrow(
+      new Error(`Shoot-off Lanes are not at a completed Final series: ${SECOND_LANE_ID}`),
+    );
+    completeSeries();
+    stopLane(transport, SECOND_LANE_ID);
+    await expect(start([LANE_ID, SECOND_LANE_ID])).rejects.toThrow(
+      new Error(`Cannot start a Final shoot-off; safety STOP is active on Lane(s): ${SECOND_LANE_ID}`),
+    );
+    clearLane(SECOND_LANE_ID);
+
+    const now = Date.parse('2026-09-03T00:00:00.000Z');
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    const starting = start([SECOND_LANE_ID, LANE_ID]);
+    const { command } = await waitForPublication(transport, competitionCommandTopic('start-shoot-off'));
+    expect(command).toEqual({
+      commandId: expect.any(String),
+      issuedBy: 'director-test',
+      issuerId: 'director-test',
+      issuedAt: expect.any(String),
+      runId: RUN_ID,
+      iteration: 2,
+      timerStartAt: '2026-09-03T00:00:00.000Z',
+      timerDurationSeconds: 50,
+      shotsPerLane: 1,
+      targetLaneIds: [SECOND_LANE_ID, LANE_ID],
+    });
+    for (const laneId of [LANE_ID, SECOND_LANE_ID])
+      transport.emitMessage(`${competitionCommandTopic('start-shoot-off')}/acknowledgement/${laneId}`, {
+        commandId: command.commandId,
+        laneId,
+        status: 'done',
+        acknowledgedAt: new Date().toISOString(),
+      });
+    await expect(starting).resolves.toMatchObject({ action: 'start-shoot-off', success: true });
+    await service.disconnect();
+  });
+
+  it('rejects a shoot-off outside a Final MATCH', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    await expect(
+      service.startShootOff(COMPETITION_ID, RUN_ID, 1, { type: 'GENERIC', durationSeconds: 50 }, 1, [
+        LANE_ID,
+        SECOND_LANE_ID,
+      ]),
+    ).rejects.toThrow(new Error('A shoot-off can only be started for a Final'));
+    await expect(service.stopShootOff(COMPETITION_ID, RUN_ID, 1, [LANE_ID, SECOND_LANE_ID])).rejects.toThrow(
+      new Error('A shoot-off can only be stopped for a Final'),
+    );
+    await service.disconnect();
+
+    transport = new FakeMqttTransport();
+    const idle = createService(transport);
+    await idle.connect('mqtt://localhost:1883');
+    await createCompetitionGroup(idle, COMPETITION_ID, 'BR60S', [LANE_ID, SECOND_LANE_ID]);
+    await expect(idle.stopShootOff(COMPETITION_ID, RUN_ID, 1, [LANE_ID, SECOND_LANE_ID])).rejects.toThrow(
+      new Error(`Cannot stop a Final shoot-off while competition ${COMPETITION_ID} is in phase NOT_STARTED`),
+    );
+    await idle.disconnect();
+  });
+
+  it('starts a timed shoot-off at the latest LOAD boundary and refuses Lanes with an active sequence', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport, 'Final');
+    completeSeries();
+    const timing = {
+      type: 'TIMED_TARGET' as const,
+      programId: 'P25_FINAL_SHOOT_OFF',
+      participantExecution: 'SIMULTANEOUS' as const,
+    };
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${SECOND_LANE_ID}/timed-target/state`, {
+      ...completedTimedTargetState(SECOND_LANE_ID, '2026-09-03T00:00:20.000Z'),
+      phase: 'FIRING',
+    });
+    await expect(
+      service.startShootOff(COMPETITION_ID, RUN_ID, 1, timing, 5, [LANE_ID, SECOND_LANE_ID]),
+    ).rejects.toThrow(new Error(`A timed target sequence is already active on shoot-off Lane(s): ${SECOND_LANE_ID}`));
+    transport.emitMessage(
+      `saika/competition/${COMPETITION_ID}/lane/${SECOND_LANE_ID}/timed-target/state`,
+      completedTimedTargetState(SECOND_LANE_ID, '2026-09-03T00:00:20.000Z'),
+    );
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-03T00:00:00.000Z'));
+
+    const starting = service.startShootOff(COMPETITION_ID, RUN_ID, 1, timing, 5, [LANE_ID, SECOND_LANE_ID]);
+    const { command } = await waitForPublication(transport, competitionCommandTopic('start-shoot-off'));
+    expect(command).toMatchObject({
+      timerStartAt: '2026-09-03T00:00:20.000Z',
+      timedTarget: { programId: 'P25_FINAL_SHOOT_OFF', participantExecution: 'SIMULTANEOUS' },
+      shotsPerLane: 5,
+      targetLaneIds: [LANE_ID, SECOND_LANE_ID],
+    });
+    expect(command).not.toHaveProperty('timerDurationSeconds');
+    await expect(starting).resolves.toMatchObject({ success: false });
+    await service.disconnect();
+  });
+
+  it('stops a shoot-off on its eligible Lanes', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport, 'Final');
+    await expect(service.stopShootOff(COMPETITION_ID, RUN_ID, 1, [LANE_ID])).rejects.toThrow(
+      new Error('A shoot-off requires at least two eligible Lanes'),
+    );
+
+    const stopping = service.stopShootOff(COMPETITION_ID, RUN_ID, 3, [LANE_ID, SECOND_LANE_ID, LANE_ID]);
+    const { command } = await waitForPublication(transport, competitionCommandTopic('stop-shoot-off'));
+    expect(command).toEqual({
+      commandId: expect.any(String),
+      issuedBy: 'director-test',
+      issuerId: 'director-test',
+      issuedAt: expect.any(String),
+      runId: RUN_ID,
+      iteration: 3,
+      targetLaneIds: [LANE_ID, SECOND_LANE_ID],
+    });
+    for (const laneId of [LANE_ID, SECOND_LANE_ID])
+      transport.emitMessage(`${competitionCommandTopic('stop-shoot-off')}/acknowledgement/${laneId}`, {
+        commandId: command.commandId,
+        laneId,
+        status: 'done',
+        acknowledgedAt: new Date().toISOString(),
+      });
+    await expect(stopping).resolves.toMatchObject({ action: 'stop-shoot-off', success: true });
+    await service.disconnect();
+  });
+
+  it('describes the Final firing context only for an assigned finalist with an exact Rule Pack binding', async () => {
+    const qualification = createService(transport);
+    await startMatchCompetition(qualification, transport);
+    expect(() => qualification.getFinalFiringContext(COMPETITION_ID, LANE_ID)).toThrow(
+      new Error('Final recovery requires a Final competition'),
+    );
+    await qualification.disconnect();
+
+    transport = new FakeMqttTransport();
+    const service = createService(transport);
+    await startMatchCompetition(service, transport, 'Final', rulePackBinding);
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`, activeTimedLaneState(LANE_ID));
+    expect(() => service.getFinalFiringContext(COMPETITION_ID, LANE_ID)).toThrow(
+      new Error('Current finalist, scored series and exact Rule Pack binding are required'),
+    );
+    assignFinalist();
+    expect(service.getFinalFiringContext(COMPETITION_ID, LANE_ID)).toEqual({
+      sessionId: SESSION_ID,
+      participantId: PARTICIPANT_ID,
+      rulePackFingerprint: 'a'.repeat(64),
+      stageIndex: 1,
+      seriesIndex: 0,
+      recordedShots: 0,
+      seriesShotLimit: 5,
+    });
+    await service.disconnect();
+  });
+
+  it('starts Final recovery firing on a clear Lane and returns the evidence the Lane acknowledged', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport, 'Final', rulePackBinding);
+    assignFinalist();
+    clearLane(LANE_ID);
+    const request = finalRequest();
+    await expect(
+      service.executeFinalFiring({
+        laneId: LANE_ID,
+        request: { ...request, workflow: 'OTHER' as never },
+        operation: 'READ',
+      }),
+    ).rejects.toThrow(new Error('Final firing workflow is required'));
+    const evidence = {
+      request,
+      status: 'RUNNING',
+      terminalReason: null,
+      captureIssues: [],
+      startedAt: '2026-09-03T00:01:00.000Z',
+      targetProfileId: null,
+      shots: [],
+    };
+
+    const starting = service.executeFinalFiring({ laneId: LANE_ID, request, operation: 'START' });
+    const topic = laneCompetitionCommandTopic(LANE_ID, 'start-malfunction-firing');
+    const { command } = await waitForPublication(transport, topic);
+    expect(command).toEqual({
+      commandId: expect.any(String),
+      issuedBy: 'director-test',
+      issuerId: 'director-test',
+      issuedAt: expect.any(String),
+      request,
+    });
+    acknowledgeLaneCompetitionCommand(transport, LANE_ID, 'start-malfunction-firing', {
+      commandId: command.commandId,
+      data: { evidence },
+    });
+    await expect(starting).resolves.toEqual(evidence);
+
+    const rejected = service.executeFinalFiring({ laneId: LANE_ID, request, operation: 'START' });
+    const second = await waitForPublication(transport, topic, 2);
+    acknowledgeLaneCompetitionCommand(transport, LANE_ID, 'start-malfunction-firing', {
+      commandId: second.command.commandId,
+      status: 'error',
+      error: { code: 'RUN_ACTIVE', message: 'Recovery run already active' },
+    });
+    await expect(rejected).rejects.toThrow(new Error('Recovery run already active'));
+
+    await expect(service.executeFinalFiring({ laneId: LANE_ID, request, operation: 'START' })).rejects.toThrow(
+      new Error('Final firing was not acknowledged; read or retry the same run'),
+    );
+    await service.disconnect();
+  });
+
+  it('runs Final commands behind an earlier operation on the same competition', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport, 'Final');
+    const first = service.cancelTimedTarget({
+      competitionId: COMPETITION_ID,
+      sequenceId: '99999999-9999-4999-8999-999999999991',
+      reason: 'Hold',
+    });
+    await waitForPublication(transport, competitionCommandTopic('cancel-timed-target'));
+
+    const retiring = service.retireFinalist(COMPETITION_ID, LANE_ID, CHECKPOINT_ID, 8, 12);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const topic = laneCompetitionCommandTopic(LANE_ID, 'retire-finalist');
+    expect(transport.publications.some((entry) => entry.topic === topic)).toBe(false);
+    await first;
+    await waitForPublication(transport, topic);
+    await expect(retiring).resolves.toMatchObject({ action: 'retire-finalist' });
+    await service.disconnect();
+  });
+});
