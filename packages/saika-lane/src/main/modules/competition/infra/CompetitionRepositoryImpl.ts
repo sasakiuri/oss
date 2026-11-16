@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { RoundConfig } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
-import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type {
+  CompetitionSessionLink,
+  ICompetitionCatalog,
+  ICompetitionRepository,
+} from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { Phase } from '@/main/modules/competition/domain/Phase';
 import { Timer } from '@/main/modules/competition/domain/Timer';
 import { withRepositoryErrorHandling } from '@/shared/errors/withRepositoryErrorHandling';
@@ -31,7 +35,7 @@ interface CompetitionStorageData {
  * Persistence implementation for CompetitionState.
  * Uses electron-store (LocalStorageAdapter).
  */
-export class CompetitionRepositoryImpl implements ICompetitionRepository {
+export class CompetitionRepositoryImpl implements ICompetitionRepository, ICompetitionCatalog {
   private static readonly STORAGE_PREFIX = 'competition:';
   private static readonly ACTIVE_KEY = 'competition:active';
 
@@ -46,7 +50,7 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
         const data = this.toStorageData(state);
         // Preserve the stage-session association before replacement so a read-only
         // spectator can reconstruct sightings and match shots after a restart.
-        const historyKey = `vista-session-links:${state.id}`;
+        const historyKey = this.getSessionLinksKey(state.id);
         const previous = this.storage.get<CompetitionStorageData>(key);
         const newRun =
           previous && previous.sessionId !== state.sessionId && state.currentStageIndex <= previous.currentStageIndex;
@@ -54,7 +58,7 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
         // persisted session reference. A new run must not inherit that history.
         const links = newRun
           ? []
-          : (this.storage.get<Array<{ sessionId: string; stage: number }>>(historyKey) ??
+          : (this.storage.get<CompetitionSessionLink[]>(historyKey) ??
             (previous ? [{ sessionId: previous.sessionId, stage: previous.currentStageIndex }] : []));
         const nextLinks = links.some((link) => link.sessionId === state.sessionId)
           ? links
@@ -127,6 +131,24 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
     );
   }
 
+  listIds(): string[] {
+    return Object.keys(this.storage.getAll())
+      .filter(
+        (key) =>
+          key.startsWith(CompetitionRepositoryImpl.STORAGE_PREFIX) && key !== CompetitionRepositoryImpl.ACTIVE_KEY,
+      )
+      .map((key) => key.slice(CompetitionRepositoryImpl.STORAGE_PREFIX.length));
+  }
+
+  activeId(): string | null {
+    const activeId = this.storage.get<string>(CompetitionRepositoryImpl.ACTIVE_KEY);
+    return activeId && this.storage.get(this.getStorageKey(activeId)) ? activeId : null;
+  }
+
+  sessionLinks(id: string): CompetitionSessionLink[] | null {
+    return this.storage.get<CompetitionSessionLink[]>(this.getSessionLinksKey(id)) ?? null;
+  }
+
   async clearActivePointer(): Promise<void> {
     this.storage.delete(CompetitionRepositoryImpl.ACTIVE_KEY);
   }
@@ -149,6 +171,11 @@ export class CompetitionRepositoryImpl implements ICompetitionRepository {
 
   private getStorageKey(id: string): string {
     return `${CompetitionRepositoryImpl.STORAGE_PREFIX}${id}`;
+  }
+
+  /** Written beside each competition record for the Vista source; the key predates the catalog methods. */
+  private getSessionLinksKey(id: string): string {
+    return `vista-session-links:${id}`;
   }
 
   private toStorageData(state: CompetitionState): CompetitionStorageData {

@@ -172,6 +172,32 @@ describe('CompetitionRepositoryImpl', () => {
     });
   });
 
+  describe('catalog', () => {
+    it('lists stored competition ids in storage order without the active pointer', async () => {
+      storage.set('vista.enabled', true);
+      await repo.save(CompetitionState.create('first', 'first-session', BR60S.config));
+      await repo.save(CompetitionState.create('second', 'second-session', BR60S.config).finish());
+
+      expect(repo.listIds()).toEqual(['first', 'second']);
+    });
+
+    it('returns the active id only while its record is stored', async () => {
+      expect(repo.activeId()).toBeNull();
+      await repo.save(CompetitionState.create('live', 'live-session', BR60S.config));
+      expect(repo.activeId()).toBe('live');
+      storage.delete('competition:live');
+      expect(repo.activeId()).toBeNull();
+    });
+
+    it('returns the recorded stage sessions under the existing Vista key', async () => {
+      expect(repo.sessionLinks('live')).toBeNull();
+      await repo.save(CompetitionState.create('live', 'live-session', BR60S.config));
+
+      expect(repo.sessionLinks('live')).toEqual([{ sessionId: 'live-session', stage: 0 }]);
+      expect(storage.get('vista-session-links:live')).toEqual([{ sessionId: 'live-session', stage: 0 }]);
+    });
+  });
+
   describe('serialize / deserialize', () => {
     it('timer state is correctly saved and restored', async () => {
       let state = buildCompetitionState().startStage();

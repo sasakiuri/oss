@@ -4,7 +4,10 @@
 import type Database from 'better-sqlite3';
 import type { BrowserWindow } from 'electron';
 
-import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type {
+  ICompetitionCatalog,
+  ICompetitionRepository,
+} from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
@@ -52,6 +55,8 @@ export interface ServiceRegistry {
   sessionRepository: ISessionRepository;
   connectionRepository: IConnectionRepository;
   competitionRepository: ICompetitionRepository;
+  /** The competition store's read-only enumeration; the same instance as competitionRepository. */
+  competitionCatalog: ICompetitionCatalog;
   printWindowService: PrintWindowService;
   adapterRegistry: AdapterRegistry;
   mqttClient?: IMqttClientService;
