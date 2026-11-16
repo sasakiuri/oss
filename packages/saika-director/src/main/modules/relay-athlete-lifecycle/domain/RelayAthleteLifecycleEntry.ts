@@ -1,3 +1,5 @@
+import { requiredText } from '@/main/domain/guards';
+
 export const RELAY_ATHLETE_LIFECYCLE_PHASES = ['PRE_RELAY', 'POST_RELAY'] as const;
 export const RELAY_ATHLETE_LIFECYCLE_REQUIREMENTS = [
   'ATHLETE_IDENTITY_BIB_VERIFIED',
@@ -97,10 +99,4 @@ export function phaseForRequirement(requirement: RelayAthleteLifecycleRequiremen
   return requirement === 'ATHLETE_IDENTITY_BIB_VERIFIED' || requirement === 'EQUIPMENT_APPROVAL_VERIFIED'
     ? 'PRE_RELAY'
     : 'POST_RELAY';
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }

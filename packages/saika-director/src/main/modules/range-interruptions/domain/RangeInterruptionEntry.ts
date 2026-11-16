@@ -1,3 +1,5 @@
+import { requiredText, validDate } from '@/main/domain/guards';
+
 export const RANGE_INTERRUPTION_ENTRY_TYPES = [
   'PAUSE_APPLIED',
   'ENDED',
@@ -185,17 +187,6 @@ function validateStructuredFields(props: CreateRangeInterruptionEntryProps): voi
   ) {
     throw new Error('commandId is required when recording an applied Lane command');
   }
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function normalizeOptional(value: string | undefined): string | null {

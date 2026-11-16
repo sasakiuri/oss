@@ -1,3 +1,5 @@
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
+
 export const ATHLETE_IDENTITY_LINK_ENTRY_TYPES = ['LINKED', 'UNLINKED'] as const;
 export const ATHLETE_IDENTITY_LINK_BASES = ['ISSF_ID', 'MANUAL'] as const;
 
@@ -114,11 +116,6 @@ export class AthleteIdentityLinkEntry {
   }
 }
 
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
 export function getActiveAthleteIdentityLinks(
   history: readonly AthleteIdentityLinkEntry[],
 ): AthleteIdentityLinkEntry[] {
@@ -128,15 +125,4 @@ export function getActiveAthleteIdentityLinks(
 
 function compareEntries(left: AthleteIdentityLinkEntry, right: AthleteIdentityLinkEntry): number {
   return left.recordedAt.getTime() - right.recordedAt.getTime() || left.id.localeCompare(right.id);
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

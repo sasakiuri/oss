@@ -1,3 +1,5 @@
+import { requiredText, validDate } from '@/main/domain/guards';
+
 export const TARGET_EXAMINATION_ISSUE_KINDS = [
   'SIGHTING_COMPLAINT',
   'NO_SHOT_INDICATION',
@@ -112,17 +114,6 @@ function validPositiveInteger(value: number | undefined, name: string): void {
   if (value !== undefined && (!Number.isInteger(value) || value < 1)) {
     throw new Error(`${name} must be positive`);
   }
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function normalizeOptional(value: string | undefined): string | null {

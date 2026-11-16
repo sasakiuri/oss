@@ -2,6 +2,7 @@ import {
   createQualificationTimedTargetInterruptionContext,
   type QualificationTimedTargetInterruptionContext,
 } from './QualificationTimedTargetInterruptionContext';
+import { requiredText, validDate } from '@/main/domain/guards';
 
 export const RANGE_INTERRUPTION_CAUSES = [
   'ATHLETE_NON_FAULT',
@@ -129,17 +130,6 @@ function validPositiveInteger(value: number | undefined, name: string): void {
 
 function validNonNegativeInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be non-negative`);
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function normalizeOptional(value: string | undefined): string | null {

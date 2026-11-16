@@ -1,3 +1,5 @@
+import { requiredText, validDate } from '@/main/domain/guards';
+
 export const TARGET_EXAMINATION_EVIDENCE_TYPES = [
   'CONTROL_SHEET',
   'BACKING_CARD',
@@ -89,17 +91,6 @@ export class TargetExaminationEvidence {
 
 function validateType(value: TargetExaminationEvidenceType): void {
   if (!TARGET_EXAMINATION_EVIDENCE_TYPES.includes(value)) throw new Error('evidence type is invalid');
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function normalizeOptional(value: string | undefined): string | null {

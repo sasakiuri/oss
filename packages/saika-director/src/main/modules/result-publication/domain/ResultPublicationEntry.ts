@@ -1,3 +1,5 @@
+import { validDate } from '@/main/domain/guards';
+
 export type ResultPublicationScope = 'QUALIFICATION' | 'FINAL';
 
 export type ResultPublicationEntry =
@@ -200,9 +202,4 @@ function validateRevision(value: string): void {
 
 function validateText(value: string, name: string): void {
   if (value.trim().length === 0) throw new Error(`${name} is required`);
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

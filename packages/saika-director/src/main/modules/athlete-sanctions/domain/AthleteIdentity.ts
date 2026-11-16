@@ -1,3 +1,5 @@
+import { requiredText, validDate } from '@/main/domain/guards';
+
 export class AthleteIdentity {
   private constructor(
     readonly id: string,
@@ -47,15 +49,4 @@ export class AthleteIdentity {
 export function normalizeIssfId(value: string | null | undefined): string | null {
   const normalized = value?.trim().toUpperCase();
   return normalized ? normalized : null;
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

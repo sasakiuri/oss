@@ -1,3 +1,5 @@
+import { requiredText } from '@/main/domain/guards';
+
 export const TARGET_EXAMINATION_ENTRY_TYPES = [
   'NOTE',
   'DECISION',
@@ -110,12 +112,6 @@ export function getTargetExaminationState(entries: readonly TargetExaminationEnt
   }
 
   return { status, evidenceHoldActive };
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function normalizeOptional(value: string | undefined): string | null {

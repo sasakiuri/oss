@@ -1,3 +1,5 @@
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
+
 export const SANCTION_CLASSIFICATION_CODES = ['DSQ', 'DQB', 'AD_DSQ'] as const;
 export const SANCTION_SCOPES = ['EVENT', 'CHAMPIONSHIP'] as const;
 export const SANCTION_AUTHORITY_BASES = ['JURY_MAJORITY', 'POST_COMPETITION_CHECK', 'ANTI_DOPING_DECISION'] as const;
@@ -222,20 +224,4 @@ function classificationPriority(code: SanctionClassificationCode): number {
 
 function compareDecisions(left: SanctionDecision, right: SanctionDecision): number {
   return left.decidedAt.getTime() - right.decidedAt.getTime() || left.id.localeCompare(right.id);
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

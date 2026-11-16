@@ -1,3 +1,5 @@
+import { requiredText } from '@/main/domain/guards';
+
 export interface FinalResultDeclarationProps {
   readonly id?: string;
   readonly eventId: string;
@@ -51,12 +53,6 @@ export class FinalResultDeclaration {
   static reconstruct(props: Required<FinalResultDeclarationProps>): FinalResultDeclaration {
     return FinalResultDeclaration.create(props);
   }
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function validRevision(value: string): string {
