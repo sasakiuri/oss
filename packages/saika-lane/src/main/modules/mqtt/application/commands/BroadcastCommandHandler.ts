@@ -13,7 +13,7 @@ import {
 } from '@/main/composition/tokens';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
@@ -26,6 +26,7 @@ import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { timedTargetProgramDurationMilliseconds } from '@/main/modules/timed-target/domain/TimedTargetSchedule';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { codedError } from '@/shared/errors/codedError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import {
@@ -161,7 +162,7 @@ export interface BroadcastCommandHandlerDeps {
   mqttClient: IMqttClientService;
   processor: LaneCommandProcessor;
   commandBus: CommandBus;
-  timerService: Pick<LaneTimerService, 'startAt' | 'expire'>;
+  timerService: Pick<ICompetitionTimer, 'startAt' | 'expire'>;
   competitionRepository: ICompetitionRepository;
   competitionStatePublisher: Pick<LaneCompetitionStatePublisher, 'publishCurrentState'>;
   scorePublisher: Pick<LaneScorePublisher, 'publishCurrentScore'>;
@@ -378,7 +379,7 @@ export class BroadcastCommandHandler {
           throw this.invalidState(action, state, `existing series ${stageIndex}:${fromSeriesIndex}`);
         }
 
-        const sourceComparison = this.comparePosition(state, stageIndex, fromSeriesIndex);
+        const sourceComparison = state.comparePosition(stageIndex, fromSeriesIndex);
         if (sourceComparison < 0) {
           throw this.invalidState(action, state, `series ${stageIndex}:${fromSeriesIndex}`);
         }
@@ -457,9 +458,9 @@ export class BroadcastCommandHandler {
         let timedSequenceId: string | null = null;
 
         if (timedTarget) {
-          const program = competition.config.timedTarget?.programs.find(
-            (candidate) => candidate.id === timedTarget.programId && candidate.purpose === 'SHOOT_OFF',
-          );
+          // Program ids are unique within a round, so the id lookup finds the only candidate.
+          const candidate = competition.timedTargetProgram(timedTarget.programId);
+          const program = candidate?.purpose === 'SHOOT_OFF' ? candidate : undefined;
           if (!program) throw new Error(`Shoot-off timed target program ${timedTarget.programId} is unavailable`);
           const programShots = program.exposures.reduce((sum, exposure) => sum + exposure.maximumShots, 0);
           if (programShots !== command.shotsPerLane) {
@@ -475,7 +476,7 @@ export class BroadcastCommandHandler {
           const loadAt = new Date(Date.parse(timerStartAt) + sequentialOffsetMilliseconds);
           timerStartAt = loadAt.toISOString();
           timerDurationSeconds = Math.ceil(programDurationMilliseconds / 1_000);
-          const targetProfileId = competition.currentStageConfig.targetProfileId ?? competition.config.targetProfileId;
+          const targetProfileId = competition.effectiveTargetProfileId;
           if (!targetProfileId) throw new Error('Timed target Final stage has no target scoring profile');
           this.assertSafetyAllows(action);
           const timedState = this.deps.timedTargetControl.start({
@@ -556,13 +557,11 @@ export class BroadcastCommandHandler {
             `Timed target program ${String(command.programId)} is not configured for ${purpose} at ${competition.currentStageIndex}:${competition.currentSeriesIndex}`,
           );
         }
-        const program = competition.config.timedTarget?.programs.find(
-          (candidate) => candidate.id === expectedProgramId,
-        );
+        const program = competition.timedTargetProgram(expectedProgramId);
         if (!program || program.purpose !== purpose) {
           throw new Error(`Timed target program ${expectedProgramId} is unavailable`);
         }
-        const targetProfileId = competition.currentStageConfig.targetProfileId ?? competition.config.targetProfileId;
+        const targetProfileId = competition.effectiveTargetProfileId;
         if (!targetProfileId) throw new Error('Timed target stage has no target scoring profile');
         // The repository lookup above yields. Recheck the independent safety
         // latch immediately before arming the authoritative schedule.
@@ -621,11 +620,6 @@ export class BroadcastCommandHandler {
     return state.config.stages.findIndex((stage) => stage.scored);
   }
 
-  private comparePosition(state: CompetitionState, stageIndex: number, seriesIndex: number): number {
-    if (state.currentStageIndex !== stageIndex) return state.currentStageIndex - stageIndex;
-    return state.currentSeriesIndex - seriesIndex;
-  }
-
   private getNextPosition(
     state: CompetitionState,
     stageIndex: number,
@@ -679,7 +673,8 @@ export class BroadcastCommandHandler {
 }
 
 function laneInterruptedError(interruptionId: string, action: BroadcastAction): Error {
-  const error = new Error(`Cannot apply ${action} while Lane interruption ${interruptionId} is active`);
-  (error as Error & { code: string }).code = 'MQTT_LANE_INTERRUPTED';
-  return error;
+  return codedError(
+    'MQTT_LANE_INTERRUPTED',
+    `Cannot apply ${action} while Lane interruption ${interruptionId} is active`,
+  );
 }
