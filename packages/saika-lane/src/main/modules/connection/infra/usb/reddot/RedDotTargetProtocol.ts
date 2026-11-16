@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 import type { SerialPort } from 'serialport';
 
+import type {
+  SessionContextProvider,
+  USBConnectionConfig,
+} from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import {
   getDisagRedDotDiscipline,
@@ -11,7 +15,6 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
 
-import type { SessionContextProvider, USBConnectionConfig } from '../IUSBConnectionManager';
 import type { TargetProtocol, TargetProtocolHandlers, TargetProtocolSession } from '../protocol/TargetProtocol';
 
 import { RedDotProtocolSession } from './RedDotProtocolSession';

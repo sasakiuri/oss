@@ -2,7 +2,7 @@
 import type { SerialPort } from 'serialport';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { USBConnectionConfig } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import {
   RED_DOT_ACK,
   RED_DOT_ENQ,

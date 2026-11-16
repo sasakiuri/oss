@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { USBConnectionConfig } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { TargetProtocol } from '@/main/modules/connection/infra/usb/protocol/TargetProtocol';
 import { TargetProtocolRegistry } from '@/main/modules/connection/infra/usb/protocol/TargetProtocolRegistry';
 import { Discipline } from '@/main/modules/session/domain/Discipline';

@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { SerialPort } from 'serialport';
 
+import type {
+  SessionContextProvider,
+  USBConnectionConfig,
+} from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { Mode } from '@/main/modules/session/domain/Mode';
-
-import type { SessionContextProvider, USBConnectionConfig } from '../IUSBConnectionManager';
 
 /** Data callbacks exposed by the hardware-independent USB data pipeline. */
 export interface TargetProtocolHandlers {

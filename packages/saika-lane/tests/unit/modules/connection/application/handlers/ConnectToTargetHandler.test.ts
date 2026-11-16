@@ -5,7 +5,7 @@ import type { ConnectToTargetInput } from '@/main/composition/tokens';
 import { createConnectToTargetHandler } from '@/main/modules/connection/application/handlers/ConnectToTargetHandler';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
-import { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';

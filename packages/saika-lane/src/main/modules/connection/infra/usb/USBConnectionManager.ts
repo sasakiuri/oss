@@ -3,6 +3,13 @@ import type { SerialPort } from 'serialport';
 
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
+import type {
+  IUSBConnectionManager,
+  SessionContextProvider,
+  USBConnectionConfig,
+  USBConnectionEvents,
+  USBPortInfo,
+} from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
@@ -11,13 +18,6 @@ import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-import type {
-  IUSBConnectionManager,
-  SessionContextProvider,
-  USBConnectionConfig,
-  USBConnectionEvents,
-  USBPortInfo,
-} from './IUSBConnectionManager';
 import type { TargetProtocolSession } from './protocol/TargetProtocol';
 import { TargetProtocolRegistry } from './protocol/TargetProtocolRegistry';
 import { USBConnectionLifecycle } from './USBConnectionLifecycle';

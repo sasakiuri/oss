@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
+import type { USBConnectionConfig } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import { BPT216TargetProtocol } from '../bpt216/BPT216TargetProtocol';
-import type { USBConnectionConfig } from '../IUSBConnectionManager';
 import { RedDotTargetProtocol } from '../reddot/RedDotTargetProtocol';
 
 import { DirectSerialTargetProtocol } from './DirectSerialTargetProtocol';

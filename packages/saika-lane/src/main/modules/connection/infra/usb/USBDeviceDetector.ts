@@ -2,10 +2,9 @@
 import { app } from 'electron';
 import { SerialPort } from 'serialport';
 
+import type { USBPortInfo } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { IpcLogger } from '@/main/shared-infra/logging/IpcLogger';
-
-import type { USBPortInfo } from './IUSBConnectionManager';
 
 /** Lists serial ports and finds devices by USB IDs or serial number. */
 export class USBDeviceDetector {

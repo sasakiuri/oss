@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { vi } from 'vitest';
 
 import type { LaneApplicationPaths } from '@/main/composition/createLaneServices';
-import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { ActiveRunStartup } from '@/main/startup/restoreActiveRun';
 
 /** Keep main/window orchestration real without importing unrelated service owners and feature modules. */
