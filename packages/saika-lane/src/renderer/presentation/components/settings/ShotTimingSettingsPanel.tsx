@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { useEffect, useState } from 'react';
 
 import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
@@ -8,7 +8,7 @@ import { timedTargetService } from '@/renderer/services/timedTargetService';
 import { TimingProfilesPanel } from './TimingProfilesPanel';
 
 export function ShotTimingSettingsPanel() {
-  const [settings, setSettings] = useState<TimedTargetTimingSettings | null>(null);
+  const [settings, setSettings] = useState<ShotTimingSettings | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -63,7 +63,7 @@ export function ShotTimingSettingsPanel() {
               className="rounded bg-zinc-900 p-2"
               value={settings.mode}
               onChange={(event) => {
-                setSettings({ ...settings, mode: event.target.value as TimedTargetTimingSettings['mode'] });
+                setSettings({ ...settings, mode: event.target.value as ShotTimingSettings['mode'] });
                 setSaved(false);
               }}
             >

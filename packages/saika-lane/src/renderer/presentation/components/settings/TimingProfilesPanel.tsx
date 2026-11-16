@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { useState } from 'react';
 
 import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
@@ -12,8 +12,8 @@ export function TimingProfilesPanel({
   settings,
   onApplied,
 }: {
-  settings: TimedTargetTimingSettings;
-  onApplied: (settings: TimedTargetTimingSettings) => void;
+  settings: ShotTimingSettings;
+  onApplied: (settings: ShotTimingSettings) => void;
 }) {
   const [status, setStatus] = useState<TimingProfileStatus | null>(null);
   const [name, setName] = useState('');
