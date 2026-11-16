@@ -96,14 +96,7 @@ const config: KnipConfig = {
       project: ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
       // Compatibility exports and screens outside the current entry points.
       ignoreFiles: [
-        "src/**/index.ts",
         "src/main/modules/lane-control/domain/{CompetitionInfo,StageTransitions}.ts",
-        "src/preload/{createBridge,createEventBridge}.ts",
-        "src/renderer/presentation/features/competition-control/ScoreboardScreen.tsx",
-        "src/renderer/presentation/features/competition-control/components/{LaneCard,ShootoffModal,ShootoffScoreboard,TimerDisplay}.tsx",
-        "src/renderer/presentation/features/print/components/PrintContainer.tsx",
-        "src/renderer/presentation/features/shared/layout/{Header,ScoreboardGrid}.tsx",
-        "src/renderer/presentation/hooks/useLaneControl.ts",
       ],
     },
     "packages/saika-rules": {
@@ -139,8 +132,6 @@ const config: KnipConfig = {
       "exports",
     ],
     "packages/saika-director/src/main/modules/lane-control/infra/InMemoryLaneControlRepository.ts":
-      ["exports"],
-    "packages/saika-director/src/renderer/presentation/features/shared/common/LaneCard.tsx":
       ["exports"],
     "packages/saika-director/src/shared/constants/protocol.ts": ["exports"],
     "packages/saika-director/src/shared/constants/roundConfig.ts": ["exports"],
