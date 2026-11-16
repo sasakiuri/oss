@@ -119,7 +119,6 @@ const config: KnipConfig = {
   },
   ignoreIssues: {
     // Public module exports and test entry points.
-    "packages/saika-director/src/**/index.ts": ["exports"],
     "packages/saika-lane/src/**/index.ts": ["exports"],
   },
   ignoreBinaries: [
