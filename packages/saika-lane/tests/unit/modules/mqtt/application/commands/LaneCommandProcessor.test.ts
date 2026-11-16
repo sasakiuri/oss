@@ -37,8 +37,7 @@ function setup(policy = new CommandAuthorizationPolicy(), isReady = () => true) 
     action: 'probe-clock',
     payload: Buffer.from(JSON.stringify(command)),
     acknowledgementTopic: 'ack',
-    schemas: { 'probe-clock': laneCommandSchemas.ProbeClockCommandSchema },
-    requiresReady: () => true,
+    commands: { 'probe-clock': { schema: laneCommandSchemas.ProbeClockCommandSchema, requiresReady: true } },
     execute,
   };
   return { processor, mqtt, guard, publications, execute, request };

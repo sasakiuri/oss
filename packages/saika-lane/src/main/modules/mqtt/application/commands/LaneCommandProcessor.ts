@@ -9,30 +9,58 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type { CommandIdempotencyGuard } from './CommandIdempotencyGuard';
 
-type CommandEnvelope = Record<string, unknown> & {
+interface CommandEnvelope {
   commandId: string;
   issuedBy: string;
   issuerId?: string;
-};
+}
 
-export type LaneCommandSchemas<Action extends string> = Record<Action, z.ZodType<CommandEnvelope>>;
+/** Receive-side facts every handler declares for each action it accepts. */
+export interface LaneCommandDescriptor {
+  readonly schema: z.ZodType<CommandEnvelope>;
+  /** The action is rejected until Lane startup is READY. */
+  readonly requiresReady: boolean;
+}
+
+export type LaneCommandTable = Readonly<Record<string, LaneCommandDescriptor>>;
+
+/** One validated command as `[action, command]`, with the payload type of that action. */
+export type LaneCommandArgs<Table extends LaneCommandTable> = {
+  [Action in keyof Table & string]: [action: Action, command: z.output<Table[Action]['schema']>];
+}[keyof Table & string];
+
+/** As {@link LaneCommandArgs}, followed by the time the Lane received the command. */
+export type ReceivedLaneCommandArgs<Table extends LaneCommandTable> = {
+  [Action in keyof Table & string]: [action: Action, command: z.output<Table[Action]['schema']>, receivedAt: Date];
+}[keyof Table & string];
+
+/** Joins the protocol payload schema of each action with the handler's policy for that action. */
+export function laneCommandTable<
+  Schemas extends Readonly<Record<string, z.ZodType<CommandEnvelope>>>,
+  Policies extends { readonly [Action in keyof Schemas]: { readonly requiresReady: boolean } },
+>(schemas: Schemas, policies: Policies): LaneCommandTableOf<Schemas, Policies> {
+  const entries = Object.entries(schemas).map(([action, schema]) => [action, { ...policies[action], schema }]);
+  return Object.fromEntries(entries) as LaneCommandTableOf<Schemas, Policies>;
+}
+
+type LaneCommandTableOf<Schemas, Policies extends { readonly [Action in keyof Schemas]: unknown }> = {
+  readonly [Action in keyof Schemas]: Policies[Action] & { readonly schema: Schemas[Action] };
+};
 
 export interface CommandPreparation {
   skip?: boolean;
   warning?: string;
 }
 
-interface CommandRequest<Action extends string> {
+interface CommandRequest<Table extends LaneCommandTable> {
   /** Log prefix naming the handler that received the command. */
   logContext: string;
   action: string;
   payload: Buffer;
   acknowledgementTopic: string;
-  schemas: LaneCommandSchemas<Action>;
-  /** Whether the action is rejected until Lane startup is READY. */
-  requiresReady: (action: Action) => boolean;
-  prepare?: (action: Action, command: CommandEnvelope) => CommandPreparation;
-  execute: (action: Action, command: CommandEnvelope, receivedAt: Date) => Promise<Record<string, unknown> | void>;
+  commands: Table;
+  prepare?: (...command: LaneCommandArgs<Table>) => CommandPreparation;
+  execute: (...command: ReceivedLaneCommandArgs<Table>) => Promise<Record<string, unknown> | void>;
 }
 
 export interface LaneCommandProcessorDeps {
@@ -47,7 +75,7 @@ export interface LaneCommandProcessorDeps {
 export class LaneCommandProcessor {
   constructor(private readonly deps: LaneCommandProcessorDeps) {}
 
-  async handle<Action extends string>(request: CommandRequest<Action>): Promise<void> {
+  async handle<Table extends LaneCommandTable>(request: CommandRequest<Table>): Promise<void> {
     const receivedAt = new Date();
     const { logContext, action, payload, acknowledgementTopic: topic } = request;
     const logger = getLogger();
@@ -60,13 +88,13 @@ export class LaneCommandProcessor {
     }
 
     // Incoming actions must be own registry entries, never Object prototype members.
-    if (!Object.hasOwn(request.schemas, action)) {
+    if (!Object.hasOwn(request.commands, action)) {
       const error = ErrorCatalog.createError('MQTT_UNKNOWN_COMMAND_ACTION', { action });
       await this.publishAck(logContext, topic, { commandId: '', status: 'error', error });
       return;
     }
-    const knownAction = action as Action;
-    const parsed = request.schemas[knownAction].safeParse(rawData);
+    const descriptor: LaneCommandDescriptor = request.commands[action]!;
+    const parsed = descriptor.schema.safeParse(rawData);
     if (!parsed.success) {
       const error = ErrorCatalog.createError('MQTT_COMMAND_VALIDATION_FAILED', {
         action,
@@ -88,10 +116,12 @@ export class LaneCommandProcessor {
       await this.publishAck(logContext, topic, { commandId, status: 'error', error });
       return;
     }
+    // The payload was parsed with this action's schema, so the pair matches one member of the typed union.
+    const received = [action, command] as LaneCommandArgs<Table>;
     try {
-      const preparation = request.prepare?.(knownAction, command);
+      const preparation = request.prepare?.(...received);
       if (preparation?.skip) return;
-      if (request.requiresReady(knownAction) && !this.deps.isReady())
+      if (descriptor.requiresReady && !this.deps.isReady())
         throw new Error('Lane startup is not READY. Recover the saved run before issuing competition commands.');
       if (this.deps.idempotencyGuard.check(commandId)) {
         logger.info(`[${logContext}] Duplicate command skipped: ${commandId}`, 'mqtt');
@@ -99,7 +129,7 @@ export class LaneCommandProcessor {
       }
       const warning = [authorization.warning, preparation?.warning].filter(Boolean).join('; ') || undefined;
       await this.publishAck(logContext, topic, { commandId, status: 'executing' });
-      const data = await request.execute(knownAction, command, receivedAt);
+      const data = await request.execute(...([...received, receivedAt] as ReceivedLaneCommandArgs<Table>));
       await this.publishAck(logContext, topic, {
         commandId,
         status: 'done',

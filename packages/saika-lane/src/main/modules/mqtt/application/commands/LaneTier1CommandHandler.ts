@@ -20,12 +20,18 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type { BroadcastCommandHandler } from './BroadcastCommandHandler';
-import type { LaneCommandProcessor, LaneCommandSchemas } from './LaneCommandProcessor';
+import { laneCommandTable, type LaneCommandProcessor, type ReceivedLaneCommandArgs } from './LaneCommandProcessor';
 import type { PerLaneCommandHandler } from './PerLaneCommandHandler';
 
-type Tier1Action = MqttCommandActionOf<'lane'>;
+const TIER1_POLICIES = {
+  'join-competition': { requiresReady: true },
+  'leave-competition': { requiresReady: false },
+  'probe-clock': { requiresReady: false },
+  'activate-safety-stop': { requiresReady: false },
+  'clear-safety-stop': { requiresReady: false },
+} as const satisfies Record<MqttCommandActionOf<'lane'>, { requiresReady: boolean }>;
 
-const ACTION_SCHEMAS: LaneCommandSchemas<Tier1Action> = commandSchemasForScope(laneCommandSchemas, 'lane');
+export const TIER1_COMMANDS = laneCommandTable(commandSchemasForScope(laneCommandSchemas, 'lane'), TIER1_POLICIES);
 
 type Tier1Topic = ParsedMqttTopicOf<'laneCommand'>;
 
@@ -110,28 +116,25 @@ export class LaneTier1CommandHandler {
    * Processes a command
    */
   private handleCommand(parsed: Tier1Topic, payload: Buffer): Promise<void> {
-    return this.deps.processor.handle<Tier1Action>({
+    return this.deps.processor.handle({
       logContext: 'LaneTier1CommandHandler',
       action: parsed.action,
       payload,
-      schemas: ACTION_SCHEMAS,
-      requiresReady: (action) => action === 'join-competition',
+      commands: TIER1_COMMANDS,
       acknowledgementTopic: mqttTopics.laneCommandAcknowledgement(this.deps.getLaneId(), parsed.action),
-      execute: (action, command, receivedAt) => this.executeAction(action, command, receivedAt),
+      execute: (...received) => this.executeAction(received),
     });
   }
 
   /**
    * Executes an action
    */
-  private async executeAction(
-    action: Tier1Action,
-    command: Record<string, unknown>,
-    laneReceivedAt: Date,
-  ): Promise<Record<string, unknown> | undefined> {
+  private async executeAction([action, command, laneReceivedAt]: ReceivedLaneCommandArgs<
+    typeof TIER1_COMMANDS
+  >): Promise<Record<string, unknown> | undefined> {
     switch (action) {
       case 'join-competition': {
-        const competitionId = command.competitionId as string;
+        const competitionId = command.competitionId;
 
         if (this.competitionId === competitionId) {
           getLogger().info(`[LaneTier1CommandHandler] Already joined competition: ${competitionId}`, 'mqtt');
@@ -157,7 +160,7 @@ export class LaneTier1CommandHandler {
       }
 
       case 'leave-competition': {
-        const competitionId = command.competitionId as string;
+        const competitionId = command.competitionId;
 
         if (!this.competitionId) {
           throw ErrorCatalog.createError('MQTT_NOT_IN_COMPETITION');
@@ -187,7 +190,7 @@ export class LaneTier1CommandHandler {
 
       case 'probe-clock': {
         return {
-          directorSentAt: command.directorSentAt as string,
+          directorSentAt: command.directorSentAt,
           laneReceivedAt: laneReceivedAt.toISOString(),
           laneSentAt: new Date().toISOString(),
         };
@@ -195,10 +198,10 @@ export class LaneTier1CommandHandler {
 
       case 'activate-safety-stop': {
         const state = await this.deps.safetyStopControl.activate({
-          safetyStopId: command.safetyStopId as string,
-          reason: command.reason as string,
-          issuedBy: command.issuedBy as string,
-          issuedAt: new Date(command.issuedAt as string),
+          safetyStopId: command.safetyStopId,
+          reason: command.reason,
+          issuedBy: command.issuedBy,
+          issuedAt: new Date(command.issuedAt),
         });
         const shootOff = this.deps.competitionShootOffControl.getState();
         if (shootOff) {
@@ -212,11 +215,11 @@ export class LaneTier1CommandHandler {
 
       case 'clear-safety-stop': {
         const state = await this.deps.safetyStopControl.clear({
-          safetyStopId: command.safetyStopId as string,
-          clearanceReason: command.clearanceReason as string,
-          confirmedSafe: command.confirmedSafe as true,
-          clearedBy: command.issuedBy as string,
-          clearedAt: new Date(command.issuedAt as string),
+          safetyStopId: command.safetyStopId,
+          clearanceReason: command.clearanceReason,
+          confirmedSafe: command.confirmedSafe,
+          clearedBy: command.issuedBy,
+          clearedAt: new Date(command.issuedAt),
         });
         await this.deps.safetyStatePublisher.publishCurrentState();
         return toSafetyCommandData(state);
