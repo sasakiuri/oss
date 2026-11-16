@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
 import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';

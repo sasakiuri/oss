@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { TimedTargetProgram } from '@sasakiuri/saika-rules';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { TimedTargetProgram } from '@sasakiuri/saika-rules';
 import { describe, expect, it } from 'vitest';
 

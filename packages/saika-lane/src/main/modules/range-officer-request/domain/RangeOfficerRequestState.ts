@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 export const RANGE_OFFICER_REQUEST_CATEGORIES = [
   'ASSISTANCE',
   'EQUIPMENT',

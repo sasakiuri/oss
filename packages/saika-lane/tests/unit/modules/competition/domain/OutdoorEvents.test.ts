@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import {
   ISSF_2026_300M_RIFLE_RULE_PACKS,
   ISSF_2026_50M_PISTOL_RULE_PACKS,

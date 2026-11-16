@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { TimedTargetStateDto } from '@/shared/ipc/contracts';
 import type {
   TimingMeasurementRequest,

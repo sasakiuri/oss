@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type Database from 'better-sqlite3';
 
 import type { IRangeOfficerRequestRepository } from '../domain/IRangeOfficerRequestRepository';

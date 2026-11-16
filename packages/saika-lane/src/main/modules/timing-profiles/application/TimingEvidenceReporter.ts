@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { ConnectionSettingsDto } from '@/shared/ipc/contracts';
 import type { TimingProfileStatus } from '@/shared/ipc/contracts/timingProfiles.schema';
 import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';

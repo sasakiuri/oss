@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { IRangeOfficerRequestRepository } from '../domain/IRangeOfficerRequestRepository';
 import { RangeOfficerRequestState, type RangeOfficerRequestCategory } from '../domain/RangeOfficerRequestState';
 

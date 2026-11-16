@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 export const LANE_INTERRUPTION_STATUSES = ['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH'] as const;
 
 export type LaneInterruptionStatus = (typeof LANE_INTERRUPTION_STATUSES)[number];

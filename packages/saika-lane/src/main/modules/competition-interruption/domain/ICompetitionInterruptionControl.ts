@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { LaneInterruptionRecord } from './LaneInterruptionRecord';
 
 export interface PauseLaneCompetitionInput {

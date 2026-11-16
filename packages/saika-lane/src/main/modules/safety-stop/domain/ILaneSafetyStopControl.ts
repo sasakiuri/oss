@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import type { LaneSafetyStopState } from './LaneSafetyStopState';
 
 export interface ActivateLaneSafetyStopInput {

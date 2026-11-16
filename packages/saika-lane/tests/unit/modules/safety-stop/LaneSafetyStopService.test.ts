@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 import { describe, expect, it, vi } from 'vitest';
 
 import { LaneSafetyStopService } from '@/main/modules/safety-stop/application/LaneSafetyStopService';
