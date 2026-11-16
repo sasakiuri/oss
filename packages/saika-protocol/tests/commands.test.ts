@@ -133,3 +133,84 @@ describe('MQTT command actions', () => {
     expect(schemas.FinishCompetitionCommandSchema).toBe(schemas.CommandBaseSchema);
   });
 });
+
+describe('cross-field command validation', () => {
+  const id = '11111111-1111-4111-8111-111111111111';
+  const at = '2026-09-09T00:00:00.000Z';
+  const base = { commandId: id, issuedBy: 'Director', issuedAt: at };
+  const issueAt = (result: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } }) =>
+    result.error?.issues.map((issue) => [issue.path.join('.'), issue.message]);
+
+  it('rejects a qualification recovery that expects more recorded shots than the series holds', () => {
+    const command = {
+      ...base,
+      runId: id,
+      decisionId: id,
+      interruptionId: id,
+      stageIndex: 0,
+      seriesIndex: 1,
+      expectedMatchProgramId: 'AR60',
+      expectedSeriesShotLimit: 10,
+      expectedRecordedShots: 8,
+      authorization: {
+        phase: 'SERIES_RECOVERY',
+        seriesRecovery: {
+          treatment: 'COMPLETE_REMAINING_SHOTS',
+          shotsToFire: 2,
+          execution: { mode: 'SECONDS_PER_SHOT', secondsPerShot: 7, totalSeconds: 14 },
+        },
+      },
+      loadAt: at,
+      officialName: 'Chief Range Officer',
+      decisionRuleReference: '6.13.3',
+      decidedAt: at,
+    };
+    expect(schemas.StartQualificationRecoveryCommandSchema.safeParse(command).success).toBe(true);
+    expect(
+      issueAt(schemas.StartQualificationRecoveryCommandSchema.safeParse({ ...command, expectedRecordedShots: 11 })),
+    ).toEqual([['expectedRecordedShots', 'expectedRecordedShots must not exceed expectedSeriesShotLimit']]);
+  });
+
+  it('settles a kept series only when every series shot is recorded', () => {
+    const command = {
+      ...base,
+      decisionId: id,
+      interruptionId: id,
+      stageIndex: 0,
+      seriesIndex: 1,
+      expectedMatchProgramId: 'AR60',
+      expectedSeriesShotLimit: 10,
+      expectedRecordedShots: 10,
+      treatment: 'KEEP_RECORDED_SERIES',
+      decisionOfficialName: 'Jury',
+      decisionRuleReference: '6.13.3',
+      decidedAt: at,
+      appliedBy: 'Chief Range Officer',
+      statement: 'Series kept as recorded.',
+      appliedAt: at,
+    };
+    expect(schemas.SettleQualificationRecoveryCommandSchema.safeParse(command).success).toBe(true);
+    expect(
+      issueAt(schemas.SettleQualificationRecoveryCommandSchema.safeParse({ ...command, expectedRecordedShots: 9 })),
+    ).toEqual([['expectedRecordedShots', 'KEEP_RECORDED_SERIES requires every series shot to be recorded']]);
+  });
+
+  it('requires a shoot-off to use exactly one of a generic duration or a timed-target program', () => {
+    const command = {
+      ...base,
+      runId: id,
+      iteration: 1,
+      timerStartAt: at,
+      shotsPerLane: 1,
+      targetLaneIds: [id, '22222222-2222-4222-8222-222222222222'],
+    };
+    const timedTarget = { programId: 'rapid-fire', participantExecution: 'SIMULTANEOUS' };
+    const message = 'A shoot-off requires exactly one generic duration or timed-target program';
+    expect(schemas.StartShootOffCommandSchema.safeParse({ ...command, timerDurationSeconds: 75 }).success).toBe(true);
+    expect(schemas.StartShootOffCommandSchema.safeParse({ ...command, timedTarget }).success).toBe(true);
+    expect(issueAt(schemas.StartShootOffCommandSchema.safeParse(command))).toEqual([['timerDurationSeconds', message]]);
+    expect(
+      issueAt(schemas.StartShootOffCommandSchema.safeParse({ ...command, timerDurationSeconds: 75, timedTarget })),
+    ).toEqual([['timerDurationSeconds', message]]);
+  });
+});
