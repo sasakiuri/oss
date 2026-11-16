@@ -15,6 +15,7 @@ import {
   PublicationReviewPolicyService,
   SqlitePublicationReviewPolicyRepository,
 } from '@/main/modules/publication-review-policies';
+import { readPublicationReviewSettings } from '@/main/modules/result-publication';
 import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
 import type { CompetitionServices } from './createCompetitionServices';
 
@@ -45,13 +46,7 @@ export function createOperatorServices({
   const policyEvents = new SqliteEventRepository(database, competitionTypeRegistry);
   const publicationReviewPolicies = new PublicationReviewPolicyService(
     new SqlitePublicationReviewPolicyRepository(database),
-    () => ({
-      requireObservationReviews: appConfigService.get('resultPublication.requireObservationReviews'),
-      requireIncidentReports: appConfigService.get('resultPublication.requireIncidentReports'),
-      requireFinalRecoveriesComplete: appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
-      requireProtestCasesComplete: appConfigService.get('resultPublication.requireProtestCasesComplete'),
-      requireEquipmentChecksComplete: appConfigService.get('resultPublication.requireEquipmentChecksComplete'),
-    }),
+    () => readPublicationReviewSettings(appConfigService),
     (eventId, scope) => {
       const event = policyEvents.findById(eventId);
       if (!event || event.round.value !== (scope === 'FINAL' ? 'Final' : 'Qualification')) return false;

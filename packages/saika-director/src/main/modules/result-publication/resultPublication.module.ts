@@ -3,6 +3,7 @@ import { resultPublicationContract, type ResultPublicationStatusDto } from '@/sh
 
 import { ResultBoardSnapshotService } from './application/ResultBoardSnapshotService';
 import { ResultPublicationService, type ResultPublicationView } from './application/ResultPublicationService';
+import { readPublicationReviewSettings, writePublicationReviewSettings } from './application/publicationReviewSettings';
 import type { ResultPublicationEntry } from './domain/ResultPublicationEntry';
 
 export const resultPublicationModule: ModuleDefinition<
@@ -39,26 +40,10 @@ export const resultPublicationModule: ModuleDefinition<
       resultPublicationPolicyResolver,
     );
     const boards = new ResultBoardSnapshotService(resultVerificationService, service, finalResultDeclarationService);
-    const getReviewSettings = () => ({
-      requireObservationReviews: appConfigService.get('resultPublication.requireObservationReviews'),
-      requireIncidentReports: appConfigService.get('resultPublication.requireIncidentReports'),
-      requireFinalRecoveriesComplete: appConfigService.get('resultPublication.requireFinalRecoveriesComplete'),
-      requireProtestCasesComplete: appConfigService.get('resultPublication.requireProtestCasesComplete'),
-      requireEquipmentChecksComplete: appConfigService.get('resultPublication.requireEquipmentChecksComplete'),
-    });
     ipcRouter.register(resultPublicationContract, {
       getBoardSnapshot: ({ eventId, resultScope }) => boards.getSnapshot(eventId, resultScope),
-      getReviewSettings: async () => getReviewSettings(),
-      setReviewSettings: async (input) => {
-        appConfigService.setMany({
-          'resultPublication.requireObservationReviews': input.requireObservationReviews,
-          'resultPublication.requireIncidentReports': input.requireIncidentReports,
-          'resultPublication.requireFinalRecoveriesComplete': input.requireFinalRecoveriesComplete,
-          'resultPublication.requireProtestCasesComplete': input.requireProtestCasesComplete,
-          'resultPublication.requireEquipmentChecksComplete': input.requireEquipmentChecksComplete,
-        });
-        return getReviewSettings();
-      },
+      getReviewSettings: async () => readPublicationReviewSettings(appConfigService),
+      setReviewSettings: async (input) => writePublicationReviewSettings(appConfigService, input),
       getStatus: async (input) => toDto(await service.getStatus(input.eventId, input.resultScope)),
       publishPreliminary: async (input) => toDto(await service.publishPreliminary(input)),
       registerProtest: async (input) => toDto(await service.registerProtest(input)),

@@ -19,3 +19,4 @@ export { OptionalResultPublicationBlocker } from './application/OptionalResultPu
 
 export { ResultBoardSnapshotService } from './application/ResultBoardSnapshotService';
 export { ResultPublicationService } from './application/ResultPublicationService';
+export { readPublicationReviewSettings } from './application/publicationReviewSettings';
