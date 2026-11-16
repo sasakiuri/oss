@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { mqttService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { CompetitionStartReadinessDto } from '@/shared/ipc/contracts/mqtt.contract';
 
 import { Button } from '../shared/common/Button';
@@ -24,13 +25,12 @@ export function CompetitionStartReadinessPanel({
       try {
         const response = await mqttService.getStartReadiness({ competitionId, phase });
         if (disposed) return;
-        if (!response.success) throw new Error(response.error.message);
-        setAssessment(response.data);
+        setAssessment(unwrap(response));
         setError(null);
       } catch (caught) {
         if (disposed) return;
         setAssessment(null);
-        setError(caught instanceof Error ? caught.message : String(caught));
+        setError(errorMessage(caught));
       } finally {
         if (!disposed) timer = setTimeout(() => void load(), 10_000);
       }

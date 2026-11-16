@@ -8,6 +8,7 @@ import {
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import { championshipService, mqttService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { CompetitionStartPhase } from '@/shared/competitionTypes';
 import type { ClockQualityAssessmentDto, MqttCommandExecutionResultDto } from '@/shared/ipc/contracts';
 import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
@@ -115,7 +116,7 @@ export function useCompetitionCommands({ selection, refresh }: CompetitionComman
       try {
         await action();
       } catch (error) {
-        addNotification('error', error instanceof Error ? error.message : String(error));
+        addNotification('error', errorMessage(error));
       } finally {
         setBusyAction(null);
         await refresh();
@@ -235,9 +236,9 @@ export function useCompetitionCommands({ selection, refresh }: CompetitionComman
 
       if (resultContext) {
         const response = await championshipService.getParticipants({ eventId: resultContext.eventId });
-        if (!response.success) throw new Error(response.error.message);
+        const { participants } = unwrap(response);
 
-        const matchingParticipants = response.data.participants.filter(
+        const matchingParticipants = participants.filter(
           (participant) => participant.sortOrder + 1 === startNumber && participant.playerName.trim() === name,
         );
         if (matchingParticipants.length !== 1) {
