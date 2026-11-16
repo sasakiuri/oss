@@ -1,0 +1,1896 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Director Vista source > accepts the retired source assignment on the next catalog read after the transfer commits 1`] = `
+[
+  {
+    "snapshot": "cc5d1001edab9a47be6ecce38815b7b917831ebee20ec17847d6acc4466a0412",
+  },
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "catalog": "7f1f7734f202bed819267f86ac4f4de81482f6575360df8e80b4d2d05149eaef",
+  },
+  {
+    "snapshot": "3595eb009775304aec951dce7baf48d21b68677be97715f07fab2bd69ed99c16",
+  },
+  {
+    "catalog": "7f1f7734f202bed819267f86ac4f4de81482f6575360df8e80b4d2d05149eaef",
+  },
+  {
+    "snapshot": "3595eb009775304aec951dce7baf48d21b68677be97715f07fab2bd69ed99c16",
+  },
+  {
+    "snapshot": "f8a700beb1f3d4b3014e0182cb2a6246dcdc0e621645e7798ca92ff8a993dc03",
+  },
+  {
+    "rows": "f045ebfc52b91055356783a7646ffbd82fd9b9badc8c750e211ea80abc16556d",
+  },
+]
+`;
+
+exports[`Director Vista source > accepts the retired source assignment on the next snapshot read after the transfer commits 1`] = `
+[
+  {
+    "snapshot": "cc5d1001edab9a47be6ecce38815b7b917831ebee20ec17847d6acc4466a0412",
+  },
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshot": "3595eb009775304aec951dce7baf48d21b68677be97715f07fab2bd69ed99c16",
+  },
+  {
+    "catalog": "7f1f7734f202bed819267f86ac4f4de81482f6575360df8e80b4d2d05149eaef",
+  },
+  {
+    "snapshot": "3595eb009775304aec951dce7baf48d21b68677be97715f07fab2bd69ed99c16",
+  },
+  {
+    "snapshot": "f8a700beb1f3d4b3014e0182cb2a6246dcdc0e621645e7798ca92ff8a993dc03",
+  },
+  {
+    "rows": "f045ebfc52b91055356783a7646ffbd82fd9b9badc8c750e211ea80abc16556d",
+  },
+]
+`;
+
+exports[`Director Vista source > applies official corrections to the original shot and series slots when history has gaps 1`] = `
+[
+  {
+    "snapshot": "e7cf945c6703cdfb75579996cc0354a2800abbbbb541d19ecc8230a7e98687eb",
+  },
+  {
+    "rows": "20a51682739b86125be8ad0bb7f7166edcb88fc92aff4007e7d37570d7f4725b",
+  },
+]
+`;
+
+exports[`Director Vista source > applies the DNF public score and rank policy in both saved event and relay views 1`] = `
+[
+  {
+    "snapshot": "9186dcb30d7d19d8e135f157e37ed7e4a843d330d0bc11219205d16066e3d5fb",
+  },
+  {
+    "snapshot": "72258bb8d077873c27349930dfbe49dae458d4d45d22e79d034900a09db572a0",
+  },
+  {
+    "snapshot": "ad17b8113805127081849b5d9232dcc3797a6b830db2aa8bec14143091b54fa7",
+  },
+  {
+    "snapshot": "72258bb8d077873c27349930dfbe49dae458d4d45d22e79d034900a09db572a0",
+  },
+  {
+    "snapshot": "50f1b0a18d99b377457ffedda6d1970a7a917abea1248b969508f7778d279ad9",
+  },
+  {
+    "rows": "63ba1c97369281b5d1667eadebda2be57a243556ca9d4d6213bab427d5d37296",
+  },
+]
+`;
+
+exports[`Director Vista source > applies the DNS public score and rank policy in both saved event and relay views 1`] = `
+[
+  {
+    "snapshot": "9186dcb30d7d19d8e135f157e37ed7e4a843d330d0bc11219205d16066e3d5fb",
+  },
+  {
+    "snapshot": "1d0e4a38337d62a49892f16c792de084dd822ad2a767105cd144eff4b18d8e3d",
+  },
+  {
+    "snapshot": "98393452cea0ef417cb66cee67166a22b7d79ac4e89563817b5ae6056621a8d1",
+  },
+  {
+    "snapshot": "1d0e4a38337d62a49892f16c792de084dd822ad2a767105cd144eff4b18d8e3d",
+  },
+  {
+    "snapshot": "0f864f9276f4dd34a61451e5effba47e374ab746104052153d66d7af8d3f760c",
+  },
+  {
+    "rows": "9f47bae52405ca90a29027b776c8cc2392580ef8bd07d72883a0de2b654ce2ff",
+  },
+]
+`;
+
+exports[`Director Vista source > applies the DQB public score and rank policy in both saved event and relay views 1`] = `
+[
+  {
+    "snapshot": "9186dcb30d7d19d8e135f157e37ed7e4a843d330d0bc11219205d16066e3d5fb",
+  },
+  {
+    "snapshot": "e1f72d5426e8f5b8c582fffc9a7ac0a4bdc24aee02ad964d38644c81a9a064e9",
+  },
+  {
+    "snapshot": "4fef10deae248eb08629213e97d3efd0bb05b8982baac8d48e7d9577db94885d",
+  },
+  {
+    "snapshot": "e1f72d5426e8f5b8c582fffc9a7ac0a4bdc24aee02ad964d38644c81a9a064e9",
+  },
+  {
+    "snapshot": "b0328198f9e93e34ba21c4d8f1b7db9e03a0c8c7718cf68c013edf8ac80f7e7c",
+  },
+  {
+    "rows": "ed1cfea7c9926008b046eb5c8f596eb472ac1cd6bff90f6b213dd2ab3f7603db",
+  },
+]
+`;
+
+exports[`Director Vista source > applies the DSQ public score and rank policy in both saved event and relay views 1`] = `
+[
+  {
+    "snapshot": "9186dcb30d7d19d8e135f157e37ed7e4a843d330d0bc11219205d16066e3d5fb",
+  },
+  {
+    "snapshot": "ecd2c9608dc36c83fdeaec18f2ebc86b66b562717337b6a1e7909b64f25381c1",
+  },
+  {
+    "snapshot": "6a509a97e5311dc66ed779854cd895fce7e6e447719eb484749519810dd2eae4",
+  },
+  {
+    "snapshot": "ecd2c9608dc36c83fdeaec18f2ebc86b66b562717337b6a1e7909b64f25381c1",
+  },
+  {
+    "snapshot": "b01c9bf88147035c4a3170930352477952ec4b0a6c20d4d303d018024a716ebc",
+  },
+  {
+    "rows": "775b59db0fa732d6ab38b3082c9bdb22599b9231f797ac5a2f593f5965605344",
+  },
+]
+`;
+
+exports[`Director Vista source > applies the MQS public score and rank policy in both saved event and relay views 1`] = `
+[
+  {
+    "snapshot": "9186dcb30d7d19d8e135f157e37ed7e4a843d330d0bc11219205d16066e3d5fb",
+  },
+  {
+    "snapshot": "05b14c7662d4e8f602fe644e07fbbd5a8406fd3e7f7a0d481ea5ea35c5dd18b4",
+  },
+  {
+    "snapshot": "85eed3bf23815d08be61475a65ab3142a35d628e7ee238fc08648f6a489e834d",
+  },
+  {
+    "snapshot": "05b14c7662d4e8f602fe644e07fbbd5a8406fd3e7f7a0d481ea5ea35c5dd18b4",
+  },
+  {
+    "snapshot": "05e3efa2e9dc8aae9f16733c6b40baee1267640c3d083df88a78884e355ca48f",
+  },
+  {
+    "rows": "1b0fb2fc365bcbc539332a2f376211d9f2b986e205bdd05e59daf16a379c4991",
+  },
+]
+`;
+
+exports[`Director Vista source > applies the OOC public score and rank policy in both saved event and relay views 1`] = `
+[
+  {
+    "snapshot": "9186dcb30d7d19d8e135f157e37ed7e4a843d330d0bc11219205d16066e3d5fb",
+  },
+  {
+    "snapshot": "7ce49e45d97721a1bfc851eeef44727f1d0175fe27c4ba994a9ba3f0df7802a6",
+  },
+  {
+    "snapshot": "49fdadb126fabfdec2459f92455cc5f4fce50f68f9e2c4caa45dbe7caae30078",
+  },
+  {
+    "snapshot": "7ce49e45d97721a1bfc851eeef44727f1d0175fe27c4ba994a9ba3f0df7802a6",
+  },
+  {
+    "snapshot": "6d8ef46532e4f3a3c8b5efce4afc4c411e8494153b38b01a6902dc66f6db3195",
+  },
+  {
+    "rows": "1cfbb1f1875918cc44e5d9b79d301a4be677369c537c010d0fed5542fbd7eef4",
+  },
+]
+`;
+
+exports[`Director Vista source > applies the RPO public score and rank policy in both saved event and relay views 1`] = `
+[
+  {
+    "snapshot": "9186dcb30d7d19d8e135f157e37ed7e4a843d330d0bc11219205d16066e3d5fb",
+  },
+  {
+    "snapshot": "7ee60d722cbfb172684a753de1d2c2ef0d7c375e2327cde43a31d294a347f37e",
+  },
+  {
+    "snapshot": "9fcf68de74af504b108272d92360f4a544cce2bac150ba0b9ed552dd18171c20",
+  },
+  {
+    "snapshot": "7ee60d722cbfb172684a753de1d2c2ef0d7c375e2327cde43a31d294a347f37e",
+  },
+  {
+    "snapshot": "efbadb3d2503b4221e7f16fe1866bb1fc237d710a01096a5c4cb85fd0387203d",
+  },
+  {
+    "rows": "b1bd3b1ecd30e34b40270c2d706465326ccc5c093cb9390a8e041f6a88a3cb0a",
+  },
+]
+`;
+
+exports[`Director Vista source > certifies a saved finish only after matching final state and score boundaries 1`] = `
+[
+  {
+    "snapshot": "d3a070dcc1f65993f2a61938f0ded75e1dc1fd8bdb4359ff04915435b3a4aaa7",
+  },
+  {
+    "snapshot": "21452efb8fadb5384d48d713fb0d137543634e5528f6f26dcb9618f3e5533ccf",
+  },
+  {
+    "snapshot": "21452efb8fadb5384d48d713fb0d137543634e5528f6f26dcb9618f3e5533ccf",
+  },
+  {
+    "rows": "86d5a855aaec0ca7d8a231a8330f6a59f6509264ee46dfd3eb84ab03ec7862d4",
+  },
+]
+`;
+
+exports[`Director Vista source > counts an inserted shot without counting a padded unused result slot as a real zero 1`] = `
+[
+  {
+    "snapshot": "ed0be27e7a27a918450e2836340320cfe50ef9a74aee2612bc28ec59ef5b1930",
+  },
+  {
+    "snapshot": "1e0d4189ca97df941ed901f932200515d5b28449a159c381d3c0e34af70eca01",
+  },
+  {
+    "snapshot": "fc5ce8ee64d28338826606a4b7ea8c0a51e840a78a629074be4731fe9d6282c5",
+  },
+  {
+    "rows": "bb98905c0c921dff8189b89cc4eeb02c89e1ae738e241bff6dc5159d2959076e",
+  },
+]
+`;
+
+exports[`Director Vista source > detects missing/reordered upstream history instead of certifying a fabricated target 1`] = `
+[
+  {
+    "snapshot": "f95d359506c63b0aaefc007889c34ca593f411217c45f2ce36da8aba789952f6",
+  },
+  {
+    "snapshot": "9c3d7b6a5ee1e8783b300f0eb3085a71ad41c1ad33a047987d47d0c67fccb290",
+  },
+  {
+    "snapshot": "9c3d7b6a5ee1e8783b300f0eb3085a71ad41c1ad33a047987d47d0c67fccb290",
+  },
+  {
+    "rows": "063aed0d8ef4ac1861319fea20199025da9f0cfc8702915f7bac7c05134eca19",
+  },
+]
+`;
+
+exports[`Director Vista source > does not continue a finished Lane interruption clock from NONE evidence 1`] = `
+[
+  {
+    "snapshot": "25969c47c96d6ae7ca25ad61e06aa63ea11f3591fd39e74f8c4d4cfc2cf79d0c",
+  },
+  {
+    "snapshot": "b8b1ae16dfb6dda526e9a71d47b3bd49574fa5814be47d421994029290a131ff",
+  },
+  {
+    "rows": "c31322ccaf431a07ef051eddcc9b347066533a1b38daa9c480cfc81a31daf69e",
+  },
+]
+`;
+
+exports[`Director Vista source > does not continue a finished Lane interruption clock from PAUSED evidence 1`] = `
+[
+  {
+    "snapshot": "ff6d632840fc7735862f73f8aebcddcfc7ccfb4354e477f4d10c5031fabf32c9",
+  },
+  {
+    "snapshot": "b290761041d59ef74e06f7b7add9d55ff16e6756b3599a78978d05f26530bddb",
+  },
+  {
+    "rows": "a98a744890f077da489ae3c098bc0a446aaf472361be7e57d0f5178353938fea",
+  },
+]
+`;
+
+exports[`Director Vista source > does not continue a finished Lane interruption clock from RUNNING_MATCH evidence 1`] = `
+[
+  {
+    "snapshot": "ec3885d180cc55c5959173e4bdd13106c52c12fd5d1ebba74ece8434980eb241",
+  },
+  {
+    "snapshot": "b8b1ae16dfb6dda526e9a71d47b3bd49574fa5814be47d421994029290a131ff",
+  },
+  {
+    "rows": "f01ceb80ccf8c5e79635a5edaaeaf930a6edd6d6060210e919abdec929c37a88",
+  },
+]
+`;
+
+exports[`Director Vista source > does not create reset incarnations for older competitions sharing the same physical Lane 1`] = `
+[
+  {
+    "catalog": "359a346b2541f4d6fb8662918a9145511dd071bdb8d0db9b67b2cacd0fc06fcf",
+  },
+  {
+    "catalog": "d39afd8fbde833b38a6365029e2bf8b79ee184cf2d14f7b263e951ff0eac3834",
+  },
+  {
+    "rows": "6bfc8c153f06eea79aa79bac244ecf46a277b5478de24c6bc64ef28bbbfadbf7",
+  },
+]
+`;
+
+exports[`Director Vista source > does not substitute relay standings when event results have not been acquired 1`] = `
+[
+  {
+    "snapshot": "f69f39404ba5a91d6c0a771605007ce6379146ee708ff8337547effb899442cc",
+  },
+  {
+    "snapshotError": "Event results have not been acquired for this competition",
+  },
+  {
+    "snapshotError": "Select a current competition or event-results Vista subject",
+  },
+  {
+    "rows": "7c98b13331acdf5f35cfca2234523718fee2dd5fda207f5e5767af1b841dbb27",
+  },
+]
+`;
+
+exports[`Director Vista source > excludes 'AD_DSQ' from 'BP60' relay places until revoked 1`] = `
+[
+  {
+    "snapshot": "18933f52aff5da70ae4bb3d1ed16e9195a388f04a811f073fbc6f6dc7897eac6",
+  },
+  {
+    "snapshot": "b36d83077c74dadd6e8cf81f19ddd880212d75b14245ff3e95b63e444fc6ee82",
+  },
+  {
+    "snapshot": "83dbf70a3e1b33ae881e569d81ea290893c92d6fb66e08bccf3b4d5cf7d48a9f",
+  },
+  {
+    "snapshot": "044e3a97bd228ec00a7a849d1e222090c3990ba9c3f1aa06b3e67ad66f6de3ac",
+  },
+  {
+    "snapshot": "b52cde1b4758ae01565af4fbe97a99bd3bd9640c79d5020b1b7fddb3f31fad96",
+  },
+  {
+    "snapshot": "6a3e9a61f81a67b3f5da893516bf2a5c166b0b3ccec6ad4037b69c3a46e7966b",
+  },
+  {
+    "rows": "fc4ca6c46d40d398eab11fb7bde619c81794d2689128c832b35ef107b86ce8ef",
+  },
+]
+`;
+
+exports[`Director Vista source > excludes 'AD_DSQ' from 'BR60S_FINAL' relay places until revoked 1`] = `
+[
+  {
+    "snapshot": "5113407fdf05b147cecf66d70b8460860160ff90964f4482f5cd6243fbb300ab",
+  },
+  {
+    "snapshot": "8305b7492860b7b01772ffc4dfd768600994b708948327ebbd1574acc7ab0bb3",
+  },
+  {
+    "snapshot": "852f3676972c9673962a61ef9140e0bc46108599bea41eded10f48c0710792c7",
+  },
+  {
+    "snapshot": "57f761a335232e8ab1a01f3cfaf564e34d75969af2a58ee6e99cc516a63ba67d",
+  },
+  {
+    "snapshot": "22f94af723006b2802f7b2955641ad35ac71accbdf0c32bf8aefc04fea0797da",
+  },
+  {
+    "snapshot": "0ff696004ebd2815663e610ffd7b7ba6bc786169f042592d4367d1a3bfacf614",
+  },
+  {
+    "rows": "c63522a922b33e12e121b70d32ecf98ee03316b221e694b7cdee5f4082a1112e",
+  },
+]
+`;
+
+exports[`Director Vista source > excludes 'DQB' from 'BP60' relay places until revoked 1`] = `
+[
+  {
+    "snapshot": "18933f52aff5da70ae4bb3d1ed16e9195a388f04a811f073fbc6f6dc7897eac6",
+  },
+  {
+    "snapshot": "b36d83077c74dadd6e8cf81f19ddd880212d75b14245ff3e95b63e444fc6ee82",
+  },
+  {
+    "snapshot": "b751b77e4d30c76403748cd4d6619d0fd52bddd5108aeda61bc7ff2f6f2df8b7",
+  },
+  {
+    "snapshot": "89924e96994a280a9da459dbb4e813386d33415c08f471e038798845315966d2",
+  },
+  {
+    "snapshot": "b52cde1b4758ae01565af4fbe97a99bd3bd9640c79d5020b1b7fddb3f31fad96",
+  },
+  {
+    "snapshot": "6a3e9a61f81a67b3f5da893516bf2a5c166b0b3ccec6ad4037b69c3a46e7966b",
+  },
+  {
+    "rows": "fc4ca6c46d40d398eab11fb7bde619c81794d2689128c832b35ef107b86ce8ef",
+  },
+]
+`;
+
+exports[`Director Vista source > excludes 'DQB' from 'BR60S_FINAL' relay places until revoked 1`] = `
+[
+  {
+    "snapshot": "5113407fdf05b147cecf66d70b8460860160ff90964f4482f5cd6243fbb300ab",
+  },
+  {
+    "snapshot": "8305b7492860b7b01772ffc4dfd768600994b708948327ebbd1574acc7ab0bb3",
+  },
+  {
+    "snapshot": "0a03055075237f8b7e7dd08c2922bccec9f86587b378e073c5177099a32aefe1",
+  },
+  {
+    "snapshot": "32b5026eb58bfa0ec8e824ecd5847aabd747b8280d1c0a2a08e8232afd0a1619",
+  },
+  {
+    "snapshot": "22f94af723006b2802f7b2955641ad35ac71accbdf0c32bf8aefc04fea0797da",
+  },
+  {
+    "snapshot": "0ff696004ebd2815663e610ffd7b7ba6bc786169f042592d4367d1a3bfacf614",
+  },
+  {
+    "rows": "c63522a922b33e12e121b70d32ecf98ee03316b221e694b7cdee5f4082a1112e",
+  },
+]
+`;
+
+exports[`Director Vista source > excludes 'DSQ' from 'BP60' relay places until revoked 1`] = `
+[
+  {
+    "snapshot": "18933f52aff5da70ae4bb3d1ed16e9195a388f04a811f073fbc6f6dc7897eac6",
+  },
+  {
+    "snapshot": "b36d83077c74dadd6e8cf81f19ddd880212d75b14245ff3e95b63e444fc6ee82",
+  },
+  {
+    "snapshot": "e0e683b752d63741c20bce40abce98c567f5e718ffce5023ec0c841272453df9",
+  },
+  {
+    "snapshot": "5139a594ac3c840f4c06454af1c42a1155839324d4ec16f05719b3d2c978b90e",
+  },
+  {
+    "snapshot": "b52cde1b4758ae01565af4fbe97a99bd3bd9640c79d5020b1b7fddb3f31fad96",
+  },
+  {
+    "snapshot": "6a3e9a61f81a67b3f5da893516bf2a5c166b0b3ccec6ad4037b69c3a46e7966b",
+  },
+  {
+    "rows": "fc4ca6c46d40d398eab11fb7bde619c81794d2689128c832b35ef107b86ce8ef",
+  },
+]
+`;
+
+exports[`Director Vista source > excludes 'DSQ' from 'BR60S_FINAL' relay places until revoked 1`] = `
+[
+  {
+    "snapshot": "5113407fdf05b147cecf66d70b8460860160ff90964f4482f5cd6243fbb300ab",
+  },
+  {
+    "snapshot": "8305b7492860b7b01772ffc4dfd768600994b708948327ebbd1574acc7ab0bb3",
+  },
+  {
+    "snapshot": "59bfbf1dec712e73ee23378468100f538ad6e49da3499e3208489ce0b775101d",
+  },
+  {
+    "snapshot": "02cc69a95ccf22d8183dd640223ae0b9f1d321a7694273293f0720c276fc146d",
+  },
+  {
+    "snapshot": "22f94af723006b2802f7b2955641ad35ac71accbdf0c32bf8aefc04fea0797da",
+  },
+  {
+    "snapshot": "0ff696004ebd2815663e610ffd7b7ba6bc786169f042592d4367d1a3bfacf614",
+  },
+  {
+    "rows": "c63522a922b33e12e121b70d32ecf98ee03316b221e694b7cdee5f4082a1112e",
+  },
+]
+`;
+
+exports[`Director Vista source > excludes classified athletes from live BR60S places 1`] = `
+[
+  {
+    "snapshot": "99de80b243fc24d6e136527d0a9d21671bcc2b0bb27d9e718c418b1901b5e9f2",
+  },
+  {
+    "rows": "67aaba052fa9995515e0573d6c4e83eab6bf8bf895e8066499979bf6c676056f",
+  },
+]
+`;
+
+exports[`Director Vista source > excludes classified athletes from live BR60S_FINAL places 1`] = `
+[
+  {
+    "snapshot": "355d9c16644b248ccea9b05d901d6f3172af8998640f25e54f016a55a97c1280",
+  },
+  {
+    "rows": "1f9bb069329854e5a34b943ad4496881ebb612f7879b6ee11a605506f569b847",
+  },
+]
+`;
+
+exports[`Director Vista source > exports the eight exact standard definitions and rejects missing rule identities and custom rules 1`] = `
+[
+  {
+    "rows": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+  },
+]
+`;
+
+exports[`Director Vista source > freezes Final operations at reset (snapshot=false, prior operations=false) 1`] = `
+[
+  {
+    "snapshot": "12eec463cb6b93d9ffba5722ca9f712efdfe45912024ab3b33ae69207f918a9d",
+  },
+  {
+    "snapshot": "45c4fdd93f27e8cb5ecd5d91047374c3c56ca1e98849c45722e0543e37eecdd8",
+  },
+  {
+    "snapshot": "12eec463cb6b93d9ffba5722ca9f712efdfe45912024ab3b33ae69207f918a9d",
+  },
+  {
+    "snapshot": "0d4f8098e91b6c2ccaaedf9355d7e6c048b07ec1b80771be2eb6e1203aecf6c9",
+  },
+  {
+    "rows": "49ea85b38428399a4975fe25fb0e69f4e036ea70fc23877231dd030f8511576c",
+  },
+]
+`;
+
+exports[`Director Vista source > freezes Final operations at reset (snapshot=false, prior operations=true) 1`] = `
+[
+  {
+    "snapshot": "444b9613763f510ff32cb8d8a0d9bffe5df8e3505f9fa93db81f4ccbdf44ebe2",
+  },
+  {
+    "snapshot": "1936378003d3dde1ddd47c8d09807ba1e4f36ceeed1faa88903400b851aae350",
+  },
+  {
+    "snapshot": "444b9613763f510ff32cb8d8a0d9bffe5df8e3505f9fa93db81f4ccbdf44ebe2",
+  },
+  {
+    "snapshot": "f670ad6d1c527ddacaeb1605c77d1bc02f2f0d2fcd8f581414652f7f3d8a3083",
+  },
+  {
+    "rows": "975c54450f4b551f3e4475c580f365020d2e752ccd54d238a222768a4bbbaa99",
+  },
+]
+`;
+
+exports[`Director Vista source > freezes Final operations at reset (snapshot=true, prior operations=false) 1`] = `
+[
+  {
+    "snapshot": "46ce13568282356b1b8e886b633a1a160dd65639160435e3d03b1829edeec8f8",
+  },
+  {
+    "snapshot": "afe03a94a80f1782e2183fa0668d74a949516b1afb65d9d82683efd1dc2923a9",
+  },
+  {
+    "snapshot": "45c4fdd93f27e8cb5ecd5d91047374c3c56ca1e98849c45722e0543e37eecdd8",
+  },
+  {
+    "snapshot": "afe03a94a80f1782e2183fa0668d74a949516b1afb65d9d82683efd1dc2923a9",
+  },
+  {
+    "snapshot": "0d4f8098e91b6c2ccaaedf9355d7e6c048b07ec1b80771be2eb6e1203aecf6c9",
+  },
+  {
+    "rows": "40c950b870629eb180964b2a67cea7ec08c0b1be41cd9ece9be7276ab3ce151f",
+  },
+]
+`;
+
+exports[`Director Vista source > freezes Final operations at reset (snapshot=true, prior operations=true) 1`] = `
+[
+  {
+    "snapshot": "052216bbd11685a5839eb2244bb1593c18d5d46813700ae73d701ac0e36c257f",
+  },
+  {
+    "snapshot": "dec5b6268a3f81b0f199f2972333a8ebc976a203bd4cc9883381937f28a05470",
+  },
+  {
+    "snapshot": "1936378003d3dde1ddd47c8d09807ba1e4f36ceeed1faa88903400b851aae350",
+  },
+  {
+    "snapshot": "dec5b6268a3f81b0f199f2972333a8ebc976a203bd4cc9883381937f28a05470",
+  },
+  {
+    "snapshot": "f670ad6d1c527ddacaeb1605c77d1bc02f2f0d2fcd8f581414652f7f3d8a3083",
+  },
+  {
+    "rows": "18ab6013dc6728e8d80872da4cfaba73964e157a9dc75474a10eb6ffa90319b8",
+  },
+]
+`;
+
+exports[`Director Vista source > freezes previous reserve continuity at reset (snapshot=false) 1`] = `
+[
+  {
+    "snapshot": "4bac5e7ab52f77048517de465ef2caf86780e91d18cf4c947e5917a6ee257b02",
+  },
+  {
+    "snapshot": "fb28c5c4bad60e273c22b736bbca6deaa9d0df9a3d3093900d346af1007e0032",
+  },
+  {
+    "snapshot": "4bac5e7ab52f77048517de465ef2caf86780e91d18cf4c947e5917a6ee257b02",
+  },
+  {
+    "snapshot": "f23d622ca77cb5b791f776b3ce33677c82c7a2c9c2065e520dc4ef4de07b47a6",
+  },
+  {
+    "rows": "7d68f5f2f2260c9dec05934a6bf431e6ce18dae3100186c17ee234bb666528cb",
+  },
+]
+`;
+
+exports[`Director Vista source > freezes previous reserve continuity at reset (snapshot=true) 1`] = `
+[
+  {
+    "snapshot": "dc81111b524c6c392a983e9598bf942b4a28905c85833dbe6ab7d23d9b979e99",
+  },
+  {
+    "snapshot": "e938c73d9ee1e92570f879a6e9a668ec1c601a085b481ee677a0792ccf903785",
+  },
+  {
+    "snapshot": "fb28c5c4bad60e273c22b736bbca6deaa9d0df9a3d3093900d346af1007e0032",
+  },
+  {
+    "snapshot": "e938c73d9ee1e92570f879a6e9a668ec1c601a085b481ee677a0792ccf903785",
+  },
+  {
+    "snapshot": "f23d622ca77cb5b791f776b3ce33677c82c7a2c9c2065e520dc4ef4de07b47a6",
+  },
+  {
+    "rows": "6f7c5d3df0e6ab56246bfbf7cb71d691b6a06902e989d11491eeb2c4d291c351",
+  },
+]
+`;
+
+exports[`Director Vista source > holds the authorized RUNNING_MATCH timer until its scheduled resume 1`] = `
+[
+  {
+    "snapshot": "6505e0549655f6718cba275d0141d0296795f5c2514a6499e20744f51b73c702",
+  },
+  {
+    "snapshot": "82a869c7f1bfaeed19f7043cfae8fd6abbd3e6a8f91c2c7edbf2e933d06d14e6",
+  },
+  {
+    "snapshot": "f1e429599f5523498c82b48b880f4d6028320339b1474c7f1f669160b2045ede",
+  },
+  {
+    "snapshot": "158e9dad8cd78f265b24313695f5deb315804616de29e52de7906837155d530e",
+  },
+  {
+    "rows": "c122b541d3c3350e11cf06540ae705481e59383958eddc7c1a8ca86c597e82e9",
+  },
+]
+`;
+
+exports[`Director Vista source > holds the authorized SIGHTING timer until its scheduled resume 1`] = `
+[
+  {
+    "snapshot": "be0ebe26fbcfa9dbebf58cd3cd0ecbb7462753c55d356a171769ed83edcf8f18",
+  },
+  {
+    "snapshot": "00b8c61d24e13d675f67e4d62c646e55602a539bd596361461b35f51f16da52c",
+  },
+  {
+    "snapshot": "975a899e93110e56f79fed43b404dea6097fae897c027cb8c9fefcaf4e99508e",
+  },
+  {
+    "snapshot": "b6a57394580569f9494e775cad18e69c947b054e755da1c41f12712e0b1852d4",
+  },
+  {
+    "rows": "337d3dcdf912a58048088906ed4f7321a89256dda79eaf9ada7b94c989661f6a",
+  },
+]
+`;
+
+exports[`Director Vista source > isolates an acknowledged same-session reset, later shots and delayed pre-reset replays 1`] = `
+[
+  {
+    "snapshot": "204c38d87f31b8de49fcad0f8cd8b63e2eb887a5bb58efc5819c5e661532dd11",
+  },
+  {
+    "catalog": "400c762af4d0bcaa6344c9c9754fc1bff86955e1c5fb95091ee7e1183e6d7b57",
+  },
+  {
+    "snapshot": "e0066c69f6167f5ec4335843a5ad90103d9a6cb661a94f6a0bfdc0d419d46cc3",
+  },
+  {
+    "snapshot": "2b42757c709465d78f6e940c918bf880ebaab63a739b179f596bacbba3807673",
+  },
+  {
+    "snapshot": "cd30a36244ff32a810181c88edb97599d5e151bf6c484d13e5c8211e941e52a0",
+  },
+  {
+    "snapshot": "2b42757c709465d78f6e940c918bf880ebaab63a739b179f596bacbba3807673",
+  },
+  {
+    "snapshot": "cd30a36244ff32a810181c88edb97599d5e151bf6c484d13e5c8211e941e52a0",
+  },
+  {
+    "snapshot": "d18a0d418ef32b245b8cbdf77c912ea7c21c3127df62a4060ab3d93e50a48cc7",
+  },
+  {
+    "rows": "d7e90773200e25a62c0dbc706c83d4373ba3af28c2c776769ccbe614262ed6d6",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps a result without source identity unknown instead of certifying zero shots 1`] = `
+[
+  {
+    "snapshot": "6d642da5d712e5cff0ac406225edae24006178c7937ff3514ad52ac7d13b2a00",
+  },
+  {
+    "rows": "53211789c23b4226af7687a6e130fff296443dcb1b42d166ef6ed7124cb48209",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps an unconfirmed Final elimination pending until DONE 1`] = `
+[
+  {
+    "snapshot": "a64d465c437176d14ba73831d4e5061a03effe7623ab9cf3652b8e40bf6419c6",
+  },
+  {
+    "snapshot": "881972dff6f88b4ae8841dd6961cd266305b32183f615784540aa2f2ee0ee6d8",
+  },
+  {
+    "rows": "c3547b31e605bab96eb3e549f3cc800f912e5cdf0a1c5ee6716b555b9d7e51f5",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps an unconfirmed Final elimination pending until VOID 1`] = `
+[
+  {
+    "snapshot": "a64d465c437176d14ba73831d4e5061a03effe7623ab9cf3652b8e40bf6419c6",
+  },
+  {
+    "snapshot": "158ef097b75f69b19e1ed4156a5a7badb2fdc302ceebca3fd5fafb73774ed6a3",
+  },
+  {
+    "rows": "9a077c40b406ed15a737a5936c8fbffc0feaee6253944c8cb20db944c757f1ee",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps explicit relay and event scopes through finish, corrections, restart and result replacement 1`] = `
+[
+  {
+    "catalog": "407f71c92be0eda9701b3a183cddfa6a756c05dd2a70aad279609680904ed591",
+  },
+  {
+    "snapshot": "cf26a49634158881096dc26b9a4dba94d913d87c70f34c7f1866be2b0f5e43f7",
+  },
+  {
+    "snapshot": "d54468466d81cb5b46f39b21f3055e6745922324b40e71a6ae97095ad5c020e0",
+  },
+  {
+    "snapshot": "b56a048c34410b0e09837be161492b76f463c4fc93c3229c88014777afc31a7d",
+  },
+  {
+    "snapshot": "04952fcc27e407e57093f9a5e52cee98ed7111e5fd833295653202d5281d5514",
+  },
+  {
+    "snapshot": "6cca49687f4cb6df6f56b59d74462432fa46595479630662dc4fb7c50d0d6f03",
+  },
+  {
+    "snapshot": "a499ee24a6f8759ed0f3aec39d4219465a3fa9292db6214121aa50063cdfe03b",
+  },
+  {
+    "snapshot": "6cca49687f4cb6df6f56b59d74462432fa46595479630662dc4fb7c50d0d6f03",
+  },
+  {
+    "snapshot": "a499ee24a6f8759ed0f3aec39d4219465a3fa9292db6214121aa50063cdfe03b",
+  },
+  {
+    "snapshot": "c832ba12e5fbbc4f2abeea16cfab1cbea7f45cc959bdfcb08d92a676a5f4a58b",
+  },
+  {
+    "snapshot": "e4213da48a2ac7d260ec9aa29f4a1be863e45265d278cd9bca072bdd8689e4b7",
+  },
+  {
+    "snapshot": "c832ba12e5fbbc4f2abeea16cfab1cbea7f45cc959bdfcb08d92a676a5f4a58b",
+  },
+  {
+    "rows": "0f0c1c36faaefb863310e40d472e87afe9b2e770075e765ebb96259ead922781",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps qualification scores separate when the same athlete has a result from another competition 1`] = `
+[
+  {
+    "snapshot": "951aff65140b19a46418d11efeeff467e4b19aee64a8faabf0f00f3b74a43c8f",
+  },
+  {
+    "rows": "bbd6e6d623226f37d1ddf1140d5a725f4f0cfe69100af164af99c3efae6f26d3",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps the competition generation when Lanes arrive after display selection 1`] = `
+[
+  {
+    "snapshot": "f4773e780c392fc64239c042f2af3834f15938ad8a4af76f32836b93292dd736",
+  },
+  {
+    "snapshot": "5a51a6a4fc8c65d1ecbfb48973161d96039ed2673307fcb95ecd01724f1536b0",
+  },
+  {
+    "rows": "94397d37f0aac16e56ee4c6d60d249c55d2314a5aba49347d3d9e5b59cb155ac",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps the selected competition after Lane reuse and source restart 1`] = `
+[
+  {
+    "snapshot": "21eb01d3823dd4528cad046e9c4980f77d1d674028da08405baa4bf148f1b460",
+  },
+  {
+    "snapshot": "f991c6816ccd0e60f692f949dcd03376411546c72a5820fc39e090bf41c5478a",
+  },
+  {
+    "catalog": "1f56eb5b640ddae372007297ac9243b317fec2dfe363f07b845765c2f6ecec94",
+  },
+  {
+    "rows": "6b50974694a2d5a74cda09d27bc7b4dee1c850137edea31d88d94743a8df2924",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps unaffected participant clocks running during another Lane interruption 1`] = `
+[
+  {
+    "snapshot": "fcdbead9f413c0bc278206deacbd416dd66a5a33f4233fd88d0dad4da10c3bba",
+  },
+  {
+    "rows": "9d797bbaeab416ced99146441bc4860c70997bc32efd6ec627a37b6f68d158f6",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps unaffected participant clocks running during another Lane safety-stop 1`] = `
+[
+  {
+    "snapshot": "92a41be2b3cca13c44358ac6fb37a428269d2bdfee4ab43ecf4f4c4fbd9ac1fa",
+  },
+  {
+    "rows": "22102a8fa3c967ccf6849f72f3b979134f34cf44699cca40dc6e02503f72dcb4",
+  },
+]
+`;
+
+exports[`Director Vista source > keeps unaffected participant clocks running during another Lane safety-stop-without-clock 1`] = `
+[
+  {
+    "snapshot": "a4e590dbbca4a825a596aae0a7de528453a614754fd5ce0ec823cb58c55c383e",
+  },
+  {
+    "rows": "a169ae05f0d64ae082adbc51d6b679d149a3355e6ab83d26da454411d6520c03",
+  },
+]
+`;
+
+exports[`Director Vista source > merges history only after acknowledged reserve transfer and keeps participant/generation identity 1`] = `
+[
+  {
+    "snapshot": "1086d445c45d4adeb97ee4493938a97d00240ec36543d1129c11474d748edc75",
+  },
+  {
+    "snapshot": "c6f1c2b6448ad64143f1194d45122f364325df5f1bad22357ed699c9402e454c",
+  },
+  {
+    "rows": "d77ed995dd50bd9f9ad3170c90d260abf489c73308ebfbc1ca0aa5531ab9fe40",
+  },
+]
+`;
+
+exports[`Director Vista source > migrates a legacy published without losing corrected scores or reusing event places for the relay 1`] = `
+[
+  {
+    "snapshot": "f7459a43372383709474bdb32da1980acf971de8e09d8cc2f9b64f2c2ba786f4",
+  },
+  {
+    "catalog": "407f71c92be0eda9701b3a183cddfa6a756c05dd2a70aad279609680904ed591",
+  },
+  {
+    "snapshot": "75232a895c0fbc6992371977fb68bc6c71ef2ef24c2523dd717cdc6d5fcf2174",
+  },
+  {
+    "snapshot": "e0b9173f1e93b86c0aff17b9e23c65518ff17b73a2468a291b79db43c8896d94",
+  },
+  {
+    "snapshot": "75232a895c0fbc6992371977fb68bc6c71ef2ef24c2523dd717cdc6d5fcf2174",
+  },
+  {
+    "snapshot": "e0b9173f1e93b86c0aff17b9e23c65518ff17b73a2468a291b79db43c8896d94",
+  },
+  {
+    "rows": "b6f50ed35f440822abd1f27191e3fcc88a731ad8c07a9e05594c43283e284e6e",
+  },
+]
+`;
+
+exports[`Director Vista source > migrates a legacy reset archive without losing corrected scores or reusing event places for the relay 1`] = `
+[
+  {
+    "snapshot": "f7459a43372383709474bdb32da1980acf971de8e09d8cc2f9b64f2c2ba786f4",
+  },
+  {
+    "catalog": "407f71c92be0eda9701b3a183cddfa6a756c05dd2a70aad279609680904ed591",
+  },
+  {
+    "snapshot": "75232a895c0fbc6992371977fb68bc6c71ef2ef24c2523dd717cdc6d5fcf2174",
+  },
+  {
+    "snapshot": "e0b9173f1e93b86c0aff17b9e23c65518ff17b73a2468a291b79db43c8896d94",
+  },
+  {
+    "snapshot": "75232a895c0fbc6992371977fb68bc6c71ef2ef24c2523dd717cdc6d5fcf2174",
+  },
+  {
+    "snapshot": "e0b9173f1e93b86c0aff17b9e23c65518ff17b73a2468a291b79db43c8896d94",
+  },
+  {
+    "rows": "debabb7f0af120a0c200f24492b45e285ebe2450536b59101f83c9ed7a129cef",
+  },
+]
+`;
+
+exports[`Director Vista source > migrates legacy live standings without presenting them as event results 1`] = `
+[
+  {
+    "snapshot": "f95d359506c63b0aaefc007889c34ca593f411217c45f2ce36da8aba789952f6",
+  },
+  {
+    "snapshot": "4ec900605f7cdc8ec7ece6bac7a63f5b6d316870c10d9b37f1ccaaef322084f0",
+  },
+  {
+    "snapshotError": "Event results have not been acquired for this competition",
+  },
+  {
+    "rows": "2af003420d1f1a74e985850d35d3cf8eb23af09756bcbda1c8d09882fe135642",
+  },
+]
+`;
+
+exports[`Director Vista source > offers an acknowledged reset as a new selectable incarnation without overwriting the prior subject 1`] = `
+[
+  {
+    "snapshot": "4ab75bccde2aad129b74b31d2697ab8878547cefc61eebc69333c057d359b34b",
+  },
+  {
+    "catalog": "df39ab3ea8836ee2c6520a08f55bfee23d0bbd6f324ed1882a3068cfe082f8e9",
+  },
+  {
+    "catalog": "34d1117bebacc2e416b34596beccda3c880f46412c546063f76684a8036fb6d4",
+  },
+  {
+    "snapshot": "1eb365614b4c48319c5391a870f883fae63870357705718a98208c090721be92",
+  },
+  {
+    "rows": "c7cb9499266ad2dd8601b51bb1b5cec9a8f8432aa9820431009a84595e52995c",
+  },
+]
+`;
+
+exports[`Director Vista source > orders finished Final relay rows by the official placements after a tie is resolved 1`] = `
+[
+  {
+    "snapshot": "8bb60037894675676c5af334f5e75b363379290b83c7c6fa455491c7fa3e4293",
+  },
+  {
+    "snapshot": "bd0724637257038c3982f597456d5e97fa6dd9ec639261f78dfa53074ebc0cbe",
+  },
+  {
+    "rows": "f8bc4a89fc15b888298697a48b55e0efe296cc52bc2de2982cedd16380ccf54e",
+  },
+]
+`;
+
+exports[`Director Vista source > persists MQTT Final provenance and excludes another Final from the selected source 1`] = `
+[
+  {
+    "snapshot": "57bf406d8e7c2a41ede86c546f4adc22601cd267e7a599b5d4396d0fcd375c1d",
+  },
+  {
+    "snapshot": "dda718acf1d81a7c63e91694ddd66e0cd6d92d6da4c7e38dc59292ed1bde5bb8",
+  },
+  {
+    "snapshot": "37027d6650793ba3b6d8db447a956b2c2b1cf34eeefd997a3d23aa59bac11ce9",
+  },
+  {
+    "rows": "d96f032b1076b2cade1aa936acec1807a433a689ae24c9b27db192c15d766cbe",
+  },
+]
+`;
+
+exports[`Director Vista source > pins the exact catalog and snapshot JSON, digests included, for a competition with fixed IDs 1`] = `
+{
+  "catalog": {
+    "identity": {
+      "bootId": "boot",
+      "kind": "director",
+      "name": "Director",
+      "protocolVersion": 1,
+      "sourceId": "director-test",
+    },
+    "subjects": [
+      {
+        "availability": "available",
+        "competition": null,
+        "eventCode": "BR60S",
+        "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:relay",
+        "label": "10m Beam Rifle 60 Shots Standing · Qualification · aaaaaaaa · Current competition",
+        "reason": null,
+        "relay": null,
+      },
+    ],
+  },
+  "snapshot": {
+    "capturedAt": 1789084801000,
+    "clock": {
+      "generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:2026-09-11T00:00:01.000Z:1:null",
+      "label": "Stage",
+      "remainingMs": 2700000,
+      "revision": 1789084801000,
+      "sampledAt": 1789084801000,
+      "state": "running",
+    },
+    "definition": {
+      "eventCode": "BR60S",
+      "fingerprint": "ef31e0dee058b2335272b0da53fb0abc9b2f7ffc2dc11dae6067554f7c6461de",
+      "id": "saika-standard:BR60S",
+      "name": "10m Beam Rifle 60 Shots Standing",
+      "scoring": "DECIMAL",
+      "stages": [
+        {
+          "name": "Preparation",
+          "scored": false,
+          "seriesShots": [],
+        },
+        {
+          "name": "Match",
+          "scored": true,
+          "seriesShots": [
+            10,
+            10,
+            10,
+            10,
+            10,
+            10,
+          ],
+        },
+      ],
+      "target": {
+        "blackDiameter": 31,
+        "origin": "center",
+        "outerDiameter": 46,
+        "profileId": "JRSF_BEAM_RIFLE_10M",
+        "rings": [
+          {
+            "diameter": 1,
+            "score": 10,
+          },
+          {
+            "diameter": 6,
+            "score": 9,
+          },
+          {
+            "diameter": 11,
+            "score": 8,
+          },
+          {
+            "diameter": 16,
+            "score": 7,
+          },
+          {
+            "diameter": 21,
+            "score": 6,
+          },
+          {
+            "diameter": 26,
+            "score": 5,
+          },
+          {
+            "diameter": 31,
+            "score": 4,
+          },
+          {
+            "diameter": 36,
+            "score": 3,
+          },
+          {
+            "diameter": 41,
+            "score": 2,
+          },
+          {
+            "diameter": 46,
+            "score": 1,
+          },
+        ],
+        "shotDiameter": 6,
+        "unit": "mm",
+        "xDirection": "right",
+        "yDirection": "up",
+      },
+    },
+    "finished": false,
+    "generation": "102f831d32ae9f8cac9d70bb4bc93b35ead65ece1f48aa5e46fd1d50ef810357",
+    "label": "10m Beam Rifle 60 Shots Standing · Qualification · aaaaaaaa · Current competition",
+    "participants": [
+      {
+        "affiliation": null,
+        "assignmentRevision": "9f9e722872f7c10f2f9f8547cf05085ce41b602f7dae1ad18c19ba43603171f0",
+        "clock": {
+          "generation": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:2026-09-11T00:00:01.000Z:1:null",
+          "label": "Stage",
+          "remainingMs": 2700000,
+          "revision": 1789084801000,
+          "sampledAt": 1789084801000,
+          "state": "running",
+        },
+        "currentSeries": 0,
+        "currentStage": 1,
+        "dataState": "live",
+        "historyComplete": true,
+        "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "laneId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "laneName": "Lane 1",
+        "mode": "match",
+        "name": "Athlete",
+        "series": [
+          {
+            "index": 0,
+            "stage": 1,
+            "total": 10.4,
+          },
+        ],
+        "shotCount": 1,
+        "shots": [
+          {
+            "corrected": false,
+            "id": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+            "mode": "match",
+            "recorded": true,
+            "score": 10.4,
+            "sequence": 1,
+            "series": 0,
+            "stage": 1,
+            "x": 1.5,
+            "y": -2,
+          },
+        ],
+        "status": "MATCH",
+        "total": 10.4,
+      },
+    ],
+    "phase": "MATCH",
+    "protocolVersion": 1,
+    "ranking": {
+      "kind": "live",
+      "revision": "1c92853bc989590384d47c1609d83b5c07691100d10c248e0a80ecdf48de5e1c",
+      "rows": [
+        {
+          "affiliation": null,
+          "classification": null,
+          "id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+          "name": "Athlete",
+          "rank": 1,
+          "total": 10.4,
+        },
+      ],
+      "scope": "10m Beam Rifle 60 Shots Standing · Qualification · aaaaaaaa · current competition only",
+      "state": "DRAFT",
+    },
+    "revision": 1,
+    "sourceId": "director-test",
+    "subjectId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa:relay",
+  },
+}
+`;
+
+exports[`Director Vista source > pins the exact catalog and snapshot JSON, digests included, for a competition with fixed IDs 2`] = `
+[
+  {
+    "catalog": "1b25452434136dcdf80cb26101b205d1a5973066587a8d3c00c7277353fc6107",
+  },
+  {
+    "snapshot": "21eb01d3823dd4528cad046e9c4980f77d1d674028da08405baa4bf148f1b460",
+  },
+  {
+    "rows": "485f407e61e333fe5f52bb475924e48d64567a4a8c25341e1a0c104844fb910d",
+  },
+]
+`;
+
+exports[`Director Vista source > preserves corrected archived scores as unverified after a partial replacement 1`] = `
+[
+  {
+    "snapshot": "34c897c0d8b579f9b0d453e1d6fcdc1e631a89f7a0673bc0bc52879c5010121f",
+  },
+  {
+    "snapshot": "92baf9d75fc9c1504d34737c5403bd4e302e96999974a2c29925de7da8e67391",
+  },
+  {
+    "snapshot": "92baf9d75fc9c1504d34737c5403bd4e302e96999974a2c29925de7da8e67391",
+  },
+  {
+    "rows": "cf8c55c5e68aee3282f3c06d4e9914ab85df32f24276418a0d28e6f213401860",
+  },
+]
+`;
+
+exports[`Director Vista source > preserves corrected archived scores as unverified after a replacement 1`] = `
+[
+  {
+    "snapshot": "d6311cbe079af4efb1d4a741afcde8ce1bae52eb8b1d2af49dd6653d186ebf94",
+  },
+  {
+    "snapshot": "975fea507bd6225d235f755eac18c7d447b6f4a681dbc753ecbc7038032c51c2",
+  },
+  {
+    "snapshot": "975fea507bd6225d235f755eac18c7d447b6f4a681dbc753ecbc7038032c51c2",
+  },
+  {
+    "rows": "03ed9102106770e746973d8fbf34b704d7247539c53161daba3f71ccb944fc90",
+  },
+]
+`;
+
+exports[`Director Vista source > preserves corrected archived scores as unverified after a reset 1`] = `
+[
+  {
+    "snapshot": "d6311cbe079af4efb1d4a741afcde8ce1bae52eb8b1d2af49dd6653d186ebf94",
+  },
+  {
+    "catalog": "c8bd11cf89d93b0fa93db0b805a4806ceade27452540ef3af0dc101c73ea82dd",
+  },
+  {
+    "snapshot": "f253c7a2f35bc8ffca2344390464483f7194e86f0d226b7167a7d1e5e89fcd2a",
+  },
+  {
+    "snapshot": "975fea507bd6225d235f755eac18c7d447b6f4a681dbc753ecbc7038032c51c2",
+  },
+  {
+    "snapshot": "975fea507bd6225d235f755eac18c7d447b6f4a681dbc753ecbc7038032c51c2",
+  },
+  {
+    "rows": "37c983914dd573b7e202eaa5869d77ef6d6e0b39b30d290783a9fe67f5ca9ac8",
+  },
+]
+`;
+
+exports[`Director Vista source > preserves original BP60 shot identity across insertions and unknown replacements 1`] = `
+[
+  {
+    "snapshot": "aec43e9d8e43314cadc874e294340506809007f3670a637ce30aeba8586755f3",
+  },
+  {
+    "snapshot": "71bd1d490a24b30b97c05f0b00eb386abe3ee0d5dc659d66124bf378cf7d9280",
+  },
+  {
+    "snapshot": "71bd1d490a24b30b97c05f0b00eb386abe3ee0d5dc659d66124bf378cf7d9280",
+  },
+  {
+    "snapshot": "2a98b240efd2c1205d7b98819962ea6502870a233bc92d2455119a737d923268",
+  },
+  {
+    "rows": "62cadcedc3d7ca23936b45e4153e015c6b64d1ec8a99a5d177ab12b3115d5866",
+  },
+]
+`;
+
+exports[`Director Vista source > preserves original BR60S_FINAL shot identity across insertions and unknown replacements 1`] = `
+[
+  {
+    "snapshot": "40f7cc33037d84d1ad48edc61fb02d6d579fd0955d2967f1b4433773f3803eed",
+  },
+  {
+    "snapshot": "cd9f0c8bc72528068f836caede15c77a89cecdde66081dcc8809c4fe9f85b819",
+  },
+  {
+    "snapshot": "cd9f0c8bc72528068f836caede15c77a89cecdde66081dcc8809c4fe9f85b819",
+  },
+  {
+    "snapshot": "3454e1a50dfdacf161d7cff47f337aa6860b605835d82399a12c0a3f7f1a02f1",
+  },
+  {
+    "rows": "8bbdab41d2b8f53ab234b147f94de6cdaf39827212dc39d58dec6f76cb8f1a49",
+  },
+]
+`;
+
+exports[`Director Vista source > preserves sighting history across the real preparation to match session rotation 1`] = `
+[
+  {
+    "snapshot": "ce6f583d633b152bf3896b2d90fef1b4f464c89077a76b2a1eca3d0e78bc24ba",
+  },
+  {
+    "snapshot": "620b2463075687f182203f4ab55f902f818debfc70e86cb2b93552f6a87bbf0f",
+  },
+  {
+    "rows": "ee7d742eaae24216db654f2c72b6d3ea3f70dcff549dbad4e1999401b0db8373",
+  },
+]
+`;
+
+exports[`Director Vista source > provides complete deduplicated history and stable semantic revisions with anchored clocks 1`] = `
+[
+  {
+    "snapshot": "21eb01d3823dd4528cad046e9c4980f77d1d674028da08405baa4bf148f1b460",
+  },
+  {
+    "snapshot": "8d9e954af3a9a80c9862402e44a8382882739df982cc5c56da886a4f84288e99",
+  },
+  {
+    "rows": "485f407e61e333fe5f52bb475924e48d64567a4a8c25341e1a0c104844fb910d",
+  },
+]
+`;
+
+exports[`Director Vista source > reconciles a match shot with later persisted Lane progress before the series completes 1`] = `
+[
+  {
+    "snapshot": "d9f89f8d83da49c6e25d424e68edb3caea34c6b7199bde80e51e6f25932fdefb",
+  },
+  {
+    "snapshot": "986706e063d23889bf6ad0c7a65189516afe89a73545cfa4cd8e3be223da1a7c",
+  },
+  {
+    "rows": "4659f9bc966efb833a94a49e52746078e571514662f5ef89cd527bf247106943",
+  },
+]
+`;
+
+exports[`Director Vista source > reconciles a sighting shot with later persisted Lane progress before the series completes 1`] = `
+[
+  {
+    "snapshot": "9a705d009d025e8c8892edc7df9e3870abbf1370e6d22a68e1ba5bb4bdba3106",
+  },
+  {
+    "snapshot": "69c18b2da93bc5f2ba78ade31caf666a483cf90d10a230e9ff95ba994abf207b",
+  },
+  {
+    "rows": "2b742e2b202b87ccc174d1332763a68cfe341d4fd0d78a85fbecb01dca5f7302",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects an older competition snapshot before archiving a reset and preserves later shots 1`] = `
+[
+  {
+    "catalog": "1b25452434136dcdf80cb26101b205d1a5973066587a8d3c00c7277353fc6107",
+  },
+  {
+    "snapshot": "b73accecf26d421ddb95d7648ed95ec870cae8a2c0197b40a1686612f34351c0",
+  },
+  {
+    "rows": "6a8ed9104a11f2b9fd1590ae959b6cb7c22762f3944e0b78968b28246dd57ed4",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved activated evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved athlete evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved competition evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved destination Lane evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved digest evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved invalid JSON evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved prepared evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved session evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > rejects reserve continuity when the saved source Lane evidence does not match 1`] = `
+[
+  {
+    "catalog": "b62b87ceecbd4ea823e0b3db266328a4e6e7d3c4cc286dab445cbb318e287972",
+  },
+  {
+    "snapshotError": "An unconfirmed Lane session replacement requires source synchronization",
+  },
+  {
+    "rows": "5648710f921bcae51dce9d19b05eb3c83f4d3a760cad5dacc9fac63b84abeeaa",
+  },
+]
+`;
+
+exports[`Director Vista source > removes departed members and accepts their later rejoin without restoring the old assignment 1`] = `
+[
+  {
+    "snapshot": "4ab75bccde2aad129b74b31d2697ab8878547cefc61eebc69333c057d359b34b",
+  },
+  {
+    "snapshot": "1f929f5903c92e3577e2542fef2e8d48e89921706bd0be2a32718a8eb45744c3",
+  },
+  {
+    "snapshot": "1f929f5903c92e3577e2542fef2e8d48e89921706bd0be2a32718a8eb45744c3",
+  },
+  {
+    "catalog": "1b25452434136dcdf80cb26101b205d1a5973066587a8d3c00c7277353fc6107",
+  },
+  {
+    "snapshot": "511c7cbd172d796dc02d8c877e6026f5a73083d869b0e93b7acf065d4290daf8",
+  },
+  {
+    "rows": "306dd72d959788ff5578337e7796da019d40aee2319c06cebb197187e4157ba8",
+  },
+]
+`;
+
+exports[`Director Vista source > reports legacy reset archives without operation evidence (snapshot=false) 1`] = `
+[
+  {
+    "catalog": "29a0999b85d4ab42f3ebba0a2ec609186d28172407e4d37e1c3a6bba6af16106",
+  },
+  {
+    "snapshotError": "This saved archive lacks operation history at its reset boundary",
+  },
+  {
+    "rows": "5aa3ad52a64cf38ac24bba9ccf5cea1e74e146462054c7b04b24bf7c9feb80fd",
+  },
+]
+`;
+
+exports[`Director Vista source > reports legacy reset archives without operation evidence (snapshot=true) 1`] = `
+[
+  {
+    "snapshot": "4ab75bccde2aad129b74b31d2697ab8878547cefc61eebc69333c057d359b34b",
+  },
+  {
+    "catalog": "857523550f94b4ae3c2d7b404496768e6e13c769ee9397d2b1b308c2f4b59da3",
+  },
+  {
+    "snapshotError": "This saved archive lacks operation history at its reset boundary",
+  },
+  {
+    "rows": "4267115c80b669a3f3742d5f50a81bb62b6d2909e4cfd862b222432f1bc761f8",
+  },
+]
+`;
+
+exports[`Director Vista source > requires a fresh upstream observation before restoring unfinished sources as live 1`] = `
+[
+  {
+    "snapshot": "21eb01d3823dd4528cad046e9c4980f77d1d674028da08405baa4bf148f1b460",
+  },
+  {
+    "snapshot": "f991c6816ccd0e60f692f949dcd03376411546c72a5820fc39e090bf41c5478a",
+  },
+  {
+    "snapshot": "b4937450c941a3a3ce707784eeaea9ec7ef2240630d593302140e303a0406f78",
+  },
+  {
+    "rows": "58f2f3fa92d982f262bcd400809c7f777023125f9e2ed88ac3a514bbbd869afd",
+  },
+]
+`;
+
+exports[`Director Vista source > requires each Lane state and score to be reconfirmed after reconnect 1`] = `
+[
+  {
+    "snapshot": "ff546123561fe92b133e496a1392f6c0c37074b730ba19125838cccbcfd45044",
+  },
+  {
+    "snapshot": "d7198888a6306c6d05892f04feed0ed428da26319fd6a41505955b75a5854eed",
+  },
+  {
+    "snapshot": "e1a5a6b1caf56723f9f12db15282ee2a1d3eae79cb24ae83366ecd052e4472dc",
+  },
+  {
+    "snapshot": "e1a5a6b1caf56723f9f12db15282ee2a1d3eae79cb24ae83366ecd052e4472dc",
+  },
+  {
+    "snapshot": "1c493a57bb077f004b7161069b4c10b265ce73960e62fd1741d78bf3f4473194",
+  },
+  {
+    "rows": "21b8f027360515cba5982ab9b5122398f18fac74eec4a5866c47a93c969851f6",
+  },
+]
+`;
+
+exports[`Director Vista source > requires each Lane state and score to be reconfirmed after restart 1`] = `
+[
+  {
+    "snapshot": "ff546123561fe92b133e496a1392f6c0c37074b730ba19125838cccbcfd45044",
+  },
+  {
+    "snapshot": "d7198888a6306c6d05892f04feed0ed428da26319fd6a41505955b75a5854eed",
+  },
+  {
+    "snapshot": "e1a5a6b1caf56723f9f12db15282ee2a1d3eae79cb24ae83366ecd052e4472dc",
+  },
+  {
+    "snapshot": "e1a5a6b1caf56723f9f12db15282ee2a1d3eae79cb24ae83366ecd052e4472dc",
+  },
+  {
+    "snapshot": "1c493a57bb077f004b7161069b4c10b265ce73960e62fd1741d78bf3f4473194",
+  },
+  {
+    "rows": "21b8f027360515cba5982ab9b5122398f18fac74eec4a5866c47a93c969851f6",
+  },
+]
+`;
+
+exports[`Director Vista source > retains corrected BP60 results when one of 1 participants is deleted 1`] = `
+[
+  {
+    "snapshot": "8c8fc323bf0e82d1d8830e3a9a584e213c622a069480df6bf9eacf936423b21b",
+  },
+  {
+    "snapshot": "c3a8e33ee7299c38c0f3e61af8dc2df59bbf34227762523e2d9309ca366eebdc",
+  },
+  {
+    "snapshot": "0c9522515189f366bafe9db10df1b9651d9ec61010a2dc5317590c7d320769a5",
+  },
+  {
+    "snapshot": "165882155b05a76284908353ae45d33daf8ee4ec5c8d89e50d43bb3a1c150d5d",
+  },
+  {
+    "snapshot": "0c9522515189f366bafe9db10df1b9651d9ec61010a2dc5317590c7d320769a5",
+  },
+  {
+    "rows": "89dc20077b77ff5a427612f017cec3b6c6644e6c4bdbe8c8bd9087acb8877c3b",
+  },
+]
+`;
+
+exports[`Director Vista source > retains corrected BP60 results when one of 2 participants is deleted 1`] = `
+[
+  {
+    "snapshot": "f4cff5b38114df7dd2f9dddbe8c5c51e33b33e9efd238edb6f1b17dd68c6d77f",
+  },
+  {
+    "snapshot": "67a8702689cee3ceddfc98c5a6309111ae88c37b6f0cdefc058d22f75072ce8f",
+  },
+  {
+    "snapshot": "d8458102b63daa833a98af2f4ccda349133b01e9b8a86d7bf09fa7a52af43c49",
+  },
+  {
+    "snapshot": "c30e7ff98ae91bb9386601935b6f4f06b548cac117f3a4295f40023f9cebc4d1",
+  },
+  {
+    "snapshot": "d8458102b63daa833a98af2f4ccda349133b01e9b8a86d7bf09fa7a52af43c49",
+  },
+  {
+    "rows": "caafd232dab97514deca5f03ab0d0f156a8fcdbce647332c28b6e21eac988a24",
+  },
+]
+`;
+
+exports[`Director Vista source > retains corrected BR60S_FINAL results when one of 1 participants is deleted 1`] = `
+[
+  {
+    "snapshot": "319adcdb51232d830a2e458a4bde0057afcacef15ae08addddb26d352d23b495",
+  },
+  {
+    "snapshot": "07fdaa9ea7679fc53597b4bdfe1bb734fa1efa4cc71cb850381bfdadef3fc4eb",
+  },
+  {
+    "snapshot": "2f4e16aa8334fe4bda977d8448abe8556dfe168ac49de4173b7308c1ad819c3a",
+  },
+  {
+    "snapshot": "4b3518bc16c73dc8d1c85f40cea5ad2006a3df06d29fbde1c5650fdb88b40c83",
+  },
+  {
+    "snapshot": "2f4e16aa8334fe4bda977d8448abe8556dfe168ac49de4173b7308c1ad819c3a",
+  },
+  {
+    "rows": "1012a839ac086b069bd067ae70ba5530c73e8fa640a7fa0507c8ffe3eb59b358",
+  },
+]
+`;
+
+exports[`Director Vista source > retains corrected BR60S_FINAL results when one of 2 participants is deleted 1`] = `
+[
+  {
+    "snapshot": "2f5d521e899883247cc4afb4f28e2ef6b79aef20d3e745867b1a7d8f8d1235d1",
+  },
+  {
+    "snapshot": "333d1c30d76a85cb17679a9d9fb6fcf385fd00663f19625eeb539b57a0d66725",
+  },
+  {
+    "snapshot": "49b08bcf77989b196a8258fe745f13e23d59bbe695c4d44d2669dbf128b4b157",
+  },
+  {
+    "snapshot": "f4d9b23073c324b062020bac337fbae5226254f8752d957abe199714a94cfdf7",
+  },
+  {
+    "snapshot": "49b08bcf77989b196a8258fe745f13e23d59bbe695c4d44d2669dbf128b4b157",
+  },
+  {
+    "rows": "4a4512d718e090a4b7b5c64997cdf9a922d11833bc25259720098ef3f71d689a",
+  },
+]
+`;
+
+exports[`Director Vista source > retains the latest CLEAR safety clock after delayed Lane state 1`] = `
+[
+  {
+    "snapshot": "f95d359506c63b0aaefc007889c34ca593f411217c45f2ce36da8aba789952f6",
+  },
+  {
+    "snapshot": "f95d359506c63b0aaefc007889c34ca593f411217c45f2ce36da8aba789952f6",
+  },
+  {
+    "rows": "54baa76c08926d2dd13e77d0ebeaa08b1adc96d0dac215b66c2544a027d19182",
+  },
+]
+`;
+
+exports[`Director Vista source > retains the latest STOPPED safety clock after delayed Lane state 1`] = `
+[
+  {
+    "snapshot": "51a71eb2b13204c27b044bb2d34773d978580ee6be950cc37d1544cc1b4a6a86",
+  },
+  {
+    "snapshot": "51a71eb2b13204c27b044bb2d34773d978580ee6be950cc37d1544cc1b4a6a86",
+  },
+  {
+    "rows": "31d4d023cb2bac162715cb5f2e696c341c9e4802ecc8cdf635b7ed2a3f7eb3ee",
+  },
+]
+`;
+
+exports[`Director Vista source > retries a Jury correction across the board and detailed result boundary before persistence 1`] = `
+[
+  {
+    "snapshot": "aec43e9d8e43314cadc874e294340506809007f3670a637ce30aeba8586755f3",
+  },
+  {
+    "snapshot": "8183ff9f0b1195f27dc5a45f93bc790f39ae3ab7fb3b36341f4acb105a29b14b",
+  },
+  {
+    "rows": "3a258ab22461e6591d9d5dd0da05cba189007aef56c62b65ce18642a1d4a4687",
+  },
+]
+`;
+
+exports[`Director Vista source > retries changing result boundaries and preserves authoritative totals, ranks and publication as one unit 1`] = `
+[
+  {
+    "snapshot": "a8c3736d8f8c65915cf3169940d7dea3441fd3f02632fb03d3dc2fdb72927615",
+  },
+  {
+    "snapshot": "303dc6147948200249ed24e5e30352f03f79a1e519a2844c6c01bf4e216e774d",
+  },
+  {
+    "rows": "0a00d83d84b98f496564e817a7196a519cfe3d8e998cc42bc0579aae2c4cdd45",
+  },
+]
+`;
+
+exports[`Director Vista source > revises legacy archive public scores without changing the selected generation 1`] = `
+[
+  {
+    "snapshot": "642d330a296f50f1999b9a7f1a78b7998388038486f0118edba8b79054d5b20d",
+  },
+  {
+    "snapshot": "520e4fb021528cc8f07cf543d4c6650005f1fcf0a1d549628437c7388173c222",
+  },
+  {
+    "snapshot": "520e4fb021528cc8f07cf543d4c6650005f1fcf0a1d549628437c7388173c222",
+  },
+  {
+    "snapshot": "520e4fb021528cc8f07cf543d4c6650005f1fcf0a1d549628437c7388173c222",
+  },
+  {
+    "rows": "8c9d71c1679851649555366b1f081d56420c63071193ac556a4305784bc67236",
+  },
+]
+`;
+
+exports[`Director Vista source > revises legacy live public scores without changing the selected generation 1`] = `
+[
+  {
+    "snapshot": "642d330a296f50f1999b9a7f1a78b7998388038486f0118edba8b79054d5b20d",
+  },
+  {
+    "snapshot": "5bffc0f0b03bcfc3480f2722c15b0141d1f41978f3886d905af6d12d5f79bcdc",
+  },
+  {
+    "snapshot": "5bffc0f0b03bcfc3480f2722c15b0141d1f41978f3886d905af6d12d5f79bcdc",
+  },
+  {
+    "snapshot": "4aceed15af702260eac8d4e69a0cfa7c49d44cf77f935ad76d2c980c2d9e1d95",
+  },
+  {
+    "rows": "f0191bd006ae6d58b17b4db4c8e41ef8c864ce5fb5436c43a4cae63032775a5e",
+  },
+]
+`;
+
+exports[`Director Vista source > uses and withdraws Jury inner-ten corrections for relay places through the official reader 1`] = `
+[
+  {
+    "snapshot": "18933f52aff5da70ae4bb3d1ed16e9195a388f04a811f073fbc6f6dc7897eac6",
+  },
+  {
+    "snapshot": "45eab9c4229e38b9be7b6d285760f5c78e34ac43a3e5a0c8b4cd34e70e1bc2bb",
+  },
+  {
+    "snapshot": "748959785c4413ef000c07fce1c930fdd8597da37230d3dc4c136ce51e1f73d0",
+  },
+  {
+    "snapshot": "c3da25c78d48c37d9246ebb11876613489d77f22b6da974638148a7924416971",
+  },
+  {
+    "snapshot": "51a6e42acfb62bee222b4dcb1439d4547e3c6f1985b7faa56332757928e28848",
+  },
+  {
+    "rows": "ce8a57fbab981e1eedd9bd2771dec72607351d3dd51a1ff0d0c23359af09206c",
+  },
+]
+`;
+
+exports[`Director Vista source > uses complete source inner-ten evidence to resolve full-ring live ties 1`] = `
+[
+  {
+    "snapshot": "f7cbcd28722eafe2517e5e97c0833a0e751f21d7809b4ae45a87649eb40224a4",
+  },
+  {
+    "snapshot": "16b63f3c4104f4a47fed393d4c45d12d88f366bd5e30c59f645ffe63d02df93d",
+  },
+  {
+    "rows": "dc1dadcb0e5521b7079d62ba0a91e7dc6a398ed20aaf59c045e6d7ca644c300d",
+  },
+]
+`;
+
+exports[`Director Vista source > uses the active shoot-off round as the zero-based current series 1`] = `
+[
+  {
+    "snapshot": "01b3f2fe671352779386daf452c2e27d6a27df151e684da8c7bd6d1780efadf9",
+  },
+  {
+    "rows": "0cfbb35ce821222f8c61cd35da119b64e921a04db61d430a66ebd48ad6e9a829",
+  },
+]
+`;
+
+exports[`Director Vista source > waits for the scheduled start and advances the same timer without another MQTT observation 1`] = `
+[
+  {
+    "snapshot": "1637c435e5eec38f93653046050bc0b491a425561a91b5bf82d5c4596f41c926",
+  },
+  {
+    "snapshot": "ac33a1d8447afe27175ba3a316a9b85ad28668d9330ce76b2437c9812c34c4dc",
+  },
+  {
+    "snapshot": "b252f413633f50feee793ff47b2654ee4cf682d1b4163ce024340a51112f1e34",
+  },
+  {
+    "snapshot": "9cc34530e5c101e9d14f357790ac7d41db4fc56d58ca6c2eebaa021b7cb8ca9b",
+  },
+  {
+    "rows": "b6d01ba7322d1b804dd6209345b7689d802dacbe0079152d2ee9bd213bb1a71f",
+  },
+]
+`;
