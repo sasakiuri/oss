@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { calculateSeriesScores, DISCIPLINE_LABELS, toArrowDirection } from '@/renderer/presentation/utils/scoreUtils';
+import {
+  calculateSeriesScores,
+  DISCIPLINE_LABELS,
+  formatScore,
+  toArrowDirection,
+} from '@/renderer/presentation/utils/scoreUtils';
 
 describe('scoreUtils', () => {
   describe('DISCIPLINE_LABELS', () => {
@@ -156,6 +161,20 @@ describe('scoreUtils', () => {
         // Compare with approximate values due to floating-point arithmetic
         expect(total).toBeCloseTo(101.5, 1);
       });
+    });
+  });
+
+  describe('formatScore', () => {
+    it('shows whole rings rounded down for RING scoring', () => {
+      expect(formatScore(109, 'RING')).toBe('10');
+      expect(formatScore(1045, 'RING')).toBe('104');
+      expect(formatScore(0, 'RING')).toBe('0');
+    });
+
+    it('shows one decimal otherwise', () => {
+      expect(formatScore(109, 'DECIMAL')).toBe('10.9');
+      expect(formatScore(1045, 'DECIMAL')).toBe('104.5');
+      expect(formatScore(0, 'DECIMAL')).toBe('0.0');
     });
   });
 });

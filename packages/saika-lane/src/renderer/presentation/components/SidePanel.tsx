@@ -8,7 +8,7 @@ import { useCompetitionStore } from '../stores/competitionStore';
 import { useDirectorMembershipStore } from '../stores/directorMembershipStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { withDisplayShotNumbers } from '../utils/displayShotNumbers';
-import { DISCIPLINE_LABELS, calculateSeriesScores } from '../utils/scoreUtils';
+import { DISCIPLINE_LABELS, calculateSeriesScores, formatScore } from '../utils/scoreUtils';
 
 import { ModeIndicator } from './ModeIndicator';
 import { SeriesScoreGrid } from './side-panel/SeriesScoreGrid';
@@ -137,9 +137,7 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
           </p>
         )}
         <div className="flex h-16 flex-col items-center justify-center border-b border-zinc-500 px-2">
-          <span className="text-5xl font-bold text-zinc-300">
-            {acc === 'RING' ? String(Math.floor(displayTotalScore / 10)) : (displayTotalScore / 10).toFixed(1)}
-          </span>
+          <span className="text-5xl font-bold text-zinc-300">{formatScore(displayTotalScore, acc)}</span>
         </div>
 
         {/* Timer (competition active only) */}
