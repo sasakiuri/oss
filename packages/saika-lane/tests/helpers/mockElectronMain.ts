@@ -71,6 +71,7 @@ export function mockElectronMain(electron: ElectronMainMock): void {
         whenReady: vi.fn(() => Promise.resolve()),
         on: vi.fn(),
         getPath: vi.fn(() => electron.userDataPath),
+        requestSingleInstanceLock: vi.fn(() => true),
         quit: vi.fn(),
         focus: vi.fn(),
       },
