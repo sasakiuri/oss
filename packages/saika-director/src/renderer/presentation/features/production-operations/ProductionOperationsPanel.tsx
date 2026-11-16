@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Megaphone, Music, RefreshCw } from 'lucide-react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { productionOperationsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { ProductionOperationAssessmentDto, RecordProductionOperationPayload } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 
@@ -16,8 +18,7 @@ export function ProductionOperationsPanel(props: ProductionOperationsPanelProps)
   const [assessment, setAssessment] = useState<ProductionOperationAssessmentDto | null>(null);
   const [officialName, setOfficialName] = useState('');
   const [statement, setStatement] = useState('External sound and production system checked');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
 
   const load = useCallback(async () => {
     setError(null);
@@ -34,22 +35,16 @@ export function ProductionOperationsPanel(props: ProductionOperationsPanelProps)
   }, [load]);
 
   const record = async (action: RecordProductionOperationPayload['action']) => {
-    setBusy(true);
-    setError(null);
-    try {
+    await run(async () => {
       const response = await productionOperationsService.record({
         ...props,
         action,
         officialName: officialName.trim(),
         statement: statement.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       await load();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const enabled = Boolean(officialName.trim() && statement.trim() && !busy);

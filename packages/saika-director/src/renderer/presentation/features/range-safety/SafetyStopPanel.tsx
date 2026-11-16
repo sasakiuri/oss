@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertOctagon, CheckCircle2, LoaderCircle, RotateCcw } from 'lucide-react';
 
 import { mqttService } from '@/renderer/services';
+import { errorMessage } from '@/renderer/services/serviceError';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import type { DirectorLaneSnapshotDto, SafetyStopAuditEntryDto } from '@/shared/ipc/contracts';
 
@@ -106,7 +107,7 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
       );
       await refreshAudit();
     } catch (caught) {
-      addNotification('error', caught instanceof Error ? caught.message : 'Failed to issue the safety STOP');
+      addNotification('error', errorMessage(caught, 'Failed to issue the safety STOP'));
     } finally {
       setBusy(null);
     }
@@ -172,7 +173,7 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
         }
         await refreshAudit();
       } catch (caught) {
-        addNotification('error', caught instanceof Error ? caught.message : 'Failed to clear the safety latch');
+        addNotification('error', errorMessage(caught, 'Failed to clear the safety latch'));
       } finally {
         setBusy(null);
       }
