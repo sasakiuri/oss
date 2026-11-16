@@ -32,6 +32,7 @@ import { SqliteScoringDecisionRepository } from '@/main/modules/scoring-decision
 import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
 import { directorVistaDefinition, vistaDigest } from '@/main/modules/vista/application/directorVistaDefinition';
 import { DirectorVistaSource } from '@/main/modules/vista/application/DirectorVistaSource';
+import { SqliteVistaSourceStore } from '@/main/modules/vista/infra/SqliteVistaSourceStore';
 import { sha256Json } from '@/main/domain/sha256Json';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { CompetitionTypeRegistry, getMatchSeriesShotCounts } from '@/shared/competitionTypes';
@@ -63,6 +64,13 @@ const identity = {
   name: 'Director',
 };
 
+function vistaOperationSources(database: Database.Database) {
+  return {
+    finalOperations: new SqliteFinalOperationRepository(database),
+    finalControls: new SqliteFinalControlRepository(database),
+    reserveTransfers: new SqliteReserveTransferRepository(database),
+  };
+}
 function control(registry: CompetitionTypeRegistry, eventCode = 'BR60S'): MqttControlSnapshotDto {
   const definition = registry.get(eventCode);
   return {
@@ -293,7 +301,15 @@ describe('Director Vista source', () => {
       protestEndsAt: null,
       results: [],
     }));
-    source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+    source = new DirectorVistaSource(
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
+      registry,
+      journal,
+      { getSnapshot: board },
+      identity,
+      () => checkedAt,
+    );
   });
   afterEach(() => {
     // The saved sources and snapshots are read back by later Director versions.
@@ -553,7 +569,16 @@ describe('Director Vista source', () => {
       },
     );
     const readProjection = vi.fn(() => reader.getDisplayByEvent(eventId));
-    source = new DirectorVistaSource(db, registry, journal, boards, identity, () => checkedAt, readProjection);
+    source = new DirectorVistaSource(
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
+      registry,
+      journal,
+      boards,
+      identity,
+      () => checkedAt,
+      readProjection,
+    );
     source.observe(snapshot);
     const apply = (changes: ScoreCorrectionChange[]) => {
       const request = {
@@ -777,7 +802,15 @@ describe('Director Vista source', () => {
     });
     expect(retained.revision).toBeGreaterThan(corrected.revision);
 
-    source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+    source = new DirectorVistaSource(
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
+      registry,
+      journal,
+      { getSnapshot: board },
+      identity,
+      () => checkedAt,
+    );
     expect(await source.snapshot(`${competitionId}:relay`)).toEqual(retained);
   });
 
@@ -1054,7 +1087,15 @@ describe('Director Vista source', () => {
     expect(correctedEvent.ranking!.rows[1]).toMatchObject({ total: 580, rank: 2 });
     expect(correctedRelay.revision).toBeGreaterThan(finishedRelay.revision);
 
-    source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+    source = new DirectorVistaSource(
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
+      registry,
+      journal,
+      { getSnapshot: board },
+      identity,
+      () => checkedAt,
+    );
     expect(await source.snapshot(relayId)).toEqual(correctedRelay);
     expect(await source.snapshot(eventSubjectId)).toEqual(correctedEvent);
     db.prepare('UPDATE results SET source_competition_id = ? WHERE id = ?').run(randomUUID(), 'selected');
@@ -1147,7 +1188,15 @@ describe('Director Vista source', () => {
       expect(migrated.participants).toEqual(legacy.participants);
       expect(migrated.revision).toBeGreaterThan(legacy.revision);
       if (kind === 'published') db.prepare('UPDATE results SET source_competition_id = ?').run(randomUUID());
-      source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+      source = new DirectorVistaSource(
+        new SqliteVistaSourceStore(db),
+        vistaOperationSources(db),
+        registry,
+        journal,
+        { getSnapshot: board },
+        identity,
+        () => checkedAt,
+      );
       expect(source.catalog().subjects.find((subject) => subject.id === `${competitionId}:relay`)?.availability).toBe(
         'available',
       );
@@ -1341,7 +1390,8 @@ describe('Director Vista source', () => {
     correctedShots[0] = 8;
     correctedShots[11] = 9;
     const corrected = new DirectorVistaSource(
-      db,
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
       registry,
       journal,
       { getSnapshot: board },
@@ -1794,7 +1844,15 @@ describe('Director Vista source', () => {
     expect(departed.ranking!.rows).toEqual([]);
     expect(departed.generation).toBe(joined.generation);
 
-    source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+    source = new DirectorVistaSource(
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
+      registry,
+      journal,
+      { getSnapshot: board },
+      identity,
+      () => checkedAt,
+    );
     expect((await source.snapshot(`${competitionId}:relay`)).participants).toEqual([]);
 
     snapshot.competitions[0]!.laneIds = [laneId];
@@ -2009,7 +2067,8 @@ describe('Director Vista source', () => {
       original.participants[0]!.shots,
     );
     const restarted = new DirectorVistaSource(
-      db,
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
       registry,
       journal,
       { getSnapshot: board },
@@ -2146,7 +2205,15 @@ describe('Director Vista source', () => {
       source.observe(snapshot);
       for (const restarted of [false, true]) {
         if (restarted)
-          source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+          source = new DirectorVistaSource(
+            new SqliteVistaSourceStore(db),
+            vistaOperationSources(db),
+            registry,
+            journal,
+            { getSnapshot: board },
+            identity,
+            () => checkedAt,
+          );
         const archived = await source.snapshot(`${competitionId}:relay`);
         expect(archived.participants[0]!.status).toBe(
           priorOperations ? 'Eliminated · rank 8 · after shot 12' : 'READY',
@@ -2205,7 +2272,15 @@ describe('Director Vista source', () => {
     source.observe(snapshot);
     for (const restarted of [false, true]) {
       if (restarted)
-        source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+        source = new DirectorVistaSource(
+          new SqliteVistaSourceStore(db),
+          vistaOperationSources(db),
+          registry,
+          journal,
+          { getSnapshot: board },
+          identity,
+          () => checkedAt,
+        );
       const archived = await source.snapshot(`${competitionId}:relay`);
       expect(archived.participants).toHaveLength(1);
       expect(archived.participants[0]).toMatchObject({ id: participantId, laneId: firstReserve });
@@ -2238,7 +2313,15 @@ describe('Director Vista source', () => {
       JSON.stringify(legacy),
       competitionId,
     );
-    source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+    source = new DirectorVistaSource(
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
+      registry,
+      journal,
+      { getSnapshot: board },
+      identity,
+      () => checkedAt,
+    );
     expect(source.catalog().subjects.find((subject) => subject.id === `${competitionId}:relay`)).toMatchObject({
       availability: 'unsupported',
       reason: expect.stringContaining('operation history at its reset boundary'),
@@ -2358,7 +2441,8 @@ describe('Director Vista source', () => {
     next.lanes[0]!.competitionState!.competitionId = nextId;
     source.observe(next);
     source = new DirectorVistaSource(
-      db,
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
       registry,
       journal,
       { getSnapshot: board },
@@ -2379,7 +2463,8 @@ describe('Director Vista source', () => {
     source.observe(snapshot);
     const live = await source.snapshot(`${competitionId}:relay`);
     const restarted = new DirectorVistaSource(
-      db,
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
       registry,
       journal,
       { getSnapshot: board },
@@ -2425,7 +2510,8 @@ describe('Director Vista source', () => {
 
       if (recovery === 'restart')
         source = new DirectorVistaSource(
-          db,
+          new SqliteVistaSourceStore(db),
+          vistaOperationSources(db),
           registry,
           journal,
           { getSnapshot: board },
@@ -2491,7 +2577,8 @@ describe('Director Vista source', () => {
       lastCommand: null,
     });
     const restarted = new DirectorVistaSource(
-      db,
+      new SqliteVistaSourceStore(db),
+      vistaOperationSources(db),
       registry,
       journal,
       { getSnapshot: board },
@@ -2842,7 +2929,15 @@ describe('Director Vista source', () => {
       expect(source.catalog().subjects[0]!.availability).toBe('available');
       expect((await source.snapshot(`${competitionId}:relay`)).participants).toEqual(result.participants);
       expect(db.prepare('SELECT total_changes() AS count').get()).toEqual(writes);
-      source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
+      source = new DirectorVistaSource(
+        new SqliteVistaSourceStore(db),
+        vistaOperationSources(db),
+        registry,
+        journal,
+        { getSnapshot: board },
+        identity,
+        () => checkedAt,
+      );
       const restored = await source.snapshot(`${competitionId}:relay`);
       expect(restored.generation).toBe(result.generation);
       expect(restored.participants).toEqual(

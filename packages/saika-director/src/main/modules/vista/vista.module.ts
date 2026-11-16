@@ -4,11 +4,15 @@ import { join } from 'node:path';
 import { app } from 'electron';
 import { createVistaDiscovery, createVistaServer, loadVistaCredentials } from '@sasakiuri/saika-protocol/vista-node';
 import { VISTA_CATALOG_PATH, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
+import { SqliteFinalControlRepository } from '@/main/modules/final-control';
+import { SqliteFinalOperationRepository } from '@/main/modules/final-operations';
+import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { ResultBoardSnapshotService, ResultPublicationService } from '@/main/modules/result-publication';
 import { vistaContract } from '@/shared/ipc/contracts/vista.contract';
 import { Logger } from '@/shared/utils/Logger';
 import { DirectorVistaSource } from './application/DirectorVistaSource';
+import { SqliteVistaSourceStore } from './infra/SqliteVistaSourceStore';
 
 const logger = Logger.create('vista');
 export const vistaModule: ModuleDefinition<
@@ -85,7 +89,12 @@ export const vistaModule: ModuleDefinition<
       ctx.finalResultDeclarationService,
     );
     const source = new DirectorVistaSource(
-      ctx.database,
+      new SqliteVistaSourceStore(ctx.database),
+      {
+        finalOperations: new SqliteFinalOperationRepository(ctx.database),
+        finalControls: new SqliteFinalControlRepository(ctx.database),
+        reserveTransfers: new SqliteReserveTransferRepository(ctx.database),
+      },
       ctx.competitionTypeRegistry,
       ctx.competitionShotJournal,
       boards,

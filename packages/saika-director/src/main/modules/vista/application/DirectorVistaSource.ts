@@ -1,97 +1,62 @@
 // SPDX-License-Identifier: MIT
-import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
 import {
   VistaSnapshotSchema,
   type VistaCatalog,
-  type VistaDefinition,
   type VistaIdentity,
-  type VistaParticipant,
   type VistaSnapshot,
 } from '@sasakiuri/saika-protocol/Vista';
-import type Database from 'better-sqlite3';
 import { z } from 'zod';
 
-import { SqliteFinalControlRepository } from '@/main/modules/final-control';
-import { SqliteFinalOperationRepository, projectFinalOperation } from '@/main/modules/final-operations';
+import type { IFinalControlRepository } from '@/main/modules/final-control';
+import { projectFinalOperation, type IFinalOperationRepository } from '@/main/modules/final-operations';
 import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
-import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
-import { assembleRankingEvidence, type ResultDisplayProjection } from '@/main/modules/results';
-import type { CompetitionTypeRegistry, QualificationRankingInput } from '@/shared/competitionTypes';
+import type { IReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
+import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
 import { ReserveLaneTransferBundleSchema } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 import { directorVistaDefinition, vistaDigest } from './directorVistaDefinition';
+import { VistaSnapshotProjector } from './VistaSnapshotProjector';
+import {
+  CanonicalSnapshotSchema,
+  missingResetOperations,
+  type CanonicalSnapshot,
+  type CompletedTransfer,
+  type DirectorVistaResultProjection,
+  type SavedSource,
+  type VistaOperations,
+} from './VistaSourceModel';
+import type { IVistaSourceStore, VistaLinkedResult, VistaSourceRow } from './VistaSourceStore';
 
-type Competition = MqttControlSnapshotDto['competitions'][number];
-type Lane = MqttControlSnapshotDto['lanes'][number];
-const CanonicalSnapshotSchema = VistaSnapshotSchema.and(z.object({ eventRanking: VistaSnapshotSchema.shape.ranking }));
-type CanonicalSnapshot = z.infer<typeof CanonicalSnapshotSchema>;
 type RankingScope = 'relay' | 'event';
-type CompletedTransfer = ReturnType<SqliteReserveTransferRepository['list']>[number] & {
-  sessionId: string;
-  athleteId: string;
-};
-interface VistaOperations {
-  completedTransfers: CompletedTransfer[];
-  decisions: ReturnType<SqliteFinalControlRepository['findByCompetition']>;
-  shootOff: ReturnType<typeof projectFinalOperation>['shootOff'];
-  shootOffShots: ReturnType<SqliteFinalOperationRepository['findShootOffShotsByRun']>;
-}
-const missingResetOperations = 'This saved archive lacks operation history at its reset boundary';
-interface SavedSource {
-  upstreamConnected: boolean;
-  confirmedLaneIds: string[];
-  resetCommandId: string | null;
-  sessionHistory: Record<string, string[]>;
-  observedSeriesCounts: Record<string, number>;
-  shotWindows: Record<string, { after: string | null; before: string | null }>;
-  frozenShotIds: string[] | null;
-  /** Absent in older saved sources; an archive must not acquire later operations as a substitute. */
-  frozenOperations?: VistaOperations | null;
-  excludedResultIds: string[];
-  competition: Competition;
-  lanes: Lane[];
-  observedFromStart: string[];
-  definition: VistaDefinition | null;
-  reason: string | null;
-  eventId: string | null;
-  eventName: string | null;
-  championship: string | null;
-  relay: string | null;
-}
-interface SourceRow {
-  id: string;
-  source_json: string;
-  snapshot_json: string | null;
-  revision: number;
-}
-interface ParticipantRecord {
-  id: string;
-  event_id: string;
-  player_name: string;
-  affiliation: string;
-  entry_status: string;
-}
-interface LinkedResult {
-  id: string;
-  participant_id: string;
-  source_competition_id: string | null;
-  source_lane_id: string | null;
-  relay_number: number;
-}
-export type DirectorVistaResultProjection = ResultDisplayProjection;
+
 export interface DirectorVistaBoards {
   getSnapshot(eventId: string, scope: 'QUALIFICATION' | 'FINAL'): Promise<ResultBoardSnapshotDto>;
 }
 
-/** Owns a durable read projection; no competition command ports are reachable from this source. */
+/** The Final and reserve transfer history a Vista snapshot shows and an archive freezes. */
+export interface VistaOperationSources {
+  readonly finalOperations: Pick<
+    IFinalOperationRepository,
+    'findLatestRunByCompetition' | 'findShootOffShotsByRun' | 'findEntriesByRun'
+  >;
+  readonly finalControls: Pick<IFinalControlRepository, 'findByCompetition'>;
+  readonly reserveTransfers: Pick<IReserveTransferRepository, 'list' | 'entries'>;
+}
+
+/**
+ * Owns a durable read projection; no competition command ports are reachable from this source. It tracks the
+ * observed competitions in the store and lets VistaSnapshotProjector build the displayed snapshot.
+ */
 export class DirectorVistaSource {
   private latestControlSnapshot: MqttControlSnapshotDto | null = null;
   private transferRevision = 0;
+  private readonly projector: VistaSnapshotProjector;
 
   constructor(
-    private readonly db: Database.Database,
+    private readonly store: IVistaSourceStore,
+    private readonly operationSources: VistaOperationSources,
     private readonly registry: CompetitionTypeRegistry,
     private readonly journal: ICompetitionShotJournal,
     private readonly boards: DirectorVistaBoards,
@@ -99,24 +64,30 @@ export class DirectorVistaSource {
     private readonly now: () => number = Date.now,
     private readonly projectResults?: (eventId: string, final: boolean) => Promise<DirectorVistaResultProjection[]>,
   ) {
+    this.projector = new VistaSnapshotProjector({
+      registry,
+      now,
+      observations: (source) => this.observations(source),
+      operations: (competitionId) => this.operations(competitionId),
+      participant: (id) => this.store.participant(id),
+      resultLinks: (source) => this.resultLinks(source),
+    });
     // A persisted connection flag cannot confirm the upstream connection in a new Director process.
-    this.db.transaction(() => {
-      for (const row of this.rows()) {
+    this.store.transaction(() => {
+      for (const row of this.store.rows()) {
         const source = JSON.parse(row.source_json) as SavedSource;
         if (source.competition.finishedAt) continue;
         source.upstreamConnected = false;
         source.confirmedLaneIds = [];
-        this.db
-          .prepare('UPDATE vista_competition_sources SET source_json = ? WHERE id = ?')
-          .run(JSON.stringify(source), row.id);
+        this.store.saveSource(row.id, JSON.stringify(source));
       }
-    })();
+    });
   }
 
   /** Synchronous event capture also retains prior competitions when physical Lanes are reused. */
   observe(snapshot: MqttControlSnapshotDto): void {
-    this.db.transaction(() => {
-      for (const row of this.rows()) {
+    this.store.transaction(() => {
+      for (const row of this.store.rows()) {
         const stored = JSON.parse(row.source_json) as SavedSource;
         if (
           snapshot.connected &&
@@ -126,13 +97,12 @@ export class DirectorVistaSource {
         if (stored.upstreamConnected && !stored.competition.finishedAt) {
           stored.upstreamConnected = false;
           stored.confirmedLaneIds = [];
-          this.db
-            .prepare('UPDATE vista_competition_sources SET source_json = ? WHERE id = ?')
-            .run(JSON.stringify(stored), row.id);
+          this.store.saveSource(row.id, JSON.stringify(stored));
         }
       }
       for (const competition of snapshot.competitions) {
-        const previousRow = this.rows()
+        const previousRow = this.store
+          .rows()
           .reverse()
           .find(
             (row) =>
@@ -183,7 +153,8 @@ export class DirectorVistaSource {
           }
           const archived = { ...previous, shotWindows: archivedWindows };
           const frozenShotIds = [...new Set(this.observations(archived).map((shot) => shot.shotId))];
-          this.db.prepare('UPDATE vista_competition_sources SET source_json = ? WHERE id = ?').run(
+          this.store.saveSource(
+            previousRow.id,
             JSON.stringify({
               ...previous,
               shotWindows: archivedWindows,
@@ -195,7 +166,6 @@ export class DirectorVistaSource {
                   ? null
                   : previous.reason,
             }),
-            previousRow.id,
           );
         }
         const sessionHistory = { ...previous?.sessionHistory };
@@ -313,20 +283,10 @@ export class DirectorVistaSource {
           reason = error instanceof Error ? error.message : String(error);
         }
         const participants = [...lanes.values()].flatMap((lane) => lane.assignment?.athlete?.id ?? []);
-        const eventIds = [...new Set(participants.flatMap((id) => this.participant(id)?.event_id ?? []))];
+        const eventIds = [...new Set(participants.flatMap((id) => this.store.participant(id)?.event_id ?? []))];
         const eventId = eventIds.length === 1 ? eventIds[0]! : (previous?.eventId ?? null);
-        const event = eventId
-          ? (this.db
-              .prepare(
-                `SELECT e.name, c.name championship FROM events e JOIN championships c ON c.id = e.championship_id WHERE e.id = ?`,
-              )
-              .get(eventId) as { name: string; championship: string } | undefined)
-          : undefined;
-        const relay = eventId
-          ? (this.db
-              .prepare('SELECT relay_number FROM results WHERE event_id = ? AND source_competition_id = ? LIMIT 1')
-              .get(eventId, competition.competitionId) as { relay_number: number } | undefined)
-          : undefined;
+        const event = eventId ? this.store.eventLabels(eventId) : undefined;
+        const relay = eventId ? this.store.resultRelay(eventId, competition.competitionId) : undefined;
         if (unconfirmedReplacement) reason = 'An unconfirmed Lane session replacement requires source synchronization';
         const source: SavedSource = {
           upstreamConnected: snapshot.connected,
@@ -357,14 +317,9 @@ export class DirectorVistaSource {
           relay: relay ? String(relay.relay_number) : (previous?.relay ?? null),
         };
         const json = JSON.stringify(source);
-        if (reset || !previous || json !== JSON.stringify(previous))
-          this.db
-            .prepare(
-              `INSERT INTO vista_competition_sources (id, source_json) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET source_json = excluded.source_json`,
-            )
-            .run(subjectId, json);
+        if (reset || !previous || json !== JSON.stringify(previous)) this.store.upsertSource(subjectId, json);
       }
-    })();
+    });
     this.latestControlSnapshot = structuredClone(snapshot);
     this.transferRevision = this.currentTransferRevision();
   }
@@ -373,7 +328,7 @@ export class DirectorVistaSource {
     this.refreshCompletedTransfers();
     return {
       identity: this.identity,
-      subjects: this.rows().flatMap((row) => {
+      subjects: this.store.rows().flatMap((row) => {
         const source = JSON.parse(row.source_json) as SavedSource;
         const reason =
           source.reason ??
@@ -388,9 +343,15 @@ export class DirectorVistaSource {
           reason,
         };
         return [
-          { ...subject, id: `${row.id}:relay`, label: `${this.label(source)} · Current competition` },
+          { ...subject, id: `${row.id}:relay`, label: `${this.projector.label(source)} · Current competition` },
           ...(source.eventId
-            ? [{ ...subject, id: `${row.id}:event`, label: `${this.label(source)} · Event results · all relays` }]
+            ? [
+                {
+                  ...subject,
+                  id: `${row.id}:event`,
+                  label: `${this.projector.label(source)} · Event results · all relays`,
+                },
+              ]
             : []),
         ];
       }),
@@ -414,28 +375,6 @@ export class DirectorVistaSource {
     });
   }
 
-  private publicScores(snapshot: CanonicalSnapshot): CanonicalSnapshot {
-    const publicRanking = (ranking: VistaSnapshot['ranking']) => {
-      if (!ranking) return null;
-      const rows = ranking.rows.map((row) =>
-        classificationSuppressesScore(row.classification) ? { ...row, total: null } : row,
-      );
-      if (rows.every((row, index) => row.total === ranking.rows[index]!.total)) return ranking;
-      const next = { ...ranking, rows, revision: '' };
-      return { ...next, revision: vistaDigest(next) };
-    };
-    return {
-      ...snapshot,
-      participants: snapshot.participants.map((participant) =>
-        classificationSuppressesScore(participant.status)
-          ? { ...participant, total: null, series: participant.series.map((series) => ({ ...series, total: null })) }
-          : participant,
-      ),
-      ranking: publicRanking(snapshot.ranking),
-      eventRanking: publicRanking(snapshot.eventRanking),
-    };
-  }
-
   /** Retries if any local result, evidence, assignment or publication changed across an async board read. */
   private async canonicalSnapshot(subjectId: string): Promise<CanonicalSnapshot> {
     for (let attempt = 0; attempt < 3; attempt++) {
@@ -453,8 +392,7 @@ export class DirectorVistaSource {
         if (!source.frozenOperations) throw new Error(missingResetOperations);
       }
       if (source.eventId) {
-        const event = this.db.prepare('SELECT event_type FROM events WHERE id = ?').get(source.eventId) as
-          { event_type: string } | undefined;
+        const event = this.store.eventType(source.eventId);
         if (!event || event.event_type !== source.competition.competitionTypeId)
           throw new Error('The event binding no longer matches the selected competition');
       }
@@ -472,7 +410,7 @@ export class DirectorVistaSource {
           ? await this.projectResults(source.eventId, board.resultScope === 'FINAL')
           : [];
       if (boundary !== this.boundary()) continue;
-      const { participants, shootOffActive } = this.projectParticipants(source);
+      const { participants, shootOffActive } = this.projector.projectParticipants(source);
       const currentParticipantIds = new Set(participants.map((participant) => participant.id));
       const eventResults = this.resultLinks(source);
       const linkedResults = eventResults.filter(
@@ -485,7 +423,7 @@ export class DirectorVistaSource {
           currentParticipantIds.has(link.participant_id) &&
           link.source_competition_id !== source.competition.competitionId,
       );
-      const row = this.row(subjectId)!;
+      const row = this.store.row(subjectId)!;
       const previous = row.snapshot_json ? CanonicalSnapshotSchema.parse(JSON.parse(row.snapshot_json)) : null;
       // A deleted result cannot revoke corrections already acquired for this
       // finished subject. Partial result acquisition can still add new rows.
@@ -522,11 +460,11 @@ export class DirectorVistaSource {
             if (projection) {
               if (!row.classificationCode && ['eliminated', 'finished'].includes(projection.status))
                 participant.status = projection.status;
-              this.applyResultShots(participant, projection, source, observations);
+              this.projector.applyResultShots(participant, projection, source, observations);
               participant.series = source.definition.stages.flatMap((stage, stageIndex) =>
                 stage.scored
                   ? stage.seriesShots.flatMap((_, seriesIndex) => {
-                      const slot = this.resultSlot(source, stageIndex, seriesIndex)!;
+                      const slot = this.projector.resultSlot(source, stageIndex, seriesIndex)!;
                       const total = projection.seriesScores[slot.seriesOffset];
                       return total === undefined ? [] : [{ stage: stageIndex, index: seriesIndex, total }];
                     })
@@ -538,7 +476,7 @@ export class DirectorVistaSource {
       }
       const capturedAt = this.now();
       const competition = source.competition;
-      const ranking = this.liveRanking(
+      const ranking = this.projector.liveRanking(
         participants,
         source,
         usePublishedResults
@@ -554,7 +492,7 @@ export class DirectorVistaSource {
         ranking.rows.sort((a, b) => (a.rank ?? Number.MAX_SAFE_INTEGER) - (b.rank ?? Number.MAX_SAFE_INTEGER));
         ranking.revision = vistaDigest({ ...ranking, revision: '' });
       }
-      const next = this.publicScores(
+      const next = this.projector.publicScores(
         CanonicalSnapshotSchema.parse({
           protocolVersion: 1,
           sourceId: this.identity.sourceId,
@@ -565,41 +503,39 @@ export class DirectorVistaSource {
           }),
           revision: row.revision + 1,
           capturedAt,
-          label: this.label(source),
+          label: this.projector.label(source),
           phase: competition.phase,
           finished: competition.phase === 'MATCH_COMPLETE' && competition.finishedAt !== null,
           definition: source.definition,
           participants,
-          clock: shootOffActive ? null : this.rangeClock(source, capturedAt),
+          clock: shootOffActive ? null : this.projector.rangeClock(source, capturedAt),
           ranking,
-          eventRanking: board && board.results.length ? this.ranking(board, source) : null,
+          eventRanking: board && board.results.length ? this.projector.ranking(board, source) : null,
         }),
       );
       if (previous) {
         const semantic = (value: CanonicalSnapshot) => ({ ...value, capturedAt: 0, revision: 0 });
         if (vistaDigest(semantic(previous)) === vistaDigest(semantic(next))) return { ...previous, capturedAt };
       }
-      this.db
-        .prepare('UPDATE vista_competition_sources SET snapshot_json = ?, revision = ? WHERE id = ?')
-        .run(JSON.stringify(next), next.revision, subjectId);
+      this.store.saveSnapshot(subjectId, JSON.stringify(next), next.revision);
       return next;
     }
     throw new Error('Source data is changing; waiting for a coherent Vista snapshot');
   }
 
   /** A later run cannot re-certify an earlier run's last coherent published scores. */
-  private hasPublishedArchive(row: SourceRow): boolean {
+  private hasPublishedArchive(row: VistaSourceRow): boolean {
     if (!row.snapshot_json) return false;
     const previous = CanonicalSnapshotSchema.parse(JSON.parse(row.snapshot_json));
     return previous.finished && previous.eventRanking?.kind === 'competition';
   }
 
   private archivedPublishedSnapshot(subjectId: string): CanonicalSnapshot | null {
-    const row = this.row(subjectId)!;
+    const row = this.store.row(subjectId)!;
     if (!row.snapshot_json) return null;
     const previous = CanonicalSnapshotSchema.parse(JSON.parse(row.snapshot_json));
     if (!previous.finished || previous.eventRanking?.kind !== 'competition') return null;
-    const archived = this.publicScores({
+    const archived = this.projector.publicScores({
       ...previous,
       capturedAt: this.now(),
       participants: previous.participants.map((participant) => ({ ...participant, dataState: 'stale', clock: null })),
@@ -609,124 +545,9 @@ export class DirectorVistaSource {
     });
     if (vistaDigest({ ...archived, capturedAt: 0 }) !== vistaDigest({ ...previous, capturedAt: 0 })) {
       archived.revision = row.revision + 1;
-      this.db
-        .prepare('UPDATE vista_competition_sources SET snapshot_json = ?, revision = ? WHERE id = ?')
-        .run(JSON.stringify(archived), archived.revision, subjectId);
+      this.store.saveSnapshot(subjectId, JSON.stringify(archived), archived.revision);
     }
     return archived;
-  }
-
-  private resultSlot(source: SavedSource, stageIndex: number, seriesIndex: number) {
-    let shotOffset = 0;
-    let seriesOffset = 0;
-    for (const [stage, definition] of source.definition!.stages.entries()) {
-      if (!definition.scored) continue;
-      for (const [series, shots] of definition.seriesShots.entries()) {
-        if (stage === stageIndex && series === seriesIndex) return { shotOffset, seriesOffset, shots };
-        shotOffset += shots;
-        seriesOffset++;
-      }
-    }
-    return null;
-  }
-
-  private applyResultShots(
-    participant: VistaParticipant,
-    projection: DirectorVistaResultProjection,
-    source: SavedSource,
-    observations: Map<string, CompetitionShotObservation>,
-  ): void {
-    const byId = new Map(participant.shots.filter((shot) => shot.mode === 'match').map((shot) => [shot.id, shot]));
-    const byOriginalPosition = new Map<number, VistaParticipant['shots'][number]>();
-    const ambiguousPositions = new Set<number>();
-    // Unidentified original Final shots can be linked only to the acknowledged finish snapshot.
-    if (participant.dataState === 'saved')
-      for (const shot of byId.values()) {
-        const observation = observations.get(shot.id);
-        const slot = observation ? this.resultSlot(source, observation.stageIndex, observation.seriesIndex) : null;
-        if (shot.recorded && slot && observation && observation.shotNumberInSeries <= slot.shots) {
-          const index = slot.shotOffset + observation.shotNumberInSeries - 1;
-          if (byOriginalPosition.has(index)) ambiguousPositions.add(index);
-          byOriginalPosition.set(index, shot);
-        }
-      }
-    for (const index of ambiguousPositions) byOriginalPosition.delete(index);
-    const positions = source.definition!.stages.flatMap((stage, stageIndex) =>
-      stage.scored
-        ? stage.seriesShots.flatMap((count, series) =>
-            Array.from({ length: count }, () => ({ stage: stageIndex, series })),
-          )
-        : [],
-    );
-    const laneScore = source.lanes.find((lane) => lane.laneId === participant.laneId)?.score;
-    const recordedPositions = new Set<number>();
-    if (participant.dataState === 'saved' && laneScore)
-      for (const stage of laneScore.stages)
-        for (const series of stage.series) {
-          const slot = this.resultSlot(source, stage.stageIndex, series.seriesIndex);
-          if (slot) series.shots.forEach((_, index) => recordedPositions.add(slot.shotOffset + index));
-        }
-    // Stored results may pad positions not fired with zero. Only actual finish slots or an
-    // explicit corrected shot establish a shot count; unknown coverage stays unknown.
-    const unidentifiedShots = projection.shots.some(
-      (shot) => shot.sourceShotId === null && shot.sourceShotIndex === null && !shot.corrected,
-    );
-    if (unidentifiedShots) participant.historyComplete = false;
-    participant.shotCount =
-      !unidentifiedShots &&
-      participant.dataState === 'saved' &&
-      laneScore &&
-      recordedPositions.size === laneScore.totalShotCount
-        ? projection.shots.filter(
-            (shot) =>
-              shot.sourceShotId !== null ||
-              shot.corrected ||
-              (shot.sourceShotIndex !== null && recordedPositions.has(shot.sourceShotIndex)),
-          ).length
-        : null;
-    const projected: VistaParticipant['shots'] = [];
-    const used = new Set<string>();
-    for (const [index, correction] of projection.shots.entries()) {
-      const position = positions[index];
-      if (!position) throw new Error('Result shots exceed the selected competition definition');
-      const original =
-        correction.sourceShotId !== null
-          ? byId.get(correction.sourceShotId)
-          : correction.sourceShotIndex !== null
-            ? byOriginalPosition.get(correction.sourceShotIndex)
-            : undefined;
-      if (!original && correction.sourceShotId === null && !correction.corrected) continue;
-      const id = original?.id ?? correction.sourceShotId ?? `${projection.resultId}:corrected:${index}`;
-      if (used.has(id)) throw new Error('A corrected source shot cannot be counted twice');
-      used.add(id);
-      if (!original) participant.historyComplete = false;
-      projected.push({
-        id,
-        sequence: 0,
-        x: original?.x ?? null,
-        y: original?.y ?? null,
-        score: correction.score,
-        mode: 'match',
-        ...position,
-        recorded: true,
-        corrected: correction.corrected || (original !== undefined && original.score !== correction.score),
-      });
-    }
-    // Retain physical observations that the corrected result excludes, without counting them twice.
-    const originalIds = new Set([...byOriginalPosition.values()].map((shot) => shot.id));
-    const remaining = participant.shots
-      .filter((shot) => !used.has(shot.id))
-      .map((shot) => {
-        if (shot.mode !== 'match' || !shot.recorded) return shot;
-        if (originalIds.has(shot.id)) return { ...shot, recorded: false, corrected: true };
-        participant.historyComplete = false;
-        return shot;
-      });
-    participant.shots = [
-      ...remaining.filter((shot) => shot.mode === 'sighting'),
-      ...projected,
-      ...remaining.filter((shot) => shot.mode !== 'sighting'),
-    ].map((shot, index) => ({ ...shot, sequence: index + 1 }));
   }
 
   /** A reset may keep the Lane session ID, so its acknowledged publication boundary scopes the journal. */
@@ -753,430 +574,32 @@ export class DirectorVistaSource {
     });
   }
 
-  private projectParticipants(source: SavedSource): { participants: VistaParticipant[]; shootOffActive: boolean } {
-    const observations = this.observations(source);
-    const operations =
-      source.frozenShotIds === null ? this.operations(source.competition.competitionId) : source.frozenOperations;
-    if (!operations) throw new Error(missingResetOperations);
-    const { completedTransfers: completed, decisions, shootOff, shootOffShots } = operations;
-    const retired = new Set(completed.map((request) => request.sourceLaneId));
-    const participants: VistaParticipant[] = source.lanes
-      .filter((lane) => source.competition.laneIds.includes(lane.laneId) && !retired.has(lane.laneId))
-      .map((lane) => {
-        const state = lane.competitionState!;
-        const score =
-          lane.score?.sessionId === state.sessionId && lane.score.acc === source.definition!.scoring
-            ? lane.score
-            : null;
-        const athlete = lane.assignment?.athlete;
-        const participant = athlete ? this.participant(athlete.id) : null;
-        const originLanes = new Set([lane.laneId]);
-        // Only an acknowledged transfer is allowed to establish continuity, including chained moves.
-        for (let changed = true; changed;) {
-          changed = false;
-          for (const transfer of completed)
-            if (originLanes.has(transfer.destinationLaneId) && !originLanes.has(transfer.sourceLaneId)) {
-              originLanes.add(transfer.sourceLaneId);
-              changed = true;
-            }
-        }
-        const sessions = new Set(source.sessionHistory?.[state.sessionId] ?? [state.sessionId]);
-        const unique = new Map<string, CompetitionShotObservation>();
-        for (const shot of observations) {
-          if (!originLanes.has(shot.laneId) || !sessions.has(shot.sessionId)) continue;
-          const old = unique.get(shot.shotId);
-          if (!old || old.publishedAt <= shot.publishedAt) unique.set(shot.shotId, shot);
-        }
-        const shots = [...unique.values()]
-          .sort(
-            (a, b) =>
-              a.stageIndex - b.stageIndex ||
-              a.seriesIndex - b.seriesIndex ||
-              a.shotNumberInSeries - b.shotNumberInSeries ||
-              a.firedAt.getTime() - b.firedAt.getTime(),
-          )
-          .map((shot, index) => ({
-            id: shot.shotId,
-            sequence: index + 1,
-            x: shot.targetProfileId === source.definition!.target.profileId ? shot.x : null,
-            y: shot.targetProfileId === source.definition!.target.profileId ? shot.y : null,
-            score: shot.effectiveScoreX10 / 10,
-            mode: shot.mode === 'SIGHTING' ? ('sighting' as const) : ('match' as const),
-            stage: shot.stageIndex,
-            series: shot.seriesIndex,
-            recorded: shot.isRecorded,
-            corrected: false,
-          }));
-        let historyComplete = source.observedFromStart.includes(state.sessionId) && score !== null;
-        for (const [key, expected] of Object.entries(source.observedSeriesCounts ?? {})) {
-          const [recordedSession, stage, series] = key.split(':');
-          if (!recordedSession || !sessions.has(recordedSession)) continue;
-          const actual = [...unique.values()].filter(
-            (shot) =>
-              shot.sessionId === recordedSession &&
-              shot.stageIndex === Number(stage) &&
-              shot.seriesIndex === Number(series) &&
-              (shot.isRecorded || (!shot.scored && shot.mode === 'SIGHTING')),
-          ).length;
-          if (actual !== expected) historyComplete = false;
-        }
-        const recorded = [...unique.values()].filter(
-          (shot) => shot.scored && shot.isRecorded && shot.sessionId === state.sessionId,
-        );
-        if (score) {
-          historyComplete &&= recorded.length === score.totalShotCount;
-          for (const stage of score.stages)
-            for (const series of stage.series)
-              for (const [index, value] of series.shots.entries()) {
-                const slot = recorded.filter(
-                  (shot) =>
-                    shot.stageIndex === stage.stageIndex &&
-                    shot.seriesIndex === series.seriesIndex &&
-                    shot.shotNumberInSeries === index + 1,
-                );
-                if (slot.length !== 1 || slot[0]!.effectiveScoreX10 !== value) historyComplete = false;
-              }
-        }
-        const currentShots = [...unique.values()].filter(
-          (shot) =>
-            shot.stageIndex === state.currentStage.index &&
-            shot.seriesIndex === state.currentSeries.index &&
-            (shot.isRecorded || (!shot.scored && shot.mode === 'SIGHTING')),
-        );
-        if (currentShots.length !== state.currentSeries.shotsRecorded) historyComplete = false;
-        const decision = [...decisions].reverse().find((candidate) => candidate.selectedLaneId === lane.laneId);
-        const inShootOff = shootOff?.eligibleLaneIds.includes(lane.laneId) === true;
-        const finalBoundary =
-          state.phase === 'FINISHED' &&
-          Boolean(state.finalSnapshotCommandId) &&
-          state.finalSnapshotCommandId === score?.finalSnapshotCommandId;
-        const dataState: VistaParticipant['dataState'] = source.competition.finishedAt
-          ? finalBoundary
-            ? 'saved'
-            : 'stale'
-          : !source.upstreamConnected ||
-              !source.confirmedLaneIds?.includes(lane.laneId) ||
-              (lane.hardware && lane.hardware.connection.status !== 'connected')
-            ? 'stale'
-            : 'live';
-        const extra = shootOffShots
-          .filter((shot) => originLanes.has(shot.laneId))
-          .map((shot, index) => ({
-            id: `shoot-off:${shot.shotId}`,
-            sequence: shots.length + index + 1,
-            x: shot.x,
-            y: shot.y,
-            score: shot.scoreX10 / 10,
-            mode: 'shoot-off' as const,
-            stage: state.currentStage.index,
-            series: shot.iteration - 1,
-            recorded: true,
-            corrected: false,
-          }));
-        return {
-          id: athlete?.id || `${lane.laneId}:${state.sessionId}`,
-          laneId: lane.laneId,
-          laneName: lane.laneAlias || (lane.firingPointNumber ? `Lane ${lane.firingPointNumber}` : lane.laneId),
-          name: participant?.player_name ?? athlete?.name ?? null,
-          affiliation: participant?.affiliation ?? athlete?.teamName ?? null,
-          assignmentRevision: vistaDigest({
-            laneId: lane.laneId,
-            sessionId: state.sessionId,
-            assignment: lane.assignment,
-            transfers: completed
-              .filter((transfer) => originLanes.has(transfer.sourceLaneId))
-              .map((transfer) => transfer.id),
-          }),
-          dataState,
-          status:
-            participant?.entry_status && participant.entry_status !== 'COMPETING'
-              ? participant.entry_status
-              : decision
-                ? `${decision.commandCompleted ? 'Eliminated' : 'Elimination pending'} · rank ${decision.rank} · after shot ${decision.afterShot}`
-                : inShootOff
-                  ? shootOff?.status === 'AWAITING_RESOLUTION'
-                    ? 'Shoot-off · awaiting resolution'
-                    : 'Shoot-off'
-                  : state.phase,
-          total: state.currentStage.scored && score ? score.totalScoreX10 / 10 : null,
-          shotCount: state.currentStage.scored ? (score?.totalShotCount ?? null) : state.currentSeries.shotsRecorded,
-          currentStage: state.currentStage.index,
-          currentSeries: inShootOff ? shootOff!.iteration - 1 : state.currentSeries.index,
-          mode: inShootOff
-            ? 'shoot-off'
-            : state.interruption?.status === 'SIGHTING'
-              ? 'sighting'
-              : state.currentStage.scored
-                ? 'match'
-                : 'sighting',
-          series:
-            score?.stages.flatMap((stage) =>
-              stage.series.map((series) => ({
-                stage: stage.stageIndex,
-                index: series.seriesIndex,
-                total: series.seriesTotalX10 / 10,
-              })),
-            ) ?? [],
-          shots: [...shots, ...extra],
-          historyComplete,
-          // The Final ledger does not preserve the acknowledged shoot-off timer origin.
-          clock: dataState === 'stale' || inShootOff ? null : this.laneClock(source, lane, this.now()),
-        };
-      });
-    return { participants, shootOffActive: shootOff !== null };
-  }
-
-  private ranking(board: ResultBoardSnapshotDto, source: SavedSource): VistaSnapshot['ranking'] {
-    return {
-      scope: `${source.eventName ?? source.eventId} · ${board.resultScope} · all relays`,
-      kind: 'competition',
-      revision: board.snapshotRevision,
-      state: board.state,
-      rows: board.results.map((row) => ({
-        id: this.resultLinks(source).find((link) => link.id === row.resultId)?.participant_id ?? row.resultId,
-        rank: row.rank > 0 ? row.rank : null,
-        name: row.playerName,
-        affiliation: row.affiliation,
-        total: classificationSuppressesScore(row.classificationCode ?? row.entryStatus) ? null : row.totalScore,
-        classification: row.classificationCode ?? (row.entryStatus === 'COMPETING' ? null : row.entryStatus),
-      })),
-    };
-  }
-
-  /** Director owns the comparison and its live scope; no persisted official ranking is changed. */
-  private liveRanking(
-    participants: VistaParticipant[],
-    source: SavedSource,
-    projections: DirectorVistaResultProjection[] = [],
-  ): VistaSnapshot['ranking'] {
-    const definition = this.registry.get(source.competition.competitionTypeId);
-    const strategy = this.registry.getStrategyFor(definition);
-    const observations = this.observations(source);
-    const inputs = new Map(
-      participants.map((participant) => {
-        const lane = source.lanes.find((candidate) => candidate.laneId === participant.laneId);
-        const projection = projections.find((result) => result.participantId === participant.id);
-        const series =
-          lane?.score?.stages
-            .flatMap((stage) =>
-              stage.series.map((entry) => ({
-                stageIndex: stage.stageIndex,
-                seriesIndex: entry.seriesIndex,
-                scoresX10: entry.shots.map((score, index) => {
-                  const slot = this.resultSlot(source, stage.stageIndex, entry.seriesIndex);
-                  const corrected = slot ? projection?.shots[slot.shotOffset + index]?.score : undefined;
-                  return corrected === undefined ? score : Math.round(corrected * 10);
-                }),
-              })),
-            )
-            .sort((a, b) => a.stageIndex - b.stageIndex || a.seriesIndex - b.seriesIndex) ?? [];
-        const shotIds = new Set(
-          participant.shots.filter((shot) => shot.mode === 'match' && shot.recorded).map((shot) => shot.id),
-        );
-        return [
-          participant.id,
-          {
-            totalScore: participant.total ?? 0,
-            seriesScores: projection?.seriesScores ?? participant.series.map((series) => series.total ?? 0),
-            shots:
-              projection?.shots.map((shot) => shot.score) ??
-              series.flatMap((entry) => entry.scoresX10.map((score) => score / 10)),
-            rankingShots:
-              projection?.rankingShots ??
-              assembleRankingEvidence(
-                series,
-                observations.filter((shot) => shotIds.has(shot.shotId)),
-              ),
-            familyName: projection?.familyName ?? participant.name ?? participant.laneName,
-          } satisfies QualificationRankingInput,
-        ] as const;
-      }),
-    );
-    const input = (participant: VistaParticipant): QualificationRankingInput => inputs.get(participant.id)!;
-    const classified = (participant: VistaParticipant) =>
-      ['DSQ', 'DQB', 'AD_DSQ', 'DNS', 'DNF', 'RPO', 'MQS', 'OOC'].includes(participant.status);
-    const rankable = (participant: VistaParticipant) => participant.total !== null && !classified(participant);
-    const compare = (a: VistaParticipant, b: VistaParticipant) =>
-      strategy.compareResults(input(a), input(b), definition.resultFormat);
-    const displayOrder = (a: VistaParticipant, b: VistaParticipant) =>
-      strategy.compareEqualResultsForDisplay?.(input(a), input(b)) ?? 0;
-    const eligible = participants.filter(rankable).sort((a, b) => b.total! - a.total!);
-    const ordered: VistaParticipant[] = [];
-    const ranks = new Map<string, number | null>();
-    // Missing higher-priority evidence makes the whole tied total provisional.
-    for (let offset = 0; offset < eligible.length;) {
-      const group = eligible.slice(offset).filter((participant) => participant.total === eligible[offset]!.total);
-      const uncertain = group.some((left, index) =>
-        group
-          .slice(index + 1)
-          .some(
-            (right) =>
-              (strategy.assessComparison?.(input(left), input(right), definition.resultFormat).issues.length ?? 0) > 0,
-          ),
-      );
-      group.sort(uncertain ? displayOrder : (a, b) => compare(a, b) || displayOrder(a, b));
-      let rank = offset + 1;
-      for (const [index, participant] of group.entries()) {
-        if (index > 0 && compare(group[index - 1]!, participant) !== 0) rank = offset + index + 1;
-        ranks.set(participant.id, uncertain ? null : rank);
-      }
-      ordered.push(...group);
-      offset += group.length;
-    }
-    ordered.push(...participants.filter((participant) => !rankable(participant)));
-    const ranking: NonNullable<VistaSnapshot['ranking']> = {
-      scope: `${this.label(source)} · current competition only`,
-      kind: 'live',
-      revision: '',
-      state: 'DRAFT',
-      rows: ordered.map((participant) => {
-        // Final eliminations are an official operation, never inferred from a live total.
-        const eliminated = /^Eliminated · rank (\d+)/.exec(participant.status);
-        return {
-          id: participant.id,
-          rank: !rankable(participant)
-            ? null
-            : definition.config.name === 'Final'
-              ? eliminated
-                ? Number(eliminated[1])
-                : null
-              : (ranks.get(participant.id) ?? null),
-          name: participant.name ?? participant.laneName,
-          affiliation: participant.affiliation,
-          total: classificationSuppressesScore(participant.status) ? null : participant.total,
-          classification: classified(participant) ? participant.status : null,
-        };
-      }),
-    };
-    ranking.revision = vistaDigest(ranking);
-    return ranking;
-  }
-
-  private rangeClock(source: SavedSource, sampledAt: number): VistaSnapshot['clock'] {
-    if (
-      !source.competition.finishedAt &&
-      source.competition.laneIds.some(
-        (laneId) =>
-          !source.competition.transferredSourceLaneIds?.includes(laneId) && !source.confirmedLaneIds?.includes(laneId),
-      )
-    )
-      return null;
-    if (source.lanes.some((lane) => lane.competitionState?.interruption || lane.safetyState?.status === 'STOPPED'))
-      return null;
-    return this.competitionClock(source, sampledAt);
-  }
-
-  private competitionClock(source: SavedSource, sampledAt: number): VistaSnapshot['clock'] {
-    const competition = source.competition;
-    const timer = competition.activeTimer;
-    if ((!source.upstreamConnected && !competition.finishedAt) || !timer) return null;
-    const startsAt = Date.parse(timer.timerStartAt);
-    const scheduled = !competition.finishedAt && sampledAt < startsAt;
-    sampledAt = scheduled
-      ? Date.parse(competition.publishedAt)
-      : Math.max(Date.parse(competition.publishedAt), startsAt);
-    return {
-      generation: `${competition.competitionId}:${timer.timerStartAt}:${timer.stageIndex}:${timer.seriesIndex}`,
-      revision: Math.max(0, sampledAt),
-      label: scheduled ? 'Scheduled' : timer.timerScope === 'STAGE' ? 'Stage' : 'Series',
-      state: competition.finishedAt || scheduled ? 'stopped' : 'running',
-      remainingMs: scheduled
-        ? timer.timerDurationSeconds * 1000
-        : Math.max(
-            0,
-            startsAt +
-              timer.timerDurationSeconds * 1000 -
-              (competition.finishedAt ? Date.parse(competition.finishedAt) : sampledAt),
-          ),
-      sampledAt,
-    };
-  }
-  private laneClock(source: SavedSource, lane: Lane, sampledAt: number): VistaParticipant['clock'] {
-    const state = lane.competitionState!;
-    const now = sampledAt;
-    sampledAt = Date.parse(state.publishedAt);
-    const interruption = state.interruption;
-    const safety = lane.safetyState;
-    const finished = Boolean(source.competition.finishedAt) || state.phase === 'FINISHED';
-    if (safety?.status === 'STOPPED' && safety.timerSnapshot?.competitionId === source.competition.competitionId)
-      return {
-        generation: `${state.sessionId}:${safety.safetyStopId}`,
-        revision: Math.max(0, Date.parse(safety.publishedAt)),
-        label: 'Stopped',
-        state: 'stopped',
-        remainingMs: safety.timerSnapshot.remainingSeconds * 1000,
-        sampledAt,
-      };
-    if (safety?.status === 'STOPPED') return null;
-    if (interruption) {
-      const running = ['RUNNING_MATCH', 'SIGHTING'].includes(interruption.status) && interruption.resumeAt !== null;
-      // Finish does not capture the interruption timer's actual stopped sample.
-      if (finished && running) return null;
-      const startsAt = interruption.resumeAt === null ? null : Date.parse(interruption.resumeAt);
-      const scheduled = running && now < startsAt!;
-      if (running && !scheduled) sampledAt = Math.max(sampledAt, startsAt!);
-      return {
-        generation: `${state.sessionId}:${interruption.interruptionId}`,
-        revision: Math.max(0, sampledAt),
-        label: scheduled ? 'Scheduled' : interruption.status,
-        state: running && !scheduled ? 'running' : 'stopped',
-        remainingMs: running
-          ? Math.max(
-              0,
-              (interruption.authorizedRemainingSeconds ?? interruption.capturedRemainingSeconds) * 1000 -
-                (scheduled ? 0 : sampledAt - startsAt!),
-            )
-          : interruption.capturedRemainingSeconds * 1000,
-        sampledAt,
-      };
-    }
-    const clock = this.competitionClock(source, this.now());
-    return finished && clock?.state === 'running' ? null : clock;
-  }
-  private participant(id: string): ParticipantRecord | null {
-    return (
-      (this.db
-        .prepare('SELECT id, event_id, player_name, affiliation, entry_status FROM participants WHERE id = ?')
-        .get(id) as ParticipantRecord | undefined) ?? null
-    );
-  }
-  private resultLinks(source: SavedSource): LinkedResult[] {
+  private resultLinks(source: SavedSource): VistaLinkedResult[] {
     if (!source.eventId) return [];
-    if (source.competition.competitionTypeId.endsWith('_FINAL'))
-      return this.db
-        .prepare(
-          'SELECT id, participant_id, source_competition_id, NULL source_lane_id, 1 relay_number FROM final_results WHERE event_id = ?',
-        )
-        .all(source.eventId) as LinkedResult[];
-    return this.db
-      .prepare(
-        'SELECT id, participant_id, source_competition_id, source_lane_id, relay_number FROM results WHERE event_id = ?',
-      )
-      .all(source.eventId) as LinkedResult[];
+    return this.store.resultLinks(source.eventId, source.competition.competitionTypeId.endsWith('_FINAL'));
   }
-  private label(source: SavedSource): string {
-    return `${source.eventName ?? source.competition.competitionTypeName} · ${source.competition.roundName}${source.relay ? ` · Relay ${source.relay}` : ''} · ${source.competition.competitionId.slice(0, 8)}${source.resetCommandId ? ` · Reset ${source.resetCommandId.slice(0, 8)}` : ''}`;
-  }
+
   private boundary(): string {
-    const changes = this.db.prepare('SELECT total_changes() AS count').get() as { count: number };
-    return String(changes.count);
+    return String(this.store.changeCount());
   }
+
   private operations(competitionId: string): VistaOperations {
-    const finals = new SqliteFinalOperationRepository(this.db);
+    const finals = this.operationSources.finalOperations;
     const run = finals.findLatestRunByCompetition(competitionId);
     const shootOffShots = run ? finals.findShootOffShotsByRun(run.id) : [];
     const finalEntries = run ? finals.findEntriesByRun(run.id) : [];
     return {
       completedTransfers: this.completedTransfers(competitionId),
-      decisions: new SqliteFinalControlRepository(this.db)
+      decisions: this.operationSources.finalControls
         .findByCompetition(competitionId)
         .filter((decision) => !decision.voided),
       shootOff: run ? projectFinalOperation(run, finalEntries, shootOffShots).shootOff : null,
       shootOffShots,
     };
   }
+
   private completedTransfers(competitionId: string): CompletedTransfer[] {
-    const transfers = new SqliteReserveTransferRepository(this.db);
+    const transfers = this.operationSources.reserveTransfers;
     return transfers.list(competitionId).flatMap((request) => {
       const entries = transfers.entries(request.id);
       const prepared = ReserveLaneTransferBundleSchema.safeParse(
@@ -1217,31 +640,20 @@ export class DirectorVistaSource {
       }
     });
   }
+
   private currentTransferRevision(): number {
-    return (
-      this.db
-        .prepare(
-          "SELECT COALESCE(MAX(rowid), 0) AS revision FROM reserve_lane_transfer_events WHERE operation = 'TARGET_ACTIVE'",
-        )
-        .get() as { revision: number }
-    ).revision;
+    return this.store.transferRevision();
   }
+
   private refreshCompletedTransfers(): void {
     // Lane publishes its transferred state before Director persists TARGET_ACTIVE.
     // Replay only a locally observed snapshot, without waiting for another shot or command.
     if (this.latestControlSnapshot && this.currentTransferRevision() !== this.transferRevision)
       this.observe(this.latestControlSnapshot);
   }
-  private rows(): SourceRow[] {
-    return this.db.prepare('SELECT * FROM vista_competition_sources ORDER BY rowid').all() as SourceRow[];
-  }
-  private row(id: string): SourceRow | null {
-    return (
-      (this.db.prepare('SELECT * FROM vista_competition_sources WHERE id = ?').get(id) as SourceRow | undefined) ?? null
-    );
-  }
+
   private load(id: string): SavedSource | null {
-    const row = this.row(id);
+    const row = this.store.row(id);
     return row ? (JSON.parse(row.source_json) as SavedSource) : null;
   }
 }
