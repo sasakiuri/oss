@@ -24,7 +24,7 @@ import { useConnectionStore } from '@/renderer/presentation/stores/connectionSto
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { usePrintStore } from '@/renderer/presentation/stores/printStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import { getNextZoomMode, type ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
+import { getNextZoomMode, getPrevZoomMode, type ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
 
 /**
  * MainScreen component props
@@ -67,6 +67,10 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
 
   const handleZoomClick = useCallback(() => {
     setZoomMode((prev) => getNextZoomMode(prev));
+  }, []);
+
+  const handleZoomOutClick = useCallback(() => {
+    setZoomMode((prev) => getPrevZoomMode(prev));
   }, []);
 
   useMainScreenKeyboardShortcuts({
@@ -132,7 +136,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
         }}
         onDebugPanelToggle={() => setIsDebugPaneOpen((prev) => !prev)}
         onZoomIn={handleZoomClick}
-        onZoomOut={handleZoomClick}
+        onZoomOut={handleZoomOutClick}
       />
       <div className="flex flex-1 overflow-hidden">
         <SideMenu
