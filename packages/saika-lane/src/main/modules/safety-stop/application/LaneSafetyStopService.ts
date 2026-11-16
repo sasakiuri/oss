@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 
 import type {
   ActivateLaneSafetyStopInput,
@@ -18,7 +19,7 @@ import { LaneSafetyStopState } from '../domain/LaneSafetyStopState';
  */
 export class LaneSafetyStopService implements ILaneSafetyStopControl {
   private state: LaneSafetyStopState | null;
-  private operationTail: Promise<void> = Promise.resolve();
+  private readonly operations = new SerialQueue();
 
   constructor(
     private readonly repository: ILaneSafetyStopRepository,
@@ -109,12 +110,7 @@ export class LaneSafetyStopService implements ILaneSafetyStopControl {
   }
 
   private serialize<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.operationTail.then(operation);
-    this.operationTail = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
+    return this.operations.run(operation);
   }
 
   private emit(state: LaneSafetyStopState): void {
