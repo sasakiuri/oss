@@ -2,14 +2,21 @@ import { MalfunctionScoreSheetPanel } from './MalfunctionScoreSheetPanel';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, Wrench } from 'lucide-react';
 
+import { sentenceCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
+import { type AsyncAction, useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { qualificationMalfunctionsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   AppendQualificationMalfunctionEntryPayload,
   DirectorLaneSnapshotDto,
   QualificationMalfunctionCaseDto,
 } from '@/shared/ipc/contracts';
 
+import { CaseListItem } from '../shared/cases/CaseListItem';
+import { useEntryTypeSelection } from '../shared/cases/useEntryTypeSelection';
 import { Button } from '../shared/common/Button';
+import { paddedInputClass } from '../shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
 
 interface QualificationMalfunctionPanelProps {
   readonly competitionId: string;
@@ -50,25 +57,21 @@ export function QualificationMalfunctionPanel({
   const [cases, setCases] = useState<QualificationMalfunctionCaseDto[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, setError, run } = useAsyncAction();
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await qualificationMalfunctionsService.listByCompetition({ competitionId });
-      if (!response.success) throw new Error(response.error.message);
-      setCases(response.data);
-      setSelectedId((current) =>
-        response.data.some((value) => value.id === current) ? current : (response.data.at(-1)?.id ?? ''),
-      );
+      const listed = unwrap(await qualificationMalfunctionsService.listByCompetition({ competitionId }));
+      setCases(listed);
+      setSelectedId((current) => (listed.some((value) => value.id === current) ? current : (listed.at(-1)?.id ?? '')));
     } catch (caught) {
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     } finally {
       setLoading(false);
     }
-  }, [competitionId]);
+  }, [competitionId, setError]);
 
   useEffect(() => {
     void load();
@@ -102,7 +105,7 @@ export function QualificationMalfunctionPanel({
         </Button>
       </header>
 
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
 
       <CreateMalfunctionForm
         competitionId={competitionId}
@@ -112,8 +115,7 @@ export function QualificationMalfunctionPanel({
         linkedSignalIds={linkedSignalIds}
         supportsExceptionalMatchParts={supportsExceptionalMatchParts}
         disabled={disabled || loading || saving}
-        setSaving={setSaving}
-        setError={setError}
+        run={run}
         onCreated={(value) => {
           setCases((current) => [...current, value]);
           setSelectedId(value.id);
@@ -126,21 +128,14 @@ export function QualificationMalfunctionPanel({
             <p className="p-3 text-xs text-vscode-text-muted">No malfunction cases.</p>
           )}
           {cases.map((value) => (
-            <button
-              key={value.id}
-              type="button"
-              className={`block w-full border-b border-vscode-border px-3 py-2.5 text-left last:border-b-0 ${
-                value.id === selectedId ? 'bg-vscode-highlight' : 'hover:bg-vscode-bg-hover'
-              }`}
-              onClick={() => setSelectedId(value.id)}
-            >
+            <CaseListItem key={value.id} selected={value.id === selectedId} onSelect={() => setSelectedId(value.id)}>
               <span className="block text-[13px] font-medium text-vscode-text">
                 FP {value.laneChannelSnapshot} · {value.participantNameSnapshot}
               </span>
               <span className="mt-0.5 block truncate text-xs text-vscode-text-muted">
-                {humanize(value.status)} · {humanize(value.claimMode)} · {value.summary}
+                {sentenceCaseLabel(value.status)} · {sentenceCaseLabel(value.claimMode)} · {value.summary}
               </span>
-            </button>
+            </CaseListItem>
           ))}
         </div>
 
@@ -149,8 +144,7 @@ export function QualificationMalfunctionPanel({
             key={selected.id}
             value={selected}
             disabled={disabled || saving}
-            setSaving={setSaving}
-            setError={setError}
+            run={run}
             onChanged={replaceCase}
           />
         )}
@@ -167,14 +161,12 @@ function CreateMalfunctionForm({
   linkedSignalIds,
   supportsExceptionalMatchParts,
   disabled,
-  setSaving,
-  setError,
+  run,
   onCreated,
 }: Omit<QualificationMalfunctionPanelProps, 'disabled'> & {
   linkedSignalIds: ReadonlySet<string>;
   disabled: boolean;
-  setSaving: (value: boolean) => void;
-  setError: (value: string | null) => void;
+  run: AsyncAction['run'];
   onCreated: (value: QualificationMalfunctionCaseDto) => void;
 }) {
   const eligibleLanes = useMemo(
@@ -237,9 +229,7 @@ function CreateMalfunctionForm({
   const submit = async () => {
     const lane = eligibleLanes.find((candidate) => candidate.value.laneId === laneId);
     if (!lane) return;
-    setSaving(true);
-    setError(null);
-    try {
+    await run(async () => {
       const laneState = lane.value.competitionState;
       const timedState = lane.value.timedTargetState;
       const signal = selectedDeclaration?.signal ?? null;
@@ -255,35 +245,32 @@ function CreateMalfunctionForm({
         : laneState?.competitionId === competitionId
           ? laneState.sessionId
           : null;
-      const response = await qualificationMalfunctionsService.create({
-        competitionId,
-        eventId,
-        participantId: signal?.context.participantId ?? lane.participantId,
-        laneId: lane.value.laneId,
-        laneChannel: Number(laneChannel),
-        relayNumber,
-        reportSource: signal ? 'LANE_SIGNAL' : 'DIRECTOR_MANUAL',
-        ...(signal ? { sourceSignalId: signal.signalId } : {}),
-        claimMode,
-        stageIndex: Number(stageIndex),
-        seriesIndex: Number(seriesIndex),
-        recordedShots: Number(recordedShots),
-        ...(exposureIndex !== null ? { exposureIndex } : {}),
-        ...(laneSessionId ? { laneSessionId } : {}),
-        ...(signal ? { occurredAt: signal.signalledAt } : {}),
-        ...(exceptionalPart ? { exceptionalMatchPart: Number(exceptionalPart) as 1 | 2 } : {}),
-        summary,
-        openedBy,
-      });
-      if (!response.success) throw new Error(response.error.message);
-      onCreated(response.data);
+      const created = unwrap(
+        await qualificationMalfunctionsService.create({
+          competitionId,
+          eventId,
+          participantId: signal?.context.participantId ?? lane.participantId,
+          laneId: lane.value.laneId,
+          laneChannel: Number(laneChannel),
+          relayNumber,
+          reportSource: signal ? 'LANE_SIGNAL' : 'DIRECTOR_MANUAL',
+          ...(signal ? { sourceSignalId: signal.signalId } : {}),
+          claimMode,
+          stageIndex: Number(stageIndex),
+          seriesIndex: Number(seriesIndex),
+          recordedShots: Number(recordedShots),
+          ...(exposureIndex !== null ? { exposureIndex } : {}),
+          ...(laneSessionId ? { laneSessionId } : {}),
+          ...(signal ? { occurredAt: signal.signalledAt } : {}),
+          ...(exceptionalPart ? { exceptionalMatchPart: Number(exceptionalPart) as 1 | 2 } : {}),
+          summary,
+          openedBy,
+        }),
+      );
+      onCreated(created);
       setSummary('');
       setSelectedDeclaration(null);
-    } catch (caught) {
-      setError(messageOf(caught));
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   const numericContextValid =
@@ -312,7 +299,7 @@ function CreateMalfunctionForm({
                   <span className="text-vscode-text">
                     FP {declaration.lane.laneChannel} · {declaration.signal.context.participantName} · stage{' '}
                     {declaration.signal.context.stageIndex + 1}, series {declaration.signal.context.seriesIndex + 1} ·{' '}
-                    {humanize(declaration.signal.status)}
+                    {sentenceCaseLabel(declaration.signal.status)}
                   </span>
                   {linked ? (
                     <span className="font-medium text-vscode-success">Official case already opened</span>
@@ -349,7 +336,7 @@ function CreateMalfunctionForm({
             value={laneId}
             disabled={selectedDeclaration !== null}
             onChange={(event) => selectLane(event.target.value)}
-            className={inputClass}
+            className={paddedInputClass}
           >
             <option value="">Select an assigned Lane</option>
             {eligibleLanes.map((lane) => (
@@ -371,7 +358,7 @@ function CreateMalfunctionForm({
           <select
             value={claimMode}
             onChange={(event) => setClaimMode(event.target.value as typeof claimMode)}
-            className={inputClass}
+            className={paddedInputClass}
           >
             <option value="CLAIM">Claim</option>
             <option value="DOCUMENTATION_ONLY">Documentation only</option>
@@ -401,7 +388,7 @@ function CreateMalfunctionForm({
             <select
               value={exceptionalPart}
               onChange={(event) => setExceptionalPart(event.target.value as typeof exceptionalPart)}
-              className={inputClass}
+              className={paddedInputClass}
             >
               <option value="">Not split</option>
               <option value="1">Part 1</option>
@@ -411,11 +398,11 @@ function CreateMalfunctionForm({
         )}
         <label className={`${labelClass} md:col-span-2`}>
           Observed facts
-          <input value={summary} onChange={(event) => setSummary(event.target.value)} className={inputClass} />
+          <input value={summary} onChange={(event) => setSummary(event.target.value)} className={paddedInputClass} />
         </label>
         <label className={labelClass}>
           Opening official
-          <input value={openedBy} onChange={(event) => setOpenedBy(event.target.value)} className={inputClass} />
+          <input value={openedBy} onChange={(event) => setOpenedBy(event.target.value)} className={paddedInputClass} />
         </label>
       </div>
       <p className="mt-2 text-[11px] leading-4 text-vscode-text-muted">
@@ -450,35 +437,36 @@ function CreateMalfunctionForm({
 function MalfunctionDetail({
   value,
   disabled,
-  setSaving,
-  setError,
+  run,
   onChanged,
 }: {
   value: QualificationMalfunctionCaseDto;
   disabled: boolean;
-  setSaving: (value: boolean) => void;
-  setError: (value: string | null) => void;
+  run: AsyncAction['run'];
   onChanged: (value: QualificationMalfunctionCaseDto) => void;
 }) {
   const stageRule = value.policySnapshot.stages.find((candidate) => candidate.stageId === value.stageId);
   return (
     <div className="space-y-3 rounded-[3px] border border-vscode-border p-3">
       <div className="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
-        <Fact label="Status" value={humanize(value.status)} />
+        <Fact label="Status" value={sentenceCaseLabel(value.status)} />
         <Fact label="Athlete" value={`${value.startNumberSnapshot ?? '--'} · ${value.participantNameSnapshot}`} />
         <Fact label="Firing context" value={`FP ${value.laneChannelSnapshot} · relay ${value.relayNumberSnapshot}`} />
         <Fact
           label="Course context"
-          value={`${humanize(value.phase)} · stage ${value.stageIndex + 1} · series ${value.seriesIndex + 1}`}
+          value={`${sentenceCaseLabel(value.phase)} · stage ${value.stageIndex + 1} · series ${value.seriesIndex + 1}`}
         />
-        <Fact label="Claim mode" value={humanize(value.claimMode)} />
-        <Fact label="Report source" value={humanize(value.reportSource)} />
+        <Fact label="Claim mode" value={sentenceCaseLabel(value.claimMode)} />
+        <Fact label="Report source" value={sentenceCaseLabel(value.reportSource)} />
         <Fact
           label="Claim assessment"
-          value={`${value.claimAssessment.allowed ? 'Available' : 'Unavailable'} · ${humanize(value.claimAssessment.reason)}`}
+          value={`${value.claimAssessment.allowed ? 'Available' : 'Unavailable'} · ${sentenceCaseLabel(value.claimAssessment.reason)}`}
         />
         <Fact label="Recorded shots" value={`${value.recordedShots}/${value.seriesShotLimit ?? 'unlimited'}`} />
-        <Fact label="Treatment" value={stageRule ? humanize(stageRule.allowableTreatment.type) : 'Sighting policy'} />
+        <Fact
+          label="Treatment"
+          value={stageRule ? sentenceCaseLabel(stageRule.allowableTreatment.type) : 'Sighting policy'}
+        />
       </div>
       <p className="text-xs leading-5 text-vscode-text">{value.summary}</p>
       <div className="rounded-[3px] bg-vscode-bg-light p-2.5 text-[11px] leading-4 text-vscode-text-muted">
@@ -497,7 +485,7 @@ function MalfunctionDetail({
             {value.entries.map((entry) => (
               <li key={entry.id} className="border-l-2 border-vscode-border pl-3 text-xs">
                 <div className="font-medium text-vscode-text">
-                  {humanize(entry.type)} · {entry.officialName} ({humanize(entry.officialRole)})
+                  {sentenceCaseLabel(entry.type)} · {entry.officialName} ({sentenceCaseLabel(entry.officialRole)})
                 </div>
                 <div className="mt-0.5 text-vscode-text-muted">{entry.statement}</div>
                 {(entry.classification || entry.remedy || entry.artifactId) && (
@@ -518,15 +506,7 @@ function MalfunctionDetail({
 
       <MalfunctionScoreSheetPanel value={value} disabled={disabled} onChanged={onChanged} />
 
-      {value.status !== 'VOID' && (
-        <AppendEntryForm
-          value={value}
-          disabled={disabled}
-          setSaving={setSaving}
-          setError={setError}
-          onChanged={onChanged}
-        />
-      )}
+      {value.status !== 'VOID' && <AppendEntryForm value={value} disabled={disabled} run={run} onChanged={onChanged} />}
     </div>
   );
 }
@@ -534,18 +514,16 @@ function MalfunctionDetail({
 function AppendEntryForm({
   value,
   disabled,
-  setSaving,
-  setError,
+  run,
   onChanged,
 }: {
   value: QualificationMalfunctionCaseDto;
   disabled: boolean;
-  setSaving: (value: boolean) => void;
-  setError: (value: string | null) => void;
+  run: AsyncAction['run'];
   onChanged: (value: QualificationMalfunctionCaseDto) => void;
 }) {
   const entryTypes = availableEntryTypes(value);
-  const [type, setType] = useState<AppendQualificationMalfunctionEntryPayload['type']>(entryTypes[0] ?? 'NOTE');
+  const [type, setType] = useEntryTypeSelection(entryTypes, 'NOTE');
   const [statement, setStatement] = useState('');
   const [officialName, setOfficialName] = useState('');
   const [officialRole, setOfficialRole] =
@@ -558,10 +536,6 @@ function AppendEntryForm({
   const remedy = requiredRemedy(value);
 
   useEffect(() => {
-    if (!entryTypes.includes(type)) setType(entryTypes[0] ?? 'NOTE');
-  }, [entryTypes, type]);
-
-  useEffect(() => {
     if (!causes.some((cause) => cause.code === causeCode)) setCauseCode(causes[0]?.code ?? '');
   }, [causeCode, causes]);
 
@@ -570,32 +544,26 @@ function AppendEntryForm({
     else if (type === 'REPAIR_EXTENDED') setOfficialRole('JURY_MEMBER');
   }, [type]);
 
-  const submit = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      const response = await qualificationMalfunctionsService.appendEntry({
-        caseId: value.id,
-        type,
-        statement,
-        officialName,
-        officialRole,
-        ...(type === 'CLASSIFIED' ? { classification, causeCode } : {}),
-        ...(type === 'REMEDY_AUTHORIZED' && remedy ? { remedy: remedy.remedy, shotsToFire: remedy.shotsToFire } : {}),
-        ...(type === 'REPAIR_EXTENDED' ? { repairSeconds: Number(repairSeconds) } : {}),
-        ...(type === 'EXECUTION_RECORDED' || type === 'SCORE_SETTLED' ? { artifactId } : {}),
-      });
-      if (!response.success) throw new Error(response.error.message);
-      onChanged(response.data);
+  const submit = () =>
+    run(async () => {
+      const changed = unwrap(
+        await qualificationMalfunctionsService.appendEntry({
+          caseId: value.id,
+          type,
+          statement,
+          officialName,
+          officialRole,
+          ...(type === 'CLASSIFIED' ? { classification, causeCode } : {}),
+          ...(type === 'REMEDY_AUTHORIZED' && remedy ? { remedy: remedy.remedy, shotsToFire: remedy.shotsToFire } : {}),
+          ...(type === 'REPAIR_EXTENDED' ? { repairSeconds: Number(repairSeconds) } : {}),
+          ...(type === 'EXECUTION_RECORDED' || type === 'SCORE_SETTLED' ? { artifactId } : {}),
+        }),
+      );
+      onChanged(changed);
       setStatement('');
       setArtifactId('');
       setRepairSeconds('');
-    } catch (caught) {
-      setError(messageOf(caught));
-    } finally {
-      setSaving(false);
-    }
-  };
+    });
 
   const conditionalValid =
     (type !== 'CLASSIFIED' || Boolean(causeCode)) &&
@@ -609,10 +577,14 @@ function AppendEntryForm({
       <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         <label className={labelClass}>
           Entry type
-          <select value={type} onChange={(event) => setType(event.target.value as typeof type)} className={inputClass}>
+          <select
+            value={type}
+            onChange={(event) => setType(event.target.value as typeof type)}
+            className={paddedInputClass}
+          >
             {entryTypes.map((candidate) => (
               <option key={candidate} value={candidate}>
-                {humanize(candidate)}
+                {sentenceCaseLabel(candidate)}
               </option>
             ))}
           </select>
@@ -622,11 +594,11 @@ function AppendEntryForm({
           <select
             value={officialRole}
             onChange={(event) => setOfficialRole(event.target.value as typeof officialRole)}
-            className={inputClass}
+            className={paddedInputClass}
           >
             {OFFICIAL_ROLES.map((candidate) => (
               <option key={candidate} value={candidate}>
-                {humanize(candidate)}
+                {sentenceCaseLabel(candidate)}
               </option>
             ))}
           </select>
@@ -636,12 +608,16 @@ function AppendEntryForm({
           <input
             value={officialName}
             onChange={(event) => setOfficialName(event.target.value)}
-            className={inputClass}
+            className={paddedInputClass}
           />
         </label>
         <label className={labelClass}>
           Statement
-          <input value={statement} onChange={(event) => setStatement(event.target.value)} className={inputClass} />
+          <input
+            value={statement}
+            onChange={(event) => setStatement(event.target.value)}
+            className={paddedInputClass}
+          />
         </label>
 
         {type === 'CLASSIFIED' && (
@@ -651,7 +627,7 @@ function AppendEntryForm({
               <select
                 value={classification}
                 onChange={(event) => setClassification(event.target.value as typeof classification)}
-                className={inputClass}
+                className={paddedInputClass}
               >
                 <option value="ALLOWABLE">Allowable</option>
                 <option value="NON_ALLOWABLE">Non-allowable</option>
@@ -659,7 +635,11 @@ function AppendEntryForm({
             </label>
             <label className={`${labelClass} md:col-span-2`}>
               Inspected cause
-              <select value={causeCode} onChange={(event) => setCauseCode(event.target.value)} className={inputClass}>
+              <select
+                value={causeCode}
+                onChange={(event) => setCauseCode(event.target.value)}
+                className={paddedInputClass}
+              >
                 {causes.map((cause) => (
                   <option key={cause.code} value={cause.code}>
                     {cause.label} ({cause.ruleReference})
@@ -671,7 +651,10 @@ function AppendEntryForm({
         )}
         {type === 'REMEDY_AUTHORIZED' && remedy && (
           <div className="md:col-span-2">
-            <Fact label="Rule-required remedy" value={`${humanize(remedy.remedy)} · ${remedy.shotsToFire} shots`} />
+            <Fact
+              label="Rule-required remedy"
+              value={`${sentenceCaseLabel(remedy.remedy)} · ${remedy.shotsToFire} shots`}
+            />
           </div>
         )}
         {type === 'REPAIR_EXTENDED' && (
@@ -680,7 +663,11 @@ function AppendEntryForm({
         {(type === 'EXECUTION_RECORDED' || type === 'SCORE_SETTLED') && (
           <label className={`${labelClass} md:col-span-2`}>
             Saved evidence reference
-            <input value={artifactId} onChange={(event) => setArtifactId(event.target.value)} className={inputClass} />
+            <input
+              value={artifactId}
+              onChange={(event) => setArtifactId(event.target.value)}
+              className={paddedInputClass}
+            />
           </label>
         )}
       </div>
@@ -814,7 +801,7 @@ function NumberField({
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className={inputClass}
+        className={paddedInputClass}
       />
     </label>
   );
@@ -831,16 +818,3 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 const OFFICIAL_ROLES = ['RANGE_OFFICER', 'CRO', 'JURY_MEMBER', 'RTS_OFFICER', 'TECHNICAL_OFFICER'] as const;
 const labelClass = 'flex flex-col gap-1 text-xs font-medium text-vscode-text-muted';
-const inputClass =
-  'min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';
-
-function humanize(value: string): string {
-  return value
-    .toLowerCase()
-    .replaceAll('_', ' ')
-    .replace(/^./, (letter) => letter.toUpperCase());
-}
-
-function messageOf(value: unknown): string {
-  return value instanceof Error ? value.message : String(value);
-}
