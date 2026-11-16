@@ -184,16 +184,7 @@ describe('MainScreen', () => {
   // Default mock values
   const defaultMockSession: UseSessionResult = {
     currentSessionId: null,
-    mode: 'SIGHTING',
-    totalScore: 0,
-    seriesScores: [],
-    startSession: vi.fn(),
     switchMode: vi.fn(),
-    resetSession: vi.fn(),
-    isStarting: false,
-    isSwitching: false,
-    isResetting: false,
-    error: null,
   };
 
   const defaultMockShot: UseShotResult = {
@@ -511,8 +502,6 @@ describe('MainScreen', () => {
       vi.mocked(useSessionModule.useSession).mockReturnValue({
         ...defaultMockSession,
         currentSessionId: 'session-123',
-        totalScore: 0,
-        seriesScores: [],
       });
       vi.mocked(useShotModule.useShot).mockReturnValue({
         ...defaultMockShot,
@@ -545,8 +534,6 @@ describe('MainScreen', () => {
       vi.mocked(useSessionModule.useSession).mockReturnValue({
         ...defaultMockSession,
         currentSessionId: 'session-123',
-        totalScore: 600,
-        seriesScores: [100, 100, 100, 100, 100, 100],
       });
       vi.mocked(useShotModule.useShot).mockReturnValue({
         ...defaultMockShot,
@@ -602,8 +589,6 @@ describe('MainScreen', () => {
       vi.mocked(useSessionModule.useSession).mockReturnValue({
         ...defaultMockSession,
         currentSessionId: 'session-123',
-        totalScore: 10.2,
-        seriesScores: [10.2],
       });
       vi.mocked(useShotModule.useShot).mockReturnValue({
         ...defaultMockShot,
@@ -632,8 +617,6 @@ describe('MainScreen', () => {
       vi.mocked(useSessionModule.useSession).mockReturnValue({
         ...defaultMockSession,
         currentSessionId: null,
-        totalScore: 0,
-        seriesScores: [],
       });
 
       expect(() => {

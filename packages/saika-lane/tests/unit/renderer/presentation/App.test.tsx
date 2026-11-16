@@ -62,16 +62,7 @@ vi.mock('@/renderer/presentation/screens/MainScreen', () => ({
 describe('App', () => {
   const defaultMockSession: UseSessionResult = {
     currentSessionId: null,
-    mode: 'SIGHTING',
-    totalScore: 0,
-    seriesScores: [],
-    startSession: vi.fn().mockResolvedValue(undefined),
     switchMode: vi.fn(),
-    resetSession: vi.fn(),
-    isStarting: false,
-    isSwitching: false,
-    isResetting: false,
-    error: null,
   };
 
   beforeEach(() => {
@@ -206,7 +197,6 @@ describe('App', () => {
       const mockSwitchMode = vi.fn().mockResolvedValue(undefined);
       vi.mocked(useSessionModule.useSession).mockReturnValue({
         ...defaultMockSession,
-        mode: 'SIGHTING',
         switchMode: mockSwitchMode,
       });
 
@@ -229,7 +219,6 @@ describe('App', () => {
       const mockSwitchMode = vi.fn().mockResolvedValue(undefined);
       vi.mocked(useSessionModule.useSession).mockReturnValue({
         ...defaultMockSession,
-        mode: 'MATCH',
         switchMode: mockSwitchMode,
       });
 
@@ -309,7 +298,6 @@ describe('App', () => {
 
       vi.mocked(useSessionModule.useSession).mockReturnValue({
         ...defaultMockSession,
-        mode: 'SIGHTING',
         switchMode: mockSwitchMode,
       });
 

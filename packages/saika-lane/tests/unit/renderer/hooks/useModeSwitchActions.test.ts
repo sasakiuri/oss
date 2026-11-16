@@ -19,15 +19,6 @@ vi.mock('@/renderer/presentation/hooks/useSession', () => ({
   useSession: () => ({
     switchMode: mockSwitchMode,
     currentSessionId: 'session-1',
-    mode: 'SIGHTING',
-    totalScore: 0,
-    seriesScores: [],
-    startSession: vi.fn(),
-    resetSession: vi.fn(),
-    isStarting: false,
-    isSwitching: false,
-    isResetting: false,
-    error: null,
   }),
 }));
 
