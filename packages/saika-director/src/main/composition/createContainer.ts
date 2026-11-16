@@ -58,6 +58,11 @@ export interface AppServices {
   readonly appConfigService: AppConfigService;
 }
 
+/** The Director database file. A pending restore must be applied to this same path before the app opens it. */
+export function directorDatabasePath(userDataPath: string): string {
+  return join(userDataPath, 'saika.db');
+}
+
 /** Prevents duplicate side effects from double initialization. */
 let initialized = false;
 
@@ -93,7 +98,7 @@ export function createApp(
   // Database
   const userDataPath = app.getPath('userData');
   const appVersion = app.getVersion();
-  const dbPath = join(userDataPath, 'saika.db');
+  const dbPath = directorDatabasePath(userDataPath);
   const databaseManager = new DatabaseManager(dbPath);
   const database = databaseManager.getDatabase();
 
