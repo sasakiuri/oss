@@ -22,6 +22,7 @@ const {
   startEmbeddedBroker,
   stopEmbeddedBroker,
   setClockQualityPolicyDirector,
+  transportCommands,
   directorCallbacks,
 } = vi.hoisted(() => ({
   applyQualificationRecoveryDirector: vi.fn(),
@@ -43,7 +44,15 @@ const {
   startEmbeddedBroker: vi.fn().mockResolvedValue(undefined),
   stopEmbeddedBroker: vi.fn().mockResolvedValue(undefined),
   setClockQualityPolicyDirector: vi.fn(),
+  transportCommands: {
+    getFinalFiringContext: vi.fn(),
+    executeFinalFiring: vi.fn(),
+    transferReserveLane: vi.fn(),
+    resumeLaneTimer: vi.fn(),
+    resumeLaneMatch: vi.fn(),
+  },
   directorCallbacks: {
+    all: null as Record<string, (...args: never[]) => unknown> | null,
     onStateChanged: null as ((snapshot: unknown) => void) | null,
     onCompetitionShotObserved: null as ((shot: Record<string, unknown>, payloadJson: string) => void) | null,
     onQualificationRecoveryStateObserved: null as
@@ -65,6 +74,7 @@ vi.mock('@/main/modules/mqtt/application/DirectorMqttService', () => ({
         onFiringBoundary?: (boundary: Record<string, unknown>) => void;
       },
     ) {
+      directorCallbacks.all = callbacks as Record<string, (...args: never[]) => unknown>;
       directorCallbacks.onStateChanged = callbacks.onStateChanged ?? null;
       directorCallbacks.onCompetitionShotObserved = callbacks.onCompetitionShotObserved ?? null;
       directorCallbacks.onQualificationRecoveryStateObserved = callbacks.onQualificationRecoveryStateObserved ?? null;
@@ -83,6 +93,11 @@ vi.mock('@/main/modules/mqtt/application/DirectorMqttService', () => ({
     getTimedTargetStartIssues = getTimedTargetStartIssues;
     setTimedTargetReadinessPolicy = vi.fn();
     setClockQualityPolicy = setClockQualityPolicyDirector;
+    getFinalFiringContext = transportCommands.getFinalFiringContext;
+    executeFinalFiring = transportCommands.executeFinalFiring;
+    transferReserveLane = transportCommands.transferReserveLane;
+    resumeLaneTimer = transportCommands.resumeLaneTimer;
+    resumeLaneMatch = transportCommands.resumeLaneMatch;
     setTimingEvidencePolicy = vi.fn();
     getTimingEvidenceStartIssues = getTimingEvidenceStartIssues;
     startMatch = startMatchDirector;
@@ -102,6 +117,8 @@ vi.mock('@/main/modules/mqtt/infra/EmbeddedMqttBroker', () => ({
   },
 }));
 
+import { FinalFiringContextToken, FinalFiringTransportToken } from '@/main/modules/final-recovery-firing';
+import { toFiringWindowViolationDto } from '@/main/modules/mqtt/application/toFiringWindowViolationDto';
 import { ClockQualityPolicy } from '@/main/modules/mqtt/domain/ClockQualityPolicy';
 import { mqttDirectorIdFromEnvironment, mqttModule } from '@/main/modules/mqtt/mqtt.module';
 import {
@@ -123,6 +140,14 @@ import {
 } from '@/shared/competitionTypes';
 import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
 import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
+import {
+  ResumeReserveLaneToken,
+  ResumeReserveMatchToken,
+  TransferReserveLaneToken,
+} from '@/main/modules/reserve-lane-transfers';
+import type { EventForwardingRule } from '@/main/shared-infra/ipc/EventForwardingRule';
+import type { ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
+import { eventsContract } from '@/shared/ipc/contracts';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
@@ -145,6 +170,9 @@ describe('mqttDirectorIdFromEnvironment', () => {
 });
 
 interface MqttHandlers {
+  getBrokerStatus(): Promise<unknown>;
+  startBroker(): Promise<unknown>;
+  stopBroker(): Promise<unknown>;
   getStartReadiness(input: { competitionId: string; phase: 'SIGHTING' | 'MATCH' }): Promise<unknown>;
   getFiringWindowViolations(input: { competitionId: string }): Promise<unknown>;
   createCompetition(input: { competitionTypeId: string; laneIds: string[] }): Promise<unknown>;
@@ -219,6 +247,12 @@ function registerModule(
   applyQualificationRecoverySettlementTransport: (
     input: Parameters<typeof settleQualificationRecoveryDirector>[0],
   ) => Promise<unknown>;
+  output: ModuleOutput;
+  executeCommand: (token: { name: string }, input: unknown) => Promise<unknown>;
+  addDebugEntry: ReturnType<typeof vi.fn>;
+  findLaneByChannel: ReturnType<typeof vi.fn>;
+  appendObservationEvidence: ReturnType<typeof vi.fn>;
+  observeShootOffShot: ReturnType<typeof vi.fn>;
 } {
   let handlers: MqttHandlers | null = null;
   let profiles: Pick<OperationalProfileService, 'preview' | 'apply'> | null = null;
@@ -278,7 +312,11 @@ function registerModule(
     ].map((definition) => [definition.id, definition]),
   );
 
-  mqttModule.register({
+  const addDebugEntry = vi.fn();
+  const findLaneByChannel = vi.fn();
+  const appendObservationEvidence = vi.fn();
+  const observeShootOffShot = vi.fn();
+  const output = mqttModule.register({
     operationalSettingTargets,
     relayReadinessService: {
       getStartSettings: vi.fn(() => ({ mode: 'ADVISORY' })),
@@ -299,7 +337,7 @@ function registerModule(
         handlers = registeredHandlers as MqttHandlers;
       }),
     } as never,
-    debugLogStore: { addEntry: vi.fn() } as never,
+    debugLogStore: { addEntry: addDebugEntry } as never,
     appConfigService: {
       get: (key: string) => config.get(key),
       set: (key: string, value: unknown) => {
@@ -316,7 +354,7 @@ function registerModule(
         return definition;
       },
     } as never,
-    laneControlRepository: {} as never,
+    laneControlRepository: { findByChannel: findLaneByChannel } as never,
     competitionShotJournal: { append: vi.fn(), findByCompetition: vi.fn(() => []) } as never,
     firingWindowJournal: {
       appendBoundary: vi.fn((boundary: Record<string, unknown>) => {
@@ -343,11 +381,11 @@ function registerModule(
         firingWindowViolations.filter((violation) => violation.competitionId === competitionId),
       ),
     } as never,
-    shotObservationEvidenceJournal: { append: vi.fn(), findByCompetition: vi.fn(() => []) } as never,
+    shotObservationEvidenceJournal: { append: appendObservationEvidence, findByCompetition: vi.fn(() => []) } as never,
     competitionDataGuard: { assertAllowed: assertCompetitionDataAllowed },
     finalOperationService: {
       assertExecutionAuthorized: assertFinalExecutionAuthorized,
-      observeShootOffShot: vi.fn(),
+      observeShootOffShot,
     } as never,
     finalResultDeclarationService: {
       getStatus: getFinalDeclarationStatus,
@@ -364,6 +402,7 @@ function registerModule(
     },
   });
 
+  if (!output) throw new Error('MQTT module returned no output');
   if (!handlers) throw new Error('MQTT handlers were not registered');
   if (!profiles) throw new Error('Operational profile handlers were not registered');
   return {
@@ -384,6 +423,12 @@ function registerModule(
       commandBus.execute(ApplyQualificationRecoveryTransportToken, input as never),
     applyQualificationRecoverySettlementTransport: (input) =>
       commandBus.execute(ApplyQualificationRecoverySettlementTransportToken, input as never),
+    output,
+    executeCommand: (token, input) => commandBus.execute(token, input),
+    addDebugEntry,
+    findLaneByChannel,
+    appendObservationEvidence,
+    observeShootOffShot,
   };
 }
 
@@ -580,6 +625,330 @@ describe('mqttModule broker transitions', () => {
 
     expect(disconnectDirector).toHaveBeenCalledTimes(1);
     expect(connectDirector).toHaveBeenCalledWith('mqtt://broker-b:1883');
+  });
+});
+
+describe('mqttModule wiring', () => {
+  const LANE_ID = '44444444-4444-4444-8444-444444444444';
+  const connectedSnapshot = (laneAlias = 'Lane 3') => ({
+    connected: true,
+    brokerUrl: 'mqtt://localhost:1883',
+    activeCompetitionId: null,
+    competitions: [],
+    lastCommand: null,
+    lanes: [{ laneId: LANE_ID, laneAlias, hardware: { connection: { status: 'connected' } } }],
+  });
+  const callback = (name: string) => {
+    const value = directorCallbacks.all?.[name];
+    if (!value) throw new Error(`Director callback ${name} was not registered`);
+    return value as (...args: unknown[]) => unknown;
+  };
+  const emitted = (emitEvent: ReturnType<typeof vi.fn>, type: string) =>
+    emitEvent.mock.calls.map(([event]) => event as { type: string }).filter((event) => event.type === type);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getSnapshot.mockReturnValue(connectedSnapshot());
+  });
+
+  it('forwards MQTT events to their renderer channels with the same payloads', () => {
+    const { output } = registerModule('BR60S');
+    const rules = output.eventForwarding as EventForwardingRule[];
+    const payload = (eventType: string, event: Record<string, unknown>) =>
+      rules.find((rule) => rule.eventType === eventType)!.extractPayload({ type: eventType, ...event } as never);
+    const violation = {
+      id: 'violation-1',
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      sessionId: 'session-1',
+      shotId: 'shot-1',
+      kind: 'AFTER_STOP',
+      ruleReference: '6.11.1.1(h)',
+      evaluatedShotAt: new Date('2026-08-30T00:00:01.000Z'),
+      firedAt: new Date('2026-08-30T00:00:02.000Z'),
+      receivedAt: new Date('2026-08-30T00:00:03.000Z'),
+      observedAt: new Date('2026-08-30T00:00:04.000Z'),
+      detectedAt: new Date('2026-08-30T00:00:05.000Z'),
+    };
+    const evidence = { evidenceId: 'evidence-1', laneId: LANE_ID };
+    const snapshot = connectedSnapshot();
+
+    expect(rules.map((rule) => [rule.eventType, rule.channel])).toEqual([
+      ['ShotReceived', eventsContract.channels.shotReceived],
+      ['LaneConnected', eventsContract.channels.laneConnected],
+      ['DebugLogEmitted', eventsContract.channels.debugLog],
+      ['MqttConnectionError', eventsContract.channels.mqttConnectionError],
+      ['MqttControlStateChanged', eventsContract.channels.mqttControlStateChanged],
+      ['FiringWindowViolationDetected', eventsContract.channels.firingWindowViolationDetected],
+      ['ShotObservationEvidenceObserved', eventsContract.channels.shotObservationEvidenceObserved],
+    ]);
+    expect(
+      payload('ShotReceived', {
+        timestamp: 1,
+        competitionId: COMPETITION_ID,
+        channel: 3,
+        shotNumber: 4,
+        score: 10.5,
+        seriesNumber: 2,
+      }),
+    ).toStrictEqual({ channel: 3, shotNumber: 4, score: 10.5, seriesNumber: 2 });
+    expect(payload('LaneConnected', { timestamp: 1, laneId: LANE_ID, channel: 3 })).toStrictEqual({ channel: 3 });
+    expect(payload('DebugLogEmitted', { timestamp: 7, direction: 'LOG', raw: 'raw', parsed: { a: 1 } })).toStrictEqual({
+      timestamp: 7,
+      direction: 'LOG',
+      raw: 'raw',
+      parsed: { a: 1 },
+    });
+    expect(payload('MqttConnectionError', { timestamp: 1, message: 'offline' })).toStrictEqual({
+      message: 'offline',
+    });
+    expect(payload('MqttControlStateChanged', { timestamp: 1, snapshot })).toBe(snapshot);
+    expect(payload('FiringWindowViolationDetected', { timestamp: 1, violation })).toStrictEqual(
+      toFiringWindowViolationDto(violation as never),
+    );
+    expect(
+      payload('ShotObservationEvidenceObserved', {
+        timestamp: 1,
+        evidence,
+        observedAt: new Date('2026-08-30T00:00:06.000Z'),
+      }),
+    ).toStrictEqual({ ...evidence, observedAt: '2026-08-30T00:00:06.000Z' });
+  });
+
+  it('announces each connected Lane channel once and again after a session reset', () => {
+    const { emitEvent } = registerModule('BR60S');
+
+    callback('onStateChanged')(connectedSnapshot());
+    callback('onStateChanged')(connectedSnapshot());
+    expect(emitted(emitEvent, 'LaneConnected')).toEqual([
+      { type: 'LaneConnected', timestamp: expect.any(Number), laneId: LANE_ID, channel: 3 },
+    ]);
+    expect(emitted(emitEvent, 'MqttControlStateChanged')).toHaveLength(2);
+
+    callback('onSessionReset')();
+    callback('onStateChanged')(connectedSnapshot());
+    expect(emitted(emitEvent, 'LaneConnected')).toHaveLength(2);
+  });
+
+  it('turns a competition shot on a connected Lane into the next local shot', () => {
+    const { emitEvent, findLaneByChannel } = registerModule('BR60S');
+    findLaneByChannel.mockReturnValue({ lastReceivedShotNumber: 4 });
+    const shot = { competitionId: COMPETITION_ID, laneId: LANE_ID, seriesIndex: 1, rawScoreX10: 98 };
+
+    callback('onCompetitionShot')({ ...shot, effectiveScoreX10: 104 });
+    callback('onCompetitionShot')({ ...shot, effectiveScoreX10: null });
+    getSnapshot.mockReturnValue({
+      ...connectedSnapshot(),
+      lanes: [{ laneId: LANE_ID, laneAlias: 'Lane 3', hardware: null }],
+    });
+    callback('onCompetitionShot')(shot);
+
+    expect(findLaneByChannel).toHaveBeenCalledWith(3);
+    expect(emitted(emitEvent, 'ShotReceived')).toEqual([
+      {
+        type: 'ShotReceived',
+        timestamp: expect.any(Number),
+        competitionId: COMPETITION_ID,
+        channel: 3,
+        shotNumber: 5,
+        score: 10.4,
+        seriesNumber: 2,
+      },
+      {
+        type: 'ShotReceived',
+        timestamp: expect.any(Number),
+        competitionId: COMPETITION_ID,
+        channel: 3,
+        shotNumber: 5,
+        score: 9.8,
+        seriesNumber: 2,
+      },
+    ]);
+  });
+
+  it('records debug lines and reports connection errors', () => {
+    const { emitEvent, addDebugEntry } = registerModule('BR60S');
+
+    callback('onDebugLog')('subscribed');
+    callback('onError')('broker refused');
+
+    expect(addDebugEntry).toHaveBeenCalledExactlyOnceWith({
+      timestamp: expect.any(Number),
+      direction: 'LOG',
+      raw: 'subscribed',
+    });
+    expect(emitted(emitEvent, 'DebugLogEmitted')).toEqual([
+      {
+        type: 'DebugLogEmitted',
+        timestamp: addDebugEntry.mock.calls[0]![0].timestamp,
+        direction: 'LOG',
+        raw: 'subscribed',
+      },
+    ]);
+    expect(emitted(emitEvent, 'MqttConnectionError')).toEqual([
+      { type: 'MqttConnectionError', timestamp: expect.any(Number), message: 'broker refused' },
+    ]);
+  });
+
+  it('journals shot observation evidence and keeps receiving when the journal fails', () => {
+    const { emitEvent, appendObservationEvidence } = registerModule('BR60S');
+    const evidence = { evidenceId: 'evidence-1', laneId: LANE_ID };
+
+    callback('onShotObservationEvidenceObserved')(evidence, '{"evidence":1}');
+    appendObservationEvidence.mockImplementationOnce(() => {
+      throw new Error('disk full');
+    });
+    expect(() => callback('onShotObservationEvidenceObserved')(evidence, '{}')).not.toThrow();
+
+    expect(appendObservationEvidence).toHaveBeenNthCalledWith(1, {
+      evidence,
+      payloadJson: '{"evidence":1}',
+      observedAt: expect.any(Date),
+    });
+    expect(emitted(emitEvent, 'ShotObservationEvidenceObserved')).toEqual([
+      {
+        type: 'ShotObservationEvidenceObserved',
+        timestamp: appendObservationEvidence.mock.calls[0]![0].observedAt.getTime(),
+        evidence,
+        observedAt: appendObservationEvidence.mock.calls[0]![0].observedAt,
+      },
+    ]);
+  });
+
+  it('passes Final shoot-off shots to the Final operation service and keeps receiving on failure', () => {
+    const { observeShootOffShot } = registerModule('BR60S');
+    const shot = {
+      runId: 'run-1',
+      competitionId: COMPETITION_ID,
+      iteration: 2,
+      laneId: LANE_ID,
+      shotId: 'shot-9',
+      effectiveScoreX10: 103,
+      rawScoreX10: 99,
+      x: 1.5,
+      y: -2,
+      firedAt: '2026-08-30T00:00:05.000Z',
+    };
+
+    callback('onCompetitionShootOffShotObserved')(shot);
+    observeShootOffShot.mockImplementationOnce(() => {
+      throw new Error('closed run');
+    });
+    expect(() => callback('onCompetitionShootOffShotObserved')(shot)).not.toThrow();
+
+    expect(observeShootOffShot).toHaveBeenNthCalledWith(1, {
+      runId: 'run-1',
+      competitionId: COMPETITION_ID,
+      iteration: 2,
+      laneId: LANE_ID,
+      shotId: 'shot-9',
+      scoreX10: 103,
+      x: 1.5,
+      y: -2,
+      firedAt: '2026-08-30T00:00:05.000Z',
+    });
+  });
+
+  it('serves Final firing and reserve transfer commands for other modules', async () => {
+    const { executeCommand } = registerModule('BR60S');
+    const context = { laneId: LANE_ID };
+    transportCommands.getFinalFiringContext.mockReturnValue(context);
+    transportCommands.executeFinalFiring.mockResolvedValue('fired');
+    transportCommands.transferReserveLane.mockResolvedValue('transferred');
+    const grant = { remainingSeconds: 120, unlimitedSightingShots: true };
+    const resume = { competitionId: COMPETITION_ID, laneId: LANE_ID, transferId: 'transfer-1', grant };
+
+    await expect(
+      executeCommand(FinalFiringContextToken, { competitionId: COMPETITION_ID, laneId: LANE_ID }),
+    ).resolves.toBe(context);
+    expect(transportCommands.getFinalFiringContext).toHaveBeenCalledWith(COMPETITION_ID, LANE_ID);
+    await expect(executeCommand(FinalFiringTransportToken, { step: 1 })).resolves.toBe('fired');
+    expect(transportCommands.executeFinalFiring).toHaveBeenCalledWith({ step: 1 });
+    await expect(executeCommand(TransferReserveLaneToken, { transfer: 1 })).resolves.toBe('transferred');
+    expect(transportCommands.transferReserveLane).toHaveBeenCalledWith({ transfer: 1 });
+
+    transportCommands.resumeLaneTimer.mockResolvedValueOnce({ success: true, lanes: [] });
+    await expect(executeCommand(ResumeReserveLaneToken, resume)).resolves.toBeUndefined();
+    expect(transportCommands.resumeLaneTimer).toHaveBeenCalledWith(COMPETITION_ID, LANE_ID, 'transfer-1', 120, true);
+    transportCommands.resumeLaneTimer.mockResolvedValueOnce({
+      success: false,
+      lanes: [{ error: { message: 'Lane busy' } }],
+    });
+    await expect(executeCommand(ResumeReserveLaneToken, resume)).rejects.toThrow(new Error('Lane busy'));
+    transportCommands.resumeLaneTimer.mockResolvedValueOnce({ success: false, lanes: [] });
+    await expect(executeCommand(ResumeReserveLaneToken, resume)).rejects.toThrow(
+      new Error('Lane resume was not acknowledged'),
+    );
+
+    transportCommands.resumeLaneMatch.mockResolvedValueOnce({ success: true, lanes: [] });
+    await expect(executeCommand(ResumeReserveMatchToken, resume)).resolves.toBeUndefined();
+    expect(transportCommands.resumeLaneMatch).toHaveBeenCalledWith(COMPETITION_ID, LANE_ID, 'transfer-1');
+    transportCommands.resumeLaneMatch.mockResolvedValueOnce({
+      success: false,
+      lanes: [{ error: { message: 'No MATCH' } }],
+    });
+    await expect(executeCommand(ResumeReserveMatchToken, resume)).rejects.toThrow(new Error('No MATCH'));
+    transportCommands.resumeLaneMatch.mockResolvedValueOnce({ success: false, lanes: [] });
+    await expect(executeCommand(ResumeReserveMatchToken, resume)).rejects.toThrow(
+      new Error('MATCH resume was not acknowledged'),
+    );
+  });
+
+  it('reports broker status and disconnects the client before stopping the broker', async () => {
+    const { handlers } = registerModule('BR60S');
+
+    await expect(handlers.getBrokerStatus()).resolves.toEqual({
+      brokerRunning: false,
+      clientConnected: true,
+      brokerPort: 1883,
+      localAddresses: expect.any(Array),
+    });
+    await handlers.startBroker();
+    expect(startEmbeddedBroker).toHaveBeenCalledOnce();
+    await handlers.stopBroker();
+    expect(disconnectDirector.mock.invocationCallOrder[0]).toBeLessThan(
+      stopEmbeddedBroker.mock.invocationCallOrder[0]!,
+    );
+    getSnapshot.mockReturnValue({ ...connectedSnapshot(), connected: false });
+    disconnectDirector.mockClear();
+    await handlers.stopBroker();
+    expect(disconnectDirector).not.toHaveBeenCalled();
+    expect(stopEmbeddedBroker).toHaveBeenCalledTimes(2);
+  });
+
+  it('starts the embedded broker and reports a failed first connection one second later', async () => {
+    const { output, emitEvent, config } = registerModule('BR60S');
+    const [broker, client] = output.lifecycle!;
+    vi.useFakeTimers();
+    try {
+      expect([broker!.name, client!.name]).toEqual(['EmbeddedMqttBroker', 'DirectorMqttService']);
+      await broker!.start();
+      expect(startEmbeddedBroker).toHaveBeenCalledOnce();
+      config.set('mqtt.broker.mode', 'external');
+      await broker!.start();
+      expect(startEmbeddedBroker).toHaveBeenCalledOnce();
+
+      connectDirector.mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
+      await client!.start();
+      expect(emitted(emitEvent, 'MqttConnectionError')).toEqual([]);
+      await vi.advanceTimersByTimeAsync(999);
+      expect(emitted(emitEvent, 'MqttConnectionError')).toEqual([]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(emitted(emitEvent, 'MqttConnectionError')).toEqual([
+        {
+          type: 'MqttConnectionError',
+          timestamp: expect.any(Number),
+          message: 'Failed to connect to MQTT broker: connect ECONNREFUSED',
+        },
+      ]);
+
+      await client!.stop();
+      expect(disconnectDirector).toHaveBeenCalled();
+      await broker!.stop();
+      expect(stopEmbeddedBroker).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
