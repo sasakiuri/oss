@@ -9,12 +9,9 @@ import {
   LeaveCompetitionCommandSchema,
   ProbeClockCommandSchema,
   ResetSessionCommandSchema,
-  RetireFinalistCommandSchema,
   StartMatchCommandSchema,
-  StartShootOffCommandSchema,
   StartSightingCommandSchema,
   StartTimedTargetCommandSchema,
-  StopShootOffCommandSchema,
   TimerExpiredCommandSchema,
   TimerStartedCommandSchema,
   type MqttCommandActionOf,
@@ -32,7 +29,6 @@ import {
 } from '@sasakiuri/saika-protocol/CompetitionState';
 import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
-import { MalfunctionFiringEvidenceSchema } from '@sasakiuri/saika-protocol/MalfunctionFiring';
 import type { ReserveLaneTransferAction } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 import { Logger } from '@/shared/utils/Logger';
 
@@ -57,6 +53,7 @@ import { DirectorLaneReadiness } from './DirectorLaneReadiness';
 import { DirectorMqttConnection } from './DirectorMqttConnection';
 import { DirectorMqttReceiver } from './DirectorMqttReceiver';
 import { DirectorMqttState } from './DirectorMqttState';
+import { FinalCompetitionCommands } from './FinalCompetitionCommands';
 import type {
   ApplyQualificationRecoveryInput,
   CancelQualificationRecoveryInput,
@@ -132,6 +129,7 @@ export class DirectorMqttService {
   private readonly interruptions: RangeInterruptionCommands;
   private readonly reserveTransfers: ReserveLaneTransferCommands;
   private readonly timedTargets: TimedTargetCommands;
+  private readonly finals: FinalCompetitionCommands;
 
   constructor(
     options: DirectorMqttOptions,
@@ -234,6 +232,19 @@ export class DirectorMqttService {
         waitForTimedTargetLaneReadiness: (competitionId, laneIds, stageIndex, seriesIndex) =>
           this.state.waitForTimedTargetLaneReadiness(competitionId, laneIds, stageIndex, seriesIndex),
         assertPhaseStartAllowed: (scope) => this.callbacks.assertPhaseStartAllowed?.(scope),
+        assertSafetyCleared: (laneIds, operation) => this.assertSafetyCleared(laneIds, operation),
+        assertTimedCommandReadiness: (laneIds) => this.readiness.assertTimedCommandReadiness(laneIds),
+        assertTimedTargetReadiness: (laneIds) => this.readiness.assertTimedTargetReadiness(laneIds),
+      },
+      this.startDelayMs,
+    );
+    this.finals = new FinalCompetitionCommands(
+      commands,
+      {
+        requireCompetitionPhase: (competitionId, phase, operation) =>
+          this.requireCompetitionPhase(competitionId, phase, operation),
+        requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
+        getLane: (laneId) => this.state.getLane(laneId),
         assertSafetyCleared: (laneIds, operation) => this.assertSafetyCleared(laneIds, operation),
         assertTimedCommandReadiness: (laneIds) => this.readiness.assertTimedCommandReadiness(laneIds),
         assertTimedTargetReadiness: (laneIds) => this.readiness.assertTimedTargetReadiness(laneIds),
@@ -596,20 +607,9 @@ export class DirectorMqttService {
     rank: number,
     afterShot: number,
   ): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(competitionId, async () => {
-      const competition = this.requireCompetitionPhase(competitionId, 'MATCH', 'retire a finalist');
-      if (competition.roundName !== 'Final') throw new Error('Only a Final competitor can be retired');
-      this.requireCompetitionLane(competitionId, laneId);
-      const command = RetireFinalistCommandSchema.parse(this.commandBase({ checkpointId, rank, afterShot }));
-      return this.publishCommand({
-        action: 'retire-finalist',
-        topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'retire-finalist'),
-        acknowledgementTopic: () =>
-          mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'retire-finalist'),
-        payload: command,
-        expectedLaneIds: [laneId],
-      });
-    });
+    return this.runCompetitionOperation(competitionId, () =>
+      this.finals.retireFinalist(competitionId, laneId, checkpointId, rank, afterShot),
+    );
   }
 
   async startShootOff(
@@ -620,64 +620,9 @@ export class DirectorMqttService {
     shotsPerLane: number,
     eligibleLaneIds: readonly string[],
   ): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(competitionId, async () => {
-      const state = this.requireCompetitionPhase(competitionId, 'MATCH', 'start a Final shoot-off');
-      if (state.roundName !== 'Final') throw new Error('A shoot-off can only be started for a Final');
-      const targetLaneIds = [...new Set(eligibleLaneIds)];
-      if (targetLaneIds.length < 2) throw new Error('A shoot-off requires at least two eligible Lanes');
-      targetLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
-      const notReady = targetLaneIds.filter((laneId) => {
-        const lane = this.state.getLane(laneId)?.competitionState;
-        return lane?.competitionId !== competitionId || lane.phase !== 'SERIES_COMPLETE';
-      });
-      if (notReady.length > 0) {
-        throw new Error(`Shoot-off Lanes are not at a completed Final series: ${notReady.join(', ')}`);
-      }
-      this.assertSafetyCleared(targetLaneIds, 'start a Final shoot-off');
-      this.readiness.assertTimedCommandReadiness(targetLaneIds);
-      if (timing.type === 'TIMED_TARGET') {
-        this.readiness.assertTimedTargetReadiness(targetLaneIds);
-        const stillActive = targetLaneIds.filter((laneId) => {
-          const timedState = this.state.getLane(laneId)?.timedTargetState;
-          return timedState && timedState.phase !== 'COMPLETE' && timedState.phase !== 'CANCELLED';
-        });
-        if (stillActive.length > 0) {
-          throw new Error(`A timed target sequence is already active on shoot-off Lane(s): ${stillActive.join(', ')}`);
-        }
-      }
-      const earliestStartMs =
-        timing.type === 'TIMED_TARGET'
-          ? targetLaneIds.reduce((latest, laneId) => {
-              const nextLoad = this.state.getLane(laneId)?.timedTargetState?.nextLoadAllowedAt;
-              return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
-            }, Date.now() + this.startDelayMs)
-          : Date.now() + this.startDelayMs;
-      const command = StartShootOffCommandSchema.parse(
-        this.commandBase({
-          runId,
-          iteration,
-          timerStartAt: new Date(earliestStartMs).toISOString(),
-          ...(timing.type === 'GENERIC'
-            ? { timerDurationSeconds: timing.durationSeconds }
-            : {
-                timedTarget: {
-                  programId: timing.programId,
-                  participantExecution: timing.participantExecution,
-                },
-              }),
-          shotsPerLane,
-          targetLaneIds,
-        }),
-      );
-      return this.publishCommand({
-        action: 'start-shoot-off',
-        topic: mqttTopics.competitionCommand(competitionId, 'start-shoot-off'),
-        acknowledgementTopic: (laneId) =>
-          mqttTopics.competitionCommandAcknowledgement(competitionId, 'start-shoot-off', laneId),
-        payload: command,
-        expectedLaneIds: targetLaneIds,
-      });
-    });
+    return this.runCompetitionOperation(competitionId, () =>
+      this.finals.startShootOff(competitionId, runId, iteration, timing, shotsPerLane, eligibleLaneIds),
+    );
   }
 
   async stopShootOff(
@@ -686,22 +631,9 @@ export class DirectorMqttService {
     iteration: number,
     eligibleLaneIds: readonly string[],
   ): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(competitionId, async () => {
-      const state = this.requireCompetitionPhase(competitionId, 'MATCH', 'stop a Final shoot-off');
-      if (state.roundName !== 'Final') throw new Error('A shoot-off can only be stopped for a Final');
-      const targetLaneIds = [...new Set(eligibleLaneIds)];
-      if (targetLaneIds.length < 2) throw new Error('A shoot-off requires at least two eligible Lanes');
-      targetLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
-      const command = StopShootOffCommandSchema.parse(this.commandBase({ runId, iteration, targetLaneIds }));
-      return this.publishCommand({
-        action: 'stop-shoot-off',
-        topic: mqttTopics.competitionCommand(competitionId, 'stop-shoot-off'),
-        acknowledgementTopic: (laneId) =>
-          mqttTopics.competitionCommandAcknowledgement(competitionId, 'stop-shoot-off', laneId),
-        payload: command,
-        expectedLaneIds: targetLaneIds,
-      });
-    });
+    return this.runCompetitionOperation(competitionId, () =>
+      this.finals.stopShootOff(competitionId, runId, iteration, eligibleLaneIds),
+    );
   }
 
   async resetSession(competitionId: string, laneId: string, reason?: string): Promise<CommandExecutionResult> {
@@ -751,74 +683,11 @@ export class DirectorMqttService {
   }
 
   getFinalFiringContext(competitionId: string, laneId: string) {
-    const competition = this.requireCompetitionPhase(competitionId, 'MATCH', 'prepare Final recovery firing');
-    if (competition.roundName !== 'Final') throw new Error('Final recovery requires a Final competition');
-    this.requireCompetitionLane(competitionId, laneId);
-    const lane = this.state.getLane(laneId);
-    const state = lane?.competitionState;
-    const participantId = lane?.assignment?.athlete?.id;
-    const rulePackFingerprint = competition.definitionBinding?.rulePack?.fingerprint.value;
-    if (
-      !state ||
-      state.competitionId !== competitionId ||
-      !['MATCH', 'SERIES_COMPLETE'].includes(state.phase) ||
-      !state.currentStage.scored ||
-      lane?.assignment?.competitionId !== competitionId ||
-      !participantId ||
-      !rulePackFingerprint
-    )
-      throw new Error('Current finalist, scored series and exact Rule Pack binding are required');
-    return {
-      sessionId: state.sessionId,
-      participantId,
-      rulePackFingerprint,
-      stageIndex: state.currentStage.index,
-      seriesIndex: state.currentSeries.index,
-      recordedShots: state.currentSeries.shotsRecorded,
-      seriesShotLimit: state.currentSeries.maxShots,
-    };
+    return this.finals.getFinalFiringContext(competitionId, laneId);
   }
 
   async executeFinalFiring(input: FinalFiringTransportInput) {
-    const { competitionId } = input.request;
-    return this.runCompetitionOperation(competitionId, async () => {
-      this.requireCompetitionLane(competitionId, input.laneId);
-      if (input.request.workflow !== 'FINAL_RECOVERY') throw new Error('Final firing workflow is required');
-      if (input.operation === 'START') {
-        this.getFinalFiringContext(competitionId, input.laneId);
-        this.readiness.assertTimedCommandReadiness([input.laneId]);
-        this.readiness.assertTimedTargetReadiness([input.laneId]);
-        if (this.state.getLane(input.laneId)?.safetyState?.status !== 'CLEAR')
-          throw new Error('Clear the Lane safety STOP before authorized recovery firing');
-      }
-      const action =
-        input.operation === 'START'
-          ? 'start-malfunction-firing'
-          : input.operation === 'READ'
-            ? 'read-malfunction-firing'
-            : 'cancel-malfunction-firing';
-      const command = this.commandBase(
-        input.operation === 'START'
-          ? { request: input.request }
-          : {
-              runId: input.request.runId,
-              ...(input.operation === 'CANCEL' ? { request: input.request } : {}),
-              ...(input.reason ? { reason: input.reason } : {}),
-            },
-      );
-      const result = await this.publishCommand({
-        action,
-        payload: command,
-        topic: mqttTopics.laneCompetitionCommand(competitionId, input.laneId, action),
-        acknowledgementTopic: () =>
-          mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, input.laneId, action),
-        expectedLaneIds: [input.laneId],
-      });
-      const response = result.lanes.find((lane) => lane.laneId === input.laneId);
-      if (!result.success || response?.status !== 'done')
-        throw new Error(response?.error?.message ?? 'Final firing was not acknowledged; read or retry the same run');
-      return MalfunctionFiringEvidenceSchema.parse(response.data?.evidence);
-    });
+    return this.runCompetitionOperation(input.request.competitionId, () => this.finals.executeFinalFiring(input));
   }
 
   async transferReserveLane(input: { competitionId: string; laneId: string; transfer: ReserveLaneTransferAction }) {
