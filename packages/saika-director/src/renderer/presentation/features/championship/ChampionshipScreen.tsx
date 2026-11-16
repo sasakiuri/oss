@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { ArrowLeft, CalendarDays, MapPin, PackageOpen, Pencil, Target } from 'lucide-react';
 import { Button } from '../shared/common/Button';
 import { Card } from '../shared/common/Card';
@@ -17,6 +17,7 @@ import { EstChampionshipInspectionPanel } from './components/EstChampionshipInsp
 import { ResultsBookPanel } from './components/ResultsBookPanel';
 import { OutdoorEliminationPlanningPanel } from './components/OutdoorEliminationPlanningPanel';
 import { PostCompetitionEquipmentControlPanel } from './components/PostCompetitionEquipmentControlPanel';
+import { useChampionshipScreenCommands, type ChampionshipScreenNavigation } from './useChampionshipScreenCommands';
 import { TargetExaminationsPanel } from '../target-examinations';
 import { RangeInterruptionsPanel } from '../range-interruptions';
 import { ProtestsPanel } from '../protests';
@@ -24,11 +25,7 @@ import { AdjudicationCasesPanel } from '../adjudication-cases';
 import { AthleteSanctionsPanel } from '../athlete-sanctions';
 import { useChampionshipStore } from '../../stores/domain/championship.store';
 import { useChampionshipActions } from '../../hooks/useChampionshipActions';
-import type { ChampionshipDto, EventDto, SaveParticipantsPayload } from '@/shared/ipc/contracts/championship.contract';
-import type { EventType } from '@/shared/constants/competition';
-import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
-import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
-import { operationalArchivesService } from '@/renderer/services';
+import type { ChampionshipDto, EventDto } from '@/shared/ipc/contracts/championship.contract';
 
 type View = 'list' | 'create' | 'edit' | 'detail';
 type EventTab =
@@ -43,95 +40,46 @@ type EventTab =
   | 'equipment-control'
   | 'results';
 
-function errorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
-    return error.message;
-  }
-  return fallback;
-}
-
 export function ChampionshipScreen() {
   const [view, setView] = useState<View>('list');
   const [editTarget, setEditTarget] = useState<ChampionshipDto | null>(null);
   const [showEventForm, setShowEventForm] = useState(false);
   const [editEventTarget, setEditEventTarget] = useState<EventDto | null>(null);
   const [eventTab, setEventTab] = useState<EventTab>('participants');
-  const [exportingEvidence, setExportingEvidence] = useState(false);
-  const addNotification = useNotificationStore((state) => state.addNotification);
 
   const selectedChampionship = useChampionshipStore((s) => s.selectedChampionship);
   const selectedEventId = useChampionshipStore((s) => s.selectedEventId);
   const participants = useChampionshipStore((s) => s.participants);
   const firingPointAssignments = useChampionshipStore((s) => s.firingPointAssignments);
 
-  const {
-    loadChampionshipDetail,
-    loadParticipants,
-    loadFiringPointAssignments,
-    createChampionship,
-    updateChampionship,
-    createEvent,
-    updateEvent,
-    deleteEvent,
-    saveParticipants,
-    saveFiringPointAssignments,
-    setSelectedEventId,
-  } = useChampionshipActions();
+  const championshipActions = useChampionshipActions();
+  const { loadParticipants, loadFiringPointAssignments, setSelectedEventId } = championshipActions;
 
-  const handleSelect = useCallback(
-    async (championship: ChampionshipDto) => {
-      try {
-        const result = await loadChampionshipDetail(championship.id);
-        if (!result.success) {
-          addNotification('error', result.error.message);
-          return;
-        }
-        if (result.data === null) {
-          addNotification('error', 'The selected championship was not found');
-          return;
-        }
-        setView('detail');
-      } catch (error) {
-        addNotification('error', errorMessage(error, 'Failed to load the championship'));
-      }
-    },
-    [addNotification, loadChampionshipDetail],
-  );
-
-  const handleCreate = useCallback(
-    async (data: { name: string; date: string; venue: string }) => {
-      try {
-        const result = await createChampionship(data);
-        if (!result.success) {
-          addNotification('error', errorMessage(result.error, 'Failed to create the championship'));
-          return;
-        }
-        setView('list');
-      } catch (error) {
-        addNotification('error', errorMessage(error, 'Failed to create the championship'));
-      }
-    },
-    [addNotification, createChampionship],
-  );
-
-  const handleUpdate = useCallback(
-    async (data: { name: string; date: string; venue: string }) => {
-      if (!editTarget) return;
-      try {
-        const result = await updateChampionship({ id: editTarget.id, ...data });
-        if (!result.success) {
-          addNotification('error', errorMessage(result.error, 'Failed to update the championship'));
-          return;
-        }
+  const navigation = useMemo<ChampionshipScreenNavigation>(
+    () => ({
+      showList: () => setView('list'),
+      showDetail: () => setView('detail'),
+      closeChampionshipEdit: () => {
         setView('detail');
         setEditTarget(null);
-      } catch (error) {
-        addNotification('error', errorMessage(error, 'Failed to update the championship'));
-      }
-    },
-    [addNotification, editTarget, updateChampionship],
+      },
+      hideEventForm: () => setShowEventForm(false),
+      closeEventForm: () => {
+        setShowEventForm(false);
+        setEditEventTarget(null);
+      },
+    }),
+    [],
   );
+  const commands = useChampionshipScreenCommands({
+    actions: championshipActions,
+    selectedChampionship,
+    selectedEventId,
+    participants,
+    editTarget,
+    editEventTarget,
+    navigation,
+  });
 
   const handleEventSelect = useCallback(
     async (eventId: string) => {
@@ -142,126 +90,10 @@ export function ChampionshipScreen() {
     [loadParticipants, loadFiringPointAssignments, setSelectedEventId],
   );
 
-  const handleEventAdd = useCallback(
-    async (data: { name: string; eventType: EventType }) => {
-      if (!selectedChampionship) return;
-      try {
-        const result = await createEvent({ championshipId: selectedChampionship.id, ...data });
-        if (!result.success || !result.data) {
-          addNotification('error', errorMessage(result.error, 'Failed to add the event'));
-          return;
-        }
-        setShowEventForm(false);
-        setSelectedEventId(result.data);
-        await Promise.all([loadParticipants(result.data), loadFiringPointAssignments(result.data)]);
-      } catch (error) {
-        addNotification('error', errorMessage(error, 'Failed to add the event'));
-      }
-    },
-    [
-      addNotification,
-      selectedChampionship,
-      createEvent,
-      setSelectedEventId,
-      loadParticipants,
-      loadFiringPointAssignments,
-    ],
-  );
-
   const handleEventEdit = useCallback((event: EventDto) => {
     setEditEventTarget(event);
     setShowEventForm(true);
   }, []);
-
-  const handleEventUpdate = useCallback(
-    async (data: { name: string; eventType: EventType }) => {
-      if (!editEventTarget) return;
-      try {
-        const result = await updateEvent({ id: editEventTarget.id, ...data });
-        if (!result.success) {
-          addNotification('error', errorMessage(result.error, 'Failed to update the event'));
-          return;
-        }
-        setShowEventForm(false);
-        setEditEventTarget(null);
-      } catch (error) {
-        addNotification('error', errorMessage(error, 'Failed to update the event'));
-      }
-    },
-    [addNotification, editEventTarget, updateEvent],
-  );
-
-  const handleEventDelete = useCallback(
-    async (eventId: string) => {
-      if (await useConfirmDialogStore.getState().openConfirm('Delete this event?')) {
-        try {
-          const result = await deleteEvent(eventId);
-          if (!result.success) {
-            addNotification('error', errorMessage(result.error, 'Failed to delete the event'));
-            return;
-          }
-          if (selectedEventId === eventId) setSelectedEventId(null);
-        } catch (error) {
-          addNotification('error', errorMessage(error, 'Failed to delete the event'));
-        }
-      }
-    },
-    [addNotification, deleteEvent, selectedEventId, setSelectedEventId],
-  );
-
-  const handleSaveParticipants = useCallback(
-    async (rows: SaveParticipantsPayload['participants']) => {
-      if (!selectedEventId) return null;
-
-      const submittedParticipantIds = new Set(rows.flatMap((row) => (row.id ? [row.id] : [])));
-      const participantIdsToDelete = participants
-        .filter((participant) => !submittedParticipantIds.has(participant.id))
-        .map((participant) => participant.id);
-      if (participantIdsToDelete.length > 0) {
-        const confirmed = await useConfirmDialogStore
-          .getState()
-          .openConfirm(
-            `Delete ${participantIdsToDelete.length} participant(s)? Their firing-point assignments and confirmed results will also be deleted. This action cannot be undone.`,
-          );
-        if (!confirmed) return null;
-      }
-
-      try {
-        const result = await saveParticipants({
-          eventId: selectedEventId,
-          participants: rows,
-          ...(participantIdsToDelete.length > 0 ? { participantIdsToDelete } : {}),
-        });
-        if (!result.success) {
-          addNotification('error', errorMessage(result.error, 'Failed to save participants'));
-          return null;
-        }
-        return result.data.participants;
-      } catch (error) {
-        addNotification('error', errorMessage(error, 'Failed to save participants'));
-        return null;
-      }
-    },
-    [addNotification, participants, selectedEventId, saveParticipants],
-  );
-
-  const handleSaveAssignments = useCallback(
-    async (rows: { relayNumber: number; firingPointNumber: number; participantId: string }[]) => {
-      if (!selectedEventId) return false;
-      try {
-        const result = await saveFiringPointAssignments({ eventId: selectedEventId, assignments: rows });
-        if (!result.success) {
-          addNotification('error', errorMessage(result.error, 'Failed to save firing-point assignments'));
-          return false;
-        }
-        return true;
-      } catch (error) {
-        addNotification('error', errorMessage(error, 'Failed to save firing-point assignments'));
-        return false;
-      }
-    },
-    [addNotification, selectedEventId, saveFiringPointAssignments],
-  );
 
   const handleBack = useCallback(() => {
     setView('list');
@@ -269,27 +101,11 @@ export function ChampionshipScreen() {
     setEventTab('participants');
   }, [setSelectedEventId]);
 
-  const exportEvidence = useCallback(async () => {
-    if (!selectedChampionship) return;
-    setExportingEvidence(true);
-    try {
-      const response = await operationalArchivesService.exportCompetitionEvidence({
-        championshipId: selectedChampionship.id,
-      });
-      if (!response.success) addNotification('error', response.error.message);
-      else if (response.data.status === 'COMPLETED') {
-        addNotification('success', `Evidence bundle exported: ${response.data.fileName}`);
-      }
-    } catch (error) {
-      addNotification('error', errorMessage(error, 'Failed to export the evidence bundle'));
-    } finally {
-      setExportingEvidence(false);
-    }
-  }, [addNotification, selectedChampionship]);
+  const selectedEvent = selectedChampionship?.events.find((event) => event.id === selectedEventId);
 
   return (
     <div className="min-h-full">
-      {view === 'list' && <ChampionshipList onSelect={handleSelect} onCreate={() => setView('create')} />}
+      {view === 'list' && <ChampionshipList onSelect={commands.openChampionship} onCreate={() => setView('create')} />}
 
       {view === 'create' && (
         <div className="min-h-full">
@@ -304,7 +120,7 @@ export function ChampionshipScreen() {
           />
           <div className="p-5">
             <Card className="max-w-xl">
-              <ChampionshipForm onSubmit={handleCreate} onCancel={() => setView('list')} />
+              <ChampionshipForm onSubmit={commands.submitNewChampionship} onCancel={() => setView('list')} />
             </Card>
           </div>
         </div>
@@ -317,11 +133,8 @@ export function ChampionshipScreen() {
             <Card className="max-w-xl">
               <ChampionshipForm
                 championship={editTarget}
-                onSubmit={handleUpdate}
-                onCancel={() => {
-                  setView('detail');
-                  setEditTarget(null);
-                }}
+                onSubmit={commands.submitChampionshipEdit}
+                onCancel={navigation.closeChampionshipEdit}
               />
             </Card>
           </div>
@@ -364,11 +177,11 @@ export function ChampionshipScreen() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  disabled={exportingEvidence}
-                  onClick={() => void exportEvidence()}
+                  disabled={commands.exportingEvidence}
+                  onClick={() => void commands.exportEvidence()}
                 >
                   <PackageOpen size={16} aria-hidden="true" />
-                  {exportingEvidence ? 'Exporting…' : 'Export evidence'}
+                  {commands.exportingEvidence ? 'Exporting…' : 'Export evidence'}
                 </Button>
               </>
             }
@@ -385,7 +198,7 @@ export function ChampionshipScreen() {
                   setShowEventForm(true);
                 }}
                 onEdit={handleEventEdit}
-                onDelete={handleEventDelete}
+                onDelete={commands.confirmAndDeleteEvent}
               />
             </aside>
 
@@ -393,11 +206,8 @@ export function ChampionshipScreen() {
               <section className="max-w-xl overflow-hidden rounded-sm border border-vscode-border bg-vscode-bg-light">
                 <EventForm
                   event={editEventTarget ?? undefined}
-                  onSubmit={editEventTarget ? handleEventUpdate : handleEventAdd}
-                  onCancel={() => {
-                    setShowEventForm(false);
-                    setEditEventTarget(null);
-                  }}
+                  onSubmit={editEventTarget ? commands.submitEventEdit : commands.submitNewEvent}
+                  onCancel={navigation.closeEventForm}
                 />
               </section>
             ) : selectedEventId ? (
@@ -410,8 +220,7 @@ export function ChampionshipScreen() {
                   tabs={[
                     { id: 'participants', label: 'Participants' },
                     { id: 'assignments', label: 'Firing-Point Assignment' },
-                    ...(selectedChampionship.events.find((event) => event.id === selectedEventId)?.round ===
-                    'Elimination'
+                    ...(selectedEvent?.round === 'Elimination'
                       ? [{ id: 'elimination' as const, label: 'Elimination Plan' }]
                       : []),
                     { id: 'results', label: 'Results' },
@@ -434,7 +243,7 @@ export function ChampionshipScreen() {
                     <ParticipantEditor
                       key={selectedEventId}
                       participants={participants}
-                      onSave={handleSaveParticipants}
+                      onSave={commands.saveEventParticipants}
                     />
                   </div>
                 )}
@@ -450,12 +259,10 @@ export function ChampionshipScreen() {
                       key={selectedEventId}
                       assignments={firingPointAssignments}
                       participants={participants}
-                      onSave={handleSaveAssignments}
+                      onSave={commands.saveEventAssignments}
                       eventId={selectedEventId}
-                      competitionTypeId={
-                        selectedChampionship.events.find((event) => event.id === selectedEventId)?.eventType ?? ''
-                      }
-                      round={selectedChampionship.events.find((event) => event.id === selectedEventId)?.round}
+                      competitionTypeId={selectedEvent?.eventType ?? ''}
+                      round={selectedEvent?.round}
                       onAssignmentsApplied={async () => {
                         await loadFiringPointAssignments(selectedEventId);
                       }}
@@ -472,8 +279,8 @@ export function ChampionshipScreen() {
                   >
                     <ResultsView
                       eventId={selectedEventId}
-                      eventName={selectedChampionship.events.find((ev) => ev.id === selectedEventId)?.name}
-                      round={selectedChampionship.events.find((ev) => ev.id === selectedEventId)?.round}
+                      eventName={selectedEvent?.name}
+                      round={selectedEvent?.round}
                     />
                   </div>
                 )}
@@ -499,7 +306,7 @@ export function ChampionshipScreen() {
                     <IncidentReportsView
                       key={selectedEventId}
                       eventId={selectedEventId}
-                      eventName={selectedChampionship.events.find((ev) => ev.id === selectedEventId)?.name}
+                      eventName={selectedEvent?.name}
                       participants={participants}
                     />
                   </div>
