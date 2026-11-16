@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { resultPublicationService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
 import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
 
@@ -38,14 +39,14 @@ export function PublishedResultsSummary({
           }),
         ]);
         if (cancelled) return;
-        if (!response.success) throw new Error(response.error.message);
-        if (response.data.eventId !== eventId || response.data.resultScope !== resultScope) {
+        const latest = unwrap(response);
+        if (latest.eventId !== eventId || latest.resultScope !== resultScope) {
           throw new Error('The results update belongs to another event');
         }
-        setSnapshot(response.data);
+        setSnapshot(latest);
         setError(null);
       } catch (caught) {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : String(caught));
+        if (!cancelled) setError(errorMessage(caught));
       } finally {
         clearTimeout(timeout);
         if (!cancelled) refreshTimer = setTimeout(() => void refresh(), 2000);
