@@ -1,19 +1,20 @@
 import { CheckCircle, ClipboardCheck, FileClock, Printer, Scale } from 'lucide-react';
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 
-import { resultsService, boardService, teamResultsService } from '@/renderer/services';
-import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
+import { boardService } from '@/renderer/services';
 import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts/results.contract';
 import { Logger } from '@/shared/utils/Logger';
 import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
 
-import { useResults } from '../../../hooks/useResults';
+import { useFinalResults, useResults } from '../../../hooks/useResults';
 import { useNotificationStore } from '../../../stores/ui/notifications.store';
 import { Button } from '../../shared/common/Button';
+import { InlineError } from '../../shared/common/InlineError';
 
 import { EstBackupVerificationPanel } from './EstBackupVerificationPanel';
 import { FinalPlacementReviewPanel } from './FinalPlacementReviewPanel';
 import { FinalResultDeclarationPanel } from './FinalResultDeclarationPanel';
+import { MixedTeamFinalResultsTable } from './MixedTeamFinalResultsTable';
 import { ResultPublicationPanel } from './ResultPublicationPanel';
 import { ResultVerificationPanel } from './ResultVerificationPanel';
 import { ScoringDecisionPanel } from './ScoringDecisionPanel';
@@ -41,10 +42,15 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     clearResults,
   } = useResults();
 
-  const [finalResults, setFinalResults] = useState<FinalRankedResultDto[]>([]);
-  const [mixedFinalResults, setMixedFinalResults] = useState<MixedTeamFinalResultDto[]>([]);
-  const [finalLoading, setFinalLoading] = useState(false);
-  const [finalError, setFinalError] = useState<string | null>(null);
+  const {
+    results: finalResults,
+    mixedTeamResults: mixedFinalResults,
+    loading: finalLoading,
+    error: finalError,
+    load: loadFinalResults,
+    refresh: refreshFinalResults,
+    cancel: cancelFinalResults,
+  } = useFinalResults(eventId);
 
   const [relayFilter, setRelayFilter] = useState<{
     eventId: string;
@@ -61,7 +67,6 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
   const [placementReviewOpen, setPlacementReviewOpen] = useState(false);
   const [teamResultsOpen, setTeamResultsOpen] = useState(false);
   const [backupVerificationOpen, setBackupVerificationOpen] = useState(false);
-  const finalRequestId = useRef(0);
 
   const results = isFinal ? [] : qualificationResults;
   const loading = isFinal ? finalLoading : qLoading;
@@ -85,28 +90,6 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     setBackupVerificationOpen(false);
   }, [eventId, isFinal, clearResults]);
 
-  const refreshFinalResults = useCallback(async () => {
-    const requestId = ++finalRequestId.current;
-    setFinalLoading(true);
-    setFinalError(null);
-    try {
-      const [response, mixedResponse] = await Promise.all([
-        resultsService.getFinalByEvent({ eventId }),
-        teamResultsService.getMixedFinal({ eventId }),
-      ]);
-      if (requestId !== finalRequestId.current) return;
-      if (!response.success) throw new Error(response.error?.message ?? 'Failed to load results');
-      if (!mixedResponse.success) throw new Error(mixedResponse.error?.message ?? 'Failed to load Mixed Team results');
-      setFinalResults(response.data.results);
-      setMixedFinalResults(mixedResponse.data);
-    } catch (err) {
-      if (requestId !== finalRequestId.current) return;
-      setFinalError(err instanceof Error ? err.message : 'Failed to load results');
-    } finally {
-      if (requestId === finalRequestId.current) setFinalLoading(false);
-    }
-  }, [eventId]);
-
   const filteredResults = useMemo(() => {
     if (isFinal) return [];
     if (selectedRelay === 'all') {
@@ -128,9 +111,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
   useEffect(() => {
     let cancelled = false;
     if (isFinal) {
-      setFinalResults([]);
-      setMixedFinalResults([]);
-      void refreshFinalResults();
+      void loadFinalResults();
     } else {
       if (selectedRelay === 'all') {
         void getEventResults(eventId).then((response) => {
@@ -144,9 +125,9 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     }
     return () => {
       cancelled = true;
-      if (isFinal) finalRequestId.current += 1;
+      if (isFinal) cancelFinalResults();
     };
-  }, [eventId, selectedRelay, isFinal, getEventResults, getRelayResults, refreshFinalResults]);
+  }, [eventId, selectedRelay, isFinal, getEventResults, getRelayResults, loadFinalResults, cancelFinalResults]);
 
   const handleRelayChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -228,7 +209,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
   if (error) {
     return (
       <div className="space-y-3">
-        <p className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</p>
+        <InlineError size="13px">{error}</InlineError>
         {backupControls}
       </div>
     );
@@ -443,7 +424,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
             id="relay-filter"
             value={selectedRelay}
             onChange={handleRelayChange}
-            className="px-2 py-1 text-base bg-vscode-input border border-vscode-border rounded text-vscode-text focus:outline-none focus:border-vscode-focus"
+            className="px-2 py-1 text-base bg-vscode-input border border-vscode-border rounded text-vscode-text focus:outline-none"
           >
             <option value="all">All</option>
             {availableRelays.map((relay) => (
@@ -609,62 +590,6 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
           onClose={() => setBackupVerificationOpen(false)}
         />
       )}
-    </div>
-  );
-}
-
-function MixedTeamFinalResultsTable({ results }: { results: MixedTeamFinalResultDto[] }) {
-  return (
-    <div className="space-y-3">
-      <div>
-        <h3 className="text-[13px] font-semibold text-vscode-text">Mixed Team Final results</h3>
-        <p className="mt-0.5 text-xs text-vscode-text-muted">
-          Team totals combine the two athletes’ recorded Lane scores. Places follow the recorded Final decisions.
-        </p>
-      </div>
-      <div className="overflow-auto rounded border border-vscode-border">
-        <table className="w-full text-vscode-text">
-          <thead className="bg-vscode-sidebar text-base">
-            <tr className="border-b border-vscode-border">
-              <th className="w-12 px-2 py-1.5 text-center">Rank</th>
-              <th className="px-2 py-1.5 text-left">Team</th>
-              <th className="px-2 py-1.5 text-left">NOC</th>
-              <th className="px-2 py-1.5 text-left">Members</th>
-              <th className="w-20 px-2 py-1.5 text-right">Stage 1</th>
-              <th className="w-20 px-2 py-1.5 text-right">Stage 2</th>
-              <th className="w-20 px-2 py-1.5 text-right">Total</th>
-              <th className="min-w-40 px-2 py-1.5 text-left">Decision</th>
-            </tr>
-          </thead>
-          <tbody>
-            {results.map((team) => (
-              <tr key={team.id} className="border-b border-vscode-border align-top">
-                <td className="px-2 py-1.5 text-center font-bold">{team.rank}</td>
-                <td className="px-2 py-1.5">
-                  {team.teamName}
-                  <span className="block text-xs text-vscode-dimmed">{team.teamId}</span>
-                </td>
-                <td className="px-2 py-1.5">{team.nationCode}</td>
-                <td className="px-2 py-1.5">
-                  {team.members.map((member) => (
-                    <span key={member.participantId} className="block text-xs">
-                      {member.gender} · FP {member.firingPointNumber} · {member.playerName} ·{' '}
-                      {member.totalScore.toFixed(1)}
-                    </span>
-                  ))}
-                </td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{team.stage1Total.toFixed(1)}</td>
-                <td className="px-2 py-1.5 text-right tabular-nums">{team.stage2Total.toFixed(1)}</td>
-                <td className="px-2 py-1.5 text-right font-bold tabular-nums">{team.totalScore.toFixed(1)}</td>
-                <td className="px-2 py-1.5 text-xs text-vscode-dimmed">
-                  {team.eliminatedAtShot ? `Placed after shot ${team.eliminatedAtShot}` : 'Winner'}
-                  {team.remarks && <span className="block">{team.remarks}</span>}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }

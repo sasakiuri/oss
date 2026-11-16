@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { RankedResultDto } from '@/shared/ipc/contracts/results.contract';
-import { resultsService } from '@/renderer/services';
+import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
+import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts/results.contract';
+import { resultsService, teamResultsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 
 interface UseResultsState {
   results: RankedResultDto[];
@@ -8,6 +10,10 @@ interface UseResultsState {
   error: string | null;
 }
 
+/**
+ * Qualification results of an event or relay and their confirmation. Queries and the confirmation share one request
+ * counter, loading flag and error: the latest request wins, and an older one changes nothing and resolves null.
+ */
 export function useResults() {
   const [state, setState] = useState<UseResultsState>({
     results: [],
@@ -29,22 +35,21 @@ export function useResults() {
 
     try {
       const response = await resultsService.getByEvent({ eventId });
-      if (!response.success) throw new Error(response.error?.message ?? 'Failed to load results');
+      const data = unwrap(response, 'Failed to load results');
       if (requestId === latestResultsRequestIdRef.current) {
         setState({
-          results: response.data.results,
+          results: data.results,
           loading: false,
           error: null,
         });
       }
       return response;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load results';
       if (requestId === latestResultsRequestIdRef.current) {
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: errorMessage,
+          error: errorMessage(err, 'Failed to load results'),
         }));
       }
       return null;
@@ -57,22 +62,21 @@ export function useResults() {
 
     try {
       const response = await resultsService.getByRelay({ eventId, relayNumber });
-      if (!response.success) throw new Error(response.error?.message ?? 'Failed to load relay results');
+      const data = unwrap(response, 'Failed to load relay results');
       if (requestId === latestResultsRequestIdRef.current) {
         setState({
-          results: response.data.results,
+          results: data.results,
           loading: false,
           error: null,
         });
       }
       return response;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load relay results';
       if (requestId === latestResultsRequestIdRef.current) {
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: errorMessage,
+          error: errorMessage(err, 'Failed to load relay results'),
         }));
       }
       return null;
@@ -88,7 +92,7 @@ export function useResults() {
         eventId,
         resultIds,
       });
-      if (!response.success) throw new Error(response.error?.message ?? 'Failed to confirm results');
+      unwrap(response, 'Failed to confirm results');
       if (requestId !== latestResultsRequestIdRef.current) return null;
       setState((prev) => ({
         ...prev,
@@ -97,12 +101,11 @@ export function useResults() {
       }));
       return response;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to confirm results';
       if (requestId === latestResultsRequestIdRef.current) {
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: errorMessage,
+          error: errorMessage(err, 'Failed to confirm results'),
         }));
       }
       return null;
@@ -127,4 +130,53 @@ export function useResults() {
     confirmResults,
     clearResults,
   };
+}
+
+/**
+ * Final and Mixed Team Final results of an event, loaded together. A newer load, or `cancel`, discards the response
+ * of an older one. Either query failing fails the load; the Final failure is shown first.
+ */
+export function useFinalResults(eventId: string) {
+  const [results, setResults] = useState<FinalRankedResultDto[]>([]);
+  const [mixedTeamResults, setMixedTeamResults] = useState<MixedTeamFinalResultDto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
+
+  /** Loads the results again and keeps the shown ones until they arrive. */
+  const refresh = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const [response, mixedResponse] = await Promise.all([
+        resultsService.getFinalByEvent({ eventId }),
+        teamResultsService.getMixedFinal({ eventId }),
+      ]);
+      if (requestId !== requestIdRef.current) return;
+      const finalData = unwrap(response, 'Failed to load results');
+      const mixedFinalResults = unwrap(mixedResponse, 'Failed to load Mixed Team results');
+      setResults(finalData.results);
+      setMixedTeamResults(mixedFinalResults);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      setError(errorMessage(err, 'Failed to load results'));
+    } finally {
+      if (requestId === requestIdRef.current) setLoading(false);
+    }
+  }, [eventId]);
+
+  /** Clears the shown results and loads them. */
+  const load = useCallback(() => {
+    setResults([]);
+    setMixedTeamResults([]);
+    return refresh();
+  }, [refresh]);
+
+  /** Discards the response of the running load. */
+  const cancel = useCallback(() => {
+    requestIdRef.current += 1;
+  }, []);
+
+  return { results, mixedTeamResults, loading, error, load, refresh, cancel };
 }
