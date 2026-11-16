@@ -6,6 +6,7 @@ import { productionOperationsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
 import type { ProductionOperationAssessmentDto, RecordProductionOperationPayload } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
+import { mutedLabelClass, smallBlockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface ProductionOperationsPanelProps {
   competitionId: string;
@@ -66,17 +67,21 @@ export function ProductionOperationsPanel(props: ProductionOperationsPanelProps)
       </header>
       {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
       <div className="grid gap-2 md:grid-cols-2">
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Official / sound technician
           <input
-            className={inputClass}
+            className={smallBlockInputClass}
             value={officialName}
             onChange={(event) => setOfficialName(event.target.value)}
           />
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Audit statement
-          <input className={inputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
+          <input
+            className={smallBlockInputClass}
+            value={statement}
+            onChange={(event) => setStatement(event.target.value)}
+          />
         </label>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -132,7 +137,3 @@ export function ProductionOperationsPanel(props: ProductionOperationsPanelProps)
     </div>
   );
 }
-
-const labelClass = 'text-xs text-vscode-text-muted';
-const inputClass =
-  'mt-1 block min-h-8 w-full rounded border border-vscode-border bg-vscode-input px-2 text-xs text-vscode-text';

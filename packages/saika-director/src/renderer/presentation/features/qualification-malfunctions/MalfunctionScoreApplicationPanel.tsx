@@ -10,8 +10,8 @@ import type {
   QualificationMalfunctionCaseDto,
 } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
+import { smallFieldClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
-const fieldClass = 'w-full rounded border border-vscode-border bg-vscode-input px-2 py-1 text-xs text-vscode-text';
 export function MalfunctionScoreApplicationPanel({
   value,
   sheets,
@@ -89,7 +89,7 @@ export function MalfunctionScoreApplicationPanel({
             <label className="block text-xs">
               Applying official
               <input
-                className={fieldClass}
+                className={smallFieldClass}
                 value={officialName}
                 onChange={(event) => setOfficialName(event.target.value)}
               />
@@ -97,7 +97,7 @@ export function MalfunctionScoreApplicationPanel({
             <label className="block text-xs">
               Applying role
               <select
-                className={fieldClass}
+                className={smallFieldClass}
                 value={officialRole}
                 onChange={(event) => setOfficialRole(event.target.value as typeof officialRole)}
               >
@@ -108,7 +108,7 @@ export function MalfunctionScoreApplicationPanel({
             <label className="block text-xs">
               Application or withdrawal statement
               <textarea
-                className={fieldClass}
+                className={smallFieldClass}
                 value={statement}
                 onChange={(event) => setStatement(event.target.value)}
               />
@@ -124,7 +124,7 @@ export function MalfunctionScoreApplicationPanel({
                       <label key={index} className="block text-xs">
                         Counted position {index + 1}: {shot.shotId} — ten classification
                         <select
-                          className={fieldClass}
+                          className={smallFieldClass}
                           value={innerTens[`${sheet.id}:${index}`] ?? ''}
                           onChange={(event) =>
                             setInnerTens({ ...innerTens, [`${sheet.id}:${index}`]: event.target.value })

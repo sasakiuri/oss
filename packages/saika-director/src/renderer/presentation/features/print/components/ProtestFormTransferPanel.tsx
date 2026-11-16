@@ -5,6 +5,7 @@ import { createProtestFormTransfer } from '@/shared/forms/ProtestFormTransfer';
 import type { ProtestCaseDto } from '@/shared/ipc/contracts';
 
 import { ProtestOfficialFormPanel } from './ProtestOfficialFormPanel';
+import { printInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 export function ProtestFormTransferPanel({
   protest,
@@ -47,29 +48,29 @@ export function ProtestFormTransferPanel({
       <div className="my-3 grid gap-2 md:grid-cols-2">
         <label>
           Time zone (IANA, e.g. Asia/Tokyo)
-          <input className={inputClass} value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
+          <input className={printInputClass} value={timeZone} onChange={(e) => setTimeZone(e.target.value)} />
         </label>
         {protest.kind === 'WRITTEN' ? (
           <>
             <label>
               Event for transfer
-              <input className={inputClass} value={eventName} onChange={(e) => setEventName(e.target.value)} />
+              <input className={printInputClass} value={eventName} onChange={(e) => setEventName(e.target.value)} />
             </label>
             <label>
               Jury for transfer
-              <input className={inputClass} value={juryName} onChange={(e) => setJuryName(e.target.value)} />
+              <input className={printInputClass} value={juryName} onChange={(e) => setJuryName(e.target.value)} />
             </label>
           </>
         ) : (
           <label>
             Nation for transfer
-            <input className={inputClass} value={nation} onChange={(e) => setNation(e.target.value)} />
+            <input className={printInputClass} value={nation} onChange={(e) => setNation(e.target.value)} />
           </label>
         )}
         <label>
           Receiving official for transfer
           <input
-            className={inputClass}
+            className={printInputClass}
             value={receivingOfficial}
             onChange={(e) => setReceivingOfficial(e.target.value)}
           />
@@ -96,7 +97,7 @@ export function ProtestFormTransferPanel({
                 <label className="block">
                   {field.label}
                   <textarea
-                    className={inputClass}
+                    className={printInputClass}
                     readOnly
                     value={field.value ?? ''}
                     placeholder="Complete manually"
@@ -127,5 +128,3 @@ export function ProtestFormTransferPanel({
     </details>
   );
 }
-
-const inputClass = 'block w-full rounded border p-2 text-black bg-white';

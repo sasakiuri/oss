@@ -5,6 +5,7 @@ import { relayAthleteLifecycleService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { RelayAthleteLifecycleAssessmentDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
+import { blockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface RelayAthleteLifecyclePanelProps {
   competitionId: string;
@@ -137,14 +138,14 @@ export function RelayAthleteLifecyclePanel({
         <label className="text-xs text-vscode-text-muted">
           Official name
           <input
-            className={inputClass}
+            className={blockInputClass}
             value={officialName}
             onChange={(event) => setOfficialName(event.target.value)}
           />
         </label>
         <label className="text-xs text-vscode-text-muted">
           Audit statement
-          <input className={inputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
+          <input className={blockInputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
         </label>
       </div>
 
@@ -213,6 +214,3 @@ export function RelayAthleteLifecyclePanel({
     </div>
   );
 }
-
-const inputClass =
-  'mt-1 block min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';

@@ -12,6 +12,7 @@ import type {
 
 import { Button } from '../shared/common/Button';
 import { MalfunctionScoreApplicationPanel } from './MalfunctionScoreApplicationPanel';
+import { smallFieldClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 type Evidence = MalfunctionScoreSheetInputDto['original'][number];
 interface DraftShot {
@@ -22,7 +23,6 @@ interface DraftShot {
 }
 const emptyRow = (): DraftShot[] =>
   Array.from({ length: 5 }, () => ({ id: '', score: '', target: '', outcome: 'HIT' }));
-const fieldClass = 'w-full rounded border border-vscode-border bg-vscode-input px-2 py-1 text-xs text-vscode-text';
 
 export function MalfunctionScoreSheetPanel({
   value,
@@ -161,7 +161,7 @@ export function MalfunctionScoreSheetPanel({
               <label className="text-xs">
                 Second malfunction zero-fill row
                 <select
-                  className={fieldClass}
+                  className={smallFieldClass}
                   value={secondRow}
                   onChange={(event) => setSecondRow(event.target.value as typeof secondRow)}
                 >
@@ -174,7 +174,7 @@ export function MalfunctionScoreSheetPanel({
                 <label className="text-xs">
                   Second malfunction evidence
                   <input
-                    className={fieldClass}
+                    className={smallFieldClass}
                     value={secondReference}
                     onChange={(event) => setSecondReference(event.target.value)}
                   />
@@ -190,7 +190,7 @@ export function MalfunctionScoreSheetPanel({
             <label className="text-xs">
               Confirming official
               <input
-                className={fieldClass}
+                className={smallFieldClass}
                 value={officialName}
                 onChange={(event) => setOfficialName(event.target.value)}
               />
@@ -198,7 +198,7 @@ export function MalfunctionScoreSheetPanel({
             <label className="text-xs">
               Confirming role
               <select
-                className={fieldClass}
+                className={smallFieldClass}
                 value={officialRole}
                 onChange={(event) => setOfficialRole(event.target.value as typeof officialRole)}
               >
@@ -209,7 +209,11 @@ export function MalfunctionScoreSheetPanel({
           </div>
           <label className="block text-xs">
             Evidence confirmation statement
-            <textarea className={fieldClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
+            <textarea
+              className={smallFieldClass}
+              value={statement}
+              onChange={(event) => setStatement(event.target.value)}
+            />
           </label>
           <Button
             size="sm"
@@ -296,7 +300,7 @@ function ShotRow({
       <label className="block text-xs">
         {title} evidence source
         <input
-          className={fieldClass}
+          className={smallFieldClass}
           value={source}
           onChange={(event) => setSource(event.target.value)}
           placeholder="EST record, examination or signed incident reference"
@@ -318,7 +322,7 @@ function ShotRow({
                 <td>
                   <input
                     aria-label={`${title} shot ${index + 1} ID`}
-                    className={fieldClass}
+                    className={smallFieldClass}
                     value={shot.id}
                     onChange={(event) => update(index, 'id', event.target.value)}
                   />
@@ -327,7 +331,7 @@ function ShotRow({
                   <td>
                     <select
                       aria-label={`${title} shot ${index + 1} target`}
-                      className={fieldClass}
+                      className={smallFieldClass}
                       value={shot.target}
                       onChange={(event) => update(index, 'target', event.target.value)}
                     >
@@ -343,7 +347,7 @@ function ShotRow({
                 <td>
                   <input
                     aria-label={`${title} shot ${index + 1} score`}
-                    className={fieldClass}
+                    className={smallFieldClass}
                     type="number"
                     min="0"
                     max="10"
@@ -355,7 +359,7 @@ function ShotRow({
                 <td>
                   <select
                     aria-label={`${title} shot ${index + 1} outcome`}
-                    className={fieldClass}
+                    className={smallFieldClass}
                     value={shot.outcome}
                     onChange={(event) => update(index, 'outcome', event.target.value)}
                   >

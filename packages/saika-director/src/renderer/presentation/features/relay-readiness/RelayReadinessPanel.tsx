@@ -6,6 +6,7 @@ import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { RelayReadinessAssessmentDto, RelayStartSettingsDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { blockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface RelayReadinessPanelProps {
   competitionId: string;
@@ -119,7 +120,7 @@ export function RelayReadinessPanel({
       <label className="block text-xs text-vscode-text-muted">
         Check target mode
         <select
-          className={inputClass}
+          className={blockInputClass}
           value={phase}
           disabled={savingKey !== null}
           onChange={(event) => setPhase(event.target.value as 'SIGHTING' | 'MATCH')}
@@ -132,7 +133,7 @@ export function RelayReadinessPanel({
         <label className="text-xs text-vscode-text-muted">
           Relay start checks
           <select
-            className={inputClass}
+            className={blockInputClass}
             value={mode}
             disabled={!startSettings || savingKey !== null}
             onChange={(event) => setMode(event.target.value as RelayStartSettingsDto['mode'])}
@@ -161,14 +162,14 @@ export function RelayReadinessPanel({
         <label className="text-xs text-vscode-text-muted">
           Official name
           <input
-            className={inputClass}
+            className={blockInputClass}
             value={officialName}
             onChange={(event) => setOfficialName(event.target.value)}
           />
         </label>
         <label className="text-xs text-vscode-text-muted">
           Audit statement
-          <input className={inputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
+          <input className={blockInputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
         </label>
       </div>
       <ul className="divide-y divide-vscode-border border-y border-vscode-border">
@@ -216,6 +217,3 @@ export function RelayReadinessPanel({
     </div>
   );
 }
-
-const inputClass =
-  'mt-1 block min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';

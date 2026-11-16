@@ -6,6 +6,7 @@ import { mixedTeamTimeoutsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
 import type { DirectorLaneSnapshotDto, MixedTeamTimeoutDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
+import { mutedLabelClass, smallBlockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 export function MixedTeamTimeoutPanel({
   competitionId,
@@ -135,10 +136,10 @@ export function MixedTeamTimeoutPanel({
         </div>
       )}
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Requesting team
           <select
-            className={inputClass}
+            className={smallBlockInputClass}
             value={requestingTeamId}
             onChange={(event) => setRequestingTeamId(event.target.value)}
           >
@@ -149,10 +150,10 @@ export function MixedTeamTimeoutPanel({
             ))}
           </select>
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Requested by
           <select
-            className={inputClass}
+            className={smallBlockInputClass}
             value={requestedByRole}
             onChange={(event) => setRequestedByRole(event.target.value as 'COACH' | 'ATHLETE')}
           >
@@ -160,26 +161,30 @@ export function MixedTeamTimeoutPanel({
             <option value="ATHLETE">Athlete</option>
           </select>
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Requester name
           <input
-            className={inputClass}
+            className={smallBlockInputClass}
             value={requestedByName}
             onChange={(event) => setRequestedByName(event.target.value)}
           />
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Jury official
           <input
-            className={inputClass}
+            className={smallBlockInputClass}
             value={officialName}
             onChange={(event) => setOfficialName(event.target.value)}
           />
         </label>
       </div>
-      <label className={labelClass}>
+      <label className={mutedLabelClass}>
         Audit statement
-        <input className={inputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
+        <input
+          className={smallBlockInputClass}
+          value={statement}
+          onChange={(event) => setStatement(event.target.value)}
+        />
       </label>
       <fieldset className="text-xs text-vscode-text-muted">
         <legend>Other coaches approaching concurrently (courtesy)</legend>
@@ -236,7 +241,3 @@ export function MixedTeamTimeoutPanel({
     </div>
   );
 }
-
-const labelClass = 'text-xs text-vscode-text-muted';
-const inputClass =
-  'mt-1 block min-h-8 w-full rounded border border-vscode-border bg-vscode-input px-2 text-xs text-vscode-text';

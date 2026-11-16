@@ -7,6 +7,7 @@ import type { ResultVerificationStatusDto, VerificationResultItemDto } from '@/s
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
 import { PublicationReviewPolicyPanel } from './PublicationReviewPolicyPanel';
+import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface ResultVerificationPanelProps {
   eventId: string;
@@ -14,9 +15,6 @@ interface ResultVerificationPanelProps {
   resultScope: 'QUALIFICATION' | 'FINAL';
   onClose: () => void;
 }
-
-const inputClass =
-  'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
 
 export function ResultVerificationPanel({ eventId, eventName, resultScope, onClose }: ResultVerificationPanelProps) {
   const [status, setStatus] = useState<ResultVerificationStatusDto | null>(null);
@@ -356,7 +354,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
               <label className="text-xs text-vscode-text-muted">
                 Independent source
                 <select
-                  className={`${inputClass} mt-1`}
+                  className={`${fullWidthInputClass} mt-1`}
                   value={evidenceSource}
                   onChange={(event) => setEvidenceSource(event.target.value as typeof evidenceSource)}
                 >
@@ -368,7 +366,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
               <label className="text-xs text-vscode-text-muted sm:col-span-2">
                 Source reference / printout ID
                 <input
-                  className={`${inputClass} mt-1`}
+                  className={`${fullWidthInputClass} mt-1`}
                   required
                   value={evidenceReference}
                   onChange={(event) => setEvidenceReference(event.target.value)}
@@ -379,7 +377,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
               <label className="text-xs text-vscode-text-muted">
                 Score comparison
                 <select
-                  className={`${inputClass} mt-1`}
+                  className={`${fullWidthInputClass} mt-1`}
                   value={comparisonStatus}
                   onChange={(event) => setComparisonStatus(event.target.value as typeof comparisonStatus)}
                 >
@@ -400,7 +398,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
             <label className="block text-xs text-vscode-text-muted">
               Verification note
               <textarea
-                className={`${inputClass} mt-1 min-h-14 resize-y`}
+                className={`${fullWidthInputClass} mt-1 min-h-14 resize-y`}
                 value={note}
                 onChange={(event) => setNote(event.target.value)}
               />
@@ -408,7 +406,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
             <label className="block text-xs text-vscode-text-muted">
               RTS Jury member
               <input
-                className={`${inputClass} mt-1`}
+                className={`${fullWidthInputClass} mt-1`}
                 required
                 value={checkOfficialName}
                 onChange={(event) => setCheckOfficialName(event.target.value)}
@@ -437,7 +435,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                 <label className="block">
                   Signature method
                   <select
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     value={signatureMethod}
                     onChange={(event) => setSignatureMethod(event.target.value as typeof signatureMethod)}
                   >
@@ -450,7 +448,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                     <label>
                       Recorded by (when signed out)
                       <input
-                        className={`${inputClass} mt-1`}
+                        className={`${fullWidthInputClass} mt-1`}
                         value={signatureRecorder}
                         onChange={(event) => setSignatureRecorder(event.target.value)}
                       />
@@ -458,7 +456,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                     <label>
                       Signed form / signature evidence reference
                       <input
-                        className={`${inputClass} mt-1`}
+                        className={`${fullWidthInputClass} mt-1`}
                         required
                         value={signatureReference}
                         onChange={(event) => setSignatureReference(event.target.value)}
@@ -492,7 +490,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                     <label className="block text-vscode-text-muted">
                       Revoking RTS Jury member
                       <input
-                        className={`${inputClass} mt-1`}
+                        className={`${fullWidthInputClass} mt-1`}
                         required
                         value={revocationOfficialName}
                         onChange={(event) => setRevocationOfficialName(event.target.value)}
@@ -500,7 +498,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                     </label>
                     <textarea
                       aria-label="Approval revocation reason"
-                      className={`${inputClass} min-h-14 resize-y`}
+                      className={`${fullWidthInputClass} min-h-14 resize-y`}
                       required
                       value={revocationReason}
                       onChange={(event) => setRevocationReason(event.target.value)}
@@ -528,7 +526,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                 <label className="block text-xs text-vscode-text-muted">
                   Approving RTS Jury member
                   <input
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     required
                     value={approvalOfficialName}
                     onChange={(event) => setApprovalOfficialName(event.target.value)}
@@ -537,7 +535,7 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
                 <label className="block text-xs text-vscode-text-muted">
                   Accuracy statement
                   <textarea
-                    className={`${inputClass} mt-1 min-h-16 resize-y`}
+                    className={`${fullWidthInputClass} mt-1 min-h-16 resize-y`}
                     required
                     value={approvalStatement}
                     onChange={(event) => setApprovalStatement(event.target.value)}

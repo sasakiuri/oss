@@ -5,6 +5,7 @@ import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { FinalPlacementReviewStatusDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
+import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface FinalPlacementReviewPanelProps {
   eventId: string;
@@ -12,9 +13,6 @@ interface FinalPlacementReviewPanelProps {
   onClose: () => void;
   onChanged: () => void;
 }
-
-const inputClass =
-  'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
 
 export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChanged }: FinalPlacementReviewPanelProps) {
   const [status, setStatus] = useState<FinalPlacementReviewStatusDto | null>(null);
@@ -187,7 +185,7 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
                           ) : (
                             <input
                               aria-label={`Reviewed rank for ${result.playerName}`}
-                              className={`${inputClass} mx-auto w-20 text-center tabular-nums`}
+                              className={`${fullWidthInputClass} mx-auto w-20 text-center tabular-nums`}
                               type="number"
                               min="1"
                               required
@@ -211,7 +209,7 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
                 <label className="text-xs text-vscode-text-muted">
                   ISSF rule reference
                   <input
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     required
                     value={ruleReference}
                     onChange={(event) => setRuleReference(event.target.value)}
@@ -220,7 +218,7 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
                 <label className="text-xs text-vscode-text-muted">
                   Official / Jury member
                   <input
-                    className={`${inputClass} mt-1`}
+                    className={`${fullWidthInputClass} mt-1`}
                     required
                     value={officialName}
                     onChange={(event) => setOfficialName(event.target.value)}
@@ -230,7 +228,7 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
               <label className="block text-xs text-vscode-text-muted">
                 Review statement
                 <textarea
-                  className={`${inputClass} mt-1 min-h-14 resize-y`}
+                  className={`${fullWidthInputClass} mt-1 min-h-14 resize-y`}
                   required
                   value={statement}
                   onChange={(event) => setStatement(event.target.value)}
@@ -253,7 +251,7 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
                 <label className="block text-xs text-vscode-text-muted">
                   Revocation reason
                   <textarea
-                    className={`${inputClass} mt-1 min-h-14 resize-y`}
+                    className={`${fullWidthInputClass} mt-1 min-h-14 resize-y`}
                     required
                     value={revokeReason}
                     onChange={(event) => setRevokeReason(event.target.value)}

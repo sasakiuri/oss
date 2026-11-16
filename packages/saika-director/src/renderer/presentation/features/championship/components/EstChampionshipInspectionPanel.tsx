@@ -7,6 +7,7 @@ import { unwrap } from '@/renderer/services/serviceError';
 import type { EstChampionshipInspectionAssessmentDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
+import { inputClass, stackedLabelClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 export function EstChampionshipInspectionPanel({ championshipId }: { championshipId: string }) {
   const [assessment, setAssessment] = useState<EstChampionshipInspectionAssessmentDto | null>(null);
@@ -105,7 +106,7 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
           {assessment?.plan ? `Inspection plan v${assessment.plan.versionNumber}` : 'Create inspection plan'}
         </summary>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <label className={`${labelClass} md:col-span-2`}>
+          <label className={`${stackedLabelClass} md:col-span-2`}>
             Target identifiers, one per line or comma-separated
             <textarea
               className={`${inputClass} min-h-20 resize-y`}
@@ -113,11 +114,11 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
               onChange={(event) => setTargetText(event.target.value)}
             />
           </label>
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Plan author
             <input className={inputClass} value={createdBy} onChange={(event) => setCreatedBy(event.target.value)} />
           </label>
-          <label className={`${labelClass} md:col-span-3`}>
+          <label className={`${stackedLabelClass} md:col-span-3`}>
             Test method
             <input
               className={inputClass}
@@ -208,7 +209,7 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
 
 function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className={labelClass}>
+    <label className={stackedLabelClass}>
       {label}
       <input className={inputClass} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
@@ -225,7 +226,3 @@ function parseTargets(value: string): string[] {
     ),
   ];
 }
-
-const labelClass = 'flex flex-col gap-1 text-xs text-vscode-text-muted';
-const inputClass =
-  'min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1 text-[13px] text-vscode-text';

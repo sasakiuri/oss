@@ -9,6 +9,7 @@ import type {
   MixedTeamFinalSnapshotDto,
 } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
+import { blockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 interface Props {
   competitionId: string;
@@ -203,7 +204,7 @@ export function MixedTeamFinalControlPanel({
           <label className="text-xs text-vscode-text-muted">
             Official name
             <input
-              className={inputClass}
+              className={blockInputClass}
               value={officialName}
               onChange={(event) => setOfficialName(event.target.value)}
             />
@@ -212,7 +213,7 @@ export function MixedTeamFinalControlPanel({
             <label className="text-xs text-vscode-text-muted">
               Selected team
               <select
-                className={inputClass}
+                className={blockInputClass}
                 value={selectedTeamId}
                 onChange={(event) => setSelectedTeamId(event.target.value)}
               >
@@ -228,7 +229,7 @@ export function MixedTeamFinalControlPanel({
             <label className="text-xs text-vscode-text-muted">
               Tie resolution
               <select
-                className={inputClass}
+                className={blockInputClass}
                 value={resolution}
                 onChange={(event) => setResolution(event.target.value as 'SHOOT_OFF' | 'JURY_DECISION')}
               >
@@ -240,7 +241,7 @@ export function MixedTeamFinalControlPanel({
           <label className="text-xs text-vscode-text-muted md:col-span-2">
             {pending ? 'Retry note' : assessment?.status === 'TIE' ? 'Shoot-off / Jury resolution' : 'Optional note'}
             <textarea
-              className={`${inputClass} min-h-16`}
+              className={`${blockInputClass} min-h-16`}
               value={statement}
               onChange={(event) => setStatement(event.target.value)}
             />
@@ -297,6 +298,3 @@ function buildTeams(competitionId: string, lanes: readonly DirectorLaneSnapshotD
     }))
     .sort((left, right) => left.teamId.localeCompare(right.teamId));
 }
-
-const inputClass =
-  'mt-1 block min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';

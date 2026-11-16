@@ -7,6 +7,7 @@ import { unwrap } from '@/renderer/services/serviceError';
 import type { OutdoorEliminationPlanDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
+import { inputClass, stackedLabelClass } from '@/renderer/presentation/features/shared/common/formClasses';
 
 export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }) {
   const [plans, setPlans] = useState<OutdoorEliminationPlanDto[]>([]);
@@ -91,7 +92,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
       {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
 
       <div className="grid gap-3 rounded-[3px] border border-vscode-border p-3 md:grid-cols-3">
-        <label className={labelClass}>
+        <label className={stackedLabelClass}>
           Usable firing points
           <input
             className={inputClass}
@@ -100,7 +101,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
             onChange={(event) => setCapacity(event.target.value)}
           />
         </label>
-        <label className={labelClass}>
+        <label className={stackedLabelClass}>
           Plan author
           <input className={inputClass} value={createdBy} onChange={(event) => setCreatedBy(event.target.value)} />
         </label>
@@ -161,7 +162,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
           </ul>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <label className={labelClass}>
+            <label className={stackedLabelClass}>
               Official / Technical Delegate
               <input
                 className={inputClass}
@@ -169,7 +170,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
                 onChange={(event) => setOfficialName(event.target.value)}
               />
             </label>
-            <label className={labelClass}>
+            <label className={stackedLabelClass}>
               Audit statement
               <input className={inputClass} value={statement} onChange={(event) => setStatement(event.target.value)} />
             </label>
@@ -210,7 +211,3 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
     </div>
   );
 }
-
-const labelClass = 'flex flex-col gap-1 text-xs text-vscode-text-muted';
-const inputClass =
-  'min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1 text-[13px] text-vscode-text';
