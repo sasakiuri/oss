@@ -14,14 +14,15 @@ const workspaceArgument = commandLineArguments.find((argument) =>
 );
 const workspaceName =
   workspaceArgument?.slice("--workspace=".length) ?? "@sasakiuri/saika-lane";
-const packageDirectoryByWorkspace = new Map([
-  ["@sasakiuri/saika-lane", "saika-lane"],
-  ["@sasakiuri/saika-director", "saika-director"],
-  ["@sasakiuri/saika-vista", "saika-vista"],
-]);
-const packageDirectory = packageDirectoryByWorkspace.get(workspaceName);
-const appDirectory = packageDirectory
-  ? join(repositoryRoot, "packages", packageDirectory)
+const { applications } = JSON.parse(
+  await readFile(join(repositoryRoot, "scripts", "saika-suite.json"), "utf8"),
+);
+const electronApplication = applications.find(
+  (application) =>
+    application.electron && application.workspace === workspaceName,
+);
+const appDirectory = electronApplication
+  ? join(repositoryRoot, electronApplication.directory)
   : null;
 const searchArguments = commandLineArguments.filter(
   (argument) => !argument.startsWith("--workspace="),

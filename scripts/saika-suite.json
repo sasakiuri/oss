@@ -1,0 +1,43 @@
+{
+  "$comment": "Saika suite applications in release order, read by the release scripts. scripts/saika-suite.test.mjs checks it against .changeset/config.json, package.json and electron-builder.json.",
+  "applications": [
+    {
+      "workspace": "@sasakiuri/saika-lane",
+      "directory": "packages/saika-lane",
+      "electron": {
+        "product": "Saika Lane",
+        "updateMetadataNamespace": null,
+        "windowFiles": [
+          "src/main/createMainWindowOptions.ts",
+          "src/main/modules/report/infra/PrintWindowService.ts"
+        ]
+      }
+    },
+    {
+      "workspace": "@sasakiuri/saika-director",
+      "directory": "packages/saika-director",
+      "electron": {
+        "product": "Saika Director",
+        "updateMetadataNamespace": "director",
+        "windowFiles": [
+          "src/main/main.ts",
+          "src/main/infrastructure/window/WindowManager.ts"
+        ]
+      }
+    },
+    {
+      "workspace": "@sasakiuri/saika-vista",
+      "directory": "packages/saika-vista",
+      "electron": {
+        "product": "Saika Vista",
+        "updateMetadataNamespace": "vista",
+        "windowFiles": []
+      }
+    },
+    {
+      "workspace": "@sasakiuri/saika-docs",
+      "directory": "packages/saika-docs",
+      "electron": null
+    }
+  ]
+}
