@@ -15,19 +15,6 @@ export type ZoomMode = 'AUTO' | 'RING_8' | 'RING_6' | 'RING_4' | 'FULL';
 export const ZOOM_MODE_SEQUENCE: ZoomMode[] = ['AUTO', 'RING_8', 'RING_6', 'RING_4', 'FULL'];
 
 /**
- * Display labels for zoom modes
- *
- * The label shown to the user in the UI for each mode.
- */
-export const ZOOM_MODE_LABELS: Record<ZoomMode, string> = {
-  AUTO: 'Auto',
-  RING_8: '8-ring',
-  RING_6: '6-ring',
-  RING_4: '4-ring',
-  FULL: 'Full',
-};
-
-/**
  * Get the next zoom mode
  *
  * Cyclically switches from the current mode to the next mode.

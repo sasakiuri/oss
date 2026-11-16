@@ -9,8 +9,8 @@ import { settingsService } from '@/renderer/services/settingsService';
 /**
  * Hook that restores saved user settings on mount.
  *
- * Reads discipline and laneNumber from settingsService.getUserPreferences()
- * and applies them to sessionStore.
+ * Reads laneNumber, audioVolume and competitionTypeId from settingsService.getUserPreferences()
+ * and applies them to the session and competition stores.
  */
 export function useSavedSettingsRestore(): void {
   useEffect(() => {

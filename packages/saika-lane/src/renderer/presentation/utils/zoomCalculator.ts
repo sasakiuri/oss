@@ -130,15 +130,3 @@ export function calculateAutoZoom(
   const spreadZoom = calculateZoomForRadius(canvasRadius, stdDev * 2, MARGIN_FACTOR);
   return Math.min(spreadZoom, fitZoom);
 }
-
-/**
- * Combine auto zoom and manual offset to calculate the effective zoom level
- *
- * @param autoZoom - Automatically calculated zoom level
- * @param manualOffset - Manual adjustment value by the user (default: 0)
- * @returns Effective zoom level (clamped to 0.1-10.0)
- */
-export function calculateEffectiveZoom(autoZoom: number, manualOffset: number = 0): number {
-  const effectiveZoom = autoZoom + manualOffset;
-  return clampZoom(effectiveZoom);
-}

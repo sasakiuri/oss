@@ -15,13 +15,6 @@ import { SplashScreen } from '@/renderer/presentation/screens/SplashScreen';
 import { StartupRecovery } from '@/renderer/presentation/screens/StartupRecovery';
 import { usePrintStore } from '@/renderer/presentation/stores/printStore';
 import { windowService } from '@/renderer/services/windowService';
-import type { ElectronAPI } from '@/shared/types';
-
-declare global {
-  interface Window {
-    electronAPI: ElectronAPI;
-  }
-}
 
 function App() {
   const { currentSessionId } = useSession();
