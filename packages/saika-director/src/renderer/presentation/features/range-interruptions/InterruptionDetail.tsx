@@ -2,6 +2,7 @@
 import { PauseCircle, Play } from 'lucide-react';
 
 import { mqttService, rangeInterruptionsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { RangeInterruptionCaseDto, RangeInterruptionScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -235,8 +236,7 @@ export function InterruptionDetail({
                   competitionId,
                   phase,
                 });
-                if (!response.success) throw new Error(response.error.message);
-                return response.data;
+                return unwrap(response);
               });
             }}
             onCancel={(runId, reason) =>
@@ -246,8 +246,7 @@ export function InterruptionDetail({
                   runId,
                   reason,
                 });
-                if (!response.success) throw new Error(response.error.message);
-                return response.data;
+                return unwrap(response);
               })
             }
             onAdjudicate={(runId, appliedBy, statement) =>
@@ -258,8 +257,7 @@ export function InterruptionDetail({
                   appliedBy,
                   statement,
                 });
-                if (!response.success) throw new Error(response.error.message);
-                return response.data;
+                return unwrap(response);
               })
             }
           />
@@ -277,8 +275,7 @@ export function InterruptionDetail({
                   appliedBy,
                   statement,
                 });
-                if (!response.success) throw new Error(response.error.message);
-                return response.data;
+                return unwrap(response);
               });
             }}
           />

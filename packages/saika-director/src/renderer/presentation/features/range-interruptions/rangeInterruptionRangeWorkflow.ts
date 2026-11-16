@@ -1,13 +1,12 @@
+import { unwrap } from '@/renderer/services/serviceError';
 import type {
   MqttCommandBatchResultDto,
   RangeInterruptionCaseDto,
   RecordRangeCommandBatchPayload,
 } from '@/shared/ipc/contracts';
+import type { IpcErrorDto } from '@sasakiuri/saika-ipc';
 
-interface ApiError {
-  message: string;
-}
-type ApiResult<T> = { success: true; data: T } | { success: false; error: ApiError };
+type ApiResult<T> = { success: true; data: T } | { success: false; error: IpcErrorDto };
 
 export interface RangeInterruptionRangeWorkflowPorts {
   lane: {
@@ -46,7 +45,7 @@ export async function applyRangePause(
   context: RangeActionContext,
   ports: RangeInterruptionRangeWorkflowPorts,
 ): Promise<RangeInterruptionCaseDto> {
-  const result = requireApiSuccess(
+  const result = unwrap(
     await ports.lane.pauseRangeTimers({
       competitionId: context.competitionId,
       laneIds: context.commandLaneIds,
@@ -60,7 +59,7 @@ export async function applyRangeResume(
   context: RangeActionContext & { authorizedRemainingSeconds: number; unlimitedSightingShots: boolean },
   ports: RangeInterruptionRangeWorkflowPorts,
 ): Promise<RangeInterruptionCaseDto> {
-  const result = requireApiSuccess(
+  const result = unwrap(
     await ports.lane.resumeRangeTimers({
       competitionId: context.competitionId,
       laneIds: context.commandLaneIds,
@@ -76,7 +75,7 @@ export async function applyRangeMatchResume(
   context: RangeActionContext,
   ports: RangeInterruptionRangeWorkflowPorts,
 ): Promise<RangeInterruptionCaseDto> {
-  const result = requireApiSuccess(
+  const result = unwrap(
     await ports.lane.resumeRangeMatch({
       competitionId: context.competitionId,
       laneIds: context.commandLaneIds,
@@ -92,7 +91,7 @@ async function recordAndRequireCompletion(
   result: MqttCommandBatchResultDto,
   ports: RangeInterruptionRangeWorkflowPorts,
 ): Promise<RangeInterruptionCaseDto> {
-  const recorded = requireApiSuccess(
+  const recorded = unwrap(
     await ports.ledger.recordCommandBatch({
       caseId: context.interruptionId,
       competitionId: context.competitionId,
@@ -119,9 +118,4 @@ async function recordAndRequireCompletion(
     );
   }
   return recorded;
-}
-
-function requireApiSuccess<T>(response: ApiResult<T>): T {
-  if (!response.success) throw new Error(response.error.message);
-  return response.data;
 }

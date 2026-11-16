@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { reserveLaneTransfersService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ReserveTransferWorkspaceDto } from '@/shared/ipc/contracts';
 import type { ReserveLaneTransferRequest } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
@@ -29,15 +30,10 @@ export function ReserveLaneTransferPanel({
   const [seconds, setSeconds] = useState(300);
   const [sighting, setSighting] = useState(true);
   const load = useCallback(async () => {
-    const response = await reserveLaneTransfersService.workspace({ competitionId });
-    if (!response.success) throw new Error(response.error?.message ?? 'Reserve transfer failed');
-    setWorkspace(response.data);
+    setWorkspace(unwrap(await reserveLaneTransfersService.workspace({ competitionId }), 'Reserve transfer failed'));
   }, [competitionId]);
   useEffect(() => {
-    if (open)
-      void load().catch((caught: unknown) =>
-        setError(caught instanceof Error ? caught.message : 'Unable to load transfers'),
-      );
+    if (open) void load().catch((caught: unknown) => setError(errorMessage(caught, 'Unable to load transfers')));
   }, [load, open]);
   const run = async (action: () => Promise<void>) => {
     setBusy(true);
@@ -45,7 +41,7 @@ export function ReserveLaneTransferPanel({
     try {
       await action();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Transfer failed');
+      setError(errorMessage(caught, 'Transfer failed'));
     } finally {
       try {
         await load();
@@ -82,8 +78,7 @@ export function ReserveLaneTransferPanel({
             onSubmit={(event) => {
               event.preventDefault();
               void run(async () => {
-                const response = await reserveLaneTransfersService.prepare(request);
-                if (!response.success) throw new Error(response.error?.message ?? 'Reserve transfer failed');
+                unwrap(await reserveLaneTransfersService.prepare(request), 'Reserve transfer failed');
                 setRequest((current) => ({ ...current, id: crypto.randomUUID() }));
               });
             }}
@@ -176,12 +171,12 @@ export function ReserveLaneTransferPanel({
                     disabled={busy || !request.officialName.trim() || !request.statement.trim()}
                     onClick={() =>
                       void run(async () => {
-                        const result = await reserveLaneTransfersService.cancel({
+                        const response = await reserveLaneTransfersService.cancel({
                           id: saved.id,
                           officialName: request.officialName,
                           statement: request.statement,
                         });
-                        if (!result.success) throw new Error(result.error?.message ?? 'Reserve transfer failed');
+                        unwrap(response, 'Reserve transfer failed');
                       })
                     }
                   >
@@ -195,8 +190,7 @@ export function ReserveLaneTransferPanel({
                     disabled={busy}
                     onClick={() =>
                       void run(async () => {
-                        const result = await reserveLaneTransfersService.prepare(saved);
-                        if (!result.success) throw new Error(result.error?.message ?? 'Reserve transfer failed');
+                        unwrap(await reserveLaneTransfersService.prepare(saved), 'Reserve transfer failed');
                       })
                     }
                   >
@@ -230,8 +224,7 @@ export function ReserveLaneTransferPanel({
                                 expectedDigest: bundle.digest,
                                 confirmed: true,
                               });
-                              if (!response.success)
-                                throw new Error(response.error?.message ?? 'Reserve transfer failed');
+                              unwrap(response, 'Reserve transfer failed');
                               setConfirmed(null);
                             })
                           }
@@ -283,8 +276,7 @@ export function ReserveLaneTransferPanel({
                                   statement: request.statement,
                                 },
                               );
-                              if (!response.success)
-                                throw new Error(response.error?.message ?? 'Reserve transfer failed');
+                              unwrap(response, 'Reserve transfer failed');
                             })
                           }
                         >
@@ -302,8 +294,7 @@ export function ReserveLaneTransferPanel({
                           onClick={() =>
                             void run(async () => {
                               const response = await reserveLaneTransfersService.resumeMatch({ id: saved.id });
-                              if (!response.success)
-                                throw new Error(response.error?.message ?? 'Reserve transfer failed');
+                              unwrap(response, 'Reserve transfer failed');
                             })
                           }
                         >
