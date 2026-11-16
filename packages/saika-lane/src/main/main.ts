@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { app, BrowserWindow } from 'electron';
 
 import { createMainWindowOptions } from '@/main/createMainWindowOptions';
+import { focusMainWindow } from '@/main/focusStartupWindow';
 import { getLogger } from '@/main/shared-infra/logging';
 
 import { createLaneApp } from './composition/createLaneApp';
@@ -68,17 +69,32 @@ function createWindow(): BrowserWindow {
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 app.commandLine.appendSwitch('audio-buffer-size', '128');
 
-// Quit on all platforms when all windows are closed.
-// Reopening a window requires rebinding IPC handlers, event forwarding and window controls.
-app.whenReady().then(() => {
-  const window = createWindow();
-  createLaneApp(window, {
-    userDataPath: app.getPath('userData'),
-    preloadPath: join(appDir, '../preload/preload.mjs'),
-    rendererDirectory: join(appDir, '../renderer'),
-  });
-});
+function startLane(): void {
+  let mainWindow: BrowserWindow | null = null;
 
-app.on('window-all-closed', () => {
+  // A second launch would open the same database and target port again; show the running Lane instead.
+  app.on('second-instance', () => {
+    if (mainWindow) focusMainWindow(mainWindow);
+  });
+
+  // Quit on all platforms when all windows are closed.
+  // Reopening a window requires rebinding IPC handlers, event forwarding and window controls.
+  app.whenReady().then(() => {
+    mainWindow = createWindow();
+    createLaneApp(mainWindow, {
+      userDataPath: app.getPath('userData'),
+      preloadPath: join(appDir, '../preload/preload.mjs'),
+      rendererDirectory: join(appDir, '../renderer'),
+    });
+  });
+
+  app.on('window-all-closed', () => {
+    app.quit();
+  });
+}
+
+if (app.requestSingleInstanceLock()) {
+  startLane();
+} else {
   app.quit();
-});
+}

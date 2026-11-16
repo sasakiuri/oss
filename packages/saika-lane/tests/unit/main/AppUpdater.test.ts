@@ -32,11 +32,15 @@ const logger = {
   error: vi.fn(),
 };
 
+const app = vi.hoisted(() => ({
+  isPackaged: true,
+  getVersion: vi.fn(() => '0.2.1'),
+  releaseSingleInstanceLock: vi.fn(),
+  requestSingleInstanceLock: vi.fn(() => true),
+}));
+
 vi.mock('electron', () => ({
-  app: {
-    isPackaged: true,
-    getVersion: vi.fn(() => '0.2.1'),
-  },
+  app,
   autoUpdater: nativeAutoUpdater,
 }));
 
@@ -187,6 +191,97 @@ describe('AppUpdater', () => {
     await updater.quitAndInstall();
 
     expect(fakeAutoUpdater.quitAndInstall).toHaveBeenCalledExactlyOnceWith(false, true);
+  });
+
+  it('releases the single-instance lock before installing so the updated Lane can start', async () => {
+    const { mainWindow } = createMainWindowMock();
+    const fakeAutoUpdater = new FakeAutoUpdater();
+    fakeAutoUpdater.checkForUpdates.mockImplementationOnce(async () => {
+      fakeAutoUpdater.emit('update-downloaded', { version: '0.2.2' });
+    });
+    fakeAutoUpdater.quitAndInstall.mockImplementationOnce(() => {
+      expect(app.releaseSingleInstanceLock).toHaveBeenCalledOnce();
+    });
+    const updater = new AppUpdater({
+      mainWindow: mainWindow as never,
+      currentVersion: '0.2.1',
+      isPackaged: true,
+      loadAutoUpdater: async () => ({ autoUpdater: fakeAutoUpdater }),
+    });
+    await updater.checkForUpdates();
+
+    await updater.quitAndInstall();
+
+    expect(fakeAutoUpdater.quitAndInstall).toHaveBeenCalledOnce();
+    expect(app.requestSingleInstanceLock).not.toHaveBeenCalled();
+  });
+
+  it('takes the single-instance lock back when the installation does not start', async () => {
+    const { mainWindow } = createMainWindowMock();
+    const fakeAutoUpdater = new FakeAutoUpdater();
+    fakeAutoUpdater.checkForUpdates.mockImplementationOnce(async () => {
+      fakeAutoUpdater.emit('update-downloaded', { version: '0.2.2' });
+    });
+    fakeAutoUpdater.quitAndInstall.mockImplementationOnce(() => {
+      throw new Error('The installer could not be started.');
+    });
+    const updater = new AppUpdater({
+      mainWindow: mainWindow as never,
+      currentVersion: '0.2.1',
+      isPackaged: true,
+      loadAutoUpdater: async () => ({ autoUpdater: fakeAutoUpdater }),
+    });
+    await updater.checkForUpdates();
+
+    await expect(updater.quitAndInstall()).rejects.toThrow('The installer could not be started.');
+
+    expect(app.releaseSingleInstanceLock).toHaveBeenCalledOnce();
+    expect(app.requestSingleInstanceLock).toHaveBeenCalledOnce();
+    expect(app.releaseSingleInstanceLock.mock.invocationCallOrder[0]).toBeLessThan(
+      app.requestSingleInstanceLock.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('takes the lock back when the installer reports a failure after the install request returned', async () => {
+    const { mainWindow } = createMainWindowMock();
+    const fakeAutoUpdater = new FakeAutoUpdater();
+    fakeAutoUpdater.checkForUpdates.mockImplementationOnce(async () => {
+      fakeAutoUpdater.emit('update-downloaded', { version: '0.2.2' });
+    });
+    const updater = new AppUpdater({
+      mainWindow: mainWindow as never,
+      currentVersion: '0.2.1',
+      isPackaged: true,
+      loadAutoUpdater: async () => ({ autoUpdater: fakeAutoUpdater }),
+    });
+    await updater.checkForUpdates();
+
+    await updater.quitAndInstall();
+    expect(app.releaseSingleInstanceLock).toHaveBeenCalledOnce();
+    expect(app.requestSingleInstanceLock).not.toHaveBeenCalled();
+
+    fakeAutoUpdater.emit('error', new Error('The installer exited with code 1.'));
+    fakeAutoUpdater.emit('error', new Error('A later, unrelated update error.'));
+
+    expect(updater.getState().status).toBe('error');
+    expect(app.requestSingleInstanceLock).toHaveBeenCalledOnce();
+  });
+
+  it('does not touch the lock for an update error outside an installation', async () => {
+    const { mainWindow } = createMainWindowMock();
+    const fakeAutoUpdater = new FakeAutoUpdater();
+    const updater = new AppUpdater({
+      mainWindow: mainWindow as never,
+      currentVersion: '0.2.1',
+      isPackaged: true,
+      loadAutoUpdater: async () => ({ autoUpdater: fakeAutoUpdater }),
+    });
+    await updater.checkForUpdates();
+
+    fakeAutoUpdater.emit('error', new Error('The update server is unreachable.'));
+
+    expect(app.releaseSingleInstanceLock).not.toHaveBeenCalled();
+    expect(app.requestSingleInstanceLock).not.toHaveBeenCalled();
   });
 
   it('installs AppImage updates with the shared explicit-restart installer, as Director and Vista do', async () => {

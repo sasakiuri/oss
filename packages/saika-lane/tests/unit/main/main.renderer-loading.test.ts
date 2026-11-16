@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
     whenReady: vi.fn().mockResolvedValue(undefined),
     on: vi.fn(),
     getPath: vi.fn(() => '/tmp/saika-lane-user-data'),
+    requestSingleInstanceLock: vi.fn(() => true),
     quit: vi.fn(),
   },
   window: {

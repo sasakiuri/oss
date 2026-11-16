@@ -4,16 +4,17 @@ import { app, type BrowserWindow } from 'electron';
 const STARTUP_FOCUS_RETRY_DELAYS_MS = [250, 1000, 2500] as const;
 
 export function focusStartupWindow(mainWindow: BrowserWindow): void {
-  focusMainWindowNow(mainWindow);
+  focusMainWindow(mainWindow);
 
   for (const delayMs of STARTUP_FOCUS_RETRY_DELAYS_MS) {
     setTimeout(() => {
-      focusMainWindowNow(mainWindow);
+      focusMainWindow(mainWindow);
     }, delayMs);
   }
 }
 
-function focusMainWindowNow(mainWindow: BrowserWindow): void {
+/** Restores, shows and focuses the main window, also when Windows refuses a plain focus request. */
+export function focusMainWindow(mainWindow: BrowserWindow): void {
   if (mainWindow.isDestroyed()) return;
 
   if (mainWindow.isMinimized()) {
