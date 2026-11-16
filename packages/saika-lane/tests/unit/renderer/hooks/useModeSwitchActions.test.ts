@@ -120,6 +120,22 @@ describe('useModeSwitchActions (3-button model)', () => {
       ).resolves.not.toThrow();
       expect(useSessionStore.getState().preparationShotNumberResetIndices).toEqual([]);
     });
+
+    it('reports a failed Preparation and clears the report on the next attempt', async () => {
+      setCompetitionState({ competitionId: 'comp-1', phase: 'ACTIVE' });
+      mockStartStage.mockRejectedValueOnce(new Error('Restore or finish the saved run before starting again.'));
+      const { result } = renderHook(() => useModeSwitchActions());
+
+      await act(async () => {
+        await result.current.handlePreparationClick();
+      });
+      expect(result.current.progressError).toBe('Restore or finish the saved run before starting again.');
+
+      await act(async () => {
+        await result.current.handlePreparationClick();
+      });
+      expect(result.current.progressError).toBeNull();
+    });
   });
 
   describe('handleMatchClick', () => {
@@ -168,6 +184,18 @@ describe('useModeSwitchActions (3-button model)', () => {
 
       expect(mockSwitchMode).toHaveBeenCalledWith('MATCH');
       expect(mockStartNextSeries).not.toHaveBeenCalled();
+    });
+
+    it('reports a failed Match series start', async () => {
+      setCompetitionState({ competitionId: 'comp-1', phase: 'SERIES_COMPLETE' });
+      mockStartNextSeries.mockRejectedValueOnce(new Error('An error occurred while starting the match series'));
+      const { result } = renderHook(() => useModeSwitchActions());
+
+      await act(async () => {
+        await result.current.handleMatchClick();
+      });
+
+      expect(result.current.progressError).toBe('An error occurred while starting the match series');
     });
 
     it('calls endStage, advanceStage, startNextSeries in order when ACTIVE[!scored]', async () => {
@@ -306,6 +334,20 @@ describe('useModeSwitchActions (3-button model)', () => {
           await result.current.handleNextStageClick();
         }),
       ).resolves.not.toThrow();
+    });
+
+    it('reports a failed Next Stage until it is dismissed', async () => {
+      setCompetitionState({ competitionId: 'comp-1', phase: 'ACTIVE', scored: false });
+      mockEndStage.mockRejectedValueOnce(new Error('An error occurred while ending sighting'));
+      const { result } = renderHook(() => useModeSwitchActions());
+
+      await act(async () => {
+        await result.current.handleNextStageClick();
+      });
+      expect(result.current.progressError).toBe('An error occurred while ending sighting');
+
+      act(() => result.current.dismissProgressError());
+      expect(result.current.progressError).toBeNull();
     });
   });
 });
