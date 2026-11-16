@@ -3,6 +3,7 @@ import { join } from 'path';
 
 import { app, BrowserWindow } from 'electron';
 
+import type { IPrintWindowOpener } from '@/main/modules/report/domain/IPrintWindowOpener';
 import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { PrintSettingsSchema, type PrinterDto, type PrintSettingsDto } from '@/shared/ipc/contracts';
@@ -14,7 +15,7 @@ interface PrintJob {
 }
 
 /** Owns preview windows and sends rendered score sheets to the saved printer. */
-export class PrintWindowService {
+export class PrintWindowService implements IPrintWindowOpener {
   private printWindow: BrowserWindow | null = null;
   private job: PrintJob | null = null;
 

@@ -4,24 +4,24 @@ import { describe, expect, it, vi } from 'vitest';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import { createOpenPrintWindowHandler } from '@/main/modules/report/application/handlers/OpenPrintWindowHandler';
-import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
+import type { IPrintWindowOpener } from '@/main/modules/report/domain/IPrintWindowOpener';
 import { DomainError } from '@/shared/errors/DomainError';
 
 import { buildSession } from '../../../../../helpers/factories';
 import { createMockCompetitionRepository, createMockSessionRepository } from '../../../../../helpers/mockDependencies';
 
-function createMockPrintWindowService(): PrintWindowService {
+function createMockPrintWindowOpener(): IPrintWindowOpener {
   return {
     open: vi.fn().mockResolvedValue(undefined),
-  } as unknown as PrintWindowService;
+  } as unknown as IPrintWindowOpener;
 }
 
 describe('createOpenPrintWindowHandler', () => {
-  const createHandler = (service: PrintWindowService) =>
+  const createHandler = (service: IPrintWindowOpener) =>
     createOpenPrintWindowHandler(service, createMockSessionRepository(), createMockCompetitionRepository());
 
   it('should call printWindowService.open() with sessionId', async () => {
-    const service = createMockPrintWindowService();
+    const service = createMockPrintWindowOpener();
     const handler = createHandler(service);
 
     await handler({ sessionId: 'session-001' });
@@ -30,7 +30,7 @@ describe('createOpenPrintWindowHandler', () => {
   });
 
   it('should prefer active competition sessionId over input sessionId', async () => {
-    const service = createMockPrintWindowService();
+    const service = createMockPrintWindowOpener();
     const sessionRepository = createMockSessionRepository();
     const competitionRepository = createMockCompetitionRepository();
     const activeCompetition = CompetitionState.create('competition-001', 'competition-session', BR60S.config);
@@ -44,7 +44,7 @@ describe('createOpenPrintWindowHandler', () => {
   });
 
   it('should prefer active session over input sessionId when no competition exists', async () => {
-    const service = createMockPrintWindowService();
+    const service = createMockPrintWindowOpener();
     const sessionRepository = createMockSessionRepository();
     const competitionRepository = createMockCompetitionRepository();
     const activeSession = buildSession();
@@ -58,7 +58,7 @@ describe('createOpenPrintWindowHandler', () => {
   });
 
   it('should return void on successful open()', async () => {
-    const service = createMockPrintWindowService();
+    const service = createMockPrintWindowOpener();
     const handler = createHandler(service);
 
     await expect(handler({ sessionId: 'session-001' })).resolves.toBeUndefined();
@@ -66,7 +66,7 @@ describe('createOpenPrintWindowHandler', () => {
 
   it('should throw PRINT_WINDOW_CREATION_FAILED error on open() failure', async () => {
     expect.assertions(3);
-    const service = createMockPrintWindowService();
+    const service = createMockPrintWindowOpener();
     const originalError = new Error('BrowserWindow creation failed');
     vi.mocked(service.open).mockRejectedValue(originalError);
     const handler = createHandler(service);
@@ -83,7 +83,7 @@ describe('createOpenPrintWindowHandler', () => {
 
   it('should throw PRINT_WINDOW_CREATION_FAILED even for non-Error exceptions', async () => {
     expect.assertions(3);
-    const service = createMockPrintWindowService();
+    const service = createMockPrintWindowOpener();
     vi.mocked(service.open).mockRejectedValue('unknown');
     const handler = createHandler(service);
 

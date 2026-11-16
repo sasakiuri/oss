@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { OpenPrintWindowInput } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
+import type { IPrintWindowOpener } from '@/main/modules/report/domain/IPrintWindowOpener';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import { DomainError } from '@/shared/errors/DomainError';
@@ -16,7 +16,7 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
  * @returns CommandHandler
  */
 export function createOpenPrintWindowHandler(
-  printWindowService: PrintWindowService,
+  printWindowService: IPrintWindowOpener,
   sessionRepository: ISessionRepository,
   competitionRepository: ICompetitionRepository,
 ): CommandHandler<OpenPrintWindowInput> {
