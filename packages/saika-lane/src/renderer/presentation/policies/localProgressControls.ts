@@ -1,17 +1,22 @@
 // SPDX-License-Identifier: MIT
 import type { CompetitionStateDto, DirectorMembershipDto } from '@/shared/ipc/contracts';
 
+interface MembershipState {
+  membership: DirectorMembershipDto | null;
+  hydrated: boolean;
+  hydrationFailed: boolean;
+}
+
+/** The loaded Director membership, or why it is unavailable. */
+function loadedMembership({ membership, hydrated, hydrationFailed }: MembershipState): DirectorMembershipDto | string {
+  if (hydrationFailed) return 'Director membership could not be loaded';
+  if (!hydrated || !membership) return 'Director membership is not yet available';
+  return membership;
+}
+
 /** Renderer permission shared by local progress actions and competition-type choices. */
 export function localProgressControls(
-  {
-    membership,
-    hydrated,
-    hydrationFailed,
-  }: {
-    membership: DirectorMembershipDto | null;
-    hydrated: boolean;
-    hydrationFailed: boolean;
-  },
+  membershipState: MembershipState,
   action: 'progress' | 'sighting' | 'match' = 'progress',
   competition?: {
     phase: string;
@@ -25,8 +30,8 @@ export function localProgressControls(
     action === 'progress' &&
     (competition?.interruption?.status === 'PAUSED' || competition?.interruption?.status === 'RESUME_PENDING')
   ) {
-    if (hydrationFailed) return { allowed: false, reason: 'Director membership could not be loaded' };
-    if (!hydrated || !membership) return { allowed: false, reason: 'Director membership is not yet available' };
+    const membership = loadedMembership(membershipState);
+    if (typeof membership === 'string') return { allowed: false, reason: membership };
     return {
       allowed: false,
       reason: membership.competitionId
@@ -58,8 +63,8 @@ export function localProgressControls(
               : 'This position change allows Sighting only',
     };
   }
-  if (hydrationFailed) return { allowed: false, reason: 'Director membership could not be loaded' };
-  if (!hydrated || !membership) return { allowed: false, reason: 'Director membership is not yet available' };
+  const membership = loadedMembership(membershipState);
+  if (typeof membership === 'string') return { allowed: false, reason: membership };
   if (membership.competitionId !== null) {
     return { allowed: false, reason: 'Competition progress is controlled by Director' };
   }

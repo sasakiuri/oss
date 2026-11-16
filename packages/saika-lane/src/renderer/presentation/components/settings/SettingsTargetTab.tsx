@@ -8,6 +8,7 @@ import { settingsService } from '@/renderer/services/settingsService';
 import { localProgressControls } from '../../policies/localProgressControls';
 import { useCompetitionStore } from '../../stores/competitionStore';
 import { useDirectorMembershipStore } from '../../stores/directorMembershipStore';
+import { isProgressAllowed } from '../../stores/localProgressPermission';
 
 interface CompetitionTypeItem {
   id: string;
@@ -49,19 +50,11 @@ export const SettingsTargetTab: React.FC = () => {
   }, []);
 
   const handleSelectCompetitionType = async (competitionTypeId: string) => {
-    if (
-      isApplying ||
-      !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState()).allowed
-    )
-      return;
+    if (isApplying || !isProgressAllowed()) return;
     setIsApplying(true);
     try {
       const { competitionId } = await competitionService.startCompetition({ competitionTypeId });
-      if (
-        !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState())
-          .allowed
-      )
-        return;
+      if (!isProgressAllowed()) return;
       await competitionService.startStage({ competitionId });
       try {
         await settingsService.saveUserPreferences({ competitionTypeId });

@@ -10,6 +10,7 @@ import {
 } from '@/renderer/presentation/stores/athleteTargetControl';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
+import { isProgressAllowed } from '@/renderer/presentation/stores/localProgressPermission';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 
@@ -38,7 +39,7 @@ interface PendingConfirmation {
 function isCurrentConfirmation(pending: PendingConfirmation): boolean {
   const { competitionId, phase } = useCompetitionStore.getState();
   return (
-    localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState()).allowed &&
+    isProgressAllowed() &&
     useDirectorMembershipStore.getState().membership?.revision === pending.membershipRevision &&
     useCompetitionStore.getState().stageIndex === pending.stageIndex &&
     useCompetitionStore.getState().seriesIndex === pending.seriesIndex &&
@@ -75,11 +76,7 @@ export function useModeSwitchActions() {
   }, [cancelConfirmation]);
 
   const requestConfirmation = useCallback((message: string, action: () => Promise<void>) => {
-    if (
-      pendingRef.current ||
-      !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState()).allowed
-    )
-      return;
+    if (pendingRef.current || !isProgressAllowed()) return;
     const { competitionId, phase } = useCompetitionStore.getState();
     const pending = {
       message,
@@ -139,17 +136,9 @@ export function useModeSwitchActions() {
           const scored = useCompetitionStore.getState().scored;
           if (!scored) {
             await endStage(competitionId);
-            if (
-              !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState())
-                .allowed
-            )
-              return;
+            if (!isProgressAllowed()) return;
             await advanceStage(competitionId);
-            if (
-              !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState())
-                .allowed
-            )
-              return;
+            if (!isProgressAllowed()) return;
             await startNextSeries(competitionId);
           }
         } else if (phase === 'SERIES_COMPLETE' || phase === 'SERIES_ENTERED' || phase === 'STAGE_ENTERED') {
@@ -223,10 +212,7 @@ export function useModeSwitchActions() {
   }, [match, requestConfirmation]);
 
   const handleNextStageClick = useCallback(async () => {
-    if (
-      !localProgressControls(useDirectorMembershipStore.getState(), 'progress', useCompetitionStore.getState()).allowed
-    )
-      return;
+    if (!isProgressAllowed()) return;
     const { competitionId, phase, scored } = useCompetitionStore.getState();
     if (!competitionId || phase === 'FINISHED') return;
 
