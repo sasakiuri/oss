@@ -4,6 +4,7 @@ import { CompetitionCuePayloadSchema } from '@sasakiuri/saika-protocol/Competiti
 import { TimedTargetStateSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 import { z } from 'zod';
 
+import { LOG_LEVELS, LOG_SOURCES } from '@/shared/types/log';
 import { PHASE_VALUES } from '@/shared/types/Phase';
 
 import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';
@@ -22,17 +23,9 @@ const SessionModeSchema = z.union([z.literal('SIGHTING'), z.literal('MATCH')]);
 
 const ErrorSeveritySchema = z.union([z.literal('error'), z.literal('warning'), z.literal('info')]);
 
-const LogLevelSchema = z.union([z.literal('debug'), z.literal('info'), z.literal('warn'), z.literal('error')]);
+const LogLevelSchema = z.enum(LOG_LEVELS);
 
-const LogSourceSchema = z.union([
-  z.literal('main'),
-  z.literal('ipc'),
-  z.literal('usb'),
-  z.literal('domain'),
-  z.literal('cqrs'),
-  z.literal('module'),
-  z.literal('renderer'),
-]);
+const LogSourceSchema = z.enum(LOG_SOURCES);
 
 // ============================================================
 // Event payload schemas

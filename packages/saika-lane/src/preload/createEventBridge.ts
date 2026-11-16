@@ -20,9 +20,21 @@ export function createEventBridge<C extends EventContract<string, EventMap>>(con
 
   for (const key of typedKeys(contract.events)) {
     const channel = contract.channels[key]!;
+    const { schema } = contract.events[key]!;
 
     bridge[key] = (callback: (data: unknown) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: unknown) => callback(data);
+      const handler = (_event: Electron.IpcRendererEvent, data: unknown) => {
+        // A payload outside the contract never reaches the renderer; a valid one is passed on as received.
+        const result = schema.safeParse(data);
+        if (!result.success) {
+          console.error(
+            `[IPC] Ignored invalid event payload for "${channel}"`,
+            result.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+          );
+          return;
+        }
+        callback(data);
+      };
       ipcRenderer.on(channel, handler);
       return () => ipcRenderer.removeListener(channel, handler);
     };

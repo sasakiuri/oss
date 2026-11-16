@@ -95,13 +95,19 @@ export class IpcRouter {
             };
 
             if (isQuery) {
-              return {
-                success: false,
-                data: null,
-                error: validationError,
-              } satisfies QueryErrorResponse;
+              return this.validateOutput(
+                { success: false, data: null, error: validationError } satisfies QueryErrorResponse,
+                outputSchema,
+                key,
+                true,
+              );
             }
-            return { success: false, error: validationError } satisfies CommandResponse;
+            return this.validateOutput(
+              { success: false, error: validationError } satisfies CommandResponse,
+              outputSchema,
+              key,
+              false,
+            );
           }
 
           // 2. Call handler with validated data, wrap result/error
@@ -128,32 +134,26 @@ export class IpcRouter {
   private async wrapCommand(
     fn: () => Promise<unknown>,
     operationName: string,
-    outputSchema?: z.ZodType,
-  ): Promise<CommandResponse & { data?: unknown }> {
+    outputSchema: z.ZodType,
+  ): Promise<unknown> {
     try {
       const result = await fn();
-      const response = { success: true as const, data: result };
-      if (outputSchema) {
-        const validated = outputSchema.safeParse(response);
-        if (!validated.success) {
-          const logger = getLogger();
-          logger.error(`Output validation failed: ${operationName}`, 'main', {
-            operation: operationName,
-            errors: validated.error.issues.map((i: z.ZodIssue) => `${i.path.join('.')}: ${i.message}`).join(', '),
-          });
-        }
-      }
-      return response;
+      return this.validateOutput({ success: true, data: result }, outputSchema, operationName, false);
     } catch (err) {
       const logger = getLogger();
       logger.error(`Command failed: ${operationName}`, 'main', {
         operation: operationName,
         error: err instanceof Error ? err.message : String(err),
       });
-      return {
-        success: false,
-        error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
-      };
+      return this.validateOutput(
+        {
+          success: false,
+          error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
+        } satisfies CommandResponse,
+        outputSchema,
+        operationName,
+        false,
+      );
     }
   }
 
@@ -162,36 +162,57 @@ export class IpcRouter {
    * success -> { success: true, data: result }
    * failure -> { success: false, data: null, error: ... }
    */
-  private async wrapQuery<T>(
-    fn: () => Promise<T>,
+  private async wrapQuery(
+    fn: () => Promise<unknown>,
     operationName: string,
-    outputSchema?: z.ZodType,
-  ): Promise<{ success: true; data: T } | QueryErrorResponse> {
+    outputSchema: z.ZodType,
+  ): Promise<unknown> {
     try {
       const result = await fn();
-      const response = { success: true as const, data: result };
-      if (outputSchema) {
-        const validated = outputSchema.safeParse(response);
-        if (!validated.success) {
-          const logger = getLogger();
-          logger.error(`Output validation failed: ${operationName}`, 'main', {
-            operation: operationName,
-            errors: validated.error.issues.map((i: z.ZodIssue) => `${i.path.join('.')}: ${i.message}`).join(', '),
-          });
-        }
-      }
-      return response;
+      return this.validateOutput({ success: true, data: result }, outputSchema, operationName, true);
     } catch (err) {
       const logger = getLogger();
       logger.error(`Query failed: ${operationName}`, 'main', {
         operation: operationName,
         error: err instanceof Error ? err.message : String(err),
       });
-      return {
-        success: false,
-        data: null,
-        error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
-      };
+      return this.validateOutput(
+        {
+          success: false,
+          data: null,
+          error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
+        } satisfies QueryErrorResponse,
+        outputSchema,
+        operationName,
+        true,
+      );
     }
+  }
+
+  /**
+   * Lets a response reach the renderer only when it matches the contract. A response that does not is logged and
+   * replaced by an IPC_INVALID_RESPONSE error; a valid one is sent as the handler built it.
+   */
+  private validateOutput(response: unknown, schema: z.ZodType, operationName: string, isQuery: boolean): unknown {
+    const validated = schema.safeParse(response);
+    if (validated.success) return response;
+
+    const validationErrors = validated.error.issues.map((issue: z.ZodIssue) => ({
+      path: issue.path.join('.'),
+      message: issue.message,
+    }));
+    getLogger().error(`Output validation failed: ${operationName}`, 'main', {
+      operation: operationName,
+      errors: validationErrors.map(({ path, message }) => `${path}: ${message}`).join(', '),
+    });
+    const invalid = ErrorCatalog.createError('IPC_INVALID_RESPONSE');
+    const error: IpcErrorDto = {
+      code: invalid.code,
+      message: `[${operationName}] ${invalid.message}`,
+      metadata: { context: operationName, validationErrors },
+    };
+    return isQuery
+      ? ({ success: false, data: null, error } satisfies QueryErrorResponse)
+      : ({ success: false, error } satisfies CommandResponse);
   }
 }

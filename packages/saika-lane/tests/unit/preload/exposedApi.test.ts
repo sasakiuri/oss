@@ -19,6 +19,7 @@ vi.mock('electron', () => ({
 }));
 
 import '@/preload/preload';
+import { eventsContract } from '@/shared/ipc/contracts';
 
 const PROBE = { probe: true };
 
@@ -187,11 +188,16 @@ describe('exposed preload API', () => {
     electron.removeListener.mockClear();
     const listener = vi.fn();
 
+    // The bridge drops payloads outside the event schema (see createEventBridge.test.ts); let the probe through.
+    const schema = eventsContract.events[name as keyof typeof eventsContract.events].schema;
+    const accepted = vi.spyOn(schema, 'safeParse').mockReturnValue({ success: true, data: PROBE } as never);
+
     const unsubscribe = namespaceMethods('on')[name]!(listener) as () => void;
 
     expect(electron.on).toHaveBeenCalledExactlyOnceWith(channel, expect.any(Function));
     const handler = electron.on.mock.calls[0]![1] as (event: unknown, data: unknown) => void;
     handler({}, PROBE);
+    accepted.mockRestore();
     expect(listener).toHaveBeenCalledExactlyOnceWith(PROBE);
     unsubscribe();
     expect(electron.removeListener).toHaveBeenCalledExactlyOnceWith(channel, handler);

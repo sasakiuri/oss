@@ -407,6 +407,9 @@ describe('connection.module', () => {
         callback();
 
         expect(mockWebContentsSend).toHaveBeenCalledWith(eventsContract.channels.shotReceived, {});
+        // The preload bridge drops payloads outside the event schema.
+        const [, payload] = mockWebContentsSend.mock.calls.at(-1)!;
+        expect(eventsContract.events.shotReceived.schema.safeParse(payload).success).toBe(true);
       });
 
       it('should not send shotReceived when window is destroyed', () => {

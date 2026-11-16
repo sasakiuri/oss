@@ -72,6 +72,7 @@ vi.mock('electron-updater', () => ({
 }));
 
 import { AppUpdater } from '@/main/updater/AppUpdater';
+import { eventsContract } from '@/shared/ipc/contracts';
 
 class FakeAutoUpdater extends EventEmitter {
   autoDownload = false;
@@ -87,7 +88,11 @@ function createMainWindowMock() {
     mainWindow: {
       isDestroyed: vi.fn(() => false),
       webContents: {
-        send: vi.fn(),
+        // The preload bridge drops payloads outside the event schema, so every state sent must match it.
+        send: vi.fn((channel: string, payload: unknown) => {
+          expect(channel).toBe(eventsContract.channels.updateStateChanged);
+          expect(eventsContract.events.updateStateChanged.schema.safeParse(payload).error?.issues).toBeUndefined();
+        }),
         once: vi.fn(),
       },
     },

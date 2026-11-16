@@ -61,11 +61,26 @@ function createMockEventBus(): MockEventBus {
   };
 }
 
+const eventSchemaByChannel = new Map(
+  Object.entries(eventsContract.channels).map(([key, channel]) => [
+    channel,
+    eventsContract.events[key as keyof typeof eventsContract.events].schema,
+  ]),
+);
+
 function createMockBrowserWindow(destroyed = false): BrowserWindow {
   return {
     isDestroyed: vi.fn(() => destroyed),
     webContents: {
-      send: vi.fn(),
+      // The preload bridge drops payloads that do not match the contract, so every forwarded payload must match.
+      send: vi.fn((channel: string, payload: unknown) => {
+        const result = eventSchemaByChannel.get(channel)?.safeParse(payload);
+        if (!result?.success) {
+          throw new Error(
+            `Forwarded payload for "${channel}" does not match its event schema: ${result?.error.message}`,
+          );
+        }
+      }),
     },
   } as unknown as BrowserWindow;
 }
