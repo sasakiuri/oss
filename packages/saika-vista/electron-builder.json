@@ -1,0 +1,50 @@
+{
+  "appId": "io.github.sasakiuri.saika-vista",
+  "productName": "Saika Vista",
+  "icon": "resources/appIcon.png",
+  "artifactName": "Saika-Vista-${version}-${arch}.${ext}",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**",
+    "resources/appIcon.png",
+    "package.json",
+    "LICENSE",
+    "THIRD-PARTY-LICENSES.txt",
+    "!node_modules/**/test",
+    "!node_modules/**/tests",
+    "!node_modules/**/*.test.*"
+  ],
+  "asar": true,
+  "extraResources": [
+    {
+      "from": "LICENSE",
+      "to": "LICENSE"
+    },
+    {
+      "from": "THIRD-PARTY-LICENSES.txt",
+      "to": "THIRD-PARTY-LICENSES.txt"
+    }
+  ],
+  "win": {
+    "target": ["nsis"]
+  },
+  "mac": {
+    "target": ["dmg", "zip"],
+    "category": "public.app-category.sports"
+  },
+  "linux": {
+    "executableName": "saika-vista",
+    "target": ["AppImage", "deb"],
+    "category": "Utility"
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "sasakiuri",
+      "repo": "oss",
+      "releaseType": "release"
+    }
+  ]
+}
