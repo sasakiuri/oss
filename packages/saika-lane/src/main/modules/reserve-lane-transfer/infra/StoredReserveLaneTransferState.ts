@@ -13,7 +13,7 @@ import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { Session } from '@/main/modules/session/domain/Session';
 import { SessionFactory } from '@/main/modules/session/domain/SessionFactory';
-import { parseSessionStorageData } from '@/main/modules/session/infra/SessionStorageSchema';
+import { parseSessionStorageData } from '@/main/modules/session/domain/SessionStorageSchema';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
 import type { IReserveLaneTransferStatePort } from '../domain/ReserveLaneTransfer';

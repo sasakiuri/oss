@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
-import { SessionStorageSchema } from '@/main/modules/session/infra/SessionStorageSchema';
+import { SessionStorageSchema } from '@/main/modules/session/domain/SessionStorageSchema';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
 import { TargetDevice } from '@/main/modules/target/domain/TargetDevice';
 import { getTargetZoneConfig } from '@/renderer/presentation/components/target/targetColors';

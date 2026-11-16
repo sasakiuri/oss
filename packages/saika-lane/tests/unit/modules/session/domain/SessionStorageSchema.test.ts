@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { describe, expect, it } from 'vitest';
 
 import { SessionFactory } from '@/main/modules/session/domain/SessionFactory';
-import { SessionStorageSchema, parseSessionStorageData } from '@/main/modules/session/infra/SessionStorageSchema';
+import { SessionStorageSchema, parseSessionStorageData } from '@/main/modules/session/domain/SessionStorageSchema';
 import { DomainError } from '@/shared/errors/DomainError';
 
 const validSessionData = {
