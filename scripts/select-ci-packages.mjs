@@ -37,6 +37,10 @@ const textToolingInputs = new Set([
   ".github/dependabot.yml",
   ".textlintignore",
 ]);
+// The suite manifest test in the text job checks the manifest against these release inputs.
+const suiteManifestInput = (file) =>
+  file === ".changeset/config.json" ||
+  /^packages\/[^/]+\/electron-builder\.json$/.test(file);
 
 const stableJson = (value) =>
   JSON.stringify(value, (_, item) =>
@@ -255,7 +259,8 @@ export function selectCiPackages(files, current, previous = current, lockfile) {
       /(^|\/)package(?:-lock)?\.json$/.test(file) ||
       /(^|\/)\.textlintrc(?:\.[^/]+)?$/.test(file) ||
       file === "scripts/check-english-only.mjs" ||
-      textToolingInputs.has(file),
+      textToolingInputs.has(file) ||
+      suiteManifestInput(file),
   );
   const infrastructure = files.some(
     (file) =>
