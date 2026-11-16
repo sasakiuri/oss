@@ -1,12 +1,15 @@
 import { useState, type FormEvent } from 'react';
 import { Printer } from 'lucide-react';
 
+import { titleCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 import type {
   AppendIncidentReportEntryPayload,
   IncidentReportOfficialRoleDto,
   RangeIncidentReportDto,
 } from '@/shared/ipc/contracts';
+
 import { Button } from '../../shared/common/Button';
+import { fullWidthInputClass } from '../../shared/common/formClasses';
 import { RoleOptions } from './IncidentReportCreateForm';
 
 interface IncidentReportDetailProps {
@@ -17,9 +20,6 @@ interface IncidentReportDetailProps {
 }
 
 type EntryAction = AppendIncidentReportEntryPayload['type'];
-
-const inputClass =
-  'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
 
 export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }: IncidentReportDetailProps) {
   const [action, setAction] = useState<EntryAction>('SIGNATURE');
@@ -104,7 +104,7 @@ export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }:
         <h4 className="text-[13px] font-semibold text-vscode-text">Sign-off coverage</h4>
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="rounded-full border border-vscode-success/50 px-2 py-1 text-vscode-success">
-            {formatRole(report.initiatorRole)} · {report.initiatorName} (initiator)
+            {titleCaseLabel(report.initiatorRole)} · {report.initiatorName} (initiator)
           </span>
           {report.entries
             .filter((entry) => entry.type === 'SIGNATURE' && entry.officialRole)
@@ -113,12 +113,12 @@ export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }:
                 key={entry.id}
                 className="rounded-full border border-vscode-success/50 px-2 py-1 text-vscode-success"
               >
-                {formatRole(entry.officialRole!)} · {entry.officialName}
+                {titleCaseLabel(entry.officialRole!)} · {entry.officialName}
               </span>
             ))}
           {report.missingSignatureRoles.map((role) => (
             <span key={role} className="rounded-full border border-vscode-warning/50 px-2 py-1 text-vscode-warning">
-              Missing {formatRole(role)}
+              Missing {titleCaseLabel(role)}
             </span>
           ))}
         </div>
@@ -161,7 +161,7 @@ export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }:
             {report.entries.map((entry) => (
               <div key={entry.id} className="rounded-[3px] border border-vscode-border bg-vscode-bg p-3 text-xs">
                 <span className="font-semibold text-vscode-text">{entry.type}</span>
-                {entry.officialRole ? ` · ${formatRole(entry.officialRole)}` : ''}
+                {entry.officialRole ? ` · ${titleCaseLabel(entry.officialRole)}` : ''}
                 {entry.destination ? ` · ${entry.destination}` : ''}
                 <p className="mt-1 text-vscode-text">{entry.statement}</p>
                 <p className="mt-1 text-vscode-text-muted">
@@ -184,7 +184,7 @@ export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }:
             <label className="text-xs text-vscode-text-muted">
               Action
               <select
-                className={`${inputClass} mt-1`}
+                className={`${fullWidthInputClass} mt-1`}
                 value={action}
                 onChange={(event) => setAction(event.target.value as EntryAction)}
               >
@@ -198,7 +198,7 @@ export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }:
               <label className="text-xs text-vscode-text-muted">
                 Signing role
                 <select
-                  className={`${inputClass} mt-1`}
+                  className={`${fullWidthInputClass} mt-1`}
                   value={officialRole}
                   onChange={(event) => setOfficialRole(event.target.value as IncidentReportOfficialRoleDto)}
                 >
@@ -210,7 +210,7 @@ export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }:
               <label className="text-xs text-vscode-text-muted">
                 Destination
                 <input
-                  className={`${inputClass} mt-1`}
+                  className={`${fullWidthInputClass} mt-1`}
                   required
                   value={destination}
                   onChange={(event) => setDestination(event.target.value)}
@@ -221,7 +221,7 @@ export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }:
           <label className="block text-xs text-vscode-text-muted">
             {action === 'VOID' ? 'Void reason' : action === 'NOTE' ? 'Audit note' : 'Statement (optional)'}
             <textarea
-              className={`${inputClass} mt-1 min-h-14 resize-y`}
+              className={`${fullWidthInputClass} mt-1 min-h-14 resize-y`}
               required={statementRequired}
               value={statement}
               onChange={(event) => setStatement(event.target.value)}
@@ -230,7 +230,7 @@ export function IncidentReportDetail({ report, saving, onAppendEntry, onPrint }:
           <label className="block text-xs text-vscode-text-muted">
             Official printed name
             <input
-              className={`${inputClass} mt-1`}
+              className={`${fullWidthInputClass} mt-1`}
               required
               value={officialName}
               onChange={(event) => setOfficialName(event.target.value)}
@@ -275,12 +275,4 @@ function Fact({ label, value, multiline = false }: { label: string; value: strin
       <p className={`mt-0.5 text-[13px] text-vscode-text ${multiline ? 'whitespace-pre-wrap' : ''}`}>{value}</p>
     </div>
   );
-}
-
-function formatRole(role: string): string {
-  return role
-    .toLowerCase()
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }

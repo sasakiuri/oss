@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileWarning, Plus, RefreshCw, TriangleAlert } from 'lucide-react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { boardService, incidentReportsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   AppendIncidentReportEntryPayload,
   CreateRangeIncidentReportPayload,
@@ -9,7 +11,9 @@ import type {
   ParticipantDto,
   RangeIncidentReportDto,
 } from '@/shared/ipc/contracts';
+import { CaseListItem } from '../../shared/cases/CaseListItem';
 import { Button } from '../../shared/common/Button';
+import { InlineError } from '../../shared/common/InlineError';
 import { IncidentReportCreateForm } from './IncidentReportCreateForm';
 import { IncidentReportDetail } from './IncidentReportDetail';
 
@@ -24,8 +28,7 @@ export function IncidentReportsView({ eventId, eventName, participants }: Incide
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, setError, run } = useAsyncAction();
   const activeEventId = useRef(eventId);
   activeEventId.current = eventId;
 
@@ -34,25 +37,20 @@ export function IncidentReportsView({ eventId, eventName, participants }: Incide
     setLoading(true);
     setError(null);
     try {
-      const response = await incidentReportsService.listByEvent({ eventId });
-      if (!response.success) throw new Error(response.error.message);
+      const loaded = unwrap(await incidentReportsService.listByEvent({ eventId }));
       if (activeEventId.current !== requestedEventId) return;
-      setStatus(response.data);
+      setStatus(loaded);
       setSelectedReportId((current) => {
-        if (current && response.data.reports.some((report) => report.id === current)) return current;
-        return (
-          [...response.data.reports].reverse().find((report) => !report.voided)?.id ??
-          response.data.reports.at(-1)?.id ??
-          null
-        );
+        if (current && loaded.reports.some((report) => report.id === current)) return current;
+        return [...loaded.reports].reverse().find((report) => !report.voided)?.id ?? loaded.reports.at(-1)?.id ?? null;
       });
     } catch (caught) {
       if (activeEventId.current !== requestedEventId) return;
-      setError(caught instanceof Error ? caught.message : 'Failed to load Range Incident Reports');
+      setError(errorMessage(caught, 'Failed to load Range Incident Reports'));
     } finally {
       if (activeEventId.current === requestedEventId) setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, setError]);
 
   useEffect(() => {
     setSelectedReportId(null);
@@ -71,51 +69,36 @@ export function IncidentReportsView({ eventId, eventName, participants }: Incide
 
   const createReport = useCallback(
     async (payload: CreateRangeIncidentReportPayload) => {
-      setSaving(true);
-      setError(null);
-      try {
-        const response = await incidentReportsService.create(payload);
-        if (!response.success) throw new Error(response.error.message);
-        setSelectedReportId(response.data.id);
+      await run(async () => {
+        const created = unwrap(await incidentReportsService.create(payload));
+        setSelectedReportId(created.id);
         setShowCreate(false);
         await loadStatus();
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Failed to create the Range Incident Report');
-      } finally {
-        setSaving(false);
-      }
+      }, 'Failed to create the Range Incident Report');
     },
-    [loadStatus],
+    [loadStatus, run],
   );
 
   const appendEntry = useCallback(
-    async (payload: AppendIncidentReportEntryPayload): Promise<boolean> => {
-      setSaving(true);
-      setError(null);
-      try {
-        const response = await incidentReportsService.appendEntry(payload);
-        if (!response.success) throw new Error(response.error.message);
+    (payload: AppendIncidentReportEntryPayload): Promise<boolean> =>
+      run(async () => {
+        unwrap(await incidentReportsService.appendEntry(payload));
         await loadStatus();
-        return true;
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Failed to append the incident-report entry');
-        return false;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [loadStatus],
+      }, 'Failed to append the incident-report entry'),
+    [loadStatus, run],
   );
 
-  const openPrint = useCallback(async (reportId: string) => {
-    setError(null);
-    try {
-      const response = await boardService.openIncidentReportPrint({ reportId });
-      if (!response.success) throw new Error(response.error.message);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to open the incident-report print view');
-    }
-  }, []);
+  const openPrint = useCallback(
+    async (reportId: string) => {
+      setError(null);
+      try {
+        unwrap(await boardService.openIncidentReportPrint({ reportId }));
+      } catch (caught) {
+        setError(errorMessage(caught, 'Failed to open the incident-report print view'));
+      }
+    },
+    [setError],
+  );
 
   const activeReports = status?.reports.filter((report) => !report.voided) ?? [];
   const awaitingForwarding = activeReports.filter((report) => !report.forwarded).length;
@@ -151,7 +134,11 @@ export function IncidentReportsView({ eventId, eventName, participants }: Incide
         <SummaryCard label="Forwarding not recorded" value={awaitingForwarding.toString()} />
       </section>
 
-      {error && <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>}
+      {error && (
+        <InlineError as="div" size="13px">
+          {error}
+        </InlineError>
+      )}
       {loading && <p className="text-[13px] text-vscode-text-muted">Loading incident reports…</p>}
 
       {showCreate && (
@@ -252,13 +239,7 @@ function ReportListButton({
   onSelect: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className={`block w-full border-b border-vscode-border px-3 py-2.5 text-left last:border-b-0 ${
-        selected ? 'bg-vscode-highlight' : 'hover:bg-vscode-bg-hover'
-      }`}
-      onClick={onSelect}
-    >
+    <CaseListItem selected={selected} onSelect={onSelect}>
       <span className="flex items-center justify-between gap-2 text-[13px] font-medium text-vscode-text">
         IR {report.serialNumber}
         <span
@@ -273,7 +254,7 @@ function ReportListButton({
         {report.athleteName ?? 'General range incident'}
       </span>
       <span className="block text-xs text-vscode-text-muted">{new Date(report.occurredAt).toLocaleString()}</span>
-    </button>
+    </CaseListItem>
   );
 }
 
