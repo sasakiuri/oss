@@ -122,6 +122,10 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
 
     // 5. Register IPC handlers
     const requireLocalProgress = async (create = false) => {
+      // While joined, Director alone runs the competition; its commands do not pass through these handlers.
+      if (membership.snapshot.competitionId !== null) {
+        throw new Error('Competition progress is controlled by Director');
+      }
       const ready = await startup.snapshot();
       const active = await competitionRepository.findActive();
       const interruption = active ? competitionInterruptionControl.get(active.id) : null;
