@@ -115,6 +115,14 @@ module.exports = {
       },
     },
     {
+      name: 'no-renderer-runtime-to-contract-barrel',
+      comment:
+        'The barrel is for types. A schema value imported through it would bundle every contract into the renderer; import the value from its contract file.',
+      severity: 'error',
+      from: { path: '^src/renderer/' },
+      to: { path: '^src/shared/ipc/contracts/index\\.ts$', dependencyTypesNot: ['type-only'] },
+    },
+    {
       name: 'no-renderer-to-main',
       severity: 'error',
       from: { path: '^src/renderer/' },

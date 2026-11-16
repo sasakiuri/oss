@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { mqttService } from '@/renderer/services';
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { unwrap } from '@/renderer/services/serviceError';
+// A schema value: imported from its file so the renderer bundle does not include every contract.
 import { ClockQualitySettingsSchema, type ClockQualitySettingsDto } from '@/shared/ipc/contracts/mqtt.contract';
 
 import { Button } from '../shared/common/Button';

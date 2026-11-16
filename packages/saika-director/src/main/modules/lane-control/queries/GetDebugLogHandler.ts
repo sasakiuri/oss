@@ -1,4 +1,4 @@
-import type { DebugLogResponse } from '@/shared/ipc/contracts/debug.contract';
+import type { DebugLogResponse } from '@/shared/ipc/contracts';
 import type { IDebugLogStore } from '@/main/infrastructure/logging/Logger';
 
 export class GetDebugLogHandler {

@@ -12,7 +12,7 @@ import type {
   EventDto,
   ParticipantDto,
   SaveParticipantsPayload,
-} from '@/shared/ipc/contracts/championship.contract';
+} from '@/shared/ipc/contracts';
 
 /** The championship actions the commands run; the screen owns the single `useChampionshipActions()` instance. */
 type ChampionshipScreenActions = Pick<

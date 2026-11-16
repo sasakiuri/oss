@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
-import type { ScoreSheetDto } from '@/shared/ipc/contracts/laneControl.contract';
+import type { ScoreSheetDto } from '@/shared/ipc/contracts';
 import { ScoreSheet } from './components/ScoreSheet';
 import { FinalResultSheet, type FinalResultData } from './components/FinalResultSheet';
 import { laneControlService } from '@/renderer/services';

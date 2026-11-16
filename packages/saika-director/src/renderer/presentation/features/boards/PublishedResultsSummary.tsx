@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { resultPublicationService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts';
 import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
 
 const labels: Record<ResultBoardSnapshotDto['state'], string> = {

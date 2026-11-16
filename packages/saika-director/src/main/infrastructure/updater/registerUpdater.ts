@@ -3,7 +3,7 @@ import type { UpdaterService } from '@sasakiuri/saika-updater/main';
 import { BrowserWindow, dialog } from 'electron';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
-import { updaterContract } from '@/shared/ipc/contracts/updater.contract';
+import { updaterContract } from '@/shared/ipc/contracts';
 import { Logger } from '@/shared/utils/Logger';
 
 const logger = Logger.create('Updater');

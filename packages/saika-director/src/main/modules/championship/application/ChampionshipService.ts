@@ -15,7 +15,7 @@ import type {
   SaveParticipantsPayload,
   UpdateChampionshipPayload,
   UpdateEventPayload,
-} from '@/shared/ipc/contracts/championship.contract';
+} from '@/shared/ipc/contracts';
 
 import { Championship } from '../domain/Championship';
 import { ChampionshipId } from '../domain/ChampionshipId';

@@ -3,10 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { backupCaptureReadinessService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type {
-  BackupCaptureReadinessDto,
-  BackupCaptureReadinessSettings,
-} from '@/shared/ipc/contracts/backupCaptureReadiness.contract';
+import type { BackupCaptureReadinessDto, BackupCaptureReadinessSettings } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 

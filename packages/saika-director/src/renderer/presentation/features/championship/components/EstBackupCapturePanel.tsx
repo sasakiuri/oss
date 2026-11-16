@@ -2,10 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { estBackupVerificationService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
-import type {
-  EstBackupCaptureStatusDto,
-  EstBackupColumnMappingDto,
-} from '@/shared/ipc/contracts/estBackupVerification.contract';
+import type { EstBackupCaptureStatusDto, EstBackupColumnMappingDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
 

@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { OperatorAuditEntry } from '@/shared/ipc/contracts/operatorAccess.contract';
+import type { OperatorAuditEntry } from '@/shared/ipc/contracts';
 import type { IOperatorAccessStore, StoredOperatorAccount } from './OperatorAccessService';
 
 export class SqliteOperatorAccessStore implements IOperatorAccessStore {

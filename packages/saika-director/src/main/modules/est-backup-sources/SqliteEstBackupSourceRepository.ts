@@ -1,9 +1,6 @@
 import type Database from 'better-sqlite3';
 
-import type {
-  EstBackupSourceDto,
-  EstBackupSourceSummaryDto,
-} from '@/shared/ipc/contracts/estBackupVerification.contract';
+import type { EstBackupSourceDto, EstBackupSourceSummaryDto } from '@/shared/ipc/contracts';
 
 import type { IEstBackupSourceRepository } from './EstBackupSourceService';
 

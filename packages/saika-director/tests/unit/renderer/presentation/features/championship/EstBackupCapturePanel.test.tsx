@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EstBackupCapturePanel } from '@/renderer/presentation/features/championship/components/EstBackupCapturePanel';
 import { estBackupVerificationService } from '@/renderer/services';
-import type { EstBackupCaptureStatusDto } from '@/shared/ipc/contracts/estBackupVerification.contract';
+import type { EstBackupCaptureStatusDto } from '@/shared/ipc/contracts';
 
 import { fail } from '../../../../../helpers/renderer/serviceResponses';
 

@@ -9,7 +9,7 @@ import type {
   UpdateEventPayload,
   SaveParticipantsPayload,
   SaveFiringPointAssignmentsPayload,
-} from '@/shared/ipc/contracts/championship.contract';
+} from '@/shared/ipc/contracts';
 
 type RefreshResponse = { success: true } | { success: false; error: { message: string } };
 

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicationReviewPolicyPanel } from '@/renderer/presentation/features/championship/components/PublicationReviewPolicyPanel';
-import type { PublicationReviewPolicyStatus } from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
+import type { PublicationReviewPolicyStatus } from '@/shared/ipc/contracts';
 
 import { fail } from '../../../../../helpers/renderer/serviceResponses';
 

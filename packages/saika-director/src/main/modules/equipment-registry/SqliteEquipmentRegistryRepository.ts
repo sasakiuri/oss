@@ -1,9 +1,6 @@
 import type Database from 'better-sqlite3';
 
-import {
-  equipmentRegistryEntrySchema,
-  type EquipmentRegistryEntry,
-} from '@/shared/ipc/contracts/equipmentRegistry.contract';
+import { equipmentRegistryEntrySchema, type EquipmentRegistryEntry } from '@/shared/ipc/contracts';
 
 import type { IEquipmentRegistryRepository } from './EquipmentRegistryService';
 

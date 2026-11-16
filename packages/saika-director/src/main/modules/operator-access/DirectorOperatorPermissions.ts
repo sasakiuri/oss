@@ -1,5 +1,5 @@
 import type { IpcInvocation } from '@/main/shared-infra/ipc/IpcInvocationMiddleware';
-import type { OperatorPermission } from '@/shared/ipc/contracts/operatorAccess.contract';
+import type { OperatorPermission } from '@/shared/ipc/contracts';
 
 const groups: Record<string, OperatorPermission> = {};
 for (const namespace of [

@@ -1,8 +1,5 @@
 import type Database from 'better-sqlite3';
-import {
-  publicationReviewPolicyEntrySchema,
-  type PublicationReviewPolicyEntry,
-} from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
+import { publicationReviewPolicyEntrySchema, type PublicationReviewPolicyEntry } from '@/shared/ipc/contracts';
 import type { IPublicationReviewPolicyRepository } from './PublicationReviewPolicyService';
 
 export class SqlitePublicationReviewPolicyRepository implements IPublicationReviewPolicyRepository {

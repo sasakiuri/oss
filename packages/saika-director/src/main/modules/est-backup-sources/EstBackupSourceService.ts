@@ -5,7 +5,7 @@ import {
   type EstBackupSourceDto,
   type EstBackupSourceSummaryDto,
   type EstBackupRecordImportReceiptDto,
-} from '@/shared/ipc/contracts/estBackupVerification.contract';
+} from '@/shared/ipc/contracts';
 import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface IEstBackupSourceRepository {

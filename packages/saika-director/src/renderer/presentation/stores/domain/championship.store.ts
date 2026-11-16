@@ -4,7 +4,7 @@ import type {
   ChampionshipDetailDto,
   ParticipantDto,
   FiringPointAssignmentDto,
-} from '@/shared/ipc/contracts/championship.contract';
+} from '@/shared/ipc/contracts';
 
 interface ChampionshipState {
   championships: ChampionshipDto[];

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
-import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts/results.contract';
+import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts';
 import { resultsService, teamResultsService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 

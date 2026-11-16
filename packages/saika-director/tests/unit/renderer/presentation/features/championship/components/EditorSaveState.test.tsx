@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { FiringPointAssignmentEditor } from '@/renderer/presentation/features/championship/components/FiringPointAssignmentEditor';
 import { ParticipantEditor } from '@/renderer/presentation/features/championship/components/ParticipantEditor';
-import type { ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
+import type { ParticipantDto } from '@/shared/ipc/contracts';
 
 const participant: ParticipantDto = {
   id: '11111111-1111-4111-8111-111111111111',

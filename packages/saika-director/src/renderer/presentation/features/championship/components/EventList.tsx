@@ -1,7 +1,7 @@
 import { ISSF_2026_RULE_PACKS } from '@sasakiuri/saika-rules';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 
-import type { EventDto } from '@/shared/ipc/contracts/championship.contract';
+import type { EventDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
 

@@ -25,7 +25,7 @@ import type {
   SaveParticipantsPayload,
   UpdateChampionshipPayload,
   UpdateEventPayload,
-} from '@/shared/ipc/contracts/championship.contract';
+} from '@/shared/ipc/contracts';
 
 import { migratedDatabase } from '../../../../helpers/database';
 

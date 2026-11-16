@@ -1,5 +1,5 @@
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
-import { operationalTemplatesContract } from '@/shared/ipc/contracts/operationalTemplates.contract';
+import { operationalTemplatesContract } from '@/shared/ipc/contracts';
 
 import { OperationalTemplateService } from './OperationalTemplateService';
 import { SqliteOperationalTemplateRepository } from './SqliteOperationalTemplateRepository';

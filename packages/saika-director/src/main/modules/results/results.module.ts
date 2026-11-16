@@ -14,7 +14,7 @@ import type {
   GetEventResultsResponse,
   GetRelayResultsResponse,
   GetFinalEventResultsResponse,
-} from '@/shared/ipc/contracts/results.contract';
+} from '@/shared/ipc/contracts';
 
 // Command Tokens (kept for cross-module command dispatch)
 import {

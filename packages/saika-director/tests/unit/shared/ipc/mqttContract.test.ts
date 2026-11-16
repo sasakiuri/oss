@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import {
-  MqttControlSnapshotSchema,
-  mqttContract,
-  SetBrokerConfigPayloadSchema,
-} from '@/shared/ipc/contracts/mqtt.contract';
+import { MqttControlSnapshotSchema, mqttContract, SetBrokerConfigPayloadSchema } from '@/shared/ipc/contracts';
 
 describe('SetBrokerConfigPayloadSchema', () => {
   it('accepts embedded mode without an external URL', () => {

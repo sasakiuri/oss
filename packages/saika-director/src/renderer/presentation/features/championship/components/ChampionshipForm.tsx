@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '../../shared/common/Button';
 import { DateInput } from '../../shared/common/DateInput';
 import { Input } from '../../shared/common/Input';
-import type { ChampionshipDto } from '@/shared/ipc/contracts/championship.contract';
+import type { ChampionshipDto } from '@/shared/ipc/contracts';
 
 interface ChampionshipFormProps {
   championship?: ChampionshipDto | null;

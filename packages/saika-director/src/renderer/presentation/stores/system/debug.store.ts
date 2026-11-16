@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { DebugLogEntry } from '@/shared/ipc/contracts/debug.contract';
+import type { DebugLogEntry } from '@/shared/ipc/contracts';
 import { addWithLimit, addManyWithLimit } from '../utils/arrayHelpers';
 
 export type DebugTab = 'ALL' | 'TX' | 'RX' | 'LOG';

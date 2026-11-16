@@ -1,5 +1,5 @@
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
-import { equipmentRegistryContract, type EquipmentAthlete } from '@/shared/ipc/contracts/equipmentRegistry.contract';
+import { equipmentRegistryContract, type EquipmentAthlete } from '@/shared/ipc/contracts';
 
 import { EquipmentRegistryService } from './EquipmentRegistryService';
 import { SqliteEquipmentRegistryRepository } from './SqliteEquipmentRegistryRepository';

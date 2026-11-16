@@ -4,7 +4,7 @@ import { ReserveTransferDataGuard, SqliteReserveTransferRepository } from '@/mai
 import type { ModuleDefinition, ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
 import { RuntimeOperationGate } from '@/main/shared-infra/operations/RuntimeOperationGate';
 import { mqttContract } from '@/shared/ipc/contracts';
-import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
+import { operationalProfilesContract } from '@/shared/ipc/contracts';
 import { Logger } from '@/shared/utils/Logger';
 
 import { createCompetitionControlHandlers } from './application/createCompetitionControlHandlers';

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import { registerUpdater } from '@/main/infrastructure/updater/registerUpdater';
 import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
-import { updaterContract } from '@/shared/ipc/contracts/updater.contract';
+import { updaterContract } from '@/shared/ipc/contracts';
 
 const mocks = vi.hoisted(() => ({
   handlers: new Map<string, (event: unknown) => Promise<unknown>>(),

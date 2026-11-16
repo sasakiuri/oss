@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '../../shared/common/Button';
 import { Input } from '../../shared/common/Input';
 import { championshipService } from '@/renderer/services';
-import type { EventDto, CompetitionTypeDto } from '@/shared/ipc/contracts/championship.contract';
+import type { EventDto, CompetitionTypeDto } from '@/shared/ipc/contracts';
 import type { EventType } from '@/shared/constants/competition';
 
 interface EventFormProps {

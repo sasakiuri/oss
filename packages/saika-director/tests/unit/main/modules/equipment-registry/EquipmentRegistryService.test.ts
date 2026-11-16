@@ -6,7 +6,7 @@ import {
 } from '@/main/modules/equipment-registry/EquipmentRegistryService';
 import { SqliteEquipmentRegistryRepository } from '@/main/modules/equipment-registry/SqliteEquipmentRegistryRepository';
 import { SqliteCompetitionEvidenceSource } from '@/main/modules/operational-archives/infra/SqliteCompetitionEvidenceSource';
-import type { EquipmentDetails } from '@/shared/ipc/contracts/equipmentRegistry.contract';
+import type { EquipmentDetails } from '@/shared/ipc/contracts';
 
 import { migratedDatabase } from '../../../../helpers/database';
 

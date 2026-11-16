@@ -1,4 +1,4 @@
-import type { ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
+import type { ParticipantDto } from '@/shared/ipc/contracts';
 
 interface ParticipantPoolProps {
   participants: ParticipantDto[];

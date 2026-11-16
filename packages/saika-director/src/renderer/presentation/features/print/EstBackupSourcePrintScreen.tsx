@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { estBackupVerificationService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type { EstBackupSourceDto } from '@/shared/ipc/contracts/estBackupVerification.contract';
+import type { EstBackupSourceDto } from '@/shared/ipc/contracts';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 
 export function EstBackupSourcePrintScreen({ config }: { config: BoardWindowConfig }) {

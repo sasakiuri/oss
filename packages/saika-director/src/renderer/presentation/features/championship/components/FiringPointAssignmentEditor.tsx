@@ -5,7 +5,7 @@ import { AssignmentGrid } from './AssignmentGrid';
 import { ParticipantPool } from './ParticipantPool';
 import { ConfigBar } from './ConfigBar';
 import { useGridDragDrop } from '../../../hooks/useGridDragDrop';
-import type { FiringPointAssignmentDto, ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
+import type { FiringPointAssignmentDto, ParticipantDto } from '@/shared/ipc/contracts';
 import { SquaddingPanel } from './SquaddingPanel';
 import { StartListPanel } from './StartListPanel';
 

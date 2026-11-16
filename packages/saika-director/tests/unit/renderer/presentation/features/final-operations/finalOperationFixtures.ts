@@ -3,7 +3,7 @@ import type {
   FinalOperationRunDto,
   FinalOperationScriptStepDto,
 } from '@/shared/ipc/contracts';
-import type { FinalScriptStepExecutionResultDto } from '@/shared/ipc/contracts/mqtt.contract';
+import type { FinalScriptStepExecutionResultDto } from '@/shared/ipc/contracts';
 import { ok } from '../../../../../helpers/renderer/serviceResponses';
 
 export const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';

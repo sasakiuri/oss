@@ -1,6 +1,6 @@
 import { ColumnMappedEstBackupRecordParser } from '@/main/modules/est-backup-verification';
 import type { EstBackupRecordParser } from '@/main/modules/est-backup-verification';
-import { EstBackupColumnMappingSchema } from '@/shared/ipc/contracts/estBackupVerification.contract';
+import { EstBackupColumnMappingSchema } from '@/shared/ipc/contracts';
 
 import type { EstBackupAdapterReference } from './EstBackupCapturePersistence';
 

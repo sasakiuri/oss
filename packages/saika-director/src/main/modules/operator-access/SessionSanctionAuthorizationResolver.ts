@@ -3,7 +3,7 @@ import type {
   SanctionAuthorization,
   SanctionAuthorizationRequest,
 } from '@/main/modules/athlete-sanctions';
-import type { OperatorAccount } from '@/shared/ipc/contracts/operatorAccess.contract';
+import type { OperatorAccount } from '@/shared/ipc/contracts';
 
 /** Application access does not itself confer Jury, equipment Jury or anti-doping authority. */
 export class SessionSanctionAuthorizationResolver implements ISanctionAuthorizationResolver {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InferHandlers } from '@sasakiuri/saika-ipc';
-import { vistaContract } from '@/shared/ipc/contracts/vista.contract';
+import { vistaContract } from '@/shared/ipc/contracts';
 const { createServer, createDiscovery, loadCredentials, sourceCatalog, sourceSnapshot } = vi.hoisted(() => ({
   createServer: vi.fn(),
   createDiscovery: vi.fn(),

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResultsView } from '@/renderer/presentation/features/championship/components/ResultsView';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
-import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts/results.contract';
+import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts';
 
 import { fail, ok } from '../../../../../../helpers/renderer/serviceResponses';
 

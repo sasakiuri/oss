@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { championshipService, estChampionshipInspectionsService } from '@/renderer/services';
 import type { ChampionshipDto, EstChampionshipInspectionAssessmentDto } from '@/shared/ipc/contracts';
-import type { EstInspectionStartSettingsDto } from '@/shared/ipc/contracts/estChampionshipInspections.contract';
+import type { EstInspectionStartSettingsDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 

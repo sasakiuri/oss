@@ -5,7 +5,7 @@ import type {
   ChampionshipDetailDto,
   ParticipantDto,
   FiringPointAssignmentDto,
-} from '@/shared/ipc/contracts/championship.contract';
+} from '@/shared/ipc/contracts';
 
 function createChampionshipDto(overrides: Partial<ChampionshipDto> = {}): ChampionshipDto {
   return {

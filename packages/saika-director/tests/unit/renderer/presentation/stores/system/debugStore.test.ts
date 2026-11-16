@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
-import type { DebugLogEntry } from '@/shared/ipc/contracts/debug.contract';
+import type { DebugLogEntry } from '@/shared/ipc/contracts';
 
 function createDebugEntry(overrides: Partial<DebugLogEntry> = {}): DebugLogEntry {
   return {

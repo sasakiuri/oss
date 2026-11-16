@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { equipmentRegistryService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
-import type { EquipmentDetails, EquipmentRegistryWorkspace } from '@/shared/ipc/contracts/equipmentRegistry.contract';
+import type { EquipmentDetails, EquipmentRegistryWorkspace } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
 import { Input } from '../../shared/common/Input';

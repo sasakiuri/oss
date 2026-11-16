@@ -12,7 +12,7 @@ import type {
   SaveFiringPointAssignmentsPayload,
   SaveParticipantsPayload,
   UpdateEventPayload,
-} from '@/shared/ipc/contracts/championship.contract';
+} from '@/shared/ipc/contracts';
 
 interface ParticipantRow {
   id: string;

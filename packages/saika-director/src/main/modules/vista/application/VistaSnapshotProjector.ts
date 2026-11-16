@@ -5,7 +5,7 @@ import type { VistaParticipant, VistaSnapshot } from '@sasakiuri/saika-protocol/
 import type { CompetitionShotObservation } from '@/main/modules/mqtt';
 import { assembleRankingEvidence } from '@/main/modules/results';
 import type { CompetitionTypeRegistry, QualificationRankingInput } from '@/shared/competitionTypes';
-import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts';
 
 import { vistaDigest } from './directorVistaDefinition';
 import {

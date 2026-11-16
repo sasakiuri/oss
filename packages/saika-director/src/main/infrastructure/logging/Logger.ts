@@ -1,4 +1,4 @@
-import type { DebugLogEntry } from '@/shared/ipc/contracts/debug.contract';
+import type { DebugLogEntry } from '@/shared/ipc/contracts';
 
 export interface IDebugLogStore {
   addEntry(entry: DebugLogEntry): void;

@@ -4,7 +4,7 @@ import {
   type PublicationReviewPolicyEntry,
   type PublicationReviewPolicyStatus,
   type SavePublicationReviewPolicy,
-} from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
+} from '@/shared/ipc/contracts';
 import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
 import { sha256Json } from '@/main/domain/sha256Json';
 
