@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { ISSF_2026_RULE_PACKS, JRSF_2026_RULE_PACKS } from '@sasakiuri/saika-rules';
+
 import {
   asSupportedLaneCompetitionType,
+  getLaneCompetitionDefinition,
   getLaneCompetitionTiming,
   LANE_COMPETITION_TYPES,
 } from '@/renderer/presentation/features/competition-control/supportedCompetitionTypes';
@@ -11,6 +14,9 @@ import {
   RULE_PACK_SIGHTING_TARGET_VISIBILITY_REQUIREMENT_ID,
   RULE_PACK_TARGET_RESET_REQUIREMENT_ID,
 } from '@/shared/competitionTypes';
+import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
+import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
+import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRulePack';
 
 describe('supported Lane competition types', () => {
   it('allows the Rule Pack-backed 10m air qualification events', () => {
@@ -115,4 +121,22 @@ describe('supported Lane competition types', () => {
       },
     });
   });
+
+  it('keeps the Beam qualifications on their Director definitions', () => {
+    const packs = [...ISSF_2026_RULE_PACKS, ...JRSF_2026_RULE_PACKS];
+    expect(packs.filter((pack) => pack.eventCode === 'BR60S' || pack.eventCode === 'BP60')).toEqual([]);
+    expect(getLaneCompetitionDefinition('BR60S')).toBe(BR60S);
+    expect(getLaneCompetitionDefinition('BP60')).toBe(BP60);
+  });
+
+  it.each(LANE_COMPETITION_TYPES.filter((type) => type !== 'BR60S' && type !== 'BP60'))(
+    'defines %s by the one ISSF or JRSF Rule Pack with that event code',
+    (competitionType) => {
+      const matching = [...ISSF_2026_RULE_PACKS, ...JRSF_2026_RULE_PACKS].filter(
+        (pack) => pack.eventCode === competitionType,
+      );
+      expect(matching).toHaveLength(1);
+      expect(getLaneCompetitionDefinition(competitionType)).toEqual(competitionTypeFromRulePack(matching[0]!));
+    },
+  );
 });
