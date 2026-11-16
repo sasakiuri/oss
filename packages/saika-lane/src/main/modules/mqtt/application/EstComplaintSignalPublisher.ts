@@ -8,13 +8,14 @@ import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { EstComplaintSignalService, EstComplaintSignalState } from '@/main/modules/est-complaint-signal';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes Lane-owned EST complaint observations without issuing a competition-control command. */
 export class EstComplaintSignalPublisher {
-  private publicationQueue: Promise<void> = Promise.resolve();
+  private readonly publications = new SerialQueue();
 
   constructor(
     private readonly mqttClient: IMqttClientService,
@@ -23,9 +24,7 @@ export class EstComplaintSignalPublisher {
   ) {}
 
   publishCurrentState(): Promise<void> {
-    const publication = this.publicationQueue.then(() => this.publishCurrentStateNow());
-    this.publicationQueue = publication.catch(() => undefined);
-    return publication;
+    return this.publications.run(() => this.publishCurrentStateNow());
   }
 
   private async publishCurrentStateNow(): Promise<void> {

@@ -10,13 +10,14 @@ import { mapToLanePhase } from '@/main/modules/mqtt/domain/PhaseMapper';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 export class LaneCompetitionStatePublisher {
   private readonly mqttClient: IMqttClientService;
   private readonly storage: ILocalStorage;
   private readonly competitionRepository: ICompetitionRepository;
-  private publicationQueue: Promise<void> = Promise.resolve();
+  private readonly publications = new SerialQueue();
 
   constructor(
     mqttClient: IMqttClientService,
@@ -43,11 +44,7 @@ export class LaneCompetitionStatePublisher {
   }
 
   publishCurrentState(competitionId?: string, finalSnapshotCommandId?: string): Promise<void> {
-    const publication = this.publicationQueue.then(() =>
-      this.publishStateInternal(competitionId, finalSnapshotCommandId),
-    );
-    this.publicationQueue = publication.catch(() => undefined);
-    return publication;
+    return this.publications.run(() => this.publishStateInternal(competitionId, finalSnapshotCommandId));
   }
 
   private async publishStateInternal(competitionId?: string, finalSnapshotCommandId?: string): Promise<void> {

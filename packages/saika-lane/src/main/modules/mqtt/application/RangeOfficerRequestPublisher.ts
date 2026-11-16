@@ -7,13 +7,14 @@ import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { RangeOfficerRequestService, RangeOfficerRequestState } from '@/main/modules/range-officer-request';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes the Lane-owned assistance signal without mutating competition control. */
 export class RangeOfficerRequestPublisher {
-  private publicationQueue: Promise<void> = Promise.resolve();
+  private readonly publications = new SerialQueue();
 
   constructor(
     private readonly mqttClient: IMqttClientService,
@@ -22,9 +23,7 @@ export class RangeOfficerRequestPublisher {
   ) {}
 
   publishCurrentState(): Promise<void> {
-    const publication = this.publicationQueue.then(() => this.publishCurrentStateNow());
-    this.publicationQueue = publication.catch(() => undefined);
-    return publication;
+    return this.publications.run(() => this.publishCurrentStateNow());
   }
 
   private async publishCurrentStateNow(): Promise<void> {

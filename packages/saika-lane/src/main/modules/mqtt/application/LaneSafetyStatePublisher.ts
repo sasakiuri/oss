@@ -5,13 +5,14 @@ import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes the durable safety latch independently of competition membership. */
 export class LaneSafetyStatePublisher {
-  private publicationQueue: Promise<void> = Promise.resolve();
+  private readonly publications = new SerialQueue();
 
   constructor(
     private readonly mqttClient: IMqttClientService,
@@ -25,9 +26,7 @@ export class LaneSafetyStatePublisher {
   }
 
   publishCurrentState(): Promise<void> {
-    const publication = this.publicationQueue.then(() => this.publishCurrentStateNow());
-    this.publicationQueue = publication.catch(() => undefined);
-    return publication;
+    return this.publications.run(() => this.publishCurrentStateNow());
   }
 
   private async publishCurrentStateNow(): Promise<void> {

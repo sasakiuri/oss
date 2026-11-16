@@ -13,6 +13,7 @@ import { readMirroredLaneId } from '@/main/modules/settings/application/Mirrored
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
@@ -22,7 +23,7 @@ export class LaneScorePublisher {
   private readonly storage: ILocalStorage;
   private readonly competitionRepository: ICompetitionRepository;
   private readonly sessionRepository: ISessionRepository;
-  private publicationQueue: Promise<void> = Promise.resolve();
+  private readonly publications = new SerialQueue();
 
   constructor(
     mqttClient: IMqttClientService,
@@ -52,13 +53,8 @@ export class LaneScorePublisher {
    * Publishes the current score (for re-publishing Retain topics on reconnect).
    */
   publishCurrentScore(competitionId?: string, finalSnapshotCommandId?: string): Promise<void> {
-    const publication = this.publicationQueue.then(() =>
-      this.publishScoreInternal(competitionId, finalSnapshotCommandId),
-    );
-    // Keep later publications usable after a transient failure while returning
-    // the original rejection to the caller that requested this publication.
-    this.publicationQueue = publication.catch(() => undefined);
-    return publication;
+    // Later publications still run after a transient failure; the rejection goes to this caller.
+    return this.publications.run(() => this.publishScoreInternal(competitionId, finalSnapshotCommandId));
   }
 
   private async publishScoreInternal(competitionId?: string, finalSnapshotCommandId?: string): Promise<void> {
