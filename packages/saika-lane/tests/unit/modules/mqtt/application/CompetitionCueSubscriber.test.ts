@@ -60,6 +60,13 @@ describe('CompetitionCueSubscriber', () => {
     eventBus.on('CompetitionCueChanged', changed);
   });
 
+  it('registers the cue listener before it subscribes', async () => {
+    await new CompetitionCueSubscriber(mqttClient, eventBus, () => LANE_ID).subscribe(COMPETITION_ID);
+    const [subscribedAt] = vi.mocked(mqttClient.subscribe).mock.invocationCallOrder;
+    const [listenedAt] = vi.mocked(mqttClient.onMessage).mock.invocationCallOrder;
+    expect(listenedAt).toBeLessThan(subscribedAt!);
+  });
+
   it('emits a valid retained cue for this Lane', async () => {
     const subscriber = new CompetitionCueSubscriber(mqttClient, eventBus, () => LANE_ID);
     await subscriber.subscribe(COMPETITION_ID);

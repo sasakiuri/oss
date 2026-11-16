@@ -242,6 +242,13 @@ describe('PerLaneCommandHandler', () => {
     );
   });
 
+  it('subscribes before it registers the command listener', async () => {
+    await handler.subscribeToCompetition(COMPETITION_ID);
+    const [subscribedAt] = vi.mocked(mqttClient.subscribe).mock.invocationCallOrder;
+    const [listenedAt] = vi.mocked(mqttClient.onMessage).mock.invocationCallOrder;
+    expect(subscribedAt).toBeLessThan(listenedAt!);
+  });
+
   it.each(['assign-athlete', 'reset-session', 'pause-timer', 'resume-timer', 'resume-match'])(
     'rejects %s with an error ACK without changing the run while startup is ERROR',
     async (action) => {

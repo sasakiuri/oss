@@ -198,6 +198,13 @@ describe('BroadcastCommandHandler', () => {
     expect(mqttClient.unsubscribe).toHaveBeenCalledWith(`saika/competition/${COMPETITION_ID}/command/+`);
   });
 
+  it('subscribes before it registers the command listener', async () => {
+    await handler.subscribeToCompetition(COMPETITION_ID);
+    const [subscribedAt] = vi.mocked(mqttClient.subscribe).mock.invocationCallOrder;
+    const [listenedAt] = vi.mocked(mqttClient.onMessage).mock.invocationCallOrder;
+    expect(subscribedAt).toBeLessThan(listenedAt!);
+  });
+
   it.each([
     'start-sighting',
     'end-sighting',

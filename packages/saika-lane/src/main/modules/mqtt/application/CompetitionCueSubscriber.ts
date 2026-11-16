@@ -2,48 +2,40 @@
 import { CompetitionCuePayloadSchema, type CompetitionCuePayload } from '@sasakiuri/saika-protocol/CompetitionCue';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
+import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 
 /** Projects a retained Director cue to Lane's local event bus without mutating competition state. */
 export class CompetitionCueSubscriber {
-  private subscribedTopic: string | null = null;
-  private messageUnsubscribe: (() => void) | null = null;
+  private readonly subscription: TopicSubscription;
   private competitionId: string | null = null;
 
   constructor(
-    private readonly mqttClient: IMqttClientService,
+    mqttClient: IMqttClientService,
     private readonly eventBus: IEventBus,
     private readonly getLaneId: () => string,
-  ) {}
+  ) {
+    this.subscription = new TopicSubscription(mqttClient, {
+      listenBeforeSubscribe: true,
+      unsubscribeErrors: 'rethrow-while-connected',
+    });
+  }
 
   async subscribe(competitionId: string): Promise<void> {
     await this.unsubscribe();
     const topic = mqttTopics.competitionCue(competitionId);
-    this.subscribedTopic = topic;
     this.competitionId = competitionId;
-    this.messageUnsubscribe = this.mqttClient.onMessage((messageTopic, payload) => {
+    await this.subscription.open(topic, (messageTopic, payload) => {
       if (messageTopic !== topic) return;
       this.handleMessage(competitionId, payload);
     });
-    await this.mqttClient.subscribe(topic, 1);
   }
 
   async unsubscribe(): Promise<void> {
-    this.messageUnsubscribe?.();
-    this.messageUnsubscribe = null;
-    const topic = this.subscribedTopic;
     const competitionId = this.competitionId;
-    if (topic) {
-      try {
-        await this.mqttClient.unsubscribe(topic);
-      } catch (error) {
-        if (this.mqttClient.isConnected()) throw error;
-        // Ignore if already disconnected.
-      }
-    }
-    this.subscribedTopic = null;
+    await this.subscription.close();
     this.competitionId = null;
     if (competitionId) this.emit(competitionId, null);
   }

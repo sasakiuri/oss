@@ -4,6 +4,7 @@
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
 import { GetCompetitionStateToken, GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
+import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { RpcRequestSchema } from '@/main/modules/mqtt/domain/MqttRpcSchemas';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
@@ -16,13 +17,16 @@ export class RpcRequestHandler {
   private readonly mqttClient: IMqttClientService;
   private readonly storage: ILocalStorage;
   private readonly queryBus: QueryBus;
-  private subscribedTopic: string | null = null;
-  private messageUnsubscribe: (() => void) | null = null;
+  private readonly subscription: TopicSubscription;
 
   constructor(mqttClient: IMqttClientService, storage: ILocalStorage, queryBus: QueryBus) {
     this.mqttClient = mqttClient;
     this.storage = storage;
     this.queryBus = queryBus;
+    this.subscription = new TopicSubscription(mqttClient, {
+      listenBeforeSubscribe: false,
+      unsubscribeErrors: 'rethrow-while-connected',
+    });
   }
 
   /**
@@ -34,12 +38,7 @@ export class RpcRequestHandler {
     await this.unsubscribe();
 
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
-    const topic = mqttTopicFilters.laneQueryRequests(competitionId, laneId);
-    this.subscribedTopic = topic;
-
-    await this.mqttClient.subscribe(topic, 1);
-
-    this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
+    await this.subscription.open(mqttTopicFilters.laneQueryRequests(competitionId, laneId), (msgTopic, payload) => {
       const parsed = parseMqttTopic(msgTopic);
       if (parsed?.kind !== 'laneQueryRequest') return;
 
@@ -55,18 +54,7 @@ export class RpcRequestHandler {
    * Unsubscribes
    */
   async unsubscribe(): Promise<void> {
-    this.messageUnsubscribe?.();
-    this.messageUnsubscribe = null;
-
-    if (this.subscribedTopic) {
-      try {
-        await this.mqttClient.unsubscribe(this.subscribedTopic);
-      } catch (error) {
-        if (this.mqttClient.isConnected()) throw error;
-        // Ignore if already disconnected
-      }
-      this.subscribedTopic = null;
-    }
+    await this.subscription.close();
   }
 
   /**

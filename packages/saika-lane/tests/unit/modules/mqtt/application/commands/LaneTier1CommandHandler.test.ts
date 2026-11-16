@@ -242,6 +242,22 @@ describe('LaneTier1CommandHandler', () => {
     expect(mqttClient.unsubscribe).toHaveBeenCalledWith(`saika/lane/${LANE_ID}/command/+`);
   });
 
+  it('registers the command listener before it subscribes', async () => {
+    await handler.subscribe();
+    const [subscribedAt] = vi.mocked(mqttClient.subscribe).mock.invocationCallOrder;
+    const [listenedAt] = vi.mocked(mqttClient.onMessage).mock.invocationCallOrder;
+    expect(listenedAt).toBeLessThan(subscribedAt!);
+  });
+
+  it('ignores an UNSUBSCRIBE failure even while connected', async () => {
+    await handler.subscribe();
+    vi.mocked(mqttClient.unsubscribe).mockRejectedValueOnce(new Error('unsubscribe failed'));
+    await expect(handler.unsubscribe()).resolves.toBeUndefined();
+    expect(mqttClient.isConnected()).toBe(true);
+    await handler.unsubscribe();
+    expect(mqttClient.unsubscribe).toHaveBeenCalledOnce();
+  });
+
   describe('join-competition', () => {
     it('subscribes to competition topics and child handlers', async () => {
       const cmd = buildCommand({ competitionId: COMPETITION_ID });

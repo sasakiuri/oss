@@ -14,6 +14,7 @@ import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/La
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import type { QualificationRecoveryStatePublisher } from '@/main/modules/mqtt/application/QualificationRecoveryStatePublisher';
+import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import {
   CommandAuthorizationPolicy,
   type ICommandAuthorizationPolicy,
@@ -46,11 +47,10 @@ type PerLaneTopic = ParsedMqttTopicOf<'laneCompetitionCommand'>;
 
 export class PerLaneCommandHandler {
   private readonly processor: LaneCommandProcessor;
-  private subscribedTopic: string | null = null;
-  private messageUnsubscribe: (() => void) | null = null;
+  private readonly subscription: TopicSubscription;
 
   constructor(
-    private readonly mqttClient: IMqttClientService,
+    mqttClient: IMqttClientService,
     private readonly commandBus: CommandBus,
     idempotencyGuard: CommandIdempotencyGuard,
     private readonly competitionRepository: ICompetitionRepository,
@@ -82,6 +82,10 @@ export class PerLaneCommandHandler {
       'PerLaneCommandHandler',
       isReady,
     );
+    this.subscription = new TopicSubscription(mqttClient, {
+      listenBeforeSubscribe: false,
+      unsubscribeErrors: 'rethrow-while-connected',
+    });
   }
 
   /**
@@ -91,11 +95,7 @@ export class PerLaneCommandHandler {
     await this.unsubscribeFromCompetition();
 
     const topic = mqttTopicFilters.laneCompetitionCommands(competitionId, this.getLaneId());
-    this.subscribedTopic = topic;
-
-    await this.mqttClient.subscribe(topic, 1);
-
-    this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
+    await this.subscription.open(topic, (msgTopic, payload) => {
       const parsed = parseMqttTopic(msgTopic);
       if (parsed?.kind !== 'laneCompetitionCommand') return;
       if (parsed.laneId !== this.getLaneId()) return;
@@ -108,18 +108,7 @@ export class PerLaneCommandHandler {
    * Unsubscribes from the competition
    */
   async unsubscribeFromCompetition(): Promise<void> {
-    this.messageUnsubscribe?.();
-    this.messageUnsubscribe = null;
-
-    if (this.subscribedTopic) {
-      try {
-        await this.mqttClient.unsubscribe(this.subscribedTopic);
-      } catch (error) {
-        if (this.mqttClient.isConnected()) throw error;
-        // Ignore if already disconnected
-      }
-      this.subscribedTopic = null;
-    }
+    await this.subscription.close();
   }
 
   /**

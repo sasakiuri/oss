@@ -12,6 +12,7 @@ import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import { StartCompetitionToken } from '@/main/composition/tokens';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import {
   CompetitionDefinitionCompatibilityPolicy,
   type LocalCompetitionDefinitionIdentity,
@@ -24,12 +25,11 @@ import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 const DEFAULT_STATE_TIMEOUT_MS = 5_000;
 
 export class CompetitionStateSubscriber {
-  private subscribedTopic: string | null = null;
-  private messageUnsubscribe: (() => void) | null = null;
+  private readonly subscription: TopicSubscription;
   private lastPhase: string | null = null;
 
   constructor(
-    private readonly mqttClient: IMqttClientService,
+    mqttClient: IMqttClientService,
     private readonly commandBus: CommandBus,
     private readonly competitionRepository: ICompetitionRepository,
     private readonly stateTimeoutMs: number = DEFAULT_STATE_TIMEOUT_MS,
@@ -37,13 +37,18 @@ export class CompetitionStateSubscriber {
       competitionTypeId: string,
     ) => LocalCompetitionDefinitionIdentity | undefined = () => undefined,
     private readonly compatibilityPolicy = new CompetitionDefinitionCompatibilityPolicy(),
-  ) {}
+  ) {
+    // Register before SUBSCRIBE because a retained message can arrive before subscribe() resolves.
+    this.subscription = new TopicSubscription(mqttClient, {
+      listenBeforeSubscribe: true,
+      unsubscribeErrors: 'rethrow-while-connected',
+    });
+  }
 
   async subscribe(competitionId: string): Promise<CompetitionStatePayload> {
     await this.unsubscribe();
 
     const topic = mqttTopics.competitionState(competitionId);
-    this.subscribedTopic = topic;
     this.lastPhase = null;
 
     let resolveFirstState: (state: CompetitionStatePayload) => void = () => undefined;
@@ -52,9 +57,7 @@ export class CompetitionStateSubscriber {
     });
     let firstStateReceived = false;
 
-    // Register before SUBSCRIBE because a retained message can arrive before
-    // subscribe() resolves.
-    this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
+    const onMessage = (msgTopic: string, payload: Buffer): void => {
       if (msgTopic !== topic) return;
       const state = this.parseMessage(payload);
       if (!state || state.competitionId !== competitionId) return;
@@ -64,10 +67,10 @@ export class CompetitionStateSubscriber {
         firstStateReceived = true;
         resolveFirstState(state);
       }
-    });
+    };
 
     try {
-      await this.mqttClient.subscribe(topic, 1);
+      await this.subscription.open(topic, onMessage);
       const state = await this.withTimeout(firstState, competitionId);
       await this.ensureLocalCompetition(state);
       getLogger().info(`[CompetitionStateSubscriber] Subscribed to ${topic}`, 'mqtt');
@@ -86,19 +89,8 @@ export class CompetitionStateSubscriber {
   }
 
   async unsubscribe(): Promise<void> {
-    this.messageUnsubscribe?.();
-    this.messageUnsubscribe = null;
-
-    if (this.subscribedTopic) {
-      try {
-        await this.mqttClient.unsubscribe(this.subscribedTopic);
-      } catch (error) {
-        if (this.mqttClient.isConnected()) throw error;
-        // Ignore if already disconnected.
-      }
-      this.subscribedTopic = null;
-      this.lastPhase = null;
-    }
+    await this.subscription.close();
+    this.lastPhase = null;
   }
 
   private parseMessage(payload: Buffer): CompetitionStatePayload | null {
