@@ -5,7 +5,9 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import {
   VISTA_CATALOG_PATH,
+  VISTA_EVENT_CODES,
   VISTA_PROTOCOL_VERSION,
+  VistaDefinitionSchema,
   VistaIdentitySchema,
   VistaShotSchema,
   VistaSnapshotSchema,
@@ -287,5 +289,33 @@ describe('Vista source paths', () => {
 
   it('throws on a malformed escape in the subject ID', () => {
     expect(() => parseVistaSourcePath('/vista/v1/snapshot/%E0%A4%A')).toThrow(URIError);
+  });
+});
+
+describe('Vista event codes', () => {
+  it('lists the standard individual 10m air and beam events that Lane and Director publish', () => {
+    expect(VISTA_EVENT_CODES).toEqual([
+      'AR60',
+      'AP60',
+      'BR60S',
+      'BP60',
+      'AR60_FINAL',
+      'AP60_FINAL',
+      'BR60S_FINAL',
+      'BP60_FINAL',
+    ]);
+    expect(VistaDefinitionSchema.shape.eventCode.options).toEqual(VISTA_EVENT_CODES);
+  });
+
+  it.each(VISTA_EVENT_CODES)('accepts a %s definition', (eventCode) => {
+    const value = snapshot();
+    value.definition.eventCode = eventCode;
+    expect(VistaSnapshotSchema.safeParse(value).success).toBe(true);
+  });
+
+  it.each(['P25', 'ARMIX30', 'ar60', ''])('rejects a %j definition', (eventCode) => {
+    expect(
+      VistaSnapshotSchema.safeParse({ ...snapshot(), definition: { ...snapshot().definition, eventCode } }).success,
+    ).toBe(false);
   });
 });

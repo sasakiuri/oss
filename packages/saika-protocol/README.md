@@ -40,7 +40,8 @@ provides encrypted spectator HTTP transport, replay protection for each listener
 renderers must not import it. `Vista` defines complete versioned display snapshots, source identities, exact
 target definitions, shooting histories and result publication state. `VISTA_CATALOG_PATH` and
 `vistaSnapshotPath()` build the source API paths, `parseVistaSourcePath()` reads them back, and
-`VISTA_PROTOCOL_VERSION` is the version every identity and snapshot carries. See
+`VISTA_PROTOCOL_VERSION` is the version every identity and snapshot carries. `VISTA_EVENT_CODES` lists the events
+a Vista definition can describe. See
 [Vista display data](../../ARCHITECTURE.md#vista-display-data) for acquisition, storage, and permissions.
 
 Vista transport accepts requests within a 30-second clock window to limit replay. Keep the clocks on both
