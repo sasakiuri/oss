@@ -14,6 +14,8 @@ CHANGELOG.md
 
 assets/fonts/
 src/shared/api/generated.ts
+# Golden files hold the exact rendered HTML.
+tests/unit/__golden__/
 .textlint-baseline.json
 
 reports/
