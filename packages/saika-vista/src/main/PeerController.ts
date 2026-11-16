@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { VistaIdentitySchema } from '@sasakiuri/saika-protocol/Vista';
+import { VISTA_PROTOCOL_VERSION, VistaIdentitySchema } from '@sasakiuri/saika-protocol/Vista';
 import { requestVista } from '@sasakiuri/saika-protocol/vista-node';
 import { z } from 'zod';
 
@@ -85,7 +85,7 @@ export class PeerController {
             endpoint: peer.endpoint,
             node: {
               identity: {
-                protocolVersion: 1 as const,
+                protocolVersion: VISTA_PROTOCOL_VERSION,
                 sourceId: peer.id,
                 bootId: 'unconfirmed',
                 kind: 'display' as const,
