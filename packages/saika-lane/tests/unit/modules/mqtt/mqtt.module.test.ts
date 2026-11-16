@@ -58,13 +58,11 @@ vi.mock('mqtt', () => ({
 }));
 
 // ── mock logger ────────────────────────────────────────────────
+const { logger } = vi.hoisted(() => ({
+  logger: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+}));
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
-  getLogger: () => ({
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
-  }),
+  getLogger: () => logger,
 }));
 
 function createMockEventBus(): IEventBus {
@@ -512,6 +510,141 @@ describe('mqtt.module', () => {
       getMqttStatus(): Promise<{ status: string; error?: string }>;
     };
   }
+
+  function recordTimeline(): string[] {
+    const timeline: string[] = [];
+    mockMqttClient.publishAsync.mockImplementation(
+      async (topic: string, payload: string, options: { retain: boolean }) => {
+        const status = topic.endsWith('/hardware/state') ? ` ${JSON.parse(payload).connection.status}` : '';
+        timeline.push(`publish ${topic}${status}${options.retain ? ' retained' : ''}`);
+      },
+    );
+    mockMqttClient.subscribeAsync.mockImplementation(async (topic: string) => {
+      timeline.push(`subscribe ${topic}`);
+    });
+    mockMqttClient.unsubscribeAsync.mockImplementation(async (topic: string) => {
+      timeline.push(`unsubscribe ${topic}`);
+    });
+    vi.mocked(eventBus.emit).mockImplementation((event: { type: string; error?: string }) => {
+      timeline.push(`event ${event.type}${event.error ? ' with error' : ''}`);
+    });
+    mockMqttClient.on.mockImplementation((event: string, callback: () => void) => {
+      if (event === 'connect')
+        setTimeout(() => {
+          mockMqttClient.connected = true;
+          timeline.push('connected');
+          callback();
+        }, 0);
+    });
+    return timeline;
+  }
+
+  const STORAGE_LANE_ID = '11111111-1111-4111-8111-111111111111';
+  const SETTINGS_LANE_ID = '550e8400-e29b-41d4-a716-446655440000';
+  const COMPETITION_ID = '22222222-2222-4222-8222-222222222222';
+  const laneRetainedStates = [
+    `publish saika/lane/${STORAGE_LANE_ID}/hardware/state disconnected retained`,
+    `publish saika/lane/${STORAGE_LANE_ID}/safety/state retained`,
+    `publish saika/lane/${STORAGE_LANE_ID}/range-officer/request retained`,
+    `publish saika/lane/${STORAGE_LANE_ID}/qualification-malfunction/signal retained`,
+    `publish saika/lane/${STORAGE_LANE_ID}/est-complaint/signal retained`,
+  ];
+  const competitionRetainedStates = [
+    `publish saika/competition/${COMPETITION_ID}/lane/${STORAGE_LANE_ID}/state retained`,
+    `publish saika/competition/${COMPETITION_ID}/lane/${STORAGE_LANE_ID}/score retained`,
+    // The second competition state marks the end of the shot replay.
+    `publish saika/competition/${COMPETITION_ID}/lane/${STORAGE_LANE_ID}/state retained`,
+  ];
+
+  function joinActiveCompetition(): void {
+    const session = buildSession();
+    const state = CompetitionState.create(COMPETITION_ID, session.id, BR60S.config);
+    vi.mocked(competitionRepository.findActive).mockResolvedValue(state);
+    vi.mocked(competitionRepository.findById).mockResolvedValue(state);
+    vi.mocked(sessionRepository.findById).mockResolvedValue(session);
+  }
+
+  it('publishes retained Lane state on connect and republishes it before announcing the connection', async () => {
+    joinActiveCompetition();
+    const timeline = recordTimeline();
+    const handlers = registerConnection();
+    await handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' });
+    // The connect sequence publishes the Lane-owned states once and the retained republish publishes them again.
+    expect(timeline).toEqual([
+      'connected',
+      ...laneRetainedStates,
+      `subscribe saika/lane/${SETTINGS_LANE_ID}/command/+`,
+      ...laneRetainedStates,
+      ...competitionRetainedStates,
+      'event MqttConnected',
+    ]);
+    timeline.length = 0;
+    await handlers.disconnectMqtt();
+    // A graceful disconnect does not trigger the broker Will, so the offline state is published first.
+    expect(timeline).toEqual([
+      `publish saika/lane/${STORAGE_LANE_ID}/hardware/state offline retained`,
+      `unsubscribe saika/lane/${SETTINGS_LANE_ID}/command/+`,
+      'event MqttDisconnected',
+    ]);
+  });
+
+  it('republishes retained Lane state when startup becomes READY on an open connection', async () => {
+    joinActiveCompetition();
+    const startup = createMockStartup();
+    const ready = vi.spyOn(startup, 'isReady').mockReturnValue(false);
+    const timeline = recordTimeline();
+    const handlers = registerConnection(startup);
+    await handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' });
+    timeline.length = 0;
+    ready.mockReturnValue(true);
+    await vi.mocked(startup.afterReady).mock.calls[0]![0]();
+    expect(timeline).toEqual([...laneRetainedStates, ...competitionRetainedStates, 'event MqttConnected']);
+    await handlers.disconnectMqtt();
+  });
+
+  it('keeps a Range Officer request locally and warns when its retained publication fails', async () => {
+    mockMqttClient.on.mockImplementation((event: string, callback: () => void) => {
+      if (event === 'connect')
+        setTimeout(() => {
+          mockMqttClient.connected = true;
+          callback();
+        }, 0);
+    });
+    const handlers = registerConnection() as unknown as {
+      connectMqtt(input: { brokerUrl: string }): Promise<void>;
+      disconnectMqtt(): Promise<void>;
+      requestRangeOfficer(input: {
+        category: 'SAFETY';
+        message?: string;
+      }): Promise<{ requestId: string; status: string }>;
+      clearRangeOfficerRequest(input: { requestId: string }): Promise<{ requestId: string; status: string }>;
+    };
+    await handlers.connectMqtt({ brokerUrl: 'mqtt://localhost:1883' });
+    mockMqttClient.publishAsync.mockImplementation(async (topic: string) => {
+      if (topic.endsWith('/range-officer/request')) throw new Error('broker rejected');
+    });
+    logger.warn.mockClear();
+
+    const requested = await handlers.requestRangeOfficer({ category: 'SAFETY', message: 'Check lane' });
+    expect(requested).toMatchObject({ status: 'ACTIVE', laneId: SETTINGS_LANE_ID });
+    const cleared = await handlers.clearRangeOfficerRequest({ requestId: requested.requestId });
+    expect(cleared).toMatchObject({ status: 'CLEARED', requestId: requested.requestId });
+
+    expect(logger.warn.mock.calls).toEqual([
+      [
+        '[MQTT Module] Range Officer request retained locally for retry',
+        'mqtt',
+        { error: `Failed to publish message to topic: saika/lane/${STORAGE_LANE_ID}/range-officer/request` },
+      ],
+      [
+        '[MQTT Module] Cleared Range Officer request retained locally for retry',
+        'mqtt',
+        { error: `Failed to publish message to topic: saika/lane/${STORAGE_LANE_ID}/range-officer/request` },
+      ],
+    ]);
+    mockMqttClient.publishAsync.mockResolvedValue(undefined);
+    await handlers.disconnectMqtt();
+  });
 
   it('queues different manual settings behind an in-flight automatic connection', async () => {
     const startup = createMockStartup();
