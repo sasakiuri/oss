@@ -14,9 +14,7 @@ export type CompetitionErrorCode =
   | 'COMPETITION_NOT_FOUND'
   | 'INVALID_PHASE_TRANSITION'
   | 'COMPETITION_ALREADY_FINISHED'
-  | 'NO_MORE_STAGES'
   | 'SERIES_NOT_COMPLETE'
-  | 'SHOT_NOT_ACCEPTED'
   | 'INVALID_TIMER_DURATION';
 
 export const COMPETITION_ERRORS: ReadonlyArray<[CompetitionErrorCode, ErrorDefinition]> = [
@@ -130,30 +128,12 @@ export const COMPETITION_ERRORS: ReadonlyArray<[CompetitionErrorCode, ErrorDefin
     },
   ],
   [
-    'NO_MORE_STAGES',
-    {
-      code: 'NO_MORE_STAGES',
-      message: 'No more stages available',
-      userMessage: 'No more stages available',
-      severity: 'error',
-    },
-  ],
-  [
     'SERIES_NOT_COMPLETE',
     {
       code: 'SERIES_NOT_COMPLETE',
       message: 'Series is not complete',
       userMessage: 'Series is not complete',
       severity: 'error',
-    },
-  ],
-  [
-    'SHOT_NOT_ACCEPTED',
-    {
-      code: 'SHOT_NOT_ACCEPTED',
-      message: 'Shot not accepted (phase: {{phase}})',
-      userMessage: 'Shot not accepted (phase: {{phase}})',
-      severity: 'warning',
     },
   ],
   [

@@ -2,11 +2,7 @@
 import type { ErrorDefinition } from '../ErrorCatalog';
 
 export type ReportErrorCode =
-  | 'SCORE_SHEET_GENERATION_FAILED'
-  | 'PRINT_WINDOW_CREATION_FAILED'
-  | 'PRINT_FAILED'
-  | 'PRINTER_UNAVAILABLE'
-  | 'PRINT_IN_PROGRESS';
+  'PRINT_WINDOW_CREATION_FAILED' | 'PRINT_FAILED' | 'PRINTER_UNAVAILABLE' | 'PRINT_IN_PROGRESS';
 
 export const REPORT_ERRORS: ReadonlyArray<[ReportErrorCode, ErrorDefinition]> = [
   [
@@ -34,15 +30,6 @@ export const REPORT_ERRORS: ReadonlyArray<[ReportErrorCode, ErrorDefinition]> = 
       message: 'A print job is already in progress.',
       userMessage: 'A print job is already in progress.',
       severity: 'warning',
-    },
-  ],
-  [
-    'SCORE_SHEET_GENERATION_FAILED',
-    {
-      code: 'SCORE_SHEET_GENERATION_FAILED',
-      message: 'Failed to generate score sheet',
-      userMessage: 'Failed to generate score sheet',
-      severity: 'error',
     },
   ],
   [

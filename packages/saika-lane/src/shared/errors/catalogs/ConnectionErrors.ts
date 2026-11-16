@@ -4,13 +4,9 @@ import type { ErrorDefinition } from '../ErrorCatalog';
 export type ConnectionErrorCode =
   | 'CONNECTION_FAILED'
   | 'DATA_CONVERSION_ERROR'
-  | 'USB_PORT_NOT_FOUND'
-  | 'USB_OPEN_FAILED'
   | 'USB_WRITE_FAILED'
-  | 'USB_READ_TIMEOUT'
   | 'USB_PARSE_ERROR'
   | 'RED_DOT_INITIALIZATION_FAILED'
-  | 'USB_DEVICE_BUSY'
   | 'INVALID_PORT_PATH'
   | 'INVALID_BAUD_RATE'
   | 'CONNECTION_NOT_FOUND'
@@ -37,39 +33,12 @@ export const CONNECTION_ERRORS: ReadonlyArray<[ConnectionErrorCode, ErrorDefinit
     },
   ],
   [
-    'USB_PORT_NOT_FOUND',
-    {
-      code: 'USB_PORT_NOT_FOUND',
-      message: 'USB port not found',
-      userMessage: 'USB port not found',
-      severity: 'error',
-    },
-  ],
-  [
-    'USB_OPEN_FAILED',
-    {
-      code: 'USB_OPEN_FAILED',
-      message: 'Failed to open USB port',
-      userMessage: 'Failed to open USB port',
-      severity: 'error',
-    },
-  ],
-  [
     'USB_WRITE_FAILED',
     {
       code: 'USB_WRITE_FAILED',
       message: 'Failed to write to USB port',
       userMessage: 'Failed to write to USB port',
       severity: 'error',
-    },
-  ],
-  [
-    'USB_READ_TIMEOUT',
-    {
-      code: 'USB_READ_TIMEOUT',
-      message: 'USB read timeout',
-      userMessage: 'USB port read timed out',
-      severity: 'warning',
     },
   ],
   [
@@ -88,15 +57,6 @@ export const CONNECTION_ERRORS: ReadonlyArray<[ConnectionErrorCode, ErrorDefinit
       message: 'RedDot target-type initialization failed',
       userMessage: 'Failed to configure the RedDot target type',
       severity: 'error',
-    },
-  ],
-  [
-    'USB_DEVICE_BUSY',
-    {
-      code: 'USB_DEVICE_BUSY',
-      message: 'USB device is busy',
-      userMessage: 'USB device is busy',
-      severity: 'warning',
     },
   ],
   [

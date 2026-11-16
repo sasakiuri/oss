@@ -4,7 +4,6 @@ import type { ErrorDefinition } from '../ErrorCatalog';
 export type SessionErrorCode =
   | 'SESSION_NOT_FOUND'
   | 'VALIDATION_ERROR'
-  | 'INVALID_OPERATION'
   | 'INVALID_IMPACT_POINT'
   | 'INVALID_SCORE'
   | 'INVALID_SHOT'
@@ -30,15 +29,6 @@ export const SESSION_ERRORS: ReadonlyArray<[SessionErrorCode, ErrorDefinition]> 
       code: 'VALIDATION_ERROR',
       message: 'Validation failed',
       userMessage: 'Invalid input',
-      severity: 'warning',
-    },
-  ],
-  [
-    'INVALID_OPERATION',
-    {
-      code: 'INVALID_OPERATION',
-      message: 'Invalid operation',
-      userMessage: 'Invalid operation',
       severity: 'warning',
     },
   ],

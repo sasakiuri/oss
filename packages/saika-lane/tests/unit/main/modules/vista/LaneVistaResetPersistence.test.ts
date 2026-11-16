@@ -16,7 +16,6 @@ import type { ISessionRepository } from '@/main/modules/session/domain/ISessionR
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Session } from '@/main/modules/session/domain/Session';
-import { SessionRepositoryImpl } from '@/main/modules/session/infra/SessionRepositoryImpl';
 import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
 import { LaneVistaSource } from '@/main/modules/vista/infra/LaneVistaSource';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -32,7 +31,7 @@ const read = async (source: LaneVistaSource, subjectId: string) =>
 const shoot = (session: Session) =>
   session.recordShot(null, new Score(104), new Date(), undefined, false, Mode.match());
 
-function fixture(backend: 'sqlite' | 'local-storage') {
+function fixture() {
   const directory = mkdtempSync(join(tmpdir(), 'vista-reset-transaction-'));
   cleanup.push(() => rmSync(directory, { recursive: true, force: true }));
   const settings = join(directory, 'settings.json');
@@ -52,7 +51,6 @@ function fixture(backend: 'sqlite' | 'local-storage') {
   let database: Database.Database | undefined;
   const reopen = (): ISessionRepository => {
     database?.close();
-    if (backend === 'local-storage') return new SessionRepositoryImpl(storage);
     database = createSqliteDb(join(directory, 'lane.db'));
     return new SqliteSessionRepository(database);
   };
@@ -74,26 +72,18 @@ function fixture(backend: 'sqlite' | 'local-storage') {
       readShootOffSeries: () => new Map(),
     });
   const blockEpochWrite = (): (() => void) => {
-    if (database) {
-      database.exec(`CREATE TRIGGER fail_reset_epoch BEFORE INSERT ON session_reset_epochs
-        BEGIN SELECT RAISE(ABORT, 'Disk full'); END;`);
-      return () => {
-        database!.exec('DROP TRIGGER fail_reset_epoch');
-      };
-    }
-    const write = storage.setMany.bind(storage);
-    const blocked = vi.spyOn(storage, 'setMany').mockImplementation((entries) => {
-      if (Object.keys(entries).some((key) => key.startsWith('session-reset-epoch:'))) throw new Error('Disk full');
-      write(entries);
-    });
-    return () => blocked.mockRestore();
+    database!.exec(`CREATE TRIGGER fail_reset_epoch BEFORE INSERT ON session_reset_epochs
+      BEGIN SELECT RAISE(ABORT, 'Disk full'); END;`);
+    return () => {
+      database!.exec('DROP TRIGGER fail_reset_epoch');
+    };
   };
   return { reopen, competitions, source, blockEpochWrite };
 }
 
-describe.each(['sqlite', 'local-storage'] as const)('Vista reset persistence using %s', (backend) => {
+describe('Vista reset persistence using sqlite', () => {
   it('commits an empty match reset before the event and preserves its boundary after immediate restart', async () => {
-    const { reopen, competitions, source } = fixture(backend);
+    const { reopen, competitions, source } = fixture();
     let sessions = reopen();
     const session = Session.create(Discipline.airRifle10m()).resumeMode(Mode.match());
     await sessions.save(session);
@@ -129,7 +119,7 @@ describe.each(['sqlite', 'local-storage'] as const)('Vista reset persistence usi
   it.each([0, 1])(
     'rolls back the reset and epoch together after write failure with %i existing shots',
     async (count) => {
-      const { reopen, competitions, source, blockEpochWrite } = fixture(backend);
+      const { reopen, competitions, source, blockEpochWrite } = fixture();
       let sessions = reopen();
       let session = Session.create(Discipline.airRifle10m()).resumeMode(Mode.match());
       await sessions.saveReset(session);

@@ -105,19 +105,20 @@ export interface ShotData {
 export interface IUSBConnectionManager {
   /**
    * Opens the configured target port.
-   * @throws USB_PORT_NOT_FOUND, USB_OPEN_FAILED, or USB_DEVICE_BUSY.
+   * @throws INVALID_TARGET for an unsupported device configuration, CONNECTION_FAILED when the attempt is
+   *   cancelled or the port closes during initialization, or the error raised while opening or initializing the port.
    */
   connect(config: USBConnectionConfig): Promise<Connection>;
 
   /**
-   * Closes the current connection; does nothing when disconnected.
-   * @throws USB_WRITE_FAILED if the disconnect command fails.
+   * Closes the current connection; does nothing when disconnected. Port close errors are logged, not thrown.
    */
   disconnect(): Promise<void>;
 
   /**
    * Reconnects using the saved configuration; rejects missing settings.
-   * @throws USB_PORT_NOT_FOUND or USB_OPEN_FAILED.
+   * @throws CONNECTION_FAILED without a saved configuration, MAX_RECONNECT_EXCEEDED after too many attempts,
+   *   or any `connect()` failure (including INVALID_TARGET).
    */
   reconnect(): Promise<void>;
 

@@ -58,7 +58,8 @@ export class USBConnectionLifecycle {
 
   /**
    * Opens the configured target port.
-   * @throws USB_PORT_NOT_FOUND, USB_OPEN_FAILED, or USB_DEVICE_BUSY.
+   * @throws CONNECTION_FAILED when the attempt is cancelled or the port closes during initialization, or
+   *   the error raised while opening or initializing the port.
    */
   async connect(config: USBConnectionConfig): Promise<Connection> {
     const operationGeneration = ++this.connectionOperationGeneration;
@@ -178,8 +179,7 @@ export class USBConnectionLifecycle {
   }
 
   /**
-   * Closes the current connection; does nothing when disconnected.
-   * @throws USB_WRITE_FAILED if the disconnect command fails.
+   * Closes the current connection; does nothing when disconnected. Port close errors are logged, not thrown.
    */
   async disconnect(): Promise<void> {
     this.connectionOperationGeneration += 1;
@@ -216,7 +216,8 @@ export class USBConnectionLifecycle {
 
   /**
    * Reconnects using the saved configuration; rejects missing settings.
-   * @throws USB_PORT_NOT_FOUND or USB_OPEN_FAILED.
+   * @throws CONNECTION_FAILED without a saved configuration, MAX_RECONNECT_EXCEEDED after too many attempts,
+   *   or any `connect()` failure.
    */
   async reconnect(): Promise<void> {
     const operationGeneration = ++this.connectionOperationGeneration;
