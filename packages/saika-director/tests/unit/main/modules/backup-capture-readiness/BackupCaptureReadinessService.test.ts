@@ -2,9 +2,9 @@ import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { migration084BackupCaptureReadiness } from '@/main/infrastructure/database/migrations/084_backup_capture_readiness';
-import type { BackupCaptureHealthFacts } from '@/main/modules/backup-capture-readiness/BackupCaptureHealthPolicy';
-import { BackupCaptureReadinessService } from '@/main/modules/backup-capture-readiness/BackupCaptureReadinessService';
-import { SqliteBackupCaptureReadinessSettingsRepository } from '@/main/modules/backup-capture-readiness/SqliteBackupCaptureReadinessSettingsRepository';
+import type { BackupCaptureHealthFacts } from '@/main/modules/backup-capture-readiness/domain/BackupCaptureHealthPolicy';
+import { BackupCaptureReadinessService } from '@/main/modules/backup-capture-readiness/application/BackupCaptureReadinessService';
+import { SqliteBackupCaptureReadinessSettingsRepository } from '@/main/modules/backup-capture-readiness/infra/SqliteBackupCaptureReadinessSettingsRepository';
 import { CompetitionStartReadiness } from '@/main/shared-infra/operations/CompetitionStartReadiness';
 
 const competitionId = '11111111-1111-4111-8111-111111111111';

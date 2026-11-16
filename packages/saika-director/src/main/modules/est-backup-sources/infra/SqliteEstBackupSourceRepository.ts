@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 
 import type { EstBackupSourceDto, EstBackupSourceSummaryDto } from '@/shared/ipc/contracts';
 
-import type { IEstBackupSourceRepository } from './EstBackupSourceService';
+import type { IEstBackupSourceRepository } from '../application/EstBackupSourceService';
 
 export class SqliteEstBackupSourceRepository implements IEstBackupSourceRepository {
   constructor(private readonly db: Database.Database) {}

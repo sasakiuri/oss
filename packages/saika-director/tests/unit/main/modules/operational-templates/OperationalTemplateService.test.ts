@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { migration085OperationalSettingTemplates } from '@/main/infrastructure/database/migrations/085_operational_setting_templates';
 import { OperationalProfileService } from '@/main/modules/operational-profiles';
-import { OperationalTemplateService } from '@/main/modules/operational-templates/OperationalTemplateService';
-import { SqliteOperationalTemplateRepository } from '@/main/modules/operational-templates/SqliteOperationalTemplateRepository';
+import { OperationalTemplateService } from '@/main/modules/operational-templates/application/OperationalTemplateService';
+import { SqliteOperationalTemplateRepository } from '@/main/modules/operational-templates/infra/SqliteOperationalTemplateRepository';
 
 let db: Database.Database;
 let directory: string;

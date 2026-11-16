@@ -5,7 +5,7 @@ import {
   directorOperationalPresets,
   type OperationalProfilePreset,
 } from '@/main/modules/operational-profiles';
-import { assessOperationalPresets } from '@/main/modules/operational-profiles/OperationalProfilePreset';
+import { assessOperationalPresets } from '@/main/modules/operational-profiles/application/OperationalProfilePreset';
 
 describe('Operational presets', () => {
   it('offers replaceable suggestions without writing settings or exposing mutable preset data', async () => {

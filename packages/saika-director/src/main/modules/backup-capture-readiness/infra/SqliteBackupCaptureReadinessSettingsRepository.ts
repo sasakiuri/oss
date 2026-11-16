@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 
 import { BackupCaptureReadinessSettingsSchema, type BackupCaptureReadinessSettings } from '@/shared/ipc/contracts';
 
-import type { IBackupCaptureReadinessSettingsRepository } from './BackupCaptureReadinessService';
+import type { IBackupCaptureReadinessSettingsRepository } from '../application/BackupCaptureReadinessService';
 
 export class SqliteBackupCaptureReadinessSettingsRepository implements IBackupCaptureReadinessSettingsRepository {
   constructor(private readonly db: Database.Database) {}

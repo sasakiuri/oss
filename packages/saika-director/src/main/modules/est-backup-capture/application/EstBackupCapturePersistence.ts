@@ -1,7 +1,7 @@
 import type { EstBackupRecordParser } from '@/main/modules/est-backup-verification';
 
 import type { IEstBackupFeed } from './EstBackupCaptureService';
-import type { EstBackupSnapshotMode } from './EstBackupSnapshotPolicy';
+import type { EstBackupSnapshotMode } from '../domain/EstBackupSnapshotPolicy';
 
 /** Only the adapter interprets its versioned reference; the runner stores it opaquely. */
 export interface EstBackupAdapterReference {

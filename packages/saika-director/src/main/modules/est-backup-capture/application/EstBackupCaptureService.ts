@@ -8,7 +8,7 @@ import {
   EstBackupSnapshotPolicy,
   type EstBackupSnapshotMode,
   type IEstBackupSnapshotPolicy,
-} from './EstBackupSnapshotPolicy';
+} from '../domain/EstBackupSnapshotPolicy';
 
 export interface IEstBackupFeed {
   readonly label: string;

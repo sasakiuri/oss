@@ -1,5 +1,5 @@
 import type Database from 'better-sqlite3';
-import type { IObservationReviewRepository, ObservationReview } from './ObservationReviewService';
+import type { IObservationReviewRepository, ObservationReview } from '../application/ObservationReviewService';
 
 export class SqliteObservationReviewRepository implements IObservationReviewRepository {
   constructor(private readonly db: Database.Database) {}

@@ -1,12 +1,12 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { operatorAccessContract } from '@/shared/ipc/contracts';
-import type { OperatorAccessService } from './OperatorAccessService';
+import type { OperatorAccessService } from './application/OperatorAccessService';
 
-export { OperatorAccessService } from './OperatorAccessService';
-export { SqliteOperatorAccessStore } from './SqliteOperatorAccessStore';
-export { directorOperatorPermission } from './DirectorOperatorPermissions';
-export { SessionSanctionAuthorizationResolver } from './SessionSanctionAuthorizationResolver';
+export { OperatorAccessService } from './application/OperatorAccessService';
+export { SqliteOperatorAccessStore } from './infra/SqliteOperatorAccessStore';
+export { directorOperatorPermission } from './application/DirectorOperatorPermissions';
+export { SessionSanctionAuthorizationResolver } from './application/SessionSanctionAuthorizationResolver';
 export function registerOperatorAccess(ipcRouter: IpcRouter, service: OperatorAccessService) {
   const sender = (event: unknown) => (event as IpcMainInvokeEvent).sender.id;
   ipcRouter.register(operatorAccessContract, {

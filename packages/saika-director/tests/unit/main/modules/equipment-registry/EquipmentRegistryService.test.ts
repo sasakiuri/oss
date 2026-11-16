@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   EquipmentRegistryService,
   equipmentAdvisories,
-} from '@/main/modules/equipment-registry/EquipmentRegistryService';
-import { SqliteEquipmentRegistryRepository } from '@/main/modules/equipment-registry/SqliteEquipmentRegistryRepository';
+} from '@/main/modules/equipment-registry/application/EquipmentRegistryService';
+import { SqliteEquipmentRegistryRepository } from '@/main/modules/equipment-registry/infra/SqliteEquipmentRegistryRepository';
 import { SqliteCompetitionEvidenceSource } from '@/main/modules/operational-archives/infra/SqliteCompetitionEvidenceSource';
 import type { EquipmentDetails } from '@/shared/ipc/contracts';
 

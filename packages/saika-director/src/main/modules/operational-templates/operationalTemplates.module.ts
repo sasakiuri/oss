@@ -1,8 +1,8 @@
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { operationalTemplatesContract } from '@/shared/ipc/contracts';
 
-import { OperationalTemplateService } from './OperationalTemplateService';
-import { SqliteOperationalTemplateRepository } from './SqliteOperationalTemplateRepository';
+import { OperationalTemplateService } from './application/OperationalTemplateService';
+import { SqliteOperationalTemplateRepository } from './infra/SqliteOperationalTemplateRepository';
 
 export const operationalTemplatesModule = defineModule({
   name: 'operationalTemplates',
