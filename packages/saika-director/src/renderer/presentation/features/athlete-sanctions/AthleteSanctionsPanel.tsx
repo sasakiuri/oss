@@ -760,4 +760,4 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 const sectionClass = 'rounded-[3px] border border-vscode-border bg-vscode-bg p-3';
 const labelClass = 'grid gap-1 text-xs font-medium text-vscode-text-muted';
 const inputClass =
-  'min-h-8 w-full rounded-[2px] border border-vscode-input-border bg-vscode-input-bg px-2 py-1 text-xs text-vscode-input-text outline-none focus:border-vscode-focus';
+  'min-h-8 w-full rounded-[2px] border border-vscode-border bg-vscode-input px-2 py-1 text-xs text-vscode-text outline-none focus:border-vscode-focus';
