@@ -14,6 +14,7 @@ import type {
   IQualificationRecoverySettlementControl,
 } from '../domain/IQualificationRecoverySettlementControl';
 import type { IQualificationRecoverySettlementRepository } from '../domain/IQualificationRecoverySettlementRepository';
+import { compareRecordedShots, resolveQualificationRecoveryPlacement } from '../domain/QualificationRecoveryPlacement';
 import {
   createQualificationRecoverySettlement,
   qualificationRecoverySettlementRequestMatches,
@@ -70,8 +71,8 @@ export class QualificationRecoverySettlementService implements IQualificationRec
     const session = await this.sessionRepository.findById(competition.sessionId);
     if (!session) throw new Error(`Session not found: ${competition.sessionId}`);
     if (session.isFinished) throw new Error(`Session ${session.id} is already finished`);
-    const placement = resolveSessionPlacement(competition);
-    const matchShots = [...session.matchShots].sort(compareShots);
+    const placement = resolveQualificationRecoveryPlacement(competition);
+    const matchShots = [...session.matchShots].sort(compareRecordedShots);
     const expectedVisibleShots = placement.priorShots + request.expectedRecordedShots;
     if (matchShots.length !== expectedVisibleShots) {
       throw new Error(
@@ -196,29 +197,4 @@ function toShotEvidence(shot: Shot): QualificationRecoverySettlementShotEvidence
     targetProfileId: shot.targetProfileId ?? null,
     scoringGaugeProfileId: shot.scoringGaugeProfileId ?? null,
   };
-}
-
-function resolveSessionPlacement(competition: CompetitionState): { priorShots: number; seriesNumber: number } {
-  let sessionBoundaryStage = 0;
-  for (let stageIndex = 0; stageIndex <= competition.currentStageIndex; stageIndex += 1) {
-    if (competition.config.stages[stageIndex]?.requiresNewSession) sessionBoundaryStage = stageIndex;
-  }
-  let priorShots = 0;
-  let priorSeries = 0;
-  for (let stageIndex = sessionBoundaryStage; stageIndex <= competition.currentStageIndex; stageIndex += 1) {
-    const stage = competition.config.stages[stageIndex]!;
-    if (!stage.scored) continue;
-    const end = stageIndex === competition.currentStageIndex ? competition.currentSeriesIndex : stage.series.length;
-    for (let seriesIndex = 0; seriesIndex < end; seriesIndex += 1) {
-      const series = stage.series[seriesIndex]!;
-      if (series.maxShots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
-      priorShots += series.maxShots;
-      priorSeries += 1;
-    }
-  }
-  return { priorShots, seriesNumber: priorSeries + 1 };
-}
-
-function compareShots(left: Shot, right: Shot): number {
-  return left.shotNumber - right.shotNumber || left.timestamp.getTime() - right.timestamp.getTime();
 }
