@@ -61,10 +61,8 @@ module.exports = {
     },
     {
       name: 'no-cross-module-infra',
-      comment:
-        'A feature reaches another feature through its public surface or the composition root, never its infra. ' +
-        'Warn until the remaining connection, session and reserve-transfer edges move; then make it an error.',
-      severity: 'warn',
+      comment: 'A feature reaches another feature through its public surface or the composition root, never its infra.',
+      severity: 'error',
       from: { path: '^src/main/modules/([^/]+)/' },
       to: { path: '^src/main/modules/[^/]+/infra/', pathNot: '^src/main/modules/$1/' },
     },
