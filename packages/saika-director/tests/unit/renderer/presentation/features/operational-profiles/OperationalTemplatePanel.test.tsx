@@ -76,4 +76,35 @@ describe('Operational template editor', () => {
     await waitFor(() => expect(screen.queryByRole('option', { name: 'Club evening' })).not.toBeInTheDocument());
     expect(onChoose).not.toHaveBeenCalled();
   });
+
+  it('shows the fallback text when a removal fails without a message, and load and save failures as text', async () => {
+    vi.mocked(operationalTemplatesService.remove).mockResolvedValue({ success: false });
+    render(
+      <OperationalTemplatePanel
+        modes={{ relay: 'REQUIRED' }}
+        settings={settings}
+        onChoose={vi.fn()}
+        disabled={false}
+      />,
+    );
+    await screen.findByRole('option', { name: 'Club evening' });
+    fireEvent.change(screen.getByLabelText('Saved operational template'), { target: { value: template.id } });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove template' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Unable to remove template$/);
+
+    vi.mocked(operationalTemplatesService.save).mockResolvedValue({
+      success: false,
+      error: { code: 'CONFLICT', message: 'Template name already used' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Replace template with proposed settings' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Template name already used$/));
+
+    vi.mocked(operationalTemplatesService.list).mockResolvedValue({
+      success: false,
+      data: null,
+      error: { code: 'ERROR', message: 'Templates are unavailable' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Reload templates' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Templates are unavailable$/));
+  });
 });
