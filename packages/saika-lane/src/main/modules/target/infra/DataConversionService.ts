@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { Shot } from '@/main/modules/session/domain/Shot';
-import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import type { ITargetDataConverter } from '@/main/modules/target/domain/ITargetDataConverter';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';

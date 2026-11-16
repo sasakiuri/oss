@@ -2,13 +2,13 @@
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-import type { AdapterContext } from './AdapterContext';
 import { ITargetAdapter } from './ITargetAdapter';
 import { MT201CoordinateConverter } from './mt201/MT201CoordinateConverter';
 import { MT201DataParser } from './mt201/MT201DataParser';

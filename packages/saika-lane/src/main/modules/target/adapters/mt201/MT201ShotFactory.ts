@@ -2,8 +2,7 @@
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
-
-import type { AdapterContext } from '../AdapterContext';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 
 /**
  * MT201ShotFactory

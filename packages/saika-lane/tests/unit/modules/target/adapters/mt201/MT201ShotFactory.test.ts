@@ -5,8 +5,8 @@ import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
-import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import { MT201ShotFactory } from '@/main/modules/target/adapters/mt201/MT201ShotFactory';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 
 const defaultContext = (): AdapterContext => ({
   shotNumber: 1,

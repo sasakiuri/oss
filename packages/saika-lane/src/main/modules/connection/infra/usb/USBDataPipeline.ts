@@ -4,7 +4,7 @@ import type {
   USBConnectionConfig,
 } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { ShotData } from '@/main/modules/connection/domain/ShotData';
-import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 import type { ISerialDataParser, RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import type { ITargetDataConverter } from '@/main/modules/target/domain/ITargetDataConverter';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';

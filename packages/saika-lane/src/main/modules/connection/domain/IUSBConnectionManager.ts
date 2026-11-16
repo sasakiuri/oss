@@ -3,7 +3,7 @@ import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
 import type { ShotData } from '@/main/modules/connection/domain/ShotData';
 import type { Mode } from '@/main/modules/session/domain/Mode';
-import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 
 /** Synchronously supplies the discipline and mode of the active competition. */
