@@ -7,6 +7,7 @@ import {
   type UserPreferencesDto,
 } from '@/shared/ipc/contracts';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
+import type { StorageValue } from '@/shared/storage/types';
 
 import {
   asRecord,
@@ -124,18 +125,27 @@ export class LegacySettingsBridge {
   }
 
   syncLegacyStorage(settings: AppSettingsDto): void {
-    this.storage.set('mqtt.laneId', settings.mqtt.laneId);
-    this.storage.set('mqtt.settings', settings.mqtt);
-    this.storage.set(
+    this.setIfChanged('mqtt.laneId', settings.mqtt.laneId);
+    this.setIfChanged('mqtt.settings', settings.mqtt);
+    this.setIfChanged(
       'userPreferences',
       toLegacyUserPreferences(settings.userPreferences, this.getStoredLegacyUserPreferences()),
     );
 
     if (settings.connection.portName) {
-      this.storage.set('connectionSettings', toLegacyConnectionSettings(settings.connection));
+      this.setIfChanged('connectionSettings', toLegacyConnectionSettings(settings.connection));
     } else if (this.storage.has('connectionSettings')) {
       this.storage.delete('connectionSettings');
     }
+  }
+
+  /**
+   * electron-store rewrites the whole file on every set. A value whose stored JSON is already identical
+   * would be written back at the same position with the same bytes, so the write is skipped.
+   */
+  private setIfChanged(key: string, value: StorageValue): void {
+    if (JSON.stringify(this.storage.get(key)) === JSON.stringify(value)) return;
+    this.storage.set(key, value);
   }
 
   getStoredLegacyUserPreferences(): UserPreferencesDto {
