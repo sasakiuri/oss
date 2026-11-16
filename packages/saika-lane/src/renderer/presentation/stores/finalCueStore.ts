@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { CompetitionCuePayload } from '@sasakiuri/saika-protocol/CompetitionCue';
 import { create } from 'zustand';
-
-import type { CompetitionCuePayload } from '@/shared/mqtt/CompetitionCue';
 
 interface FinalCueStore {
   competitionId: string | null;

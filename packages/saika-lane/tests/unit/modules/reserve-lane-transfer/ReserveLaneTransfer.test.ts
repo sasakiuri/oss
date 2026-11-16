@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { ReserveLaneTransferRequest } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -33,7 +34,6 @@ import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSess
 import { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { TypedEventBus, type IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
-import type { ReserveLaneTransferRequest } from '@/shared/mqtt/ReserveLaneTransfer';
 
 import { athleteCompetition, selectAthlete } from '../../../helpers/athleteCompetition';
 import { createMockShotObservationRepository } from '../../../helpers/mockDependencies';

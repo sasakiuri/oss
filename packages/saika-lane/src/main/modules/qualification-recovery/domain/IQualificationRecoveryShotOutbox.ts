@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { QualificationRecoveryShotPayload } from '@/shared/mqtt/QualificationRecovery';
+import type { QualificationRecoveryShotPayload } from '@sasakiuri/saika-protocol/QualificationRecovery';
 
 export interface IQualificationRecoveryShotOutbox {
   enqueue(payload: QualificationRecoveryShotPayload): void;

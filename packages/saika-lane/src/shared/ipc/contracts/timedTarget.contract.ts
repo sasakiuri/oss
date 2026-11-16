@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import { TimedTargetStateSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 import { z } from 'zod';
-
-import { TimedTargetStateSchema } from '@/shared/mqtt/TimedTargetState';
-import { TimedTargetTimingSettingsSchema } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 import { TimingMeasurementRequestSchema, TimingMeasurementAnalysisSchema } from './timingMeasurements.schema';
 import {

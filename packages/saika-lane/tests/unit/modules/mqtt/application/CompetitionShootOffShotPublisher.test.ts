@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { CompetitionShootOffShotPayload } from '@sasakiuri/saika-protocol/CompetitionShootOffShot';
 import { describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -9,7 +10,6 @@ import type {
 import { CompetitionShootOffShotPublisher } from '@/main/modules/mqtt/application/CompetitionShootOffShotPublisher';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { CompetitionShootOffShotPayload } from '@/shared/mqtt/CompetitionShootOffShot';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 const competitionId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

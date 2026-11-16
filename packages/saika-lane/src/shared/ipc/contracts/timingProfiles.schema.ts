@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-import { z } from 'zod';
 
-import { TimedTargetTimingSettingsSchema } from '@/shared/mqtt/TimedTargetTimingSettings';
-import { TimingEvidenceReportSchema } from '@/shared/mqtt/TimingEvidenceReport';
+import { ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import { TimingEvidenceReportSchema } from '@sasakiuri/saika-protocol/TimingEvidenceReport';
+import { z } from 'zod';
 
 import { TimingMeasurementRequestSchema, TimingMeasurementEvidenceSchema } from './timingMeasurements.schema';
 

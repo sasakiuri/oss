@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
+import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { useEffect, useState } from 'react';
 
 import { timedTargetService } from '@/renderer/services/timedTargetService';
-import type { TimedTargetTimingSettings } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 import { TimingProfilesPanel } from './TimingProfilesPanel';
 

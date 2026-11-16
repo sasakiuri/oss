@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { MalfunctionFiringEvidenceSchema } from '@sasakiuri/saika-protocol/MalfunctionFiring';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -19,7 +20,6 @@ import { Shot } from '@/main/modules/session/domain/Shot';
 import { TimedTargetSequenceService, SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
-import { MalfunctionFiringEvidenceSchema } from '@/shared/mqtt/MalfunctionFiring';
 
 describe('isolated malfunction firing', () => {
   let db: Database.Database,

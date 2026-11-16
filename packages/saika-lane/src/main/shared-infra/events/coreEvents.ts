@@ -3,9 +3,10 @@
  * Domain event interfaces registered in EventRegistry.
  */
 
+import type { CompetitionCuePayload } from '@sasakiuri/saika-protocol/CompetitionCue';
+
 import type { RoundConfig } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
 import type { Phase } from '@/main/modules/competition/domain/Phase';
-import type { CompetitionCuePayload } from '@/main/modules/mqtt/domain/MqttCompetitionCueSchemas';
 import type { QualificationRecoveryRunRecord } from '@/main/modules/qualification-recovery/domain/QualificationRecoveryRun';
 import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { Mode } from '@/main/modules/session/domain/Mode';

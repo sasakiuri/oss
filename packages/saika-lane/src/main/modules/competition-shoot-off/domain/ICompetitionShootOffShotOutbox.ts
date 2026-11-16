@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { CompetitionShootOffShotPayload } from '@/shared/mqtt/CompetitionShootOffShot';
+import type { CompetitionShootOffShotPayload } from '@sasakiuri/saika-protocol/CompetitionShootOffShot';
 
 export interface ICompetitionShootOffShotOutbox {
   enqueue(payload: CompetitionShootOffShotPayload): void;

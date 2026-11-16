@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 
+import {
+  EstComplaintSignalPayloadSchema,
+  type EstComplaintSignalPayload,
+} from '@sasakiuri/saika-protocol/EstComplaintSignal';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { EstComplaintSignalService, EstComplaintSignalState } from '@/main/modules/est-complaint-signal';
-import { EstComplaintSignalPayloadSchema, type EstComplaintSignalPayload } from '@/shared/mqtt/EstComplaintSignal';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';

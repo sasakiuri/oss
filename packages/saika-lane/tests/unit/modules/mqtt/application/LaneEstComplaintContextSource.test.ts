@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { EstComplaintSignalContextSchema } from '@sasakiuri/saika-protocol/EstComplaintSignal';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
@@ -12,7 +13,6 @@ import type { ISessionRepository } from '@/main/modules/session/domain/ISessionR
 import type { Session } from '@/main/modules/session/domain/Session';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
-import { EstComplaintSignalContextSchema } from '@/shared/mqtt/EstComplaintSignal';
 
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const sessionId = '22222222-2222-4222-8222-222222222222';

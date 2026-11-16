@@ -3,7 +3,7 @@ import type {
   ReserveLaneTransferAction,
   ReserveLaneTransferBundle,
   ReserveLaneTransferRequest,
-} from '@/shared/mqtt/ReserveLaneTransfer';
+} from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 export interface ReserveLaneTransferEntry {
   readonly id: string;

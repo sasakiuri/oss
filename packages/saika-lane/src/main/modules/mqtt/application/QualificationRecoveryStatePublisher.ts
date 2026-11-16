@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { QualificationRecoveryStatePayloadSchema } from '@sasakiuri/saika-protocol/QualificationRecovery';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type {
@@ -6,7 +7,6 @@ import type {
   QualificationRecoveryRunRecord,
 } from '@/main/modules/qualification-recovery';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import { QualificationRecoveryStatePayloadSchema } from '@/shared/mqtt/QualificationRecovery';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
