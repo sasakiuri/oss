@@ -30,7 +30,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:mock": "vite --mode mock",
     "build": "tsc && vite build",
     "prelint": "npm run lint:language",
     "lint": "eslint . --max-warnings 0",
