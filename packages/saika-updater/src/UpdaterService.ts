@@ -368,7 +368,7 @@ export class UpdaterService {
       this.setState({
         ...this.state,
         status: 'downloading',
-        downloadPercent: progress.percent,
+        downloadPercent: Math.min(100, Math.max(0, progress.percent)),
         transferredBytes: progress.transferred,
         totalBytes: progress.total,
         bytesPerSecond: progress.bytesPerSecond,
