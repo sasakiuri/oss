@@ -29,8 +29,6 @@ interface SessionState {
   preparationShotNumberResetIndices: number[];
   seriesScores: number[];
   totalScore: number;
-  /** Connected target manufacturer (null when disconnected) */
-  manufacturer: string | null;
   /** Connected device ID (MT201, BPT216, etc.; null when disconnected) */
   deviceId: string | null;
   /** Impact sound volume (0-100) */
@@ -60,7 +58,7 @@ interface SessionActions {
 
   updateScores: (totalScore: number, seriesScores: number[]) => void;
 
-  setDeviceInfo: (manufacturer: string | null, deviceId: string | null) => void;
+  setDeviceId: (deviceId: string | null) => void;
 
   setAudioVolume: (volume: number) => void;
 
@@ -89,7 +87,6 @@ const initialState: SessionState = {
   preparationShotNumberResetIndices: [],
   seriesScores: [],
   totalScore: 0,
-  manufacturer: null,
   deviceId: null,
   audioVolume: 50,
 };
@@ -166,8 +163,8 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
     });
   },
 
-  setDeviceInfo: (manufacturer, deviceId) => {
-    set({ manufacturer, deviceId });
+  setDeviceId: (deviceId) => {
+    set({ deviceId });
   },
 
   clearSessionData: () => {
@@ -187,7 +184,6 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
   resetSession: () => {
     set((state) => ({
       ...initialState,
-      manufacturer: state.manufacturer,
       deviceId: state.deviceId,
       laneNumber: state.laneNumber,
       audioVolume: state.audioVolume,

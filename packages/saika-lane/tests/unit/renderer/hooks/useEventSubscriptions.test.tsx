@@ -312,13 +312,12 @@ describe('useEventSubscriptions', () => {
       expect(connectionState.manufacturer).toBe('KOHTO');
 
       const sessionState = useSessionStore.getState();
-      expect(sessionState.manufacturer).toBe('KOHTO');
       expect(sessionState.deviceId).toBe('MT201');
     });
 
     it('resets the store on disconnected event', () => {
       useConnectionStore.getState().setConnection('conn-123', '/dev/ttyUSB0', 'KOHTO', 'MT201');
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useEventSubscriptions());
 
@@ -339,7 +338,6 @@ describe('useEventSubscriptions', () => {
       expect(connectionState.manufacturer).toBeNull();
 
       const sessionState = useSessionStore.getState();
-      expect(sessionState.manufacturer).toBeNull();
       expect(sessionState.deviceId).toBeNull();
     });
 
@@ -360,7 +358,6 @@ describe('useEventSubscriptions', () => {
       expect(connectionState.connectionId).toBeNull();
 
       const sessionState = useSessionStore.getState();
-      expect(sessionState.manufacturer).toBeNull();
       expect(sessionState.deviceId).toBeNull();
     });
   });
@@ -402,7 +399,7 @@ describe('useEventSubscriptions', () => {
     });
 
     it('does not play shot sound on shotRecorded (played on shotReceived instead)', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useEventSubscriptions());
       await flushAudioLoad();
@@ -432,7 +429,7 @@ describe('useEventSubscriptions', () => {
 
   describe('shotReceived event (low-latency audio playback)', () => {
     it('plays shot sound for MT201 device', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useEventSubscriptions());
       await flushAudioLoad();
@@ -448,7 +445,7 @@ describe('useEventSubscriptions', () => {
     it.each(['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_KT_RDT_ZIE_1_PISTOL'])(
       'plays shot sound for a validated DISAG RedDot hit from %s',
       async (deviceId) => {
-        useSessionStore.getState().setDeviceInfo('DISAG', deviceId);
+        useSessionStore.getState().setDeviceId(deviceId);
 
         renderHook(() => useEventSubscriptions());
         await flushAudioLoad();
@@ -463,7 +460,7 @@ describe('useEventSubscriptions', () => {
     );
 
     it('does not play shot sound for unsupported devices', async () => {
-      useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');
+      useSessionStore.getState().setDeviceId('HS10');
 
       renderHook(() => useEventSubscriptions());
       await flushAudioLoad();

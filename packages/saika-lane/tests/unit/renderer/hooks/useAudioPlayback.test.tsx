@@ -164,7 +164,7 @@ describe('useAudioPlayback', () => {
 
   describe('playShotSound', () => {
     it('plays via BufferSource + GainNode for MT201 device', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       const { result } = renderHook(() => useAudioPlayback());
       await flushAudioLoad();
@@ -181,7 +181,7 @@ describe('useAudioPlayback', () => {
     it.each(['BPT216', 'BP216', 'BPT216_RS232'])(
       'plays the same shot sound for BPT-216 profile %s',
       async (deviceId) => {
-        useSessionStore.getState().setDeviceInfo('KOHTO', deviceId);
+        useSessionStore.getState().setDeviceId(deviceId);
 
         const { result } = renderHook(() => useAudioPlayback());
         await flushAudioLoad();
@@ -200,7 +200,7 @@ describe('useAudioPlayback', () => {
     it.each(['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_KT_RDT_ZIE_1_PISTOL'])(
       'plays the same shot sound for DISAG RedDot profile %s',
       async (deviceId) => {
-        useSessionStore.getState().setDeviceInfo('DISAG', deviceId);
+        useSessionStore.getState().setDeviceId(deviceId);
 
         const { result } = renderHook(() => useAudioPlayback());
         await flushAudioLoad();
@@ -217,7 +217,7 @@ describe('useAudioPlayback', () => {
     );
 
     it('does not play sound for unsupported devices', async () => {
-      useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');
+      useSessionStore.getState().setDeviceId('HS10');
 
       const { result } = renderHook(() => useAudioPlayback());
       await flushAudioLoad();
@@ -241,7 +241,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('sets GainNode gain.value based on store audioVolume (default 50 -> 0.5)', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       const { result } = renderHook(() => useAudioPlayback());
       await flushAudioLoad();
@@ -254,7 +254,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('sets gain.value to 0.8 when audioVolume is 80', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
       useSessionStore.getState().setAudioVolume(80);
 
       const { result } = renderHook(() => useAudioPlayback());
@@ -268,7 +268,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('does not play when audioVolume is 0 (muted)', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
       useSessionStore.getState().setAudioVolume(0);
 
       const { result } = renderHook(() => useAudioPlayback());
@@ -282,7 +282,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('sets gain.value to 1 when audioVolume is 100 (maximum)', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
       useSessionStore.getState().setAudioVolume(100);
 
       const { result } = renderHook(() => useAudioPlayback());
@@ -296,7 +296,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('calls resume() before playback when AudioContext is suspended', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
       mockCtxState = 'suspended';
 
       const { result } = renderHook(() => useAudioPlayback());
@@ -315,7 +315,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('plays even if resume() rejects (best-effort)', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
       mockCtxState = 'suspended';
       mockResume.mockRejectedValueOnce(new Error('resume failed'));
 
@@ -331,7 +331,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('does not play when AudioBuffer is not loaded', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       const { result } = renderHook(() => useAudioPlayback());
 
@@ -343,7 +343,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('monophonic: stops the previous source on consecutive playback', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       const { result } = renderHook(() => useAudioPlayback());
       await flushAudioLoad();
@@ -361,7 +361,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('clears activeSource on onended so next playback does not call stop()', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       const { result } = renderHook(() => useAudioPlayback());
       await flushAudioLoad();
@@ -410,7 +410,7 @@ describe('useAudioPlayback', () => {
     });
 
     it('plays regardless of deviceId (no MT201 check)', async () => {
-      useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');
+      useSessionStore.getState().setDeviceId('HS10');
 
       const { result } = renderHook(() => useAudioPlayback());
       await flushAudioLoad();

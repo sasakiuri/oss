@@ -158,7 +158,7 @@ describe('useShotEvents', () => {
 
   describe('shotReceived callback (low-latency audio playback)', () => {
     it('plays shot sound for MT201 device', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useShotEvents());
       await flushAudioLoad();
@@ -172,7 +172,7 @@ describe('useShotEvents', () => {
     });
 
     it.each(['BPT216', 'BPT216_RS232'])('plays shot sound on shotReceived for BPT-216 profile %s', async (deviceId) => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', deviceId);
+      useSessionStore.getState().setDeviceId(deviceId);
 
       renderHook(() => useShotEvents());
       await flushAudioLoad();
@@ -186,7 +186,7 @@ describe('useShotEvents', () => {
     });
 
     it('does not play shot sound for unsupported devices', async () => {
-      useSessionStore.getState().setDeviceInfo('SIUS', 'HS10');
+      useSessionStore.getState().setDeviceId('HS10');
 
       renderHook(() => useShotEvents());
       await flushAudioLoad();
@@ -227,7 +227,7 @@ describe('useShotEvents', () => {
     });
 
     it('does not play shot sound on shotRecorded', async () => {
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useShotEvents());
       await flushAudioLoad();
