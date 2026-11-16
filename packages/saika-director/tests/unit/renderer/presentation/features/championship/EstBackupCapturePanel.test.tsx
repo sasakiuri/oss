@@ -5,6 +5,8 @@ import { EstBackupCapturePanel } from '@/renderer/presentation/features/champion
 import { estBackupVerificationService } from '@/renderer/services';
 import type { EstBackupCaptureStatusDto } from '@/shared/ipc/contracts/estBackupVerification.contract';
 
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
+
 vi.mock('@/renderer/services', () => ({
   estBackupVerificationService: {
     getCapture: vi.fn(),
@@ -130,5 +132,20 @@ describe('backup capture controls', () => {
         expect.objectContaining({ resumeOnStartup: true }),
       ),
     );
+  });
+
+  it('shows a failed status read and a failed capture command as error text', async () => {
+    vi.mocked(estBackupVerificationService.getCapture).mockResolvedValueOnce(fail('Capture status is unavailable'));
+    const { unmount } = render(<EstBackupCapturePanel eventId="event" onCaptured={vi.fn()} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: Capture status is unavailable$/);
+    unmount();
+
+    vi.mocked(estBackupVerificationService.startCapture).mockResolvedValue(fail('No source file was chosen'));
+    render(<EstBackupCapturePanel eventId="event" onCaptured={vi.fn()} />);
+    await screen.findByText(/STOPPED/);
+    // Keep the next status refresh pending so that it cannot clear the command error.
+    vi.mocked(estBackupVerificationService.getCapture).mockImplementation(() => new Promise(() => {}));
+    fireEvent.click(screen.getByRole('button', { name: 'Choose source and start capture' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: No source file was chosen$/);
   });
 });
