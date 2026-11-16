@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 import { BellRing, CheckCircle2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
+import { useIncidentSignal } from '@/renderer/presentation/hooks/useIncidentSignal';
 import { mqttService } from '@/renderer/services/mqttService';
 import type { RangeOfficerRequestDto, RequestRangeOfficerInput } from '@/shared/ipc/contracts';
 
 import { Button } from './common/Button';
 import { Modal } from './common/Modal';
 import type { IncidentReportDialogProps } from './IncidentReportDialogProps';
+import { StoredOnLaneNotice } from './IncidentSignalParts';
 
 const categories: Array<{ value: RequestRangeOfficerInput['category']; label: string }> = [
   { value: 'ASSISTANCE', label: 'General assistance' },
@@ -20,67 +21,19 @@ const categories: Array<{ value: RequestRangeOfficerInput['category']; label: st
 ];
 
 export function RangeOfficerRequestControl({ isOpen, onClose, onActiveChange }: IncidentReportDialogProps) {
-  const [state, setState] = useState<RangeOfficerRequestDto | null>(null);
   const [category, setCategory] = useState<RequestRangeOfficerInput['category']>('ASSISTANCE');
-  const [message, setMessage] = useState('');
-  const [mqttConnected, setMqttConnected] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { active, message, setMessage, mqttConnected, busy, error, declare, clear } =
+    useIncidentSignal<RangeOfficerRequestDto>({
+      isOpen,
+      onActiveChange,
+      get: () => mqttService.getRangeOfficerRequest(),
+      idOf: (request) => request.requestId,
+      clearById: (requestId) => mqttService.clearRangeOfficerRequest({ requestId }),
+    });
 
-  const refresh = async () => {
-    try {
-      const [nextState, mqtt] = await Promise.all([mqttService.getRangeOfficerRequest(), mqttService.getMqttStatus()]);
-      setState(nextState);
-      setMqttConnected(mqtt.status === 'connected');
-      setError(null);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    }
-  };
-
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) void refresh();
-  }, [isOpen]);
-
-  const request = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const next = await mqttService.requestRangeOfficer({ category, ...(message.trim() ? { message } : {}) });
-      setState(next);
-      const mqtt = await mqttService.getMqttStatus();
-      setMqttConnected(mqtt.status === 'connected');
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const clear = async () => {
-    if (!state?.requestId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const next = await mqttService.clearRangeOfficerRequest({ requestId: state.requestId });
-      setState(next);
-      setMessage('');
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const active = state?.status === 'ACTIVE';
-
-  useEffect(() => {
-    onActiveChange(active);
-  }, [active, onActiveChange]);
+  // The Range Officer request keeps the message as typed; only a blank one is left out.
+  const request = () =>
+    declare(() => mqttService.requestRangeOfficer({ category, ...(message.trim() ? { message } : {}) }));
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Range Officer request" className="max-w-lg">
@@ -88,18 +41,14 @@ export function RangeOfficerRequestControl({ isOpen, onClose, onActiveChange }: 
         <div className="space-y-4">
           <div className="rounded border border-amber-500 bg-amber-950/40 p-4">
             <p className="font-semibold text-amber-200">
-              {categories.find((item) => item.value === state.category)?.label ?? state.category}
+              {categories.find((item) => item.value === active.category)?.label ?? active.category}
             </p>
-            {state.message && <p className="mt-2 text-sm text-zinc-100">{state.message}</p>}
-            {state.requestedAt && (
-              <p className="mt-2 text-xs text-zinc-400">Requested {new Date(state.requestedAt).toLocaleString()}</p>
+            {active.message && <p className="mt-2 text-sm text-zinc-100">{active.message}</p>}
+            {active.requestedAt && (
+              <p className="mt-2 text-xs text-zinc-400">Requested {new Date(active.requestedAt).toLocaleString()}</p>
             )}
           </div>
-          {!mqttConnected && (
-            <p className="text-sm text-amber-300">
-              Stored on this Lane. It will be published automatically after MQTT reconnects.
-            </p>
-          )}
+          {!mqttConnected && <StoredOnLaneNotice />}
           <p className="text-sm text-zinc-300">
             This assistance signal does not stop firing or change the competition timer.
           </p>

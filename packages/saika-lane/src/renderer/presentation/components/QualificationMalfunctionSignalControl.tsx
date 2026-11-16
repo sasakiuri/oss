@@ -1,84 +1,33 @@
 // SPDX-License-Identifier: MIT
 
 import { CheckCircle2, TriangleAlert } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
+import { useIncidentSignal } from '@/renderer/presentation/hooks/useIncidentSignal';
 import { mqttService } from '@/renderer/services/mqttService';
 import type { QualificationMalfunctionSignalDto } from '@/shared/ipc/contracts';
 
 import { Button } from './common/Button';
 import { Modal } from './common/Modal';
 import type { IncidentReportDialogProps } from './IncidentReportDialogProps';
+import { IncidentSnapshot, StoredOnLaneNotice } from './IncidentSignalParts';
 
 export function QualificationMalfunctionSignalControl({ isOpen, onClose, onActiveChange }: IncidentReportDialogProps) {
-  const [state, setState] = useState<QualificationMalfunctionSignalDto | null>(null);
-  const [message, setMessage] = useState('');
-  const [mqttConnected, setMqttConnected] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { active, message, setMessage, mqttConnected, busy, error, declare, clear } =
+    useIncidentSignal<QualificationMalfunctionSignalDto>({
+      isOpen,
+      onActiveChange,
+      get: () => mqttService.getQualificationMalfunctionSignal(),
+      idOf: (signal) => signal.signalId,
+      clearById: (signalId) => mqttService.clearQualificationMalfunctionSignal({ signalId }),
+    });
 
-  const refresh = async () => {
-    try {
-      const [nextState, mqtt] = await Promise.all([
-        mqttService.getQualificationMalfunctionSignal(),
-        mqttService.getMqttStatus(),
-      ]);
-      setState(nextState);
-      setMqttConnected(mqtt.status === 'connected');
-      setError(null);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    }
-  };
-
-  useEffect(() => {
-    void refresh();
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) void refresh();
-  }, [isOpen]);
-
-  const declare = async () => {
-    setBusy(true);
-    setError(null);
-    try {
+  const declareMalfunction = () =>
+    declare(() => {
       const normalizedMessage = message.trim();
-      const next = await mqttService.declareQualificationMalfunction({
+      return mqttService.declareQualificationMalfunction({
         ...(normalizedMessage ? { message: normalizedMessage } : {}),
       });
-      setState(next);
-      const mqtt = await mqttService.getMqttStatus();
-      setMqttConnected(mqtt.status === 'connected');
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const clear = async () => {
-    if (!state?.signalId) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const next = await mqttService.clearQualificationMalfunctionSignal({ signalId: state.signalId });
-      setState(next);
-      setMessage('');
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const active = state?.status === 'ACTIVE';
-
-  useEffect(() => {
-    onActiveChange(active);
-  }, [active, onActiveChange]);
-  const snapshot = state?.context;
+    });
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Possible firearm malfunction" className="max-w-xl">
@@ -86,40 +35,13 @@ export function QualificationMalfunctionSignalControl({ isOpen, onClose, onActiv
         <div className="space-y-4">
           <div className="rounded border border-red-500 bg-red-950/40 p-4" role="status" aria-live="assertive">
             <p className="font-semibold text-red-100">Official attention requested</p>
-            {snapshot && (
-              <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-zinc-200">
-                <dt className="text-zinc-400">Athlete</dt>
-                <dd>
-                  {snapshot.startNumber ? `#${snapshot.startNumber} ` : ''}
-                  {snapshot.participantName}
-                </dd>
-                <dt className="text-zinc-400">Position</dt>
-                <dd>
-                  {snapshot.phase}, stage {snapshot.stageIndex + 1}, series {snapshot.seriesIndex + 1}
-                </dd>
-                <dt className="text-zinc-400">Shots recorded</dt>
-                <dd>
-                  {snapshot.recordedShots}
-                  {snapshot.seriesShotLimit === null ? '' : ` / ${snapshot.seriesShotLimit}`}
-                </dd>
-                {snapshot.exposureIndex !== null && (
-                  <>
-                    <dt className="text-zinc-400">Exposure</dt>
-                    <dd>{snapshot.exposureIndex + 1}</dd>
-                  </>
-                )}
-              </dl>
-            )}
-            {state.message && <p className="mt-3 text-sm text-zinc-100">{state.message}</p>}
-            {state.signalledAt && (
-              <p className="mt-2 text-xs text-zinc-400">Declared {new Date(state.signalledAt).toLocaleString()}</p>
+            {active.context && <IncidentSnapshot snapshot={active.context} />}
+            {active.message && <p className="mt-3 text-sm text-zinc-100">{active.message}</p>}
+            {active.signalledAt && (
+              <p className="mt-2 text-xs text-zinc-400">Declared {new Date(active.signalledAt).toLocaleString()}</p>
             )}
           </div>
-          {!mqttConnected && (
-            <p className="text-sm text-amber-300">
-              Stored on this Lane. It will be published automatically after MQTT reconnects.
-            </p>
-          )}
+          {!mqttConnected && <StoredOnLaneNotice />}
           <p className="rounded border border-amber-500 bg-amber-950/40 p-3 text-sm text-amber-100">
             Keep the firearm pointed safely downrange and wait for the Range Officer. This declaration does not stop
             firing, alter the timer, classify the malfunction, or award a claim.
@@ -154,7 +76,7 @@ export function QualificationMalfunctionSignalControl({ isOpen, onClose, onActiv
             <Button variant="secondary" disabled={busy} onClick={onClose}>
               Cancel
             </Button>
-            <Button variant="danger" disabled={busy} onClick={() => void declare()}>
+            <Button variant="danger" disabled={busy} onClick={() => void declareMalfunction()}>
               <TriangleAlert className="mr-2 inline" size={18} />
               {busy ? 'Declaring…' : 'Declare possible malfunction'}
             </Button>
