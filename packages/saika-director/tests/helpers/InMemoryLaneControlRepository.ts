@@ -1,6 +1,6 @@
-import type { LaneControl } from '../domain/LaneControl';
-import type { ILaneControlRepository } from '../domain/ILaneControlRepository';
+import type { ILaneControlRepository, LaneControl } from '@/main/modules/lane-control';
 
+/** Keeps Lane control aggregates in memory for tests that do not need SQLite persistence. */
 export class InMemoryLaneControlRepository implements ILaneControlRepository {
   private lanes = new Map<string, LaneControl>();
 

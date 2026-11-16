@@ -8,13 +8,15 @@ import { EventType } from '@/main/modules/championship/domain/EventType';
 import type { IEventRepository } from '@/main/modules/championship/domain/IEventRepository';
 import type { IParticipantRepository } from '@/main/modules/championship';
 import { Participant, ParticipantId } from '@/main/modules/championship';
-import { Channel, InMemoryLaneControlRepository, LaneControl, Player, Round } from '@/main/modules/lane-control';
+import { Channel, LaneControl, Player, Round } from '@/main/modules/lane-control';
 import {
   DirectorQualificationMalfunctionSubjectResolver,
   RegistryQualificationMalfunctionPolicyResolver,
 } from '@/main/modules/qualification-malfunctions';
 import { buildRoundConfig } from '@/shared/constants/roundConfig';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';
+
+import { InMemoryLaneControlRepository } from '../../../../helpers/InMemoryLaneControlRepository';
 
 const championshipId = '11111111-1111-4111-8111-111111111111';
 const eventId = '22222222-2222-4222-8222-222222222222';
