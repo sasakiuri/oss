@@ -8,6 +8,8 @@ See the [architecture guide](../../ARCHITECTURE.md) for the current design.
 
 IPC messages need runtime validation because TypeScript types are erased.
 Shared Zod contracts keep that validation consistent with preload types and channel names.
+Responses and event payloads are validated as well as requests, so a handler that
+drifts from its contract is reported at the boundary instead of reaching the renderer.
 
 ## Versioned competition rules
 
