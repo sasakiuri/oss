@@ -129,6 +129,29 @@ describe('createApiService', () => {
     });
   });
 
+  describe('wrapper reuse', () => {
+    it('returns the same wrapper for repeated property reads', () => {
+      const service = createApiService('results');
+
+      expect(service.publish).toBe(service.publish);
+    });
+
+    it('wraps a replaced bridge function again', async () => {
+      const service = createApiService('mqtt');
+      const before = service.connect;
+      const original = mockMethods.mqtt.connect;
+      const replacement = vi.fn().mockResolvedValue({ success: true });
+      mockMethods.mqtt.connect = replacement;
+      try {
+        expect(service.connect).not.toBe(before);
+        await service.connect();
+        expect(replacement).toHaveBeenCalledOnce();
+      } finally {
+        mockMethods.mqtt.connect = original;
+      }
+    });
+  });
+
   describe('namespace coverage', () => {
     const testCases: Array<{
       namespace: keyof typeof mockMethods;

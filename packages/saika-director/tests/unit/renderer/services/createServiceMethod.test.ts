@@ -160,7 +160,7 @@ describe('createServiceMethod', () => {
       expect(meta.action).toBe('importantAction');
     });
 
-    it('includes only action when no metadata builder is provided', async () => {
+    it('logs only the action name as metadata', async () => {
       const error = new Error('fail');
       const fn = vi.fn().mockRejectedValue(error);
       const wrapped = createServiceMethod(mockLogger, 'simpleAction', fn);
@@ -170,92 +170,6 @@ describe('createServiceMethod', () => {
       const logErrorCall = (mockLogger.logError as ReturnType<typeof vi.fn>).mock.calls[0]!;
       const meta = logErrorCall[2] as Record<string, unknown>;
       expect(meta).toEqual({ action: 'simpleAction' });
-    });
-  });
-
-  describe('metadata builder', () => {
-    it('merges custom metadata correctly', async () => {
-      const error = new Error('fail');
-      const fn = vi.fn().mockRejectedValue(error);
-      const metadataBuilder = vi.fn((...args: [string, number]) => ({
-        entityId: args[0],
-        count: args[1],
-      }));
-      const wrapped = createServiceMethod(mockLogger, 'withMeta', fn, metadataBuilder);
-
-      await expect(wrapped('entity-123', 5)).rejects.toThrow();
-
-      expect(metadataBuilder).toHaveBeenCalledWith('entity-123', 5);
-
-      const logErrorCall = (mockLogger.logError as ReturnType<typeof vi.fn>).mock.calls[0]!;
-      const meta = logErrorCall[2] as Record<string, unknown>;
-      expect(meta).toEqual({
-        action: 'withMeta',
-        entityId: 'entity-123',
-        count: 5,
-      });
-    });
-
-    it('does not allow metadata builder values to overwrite action', async () => {
-      const error = new Error('fail');
-      const fn = vi.fn().mockRejectedValue(error);
-      const metadataBuilder = vi.fn(() => ({
-        action: 'overridden',
-        extra: 'value',
-      }));
-      const wrapped = createServiceMethod(mockLogger, 'original', fn, metadataBuilder);
-
-      await expect(wrapped()).rejects.toThrow();
-
-      const logErrorCall = (mockLogger.logError as ReturnType<typeof vi.fn>).mock.calls[0]!;
-      const meta = logErrorCall[2] as Record<string, unknown>;
-      expect(meta.action).toBe('overridden');
-      expect(meta.extra).toBe('value');
-    });
-
-    it('includes action when the metadata builder returns an empty object', async () => {
-      const error = new Error('fail');
-      const fn = vi.fn().mockRejectedValue(error);
-      const metadataBuilder = vi.fn(() => ({}));
-      const wrapped = createServiceMethod(mockLogger, 'emptyMeta', fn, metadataBuilder);
-
-      await expect(wrapped()).rejects.toThrow();
-
-      const logErrorCall = (mockLogger.logError as ReturnType<typeof vi.fn>).mock.calls[0]!;
-      const meta = logErrorCall[2] as Record<string, unknown>;
-      expect(meta).toEqual({ action: 'emptyMeta' });
-    });
-
-    it('does not call the metadata builder on success', async () => {
-      const fn = vi.fn().mockResolvedValue('ok');
-      const metadataBuilder = vi.fn(() => ({ key: 'value' }));
-      const wrapped = createServiceMethod(mockLogger, 'successCase', fn, metadataBuilder);
-
-      await wrapped();
-
-      expect(metadataBuilder).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('without a metadata builder', () => {
-    it('accepts undefined metadata', async () => {
-      const error = new Error('fail');
-      const fn = vi.fn().mockRejectedValue(error);
-      const wrapped = createServiceMethod(mockLogger, 'noMeta', fn, undefined);
-
-      await expect(wrapped()).rejects.toThrow();
-
-      expect(mockLogger.logError).toHaveBeenCalledWith('noMeta failed', error, { action: 'noMeta' });
-    });
-
-    it('works when the fourth argument is omitted', async () => {
-      const error = new Error('fail');
-      const fn = vi.fn().mockRejectedValue(error);
-      const wrapped = createServiceMethod(mockLogger, 'omitted', fn);
-
-      await expect(wrapped()).rejects.toThrow();
-
-      expect(mockLogger.logError).toHaveBeenCalledWith('omitted failed', error, { action: 'omitted' });
     });
   });
 });
