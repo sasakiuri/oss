@@ -1,12 +1,12 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { protestsContract } from '@/shared/ipc/contracts';
 
 import { ProtestService } from './application/ProtestService';
 import { SqliteProtestRepository } from './infra/SqliteProtestRepository';
 
-export const protestsModule: ModuleDefinition<'database' | 'ipcRouter'> = {
+export const protestsModule = defineModule({
   name: 'protests',
-  deps: ['database', 'ipcRouter'] as const,
+  deps: ['database', 'ipcRouter'],
   register({ database, ipcRouter }) {
     const service = new ProtestService(new SqliteProtestRepository(database));
     ipcRouter.register(protestsContract, {
@@ -16,4 +16,4 @@ export const protestsModule: ModuleDefinition<'database' | 'ipcRouter'> = {
       recordEntry: (input) => service.recordEntry(input),
     });
   },
-};
+});

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { scoreCorrectionsContract } from '@/shared/ipc/contracts';
 
-export const scoreCorrectionsModule: ModuleDefinition<'ipcRouter' | 'scoreCorrectionService'> = {
+export const scoreCorrectionsModule = defineModule({
   name: 'scoreCorrections',
   deps: ['ipcRouter', 'scoreCorrectionService'],
   register({ ipcRouter, scoreCorrectionService: service }) {
@@ -14,4 +14,4 @@ export const scoreCorrectionsModule: ModuleDefinition<'ipcRouter' | 'scoreCorrec
     });
     return {};
   },
-};
+});

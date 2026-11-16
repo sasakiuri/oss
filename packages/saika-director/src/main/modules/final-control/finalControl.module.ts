@@ -1,11 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { finalControlContract } from '@/shared/ipc/contracts';
 import { FinalControlService } from './application/FinalControlService';
 import { SqliteFinalControlRepository } from './infra/SqliteFinalControlRepository';
 
-export const finalControlModule: ModuleDefinition<'database' | 'ipcRouter' | 'competitionTypeRegistry'> = {
+export const finalControlModule = defineModule({
   name: 'finalControl',
-  deps: ['database', 'ipcRouter', 'competitionTypeRegistry'] as const,
+  deps: ['database', 'ipcRouter', 'competitionTypeRegistry'],
   register({ database, ipcRouter, competitionTypeRegistry }) {
     const service = new FinalControlService(new SqliteFinalControlRepository(database), competitionTypeRegistry);
     ipcRouter.register(finalControlContract, {
@@ -16,4 +16,4 @@ export const finalControlModule: ModuleDefinition<'database' | 'ipcRouter' | 'co
       voidDecision: async (input) => service.voidDecision(input),
     });
   },
-};
+});

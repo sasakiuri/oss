@@ -2,7 +2,7 @@ import type { IpcMainInvokeEvent } from 'electron';
 
 import { type LaneControl, GetAllLanesToken } from '@/main/modules/lane-control';
 import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { boardContract } from '@/shared/ipc/contracts';
 import type { LiveRankingDto } from '@/shared/types/LiveRankingDto';
 
@@ -17,9 +17,9 @@ function calculateAverage(lane: LaneControl): number {
   return Math.round((lane.totalScore / shotCount) * 100) / 100;
 }
 
-export const boardModule: ModuleDefinition<'queryBus' | 'ipcRouter' | 'windowManager'> = {
+export const boardModule = defineModule({
   name: 'board',
-  deps: ['queryBus', 'ipcRouter', 'windowManager'] as const,
+  deps: ['queryBus', 'ipcRouter', 'windowManager'],
   register(ctx) {
     const { queryBus, ipcRouter, windowManager } = ctx;
 
@@ -142,4 +142,4 @@ export const boardModule: ModuleDefinition<'queryBus' | 'ipcRouter' | 'windowMan
       },
     });
   },
-};
+});

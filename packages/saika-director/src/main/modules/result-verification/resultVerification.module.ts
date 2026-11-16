@@ -1,9 +1,9 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { resultVerificationContract } from '@/shared/ipc/contracts';
 
-export const resultVerificationModule: ModuleDefinition<'ipcRouter' | 'resultVerificationService'> = {
+export const resultVerificationModule = defineModule({
   name: 'resultVerification',
-  deps: ['ipcRouter', 'resultVerificationService'] as const,
+  deps: ['ipcRouter', 'resultVerificationService'],
   register({ ipcRouter, resultVerificationService: service }) {
     ipcRouter.register(resultVerificationContract, {
       getStatus: ({ eventId, resultScope }) => service.getStatus(eventId, resultScope),
@@ -12,4 +12,4 @@ export const resultVerificationModule: ModuleDefinition<'ipcRouter' | 'resultVer
       revokeApproval: (input) => service.revokeApproval(input),
     });
   },
-};
+});

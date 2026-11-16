@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { reserveLaneTransfersContract } from '@/shared/ipc/contracts';
 
 import {
@@ -10,7 +10,7 @@ import {
 } from './ReserveLaneTransferService';
 import { SqliteReserveTransferRepository } from './SqliteReserveTransferRepository';
 
-export const reserveLaneTransfersModule: ModuleDefinition<'ipcRouter' | 'database' | 'commandBus'> = {
+export const reserveLaneTransfersModule = defineModule({
   name: 'reserveLaneTransfers',
   deps: ['ipcRouter', 'database', 'commandBus'],
   register({ ipcRouter, database, commandBus }) {
@@ -29,4 +29,4 @@ export const reserveLaneTransfersModule: ModuleDefinition<'ipcRouter' | 'databas
     });
     return {};
   },
-};
+});

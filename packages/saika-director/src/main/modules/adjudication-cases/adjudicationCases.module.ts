@@ -1,12 +1,12 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { adjudicationCasesContract } from '@/shared/ipc/contracts';
 
 import { AdjudicationCaseService } from './application/AdjudicationCaseService';
 import { SqliteAdjudicationCaseRepository } from './infra/SqliteAdjudicationCaseRepository';
 
-export const adjudicationCasesModule: ModuleDefinition<'database' | 'ipcRouter'> = {
+export const adjudicationCasesModule = defineModule({
   name: 'adjudicationCases',
-  deps: ['database', 'ipcRouter'] as const,
+  deps: ['database', 'ipcRouter'],
   register({ database, ipcRouter }) {
     const service = new AdjudicationCaseService(new SqliteAdjudicationCaseRepository(database));
     ipcRouter.register(adjudicationCasesContract, {
@@ -17,4 +17,4 @@ export const adjudicationCasesModule: ModuleDefinition<'database' | 'ipcRouter'>
       unlinkArtifact: async (input) => service.unlinkArtifact(input),
     });
   },
-};
+});

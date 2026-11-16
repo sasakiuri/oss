@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 
 // Command handlers (kept as classes — cross-module orchestration)
 import { PublishResultsHandler } from './commands/PublishResultsHandler';
@@ -28,19 +28,7 @@ import {
 import { SqliteFinalControlRepository } from '@/main/modules/final-control';
 import { SqliteMixedTeamFinalControlRepository } from '@/main/modules/mixed-team-final-control';
 
-export const resultsModule: ModuleDefinition<
-  | 'commandBus'
-  | 'database'
-  | 'queryBus'
-  | 'ipcRouter'
-  | 'competitionTypeRegistry'
-  | 'resultRepository'
-  | 'finalResultRepository'
-  | 'mixedTeamFinalResultRepository'
-  | 'competitionShotJournal'
-  | 'qualificationResultsReader'
-  | 'finalResultsReader'
-> = {
+export const resultsModule = defineModule({
   name: 'results',
   deps: [
     'commandBus',
@@ -54,7 +42,7 @@ export const resultsModule: ModuleDefinition<
     'competitionShotJournal',
     'qualificationResultsReader',
     'finalResultsReader',
-  ] as const,
+  ],
   register(ctx) {
     const {
       commandBus,
@@ -140,4 +128,4 @@ export const resultsModule: ModuleDefinition<
       },
     });
   },
-};
+});

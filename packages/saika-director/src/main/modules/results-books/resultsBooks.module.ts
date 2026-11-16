@@ -1,7 +1,7 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { resultsBooksContract } from '@/shared/ipc/contracts';
 
-export const resultsBooksModule: ModuleDefinition<'ipcRouter' | 'resultsBookService'> = {
+export const resultsBooksModule = defineModule({
   name: 'resultsBooks',
   deps: ['ipcRouter', 'resultsBookService'],
   register({ ipcRouter, resultsBookService }) {
@@ -17,4 +17,4 @@ export const resultsBooksModule: ModuleDefinition<'ipcRouter' | 'resultsBookServ
       exportBook: (input) => resultsBookService.exportBook(input.bookId, input.format),
     });
   },
-};
+});

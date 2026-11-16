@@ -1,13 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { athleteSanctionsContract, type AthleteSanctionWorkspaceDto } from '@/shared/ipc/contracts';
 
 import type { AthleteSanctionWorkspace } from './application/AthleteSanctionService';
 
-export const athleteSanctionsModule: ModuleDefinition<
-  'athleteSanctionService' | 'ipcRouter' | 'sanctionAuthorizationResolver'
-> = {
+export const athleteSanctionsModule = defineModule({
   name: 'athlete-sanctions',
-  deps: ['athleteSanctionService', 'ipcRouter', 'sanctionAuthorizationResolver'] as const,
+  deps: ['athleteSanctionService', 'ipcRouter', 'sanctionAuthorizationResolver'],
   register({ athleteSanctionService, ipcRouter, sanctionAuthorizationResolver }) {
     ipcRouter.register(athleteSanctionsContract, {
       getWorkspace: async (input) => toWorkspaceDto(athleteSanctionService.getWorkspace(input.championshipId)),
@@ -46,7 +44,7 @@ export const athleteSanctionsModule: ModuleDefinition<
         ),
     });
   },
-};
+});
 
 function toWorkspaceDto(workspace: AthleteSanctionWorkspace): AthleteSanctionWorkspaceDto {
   return {

@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { shootoffContract } from '@/shared/ipc/contracts';
 
 // Domain
@@ -14,9 +14,9 @@ import {
   GetActiveShootoffToken,
 } from './tokens';
 
-export const shootoffModule: ModuleDefinition<'eventBus' | 'commandBus' | 'queryBus' | 'ipcRouter'> = {
+export const shootoffModule = defineModule({
   name: 'shootoff',
-  deps: ['eventBus', 'commandBus', 'queryBus', 'ipcRouter'] as const,
+  deps: ['eventBus', 'commandBus', 'queryBus', 'ipcRouter'],
   register(ctx) {
     const { eventBus, commandBus, queryBus, ipcRouter } = ctx;
 
@@ -56,4 +56,4 @@ export const shootoffModule: ModuleDefinition<'eventBus' | 'commandBus' | 'query
       getActive: (input) => queryBus.execute(GetActiveShootoffToken, input),
     });
   },
-};
+});

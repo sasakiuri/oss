@@ -3,14 +3,14 @@ import {
   SqliteFiringPointAssignmentRepository,
   SqliteParticipantRepository,
 } from '@/main/modules/championship';
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { squaddingContract } from '@/shared/ipc/contracts';
 import { SquaddingService } from './application/SquaddingService';
 import { SqliteSquaddingRepository } from './infra/SqliteSquaddingRepository';
 
-export const squaddingModule: ModuleDefinition<'database' | 'ipcRouter' | 'competitionTypeRegistry'> = {
+export const squaddingModule = defineModule({
   name: 'squadding',
-  deps: ['database', 'ipcRouter', 'competitionTypeRegistry'] as const,
+  deps: ['database', 'ipcRouter', 'competitionTypeRegistry'],
   register({ database, ipcRouter, competitionTypeRegistry }) {
     const service = new SquaddingService(
       new SqliteSquaddingRepository(database),
@@ -29,4 +29,4 @@ export const squaddingModule: ModuleDefinition<'database' | 'ipcRouter' | 'compe
       voidDraw: async (input) => service.voidDraw(input),
     });
   },
-};
+});

@@ -1,11 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { mixedTeamTimeoutsContract } from '@/shared/ipc/contracts';
 import { MixedTeamTimeoutService } from './application/MixedTeamTimeoutService';
 import { SqliteMixedTeamTimeoutRepository } from './infra/SqliteMixedTeamTimeoutRepository';
 
-export const mixedTeamTimeoutsModule: ModuleDefinition<'database' | 'ipcRouter'> = {
+export const mixedTeamTimeoutsModule = defineModule({
   name: 'mixedTeamTimeouts',
-  deps: ['database', 'ipcRouter'] as const,
+  deps: ['database', 'ipcRouter'],
   register({ database, ipcRouter }) {
     const service = new MixedTeamTimeoutService(new SqliteMixedTeamTimeoutRepository(database));
     ipcRouter.register(mixedTeamTimeoutsContract, {
@@ -15,4 +15,4 @@ export const mixedTeamTimeoutsModule: ModuleDefinition<'database' | 'ipcRouter'>
       voidTimeout: (input) => service.voidTimeout(input),
     });
   },
-};
+});

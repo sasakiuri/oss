@@ -1,10 +1,10 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { operationalTemplatesContract } from '@/shared/ipc/contracts';
 
 import { OperationalTemplateService } from './OperationalTemplateService';
 import { SqliteOperationalTemplateRepository } from './SqliteOperationalTemplateRepository';
 
-export const operationalTemplatesModule: ModuleDefinition<'database' | 'ipcRouter'> = {
+export const operationalTemplatesModule = defineModule({
   name: 'operationalTemplates',
   deps: ['database', 'ipcRouter'],
   register({ database, ipcRouter }) {
@@ -15,4 +15,4 @@ export const operationalTemplatesModule: ModuleDefinition<'database' | 'ipcRoute
       remove: async (input) => service.remove(input),
     });
   },
-};
+});

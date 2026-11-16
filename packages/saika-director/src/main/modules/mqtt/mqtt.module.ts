@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { OperationalProfileService, directorOperationalPresets } from '@/main/modules/operational-profiles';
 import { ReserveTransferDataGuard, SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
-import type { ModuleDefinition, ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule, type ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
 import { RuntimeOperationGate } from '@/main/shared-infra/operations/RuntimeOperationGate';
 import { mqttContract } from '@/shared/ipc/contracts';
 import { operationalProfilesContract } from '@/shared/ipc/contracts';
@@ -60,28 +60,7 @@ export function mqttDirectorIdFromEnvironment(
   return directorId;
 }
 
-export const mqttModule: ModuleDefinition<
-  | 'relayReadinessService'
-  | 'estInspectionStartService'
-  | 'competitionStartReadiness'
-  | 'database'
-  | 'eventBus'
-  | 'commandBus'
-  | 'queryBus'
-  | 'ipcRouter'
-  | 'debugLogStore'
-  | 'appConfigService'
-  | 'competitionTypeRegistry'
-  | 'laneControlRepository'
-  | 'competitionShotJournal'
-  | 'firingWindowJournal'
-  | 'shotObservationEvidenceJournal'
-  | 'competitionDataGuard'
-  | 'finalOperationService'
-  | 'finalResultDeclarationService'
-  | 'participantEligibilityReader'
-  | 'operationalSettingTargets'
-> = {
+export const mqttModule = defineModule({
   name: 'mqtt',
   deps: [
     'relayReadinessService',
@@ -104,7 +83,7 @@ export const mqttModule: ModuleDefinition<
     'finalResultDeclarationService',
     'participantEligibilityReader',
     'operationalSettingTargets',
-  ] as const,
+  ],
   register(ctx): ModuleOutput {
     const {
       database,
@@ -326,4 +305,4 @@ export const mqttModule: ModuleDefinition<
       eventForwarding: mqttEventForwarding,
     };
   },
-};
+});

@@ -1,17 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { scoringDecisionsContract } from '@/shared/ipc/contracts';
 import { AppendScoringDecisionHandler } from './application/AppendScoringDecisionHandler';
 import { RevokeScoringDecisionHandler } from './application/RevokeScoringDecisionHandler';
 import { toScoringDecisionDtos } from './application/toScoringDecisionDto';
 import { AppendScoringDecisionToken, RevokeScoringDecisionToken } from './tokens';
 
-export const scoringDecisionsModule: ModuleDefinition<
-  | 'commandBus'
-  | 'ipcRouter'
-  | 'scoringDecisionRepository'
-  | 'scoringDecisionTargetResolver'
-  | 'scoringDecisionAdmissionPolicy'
-> = {
+export const scoringDecisionsModule = defineModule({
   name: 'scoringDecisions',
   deps: [
     'commandBus',
@@ -19,7 +13,7 @@ export const scoringDecisionsModule: ModuleDefinition<
     'scoringDecisionRepository',
     'scoringDecisionTargetResolver',
     'scoringDecisionAdmissionPolicy',
-  ] as const,
+  ],
   register({
     commandBus,
     ipcRouter,
@@ -66,4 +60,4 @@ export const scoringDecisionsModule: ModuleDefinition<
       }),
     });
   },
-};
+});

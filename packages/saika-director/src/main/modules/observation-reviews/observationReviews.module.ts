@@ -1,6 +1,6 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { observationReviewsContract } from '@/shared/ipc/contracts';
-export const observationReviewsModule: ModuleDefinition<'ipcRouter' | 'observationReviewService'> = {
+export const observationReviewsModule = defineModule({
   name: 'observationReviews',
   deps: ['ipcRouter', 'observationReviewService'],
   register({ ipcRouter, observationReviewService: service }) {
@@ -10,4 +10,4 @@ export const observationReviewsModule: ModuleDefinition<'ipcRouter' | 'observati
       record: async (input) => service.record(input),
     });
   },
-};
+});

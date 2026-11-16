@@ -1,16 +1,9 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { estBackupVerificationContract } from '@/shared/ipc/contracts';
 
 import { ColumnMappedEstBackupRecordParser } from './domain/ColumnMappedEstBackupRecordParser';
 
-export const estBackupVerificationModule: ModuleDefinition<
-  | 'ipcRouter'
-  | 'estBackupVerificationService'
-  | 'estBackupRecordImportService'
-  | 'estBackupResultCheckService'
-  | 'estBackupSourceService'
-  | 'estBackupCaptureService'
-> = {
+export const estBackupVerificationModule = defineModule({
   name: 'estBackupVerification',
   deps: [
     'ipcRouter',
@@ -19,7 +12,7 @@ export const estBackupVerificationModule: ModuleDefinition<
     'estBackupResultCheckService',
     'estBackupSourceService',
     'estBackupCaptureService',
-  ] as const,
+  ],
   register({
     ipcRouter,
     estBackupVerificationService: service,
@@ -58,4 +51,4 @@ export const estBackupVerificationModule: ModuleDefinition<
       ],
     };
   },
-};
+});
