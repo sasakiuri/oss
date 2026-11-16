@@ -13,8 +13,7 @@ const cue = CompetitionCuePayloadSchema.parse(receivedPayload);
 const topic = mqttTopics.competitionCue(cue.competitionId);
 ```
 
-The root export is available for consumers that need several message families. The applications' existing MQTT
-schema modules remain compatibility facades.
+The root export is available for consumers that need several message families.
 
 `mqttTopics` builds every MQTT topic and `mqttTopicFilters` the wildcard subscriptions. `parseMqttTopic()`
 returns a received topic's builder name as `kind` with its identifiers exactly as received, including empty ones.
