@@ -2,8 +2,8 @@
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
-import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';

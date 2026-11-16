@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
+import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
-
-import type { RawData } from '../ISerialDataParser';
 
 import type { IManufacturerParser, ParseResult } from './IManufacturerParser';
 

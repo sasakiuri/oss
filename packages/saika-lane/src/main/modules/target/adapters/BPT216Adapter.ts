@@ -2,8 +2,8 @@
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
-import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { isDomainError } from '@/shared/errors/isDomainError';
 

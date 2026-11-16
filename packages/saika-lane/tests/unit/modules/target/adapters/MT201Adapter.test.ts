@@ -5,8 +5,8 @@ import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import { MT201Adapter } from '@/main/modules/target/adapters/MT201Adapter';
+import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
-import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 import { DomainError } from '@/shared/errors/DomainError';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({

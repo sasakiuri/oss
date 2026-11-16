@@ -5,8 +5,8 @@ import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import { BPT216Adapter } from '@/main/modules/target/adapters/BPT216Adapter';
+import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
-import type { RawData } from '@/main/modules/target/infra/ISerialDataParser';
 
 describe('BPT216Adapter', () => {
   const adapter = new BPT216Adapter();
