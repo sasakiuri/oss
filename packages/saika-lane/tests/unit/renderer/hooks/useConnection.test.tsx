@@ -58,10 +58,12 @@ describe('useConnection', () => {
 
       const { result } = renderHook(() => useConnection());
 
+      let connected: boolean | undefined;
       await act(async () => {
-        await result.current.connect('/dev/ttyUSB0', 'SIUS');
+        connected = await result.current.connect('/dev/ttyUSB0', 'SIUS');
       });
 
+      expect(connected).toBe(true);
       expect(mockConnect).toHaveBeenCalledWith({
         portName: '/dev/ttyUSB0',
         manufacturer: 'SIUS',
@@ -108,10 +110,12 @@ describe('useConnection', () => {
 
       const { result } = renderHook(() => useConnection());
 
+      let connected: boolean | undefined;
       await act(async () => {
-        await result.current.connect('/dev/ttyUSB0', 'SIUS');
+        connected = await result.current.connect('/dev/ttyUSB0', 'SIUS');
       });
 
+      expect(connected).toBe(false);
       expect(result.current.error).toBe('Failed to connect to USB device');
       expect(result.current.isConnecting).toBe(false);
 

@@ -22,8 +22,13 @@ export interface UseConnectionResult {
   portName: string | null;
   /** Target manufacturer name (null when disconnected) */
   manufacturer: TargetManufacturer | null;
-  /** Connect action */
-  connect: (portName: string, manufacturer: TargetManufacturer, deviceId?: string, baudRate?: number) => Promise<void>;
+  /** Connect action; resolves `false` when the connection failed (the error is in `error`). */
+  connect: (
+    portName: string,
+    manufacturer: TargetManufacturer,
+    deviceId?: string,
+    baudRate?: number,
+  ) => Promise<boolean>;
   /** Disconnect action */
   disconnect: () => Promise<void>;
   /** Connection in-progress flag */
@@ -76,14 +81,16 @@ export function useConnection(): UseConnectionResult {
     { errorMessage: 'An error occurred while disconnecting' },
   );
 
-  // useConnection has traditionally swallowed errors (no re-throw)
+  // useConnection reports failures through `error` instead of re-throwing
   const connect = useCallback(
     async (port: string, mfr: TargetManufacturer, deviceId?: string, baudRate?: number) => {
       disconnecting.clearError();
       try {
         await connecting.execute(port, mfr, deviceId, baudRate);
+        return true;
       } catch {
         // Error is already stored in connecting.error
+        return false;
       }
     },
     [connecting.execute, disconnecting.clearError],

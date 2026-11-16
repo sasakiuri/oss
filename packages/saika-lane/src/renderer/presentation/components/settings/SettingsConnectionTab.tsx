@@ -154,7 +154,8 @@ export const SettingsConnectionTab: React.FC = () => {
     const selectedPortInfo = ports.find((port) => port.path === selectedPort);
     const baudRate = selectedDevice.baudRate;
 
-    await connect(selectedPort, selectedManufacturer, selectedDevice.id, baudRate);
+    // Keep the saved settings when the connection fails.
+    if (!(await connect(selectedPort, selectedManufacturer, selectedDevice.id, baudRate))) return;
 
     // Save connection settings
     try {
