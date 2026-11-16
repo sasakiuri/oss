@@ -107,28 +107,15 @@ export class LaneTimerService implements ICompetitionTimer {
     if (remainingSeconds <= 0) {
       // Already expired: execute expiry immediately (expire directly without delegating to processTick)
       try {
-        const state = await this.competitionRepository.findById(competitionId);
-        if (generation !== this.startGeneration) return;
-        this.assertRunPermitted();
-        if (!state || !state.canUpdateTimer()) return;
-
-        const updated = state.tickTimerBy(durationSeconds);
-        await this.competitionRepository.save(updated);
-        if (generation !== this.startGeneration) return;
-        this.assertRunPermitted();
-
-        const expired = updated.expireTimer();
-        await this.competitionRepository.save(expired);
-        this.sampleExpiry(competitionId, generation);
-
-        this.eventBus.emit({
-          type: 'TimerExpired',
-          timestamp: Date.now(),
-          aggregateId: expired.id,
-          stageIndex: expired.currentStageIndex,
+        await this.persistExpiry(competitionId, {
+          proceed: () => {
+            if (generation !== this.startGeneration) return false;
+            this.assertRunPermitted();
+            return true;
+          },
+          tickSeconds: durationSeconds,
+          sampleGeneration: generation,
         });
-
-        emitPhaseChanged(this.eventBus, expired, state.phase);
       } catch (error) {
         if (isTimerRunBlockedError(error)) throw error;
         getLogger().error(
@@ -285,16 +272,48 @@ export class LaneTimerService implements ICompetitionTimer {
     this.stop();
     const generation = this.startGeneration;
     this.assertRunPermitted();
-    const state = await this.competitionRepository.findById(competitionId);
-    this.assertRunPermitted();
-    if (!state || !state.canUpdateTimer()) return;
+    // Unlike the clock's own expiry, a newer clock start does not abandon this one.
+    await this.persistExpiry(competitionId, {
+      proceed: () => {
+        this.assertRunPermitted();
+        return true;
+      },
+      sampleGeneration: generation,
+    });
+  }
 
-    const updated = state.tickTimerBy(state.timer.remainingSeconds);
+  /**
+   * Counts the persisted timer down, saves the SERIES_COMPLETE expiry and
+   * announces TimerExpired and PhaseChanged. `proceed` runs after each
+   * repository call and abandons the expiry when it returns false; it may
+   * also throw.
+   */
+  private async persistExpiry(
+    competitionId: string,
+    path: {
+      proceed: () => boolean;
+      /** Seconds to count down; the persisted remaining time by default. */
+      tickSeconds?: number;
+      /** Records the stopped sample for this clock generation once the expiry is saved. */
+      sampleGeneration?: number;
+      /** Stops the ticking clock when the competition cannot expire and after the expiry. */
+      stopClock?: boolean;
+    },
+  ): Promise<void> {
+    const state = await this.competitionRepository.findById(competitionId);
+    if (!path.proceed()) return;
+    if (!state || !state.canUpdateTimer()) {
+      if (path.stopClock) this.stop();
+      return;
+    }
+
+    const updated = state.tickTimerBy(path.tickSeconds ?? state.timer.remainingSeconds);
     await this.competitionRepository.save(updated);
-    this.assertRunPermitted();
+    if (!path.proceed()) return;
+
     const expired = updated.expireTimer();
     await this.competitionRepository.save(expired);
-    this.sampleExpiry(competitionId, generation);
+    if (path.sampleGeneration !== undefined) this.sampleExpiry(competitionId, path.sampleGeneration);
 
     this.eventBus.emit({
       type: 'TimerExpired',
@@ -303,6 +322,7 @@ export class LaneTimerService implements ICompetitionTimer {
       stageIndex: expired.currentStageIndex,
     });
     emitPhaseChanged(this.eventBus, expired, state.phase);
+    if (path.stopClock) this.stop();
   }
 
   private sampleExpiry(competitionId: string, generation: number): void {
@@ -364,37 +384,17 @@ export class LaneTimerService implements ICompetitionTimer {
     if (this.remainingSeconds <= 0) {
       try {
         if (generation !== this.startGeneration) return;
-        const state = await this.competitionRepository.findById(competitionId);
-        if (generation !== this.startGeneration) return;
-        if (!this.isRunPermitted()) {
-          this.stop();
-          return;
-        }
-        if (!state || !state.canUpdateTimer()) {
-          this.stop();
-          return;
-        }
-
-        const updated = state.tickTimerBy(state.timer.remainingSeconds);
-        await this.competitionRepository.save(updated);
-        if (generation !== this.startGeneration) return;
-        if (!this.isRunPermitted()) {
-          this.stop();
-          return;
-        }
-
-        const expired = updated.expireTimer();
-        await this.competitionRepository.save(expired);
-
-        this.eventBus.emit({
-          type: 'TimerExpired',
-          timestamp: Date.now(),
-          aggregateId: expired.id,
-          stageIndex: expired.currentStageIndex,
+        await this.persistExpiry(competitionId, {
+          proceed: () => {
+            if (generation !== this.startGeneration) return false;
+            if (!this.isRunPermitted()) {
+              this.stop();
+              return false;
+            }
+            return true;
+          },
+          stopClock: true,
         });
-
-        emitPhaseChanged(this.eventBus, expired, state.phase);
-        this.stop();
       } catch (error) {
         getLogger().error(
           'Timer expiry failed',
