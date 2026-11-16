@@ -22,6 +22,7 @@ import {
 } from '@/main/composition/tokens';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { sessionModule } from '@/main/modules/session/session.module';
+import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { sessionContract } from '@/shared/ipc/contracts';
 
@@ -66,7 +67,7 @@ describe('session.module', () => {
         'competitionRepository',
         'ipcRouter',
         'userDataPath',
-        'database',
+        'shotObservationRepository',
       ]);
     });
   });
@@ -74,7 +75,7 @@ describe('session.module', () => {
   describe('register', () => {
     it('should register 4 command handlers', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -89,7 +90,7 @@ describe('session.module', () => {
 
     it('should register StartSession command handler', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -104,7 +105,7 @@ describe('session.module', () => {
 
     it('should register RecordShot command handler', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -119,7 +120,7 @@ describe('session.module', () => {
 
     it('should register SwitchMode command handler', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -134,7 +135,7 @@ describe('session.module', () => {
 
     it('should register ResetSession command handler', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -149,7 +150,7 @@ describe('session.module', () => {
 
     it('should register 2 query handlers', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -164,7 +165,7 @@ describe('session.module', () => {
 
     it('should register GetSessionScore query handler', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -179,7 +180,7 @@ describe('session.module', () => {
 
     it('should register GetShotHistory query handler', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -194,7 +195,7 @@ describe('session.module', () => {
 
     it('should register IPC handlers with sessionContract', () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,
@@ -224,7 +225,7 @@ describe('session.module', () => {
 
     it('returns the started session id even when another session starts meanwhile', async () => {
       sessionModule.register({
-        database,
+        shotObservationRepository: new SqliteShotObservationRepository(database),
         commandBus,
         queryBus,
         eventBus,

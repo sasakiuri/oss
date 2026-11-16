@@ -54,6 +54,7 @@ import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSess
 import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore';
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
+import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
@@ -208,6 +209,7 @@ export function createLaneServices(
   // Outboxes the MQTT module drains; their rows are written by the features that record the shots.
   const competitionShootOffShotOutbox = new SqliteCompetitionShootOffShotOutbox(db);
   const shotObservationEvidenceOutbox = new SqliteShotObservationEvidenceOutbox(db);
+  const shotObservationRepository = new SqliteShotObservationRepository(db);
 
   // Lane-owned signals keep their state in SQLite; the MQTT module publishes them and serves their IPC.
   const rangeOfficerRequestService = new RangeOfficerRequestService(new SqliteRangeOfficerRequestRepository(db));
@@ -283,6 +285,7 @@ export function createLaneServices(
     qualificationRecoveryShotOutbox,
     competitionShootOffShotOutbox,
     shotObservationEvidenceOutbox,
+    shotObservationRepository,
     timingProfileService,
     mainWindow,
     userDataPath,

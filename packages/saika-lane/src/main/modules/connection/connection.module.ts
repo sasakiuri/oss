@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
-import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
@@ -16,7 +15,7 @@ import { createShotIngestionHandler } from './infra/ShotIngestionHandler';
 type ConnectionDeps =
   | 'adapterRegistry'
   | 'commandBus'
-  | 'database'
+  | 'shotObservationRepository'
   | 'startup'
   | 'sessionContextCache'
   | 'eventBus'
@@ -36,7 +35,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
   deps: [
     'adapterRegistry',
     'commandBus',
-    'database',
+    'shotObservationRepository',
     'startup',
     'sessionContextCache',
     'eventBus',
@@ -54,7 +53,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
   register({
     adapterRegistry,
     commandBus,
-    database,
+    shotObservationRepository,
     startup,
     sessionContextCache,
     eventBus,
@@ -69,7 +68,6 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     ipcRouter,
     mainWindow,
   }) {
-    const shotObservationRepository = new SqliteShotObservationRepository(database);
     // Session context cache for synchronous access by USBDataPipeline
     usbManager.setSessionContextProvider(() => sessionContextCache.getContext());
 

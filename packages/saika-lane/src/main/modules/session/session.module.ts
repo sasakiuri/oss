@@ -14,7 +14,6 @@ import { createShotRecordedHandler } from '@/main/modules/competition/applicatio
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
-import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { sessionContract } from '@/shared/ipc/contracts';
 
 import { createGetSessionScoreHandler } from './application/handlers/GetSessionScoreHandler';
@@ -36,7 +35,7 @@ type SessionDeps =
   | 'competitionRepository'
   | 'ipcRouter'
   | 'userDataPath'
-  | 'database';
+  | 'shotObservationRepository';
 
 export const sessionModule: ModuleDefinition<SessionDeps> = {
   name: 'session',
@@ -48,7 +47,7 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     'competitionRepository',
     'ipcRouter',
     'userDataPath',
-    'database',
+    'shotObservationRepository',
   ] as const,
   register({
     commandBus,
@@ -58,7 +57,7 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     competitionRepository,
     ipcRouter,
     userDataPath,
-    database,
+    shotObservationRepository,
   }) {
     const scoreService = new ScoreCalculationServiceImpl();
     const discrepancyLogger = new CsvScoreDiscrepancyLogger();
@@ -87,11 +86,7 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     queryBus.register(GetSessionScoreToken, createGetSessionScoreHandler(sessionRepository));
     queryBus.register(
       GetShotHistoryToken,
-      createGetShotHistoryHandler(
-        sessionRepository,
-        new SqliteShotObservationRepository(database),
-        competitionRepository,
-      ),
+      createGetShotHistoryHandler(sessionRepository, shotObservationRepository, competitionRepository),
     );
 
     // Register IPC handlers via IpcRouter

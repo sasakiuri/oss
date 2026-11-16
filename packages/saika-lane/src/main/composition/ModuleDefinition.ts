@@ -32,6 +32,7 @@ import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
 import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
+import type { IShotObservationRepository } from '@/main/modules/shot-observation/domain/IShotObservationRepository';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import type { ITimedTargetControl, ITimedTargetSequenceRepository } from '@/main/modules/timed-target';
 import type { TimingProfileService } from '@/main/modules/timing-profiles';
@@ -80,6 +81,8 @@ export interface ServiceRegistry {
   qualificationRecoveryShotOutbox: IQualificationRecoveryShotOutbox;
   competitionShootOffShotOutbox: ICompetitionShootOffShotOutbox;
   shotObservationEvidenceOutbox: IShotObservationEvidenceOutbox;
+  /** Target observations and their routing outcomes, shared by shot ingestion and shot history. */
+  shotObservationRepository: IShotObservationRepository;
   timingProfileService: TimingProfileService;
   mainWindow: BrowserWindow;
   userDataPath: string;
