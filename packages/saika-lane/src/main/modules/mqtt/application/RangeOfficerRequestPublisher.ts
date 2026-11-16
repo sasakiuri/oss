@@ -6,6 +6,7 @@ import {
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { RangeOfficerRequestService, RangeOfficerRequestState } from '@/main/modules/range-officer-request';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
@@ -28,7 +29,7 @@ export class RangeOfficerRequestPublisher {
 
   private async publishCurrentStateNow(): Promise<void> {
     if (!this.mqttClient.isConnected()) return;
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const payload = RangeOfficerRequestPayloadSchema.parse(
       toRangeOfficerRequestPayload(laneId, this.service.getState()),
     );

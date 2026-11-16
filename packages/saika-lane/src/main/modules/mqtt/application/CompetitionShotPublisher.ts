@@ -7,6 +7,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -65,7 +66,7 @@ export class CompetitionShotPublisher {
       return;
     }
 
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const shot = event.shot;
     const session = await this.sessionRepository.findById(event.aggregateId);
     if (!session) throw new Error(`Session ${event.aggregateId} is unavailable for shot publication`);

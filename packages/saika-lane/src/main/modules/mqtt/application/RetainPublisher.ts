@@ -7,6 +7,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { Shot } from '@/main/modules/session/domain/Shot';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
@@ -161,7 +162,7 @@ export class RetainPublisher {
       since: since.toISOString(),
     });
 
-    const laneId = this.deps.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.deps.storage);
     const competition = await this.deps.competitionRepository.findActive();
     if (!competition) return;
 

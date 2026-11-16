@@ -2,6 +2,7 @@
 
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
 import type { ShotObservationEvidence } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -58,7 +59,7 @@ export class ShotObservationEvidencePublisher {
   }
 
   private async publish(evidence: ShotObservationEvidence): Promise<void> {
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const competition = evidence.competition;
     const topic = competition
       ? mqttTopics.competitionShotObservation(competition.competitionId, laneId)

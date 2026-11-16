@@ -4,6 +4,7 @@
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -29,7 +30,7 @@ export class RawShotPublisher {
       return;
     }
 
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const shot = event.shot;
 
     const payload = JSON.stringify({

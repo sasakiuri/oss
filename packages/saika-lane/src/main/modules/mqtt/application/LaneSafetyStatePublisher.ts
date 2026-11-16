@@ -3,6 +3,7 @@
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
@@ -31,7 +32,7 @@ export class LaneSafetyStatePublisher {
 
   private async publishCurrentStateNow(): Promise<void> {
     if (!this.mqttClient.isConnected()) return;
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const state = this.safetyStopControl.getState();
     const payload = {
       laneId,

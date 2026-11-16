@@ -9,6 +9,7 @@ import {
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 import type { StorageValue } from '@/shared/storage/types';
 
+import { MIRRORED_LANE_ID_KEY } from '../application/MirroredLaneId';
 import {
   asRecord,
   normalizeConnectionDraft,
@@ -50,7 +51,7 @@ export class LegacySettingsBridge {
 
   private readLegacyMqttSettings(): AppSettingsDraftDto['mqtt'] {
     const legacy = this.storage.get('mqtt.settings') ?? {};
-    const laneId = this.storage.get<string>('mqtt.laneId');
+    const laneId = this.storage.get<string>(MIRRORED_LANE_ID_KEY);
     return normalizeMqttDraft({
       ...(typeof legacy === 'object' && legacy !== null ? legacy : {}),
       ...(laneId !== undefined ? { laneId } : {}),
@@ -119,13 +120,13 @@ export class LegacySettingsBridge {
   }
 
   getValidLegacyLaneId(): string | null {
-    const laneId = this.storage.get<string>('mqtt.laneId');
+    const laneId = this.storage.get<string>(MIRRORED_LANE_ID_KEY);
     const result = AppSettingsSchema.shape.mqtt.shape.laneId.safeParse(laneId);
     return result.success ? result.data : null;
   }
 
   syncLegacyStorage(settings: AppSettingsDto): void {
-    this.setIfChanged('mqtt.laneId', settings.mqtt.laneId);
+    this.setIfChanged(MIRRORED_LANE_ID_KEY, settings.mqtt.laneId);
     this.setIfChanged('mqtt.settings', settings.mqtt);
     this.setIfChanged(
       'userPreferences',

@@ -7,6 +7,7 @@ import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import type { RulePackIdentity } from '@sasakiuri/saika-rules';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
+import { MIRRORED_LANE_ID_KEY, readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { ConnectionEstablishedEvent, ConnectionLostEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -78,11 +79,11 @@ export class HardwareStatePublisher {
 
   private getTopic(): string {
     // String() keeps the topic byte-identical for a missing ID ("undefined"); the payload uses an empty laneId.
-    return mqttTopics.laneHardwareState(String(this.storage.get<string>('mqtt.laneId')));
+    return mqttTopics.laneHardwareState(String(this.storage.get<string>(MIRRORED_LANE_ID_KEY)));
   }
 
   private getLaneId(): string {
-    return this.storage.get<string>('mqtt.laneId') ?? '';
+    return readMirroredLaneId(this.storage);
   }
 
   private getLaneAlias(): string {

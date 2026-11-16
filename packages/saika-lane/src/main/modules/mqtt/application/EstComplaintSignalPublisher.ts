@@ -7,6 +7,7 @@ import {
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { EstComplaintSignalService, EstComplaintSignalState } from '@/main/modules/est-complaint-signal';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
@@ -29,7 +30,7 @@ export class EstComplaintSignalPublisher {
 
   private async publishCurrentStateNow(): Promise<void> {
     if (!this.mqttClient.isConnected()) return;
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const payload = toEstComplaintSignalPayload(laneId, this.service.getState());
     await this.mqttClient.publish(mqttTopics.laneEstComplaintSignal(laneId), JSON.stringify(payload), {
       qos: 1,
