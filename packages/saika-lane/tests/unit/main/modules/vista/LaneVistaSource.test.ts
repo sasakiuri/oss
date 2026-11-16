@@ -599,7 +599,7 @@ describe('Lane spectator source', () => {
       const original = await read(source, 'completed-labels');
       const file = join(options.directory, `${Buffer.from(original.subjectId).toString('hex')}.json`);
       const saved = readFileSync(file, 'utf8');
-      if (setting === 'alias') options.storage.set('mqtt.laneAlias', 'New lane');
+      if (setting === 'alias') options.storage.set('mqtt.settings', { laneAlias: 'New lane' });
       else options.storage.set('userPreferences', { laneNumber: 2 });
 
       // A name-only settings change must not attempt another durable write.
@@ -646,7 +646,7 @@ describe('Lane spectator source', () => {
       sessions.set(session.id, session);
       await competitions.save(CompetitionState.create('completed-subject', session.id, AR60.config).finish());
       const original = await read(source, 'completed-subject');
-      options.storage.set('mqtt.laneAlias', 'New lane');
+      options.storage.set('mqtt.settings', { laneAlias: 'New lane' });
       if (change === 'reset') await options.sessions.saveReset(session.reset());
       else {
         const nextSession = Session.create(session.discipline);
@@ -660,7 +660,7 @@ describe('Lane spectator source', () => {
       expect(next.label).toContain('New lane');
       expect(next.participants[0]?.laneName).toBe('New lane');
       if (change === 'new-competition') {
-        options.storage.set('mqtt.laneAlias', 'Renamed active lane');
+        options.storage.set('mqtt.settings', { laneAlias: 'Renamed active lane' });
       }
       const renamed = await read(source, nextId);
       const expectedName = change === 'new-competition' ? 'Renamed active lane' : 'New lane';

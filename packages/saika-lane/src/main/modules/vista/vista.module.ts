@@ -14,6 +14,7 @@ import {
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { vistaContract } from '@/shared/ipc/contracts/vista.contract';
 
+import { readVistaLaneAlias } from './application/readVistaLaneAlias';
 import { LaneVistaShotContextReader } from './infra/LaneVistaShotContextReader';
 import { LaneVistaSource } from './infra/LaneVistaSource';
 
@@ -69,7 +70,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
         bootId: randomUUID(),
         kind: 'lane',
         name:
-          storage.get<string>('mqtt.laneAlias') ||
+          readVistaLaneAlias(storage) ??
           `Saika Lane ${storage.get<{ laneNumber?: number }>('userPreferences')?.laneNumber ?? 1}`,
       };
       const shotContexts = new LaneVistaShotContextReader(database);
