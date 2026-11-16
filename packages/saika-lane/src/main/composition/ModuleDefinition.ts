@@ -8,7 +8,7 @@ import type {
   ICompetitionCatalog,
   ICompetitionRepository,
 } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl, ICompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
@@ -62,7 +62,7 @@ export interface ServiceRegistry {
   printWindowService: PrintWindowService;
   adapterRegistry: AdapterRegistry;
   mqttClient?: IMqttClientService;
-  timerService: LaneTimerService;
+  timerService: ICompetitionTimer;
   competitionInterruptionControl: ICompetitionInterruptionControl;
   competitionShootOffControl: ICompetitionShootOffControl;
   qualificationRecoveryControl: IQualificationRecoveryControl;

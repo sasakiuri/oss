@@ -18,7 +18,7 @@ import type {
   ICompetitionCatalog,
   ICompetitionRepository,
 } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -57,7 +57,7 @@ export class LaneVistaSource {
       competitions: ICompetitionRepository;
       catalog: ICompetitionCatalog;
       sessions: ISessionRepository;
-      timer: Pick<LaneTimerService, 'sample'>;
+      timer: Pick<ICompetitionTimer, 'sample'>;
       readShotContexts: (competitionId: string, sessionId: string) => ReadonlyMap<string, LaneVistaShotContext>;
       interruptions: Pick<ICompetitionInterruptionControl, 'get'>;
       shootOffs: Pick<ICompetitionShootOffControl, 'getState'>;
