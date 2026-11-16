@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { useCallback, useEffect, useState } from 'react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { scoreCorrectionsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   ScoreCorrectionPreviewDto,
   ScoreCorrectionRequestDto,
@@ -30,34 +32,19 @@ export function ScoreCorrectionPanel({
 }) {
   const [workspace, setWorkspace] = useState<ScoreCorrectionWorkspaceDto | null>(null);
   const [preview, setPreview] = useState<ScoreCorrectionPreviewDto | null>(null);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run: perform } = useAsyncAction();
   const [caseId, setCaseId] = useState('');
   const [officialName, setOfficialName] = useState('');
   const [statement, setStatement] = useState('');
   const [changes, setChanges] = useState([newChange()]);
   const [confirmed, setConfirmed] = useState(false);
   const load = useCallback(async () => {
-    const response = await scoreCorrectionsService.workspace({ resultId, resultScope });
-    if (!response.success) throw new Error(response.error.message);
-    setWorkspace(response.data);
+    setWorkspace(unwrap(await scoreCorrectionsService.workspace({ resultId, resultScope })));
   }, [resultId, resultScope]);
   useEffect(() => {
-    void load().catch((caught: unknown) =>
-      setError(caught instanceof Error ? caught.message : 'Unable to load corrections'),
-    );
+    void load().catch((caught: unknown) => setError(errorMessage(caught, 'Unable to load corrections')));
   }, [load]);
-  const run = async (action: () => Promise<void>) => {
-    setBusy(true);
-    setError('');
-    try {
-      await action();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Correction failed');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const run = (action: () => Promise<void>) => perform(action, 'Correction failed');
   const update = (index: number, patch: Partial<ScoreCorrectionRequestDto['changes'][number]>) =>
     setChanges((current) => current.map((change, position) => (position === index ? { ...change, ...patch } : change)));
   const active = workspace?.history.find((item) => !item.withdrawal);
@@ -99,9 +86,9 @@ export function ScoreCorrectionPanel({
               statement,
               changes,
             });
-            if (!response.success) throw new Error(response.error.message);
+            const proposed = unwrap(response);
             setConfirmed(false);
-            setPreview(response.data);
+            setPreview(proposed);
           });
         }}
       >
@@ -317,7 +304,7 @@ export function ScoreCorrectionPanel({
                   expectedDigest: preview.digest,
                   confirmed: true,
                 });
-                if (!response.success) throw new Error(response.error.message);
+                unwrap(response);
                 setPreview(null);
                 setConfirmed(false);
                 await load();
@@ -348,7 +335,7 @@ export function ScoreCorrectionPanel({
                     officialName,
                     statement,
                   });
-                  if (!response.success) throw new Error(response.error.message);
+                  unwrap(response);
                   await load();
                   onChanged();
                 })

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { scoringDecisionsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { AddScoringDecisionPayload, ScoringDecisionDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
@@ -63,10 +64,9 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
     setError(null);
     try {
       const response = await scoringDecisionsService.listByResult({ resultId: result.id, resultScope });
-      if (!response.success) throw new Error(response.error.message);
-      setDecisions(response.data.decisions);
+      setDecisions(unwrap(response).decisions);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load scoring decisions');
+      setError(errorMessage(caught, 'Failed to load scoring decisions'));
     } finally {
       setLoading(false);
     }
@@ -107,14 +107,13 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
           ...(showSeries ? { seriesIndex: parsedSeries } : {}),
           ...(showShot ? { shotIndex: parsedShot } : {}),
         };
-        const response = await scoringDecisionsService.add(payload);
-        if (!response.success) throw new Error(response.error.message);
+        unwrap(await scoringDecisionsService.add(payload));
         setPublicRemark('');
         setInternalNote('');
         await loadDecisions();
         onChanged();
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Failed to append scoring decision');
+        setError(errorMessage(caught, 'Failed to append scoring decision'));
       } finally {
         setSaving(false);
       }
@@ -152,13 +151,13 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
         ...(incidentReportNumber.trim() ? { incidentReportNumber } : {}),
         ...(internalNote.trim() ? { internalNote } : {}),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       setRevokeTargetId(null);
       setRevokeReason('');
       await loadDecisions();
       onChanged();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to revoke scoring decision');
+      setError(errorMessage(caught, 'Failed to revoke scoring decision'));
     } finally {
       setSaving(false);
     }
