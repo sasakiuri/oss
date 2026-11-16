@@ -102,19 +102,6 @@ vi.mock('@/renderer/services/competitionService', () => ({
 }));
 
 // Mock utilities
-vi.mock('@/renderer/presentation/utils/zoomCalculator', () => ({
-  getNextZoomMode: vi.fn((current: string) => {
-    const modes = ['AUTO', 'RING_8', 'RING_6', 'RING_4', 'FULL'] as const;
-    const index = modes.indexOf(current as (typeof modes)[number]);
-    return modes[(index + 1) % modes.length];
-  }),
-  getPrevZoomMode: vi.fn((current: string) => {
-    const modes = ['AUTO', 'RING_8', 'RING_6', 'RING_4', 'FULL'] as const;
-    const index = modes.indexOf(current as (typeof modes)[number]);
-    return modes[(index - 1 + modes.length) % modes.length];
-  }),
-}));
-
 // SideMenu mock that captures callback props
 let capturedSideMenuProps: Record<string, unknown> = {};
 vi.mock('@/renderer/presentation/components/SideMenu', () => ({
@@ -793,11 +780,15 @@ describe('MainScreen', () => {
 
       expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'AUTO');
       chooseFromViewMenu('Zoom In');
-      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'RING_8');
+      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'FULL');
+      chooseFromViewMenu('Zoom In');
+      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'RING_4');
+      chooseFromViewMenu('Zoom Out');
+      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'FULL');
       chooseFromViewMenu('Zoom Out');
       expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'AUTO');
       chooseFromViewMenu('Zoom Out');
-      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'FULL');
+      expect(screen.getByTestId('target-display')).toHaveAttribute('data-zoom-mode', 'RING_8');
     });
   });
 
