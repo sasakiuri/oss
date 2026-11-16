@@ -83,7 +83,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
 
   const { isMaximized, isFullscreen, handleMinimize, handleMaximize, handleClose } = useTitleBar();
 
-  const { handlePreparationClick, handleMatchClick, handleNextStageClick } = modeSwitchActions;
+  const { handlePreparationClick, handleMatchClick, handleNextStageClick, progressError, dismissProgressError } =
+    modeSwitchActions;
 
   useAutoHideCursor(!isSettingsModalOpen, CURSOR_IDLE_TIMEOUT_MS);
 
@@ -116,6 +117,17 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
             Printing Settings
           </button>
           <button onClick={dismissError} className="mt-3 text-zinc-100">
+            Dismiss
+          </button>
+        </div>
+      )}
+      {progressError && (
+        <div
+          role="alert"
+          className="absolute bottom-12 left-1/2 z-40 max-w-lg -translate-x-1/2 rounded border border-red-500 bg-zinc-900 p-4 text-red-300"
+        >
+          <p>{progressError}</p>
+          <button onClick={dismissProgressError} className="mt-3 text-zinc-100">
             Dismiss
           </button>
         </div>

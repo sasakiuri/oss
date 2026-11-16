@@ -52,6 +52,8 @@ const modeSwitchActions = {
   handlePreparationClick: vi.fn(),
   handleMatchClick: vi.fn(),
   handleNextStageClick: vi.fn(),
+  progressError: null,
+  dismissProgressError: vi.fn(),
 };
 
 const setMockWindowChrome = (platform: string, hasNativeWindowFrame: boolean) => {
@@ -766,6 +768,28 @@ describe('MainScreen', () => {
         vi.useRealTimers();
         document.documentElement.classList.remove('cursor-hidden');
       }
+    });
+  });
+
+  describe('progress command failures', () => {
+    it('shows the failed command message until it is dismissed', () => {
+      const dismissProgressError = vi.fn();
+      const { rerender } = render(
+        <MainScreen
+          modeSwitchActions={{
+            ...modeSwitchActions,
+            progressError: 'Restore or finish the saved run before starting again.',
+            dismissProgressError,
+          }}
+        />,
+      );
+
+      expect(screen.getByRole('alert')).toHaveTextContent('Restore or finish the saved run before starting again.');
+      fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+      expect(dismissProgressError).toHaveBeenCalledOnce();
+
+      rerender(<MainScreen modeSwitchActions={modeSwitchActions} />);
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
   });
 

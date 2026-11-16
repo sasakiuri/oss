@@ -16,6 +16,9 @@ export interface ModeSwitchActions {
   handlePreparationClick: () => Promise<void>;
   handleMatchClick: () => Promise<void>;
   handleNextStageClick: () => Promise<void>;
+  /** Message of the last failed Preparation, Match or Next Stage command (null when none). */
+  progressError: string | null;
+  dismissProgressError: () => void;
 }
 
 interface PendingConfirmation {
@@ -51,7 +54,13 @@ export function useModeSwitchActions() {
   const { startStage, startNextSeries, advanceStage, endStage } = useCompetition();
   const markPreparationShotNumberReset = useSessionStore((s) => s.markPreparationShotNumberReset);
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
+  const [progressError, setProgressError] = useState<string | null>(null);
   const pendingRef = useRef<PendingConfirmation | null>(null);
+
+  const dismissProgressError = useCallback(() => setProgressError(null), []);
+  const reportProgressError = useCallback((error: unknown) => {
+    setProgressError(error instanceof Error ? error.message : String(error));
+  }, []);
 
   const cancelConfirmation = useCallback(() => {
     pendingRef.current = null;
@@ -109,25 +118,19 @@ export function useModeSwitchActions() {
   }, [confirmation, cancelConfirmation]);
 
   const prepare = useCallback(async () => {
+    setProgressError(null);
     const { competitionId, phase } = useCompetitionStore.getState();
-    if (competitionId && phase !== 'FINISHED') {
-      try {
-        await startStage(competitionId);
-        markPreparationShotNumberReset();
-      } catch {
-        // Error handled by useCompetition
-      }
-    } else {
-      try {
-        await switchMode('SIGHTING');
-        markPreparationShotNumberReset();
-      } catch {
-        // Error handled by useSession
-      }
+    try {
+      if (competitionId && phase !== 'FINISHED') await startStage(competitionId);
+      else await switchMode('SIGHTING');
+      markPreparationShotNumberReset();
+    } catch (error) {
+      reportProgressError(error);
     }
-  }, [startStage, switchMode, markPreparationShotNumberReset]);
+  }, [startStage, switchMode, markPreparationShotNumberReset, reportProgressError]);
 
   const match = useCallback(async () => {
+    setProgressError(null);
     const { competitionId, phase } = useCompetitionStore.getState();
     if (competitionId && phase !== 'FINISHED') {
       try {
@@ -151,17 +154,17 @@ export function useModeSwitchActions() {
         } else if (phase === 'SERIES_COMPLETE' || phase === 'SERIES_ENTERED' || phase === 'STAGE_ENTERED') {
           await startNextSeries(competitionId);
         }
-      } catch {
-        // Error handled by useCompetition
+      } catch (error) {
+        reportProgressError(error);
       }
     } else {
       try {
         await switchMode('MATCH');
-      } catch {
-        // Error handled by useSession
+      } catch (error) {
+        reportProgressError(error);
       }
     }
-  }, [endStage, advanceStage, startNextSeries, switchMode]);
+  }, [endStage, advanceStage, startNextSeries, switchMode, reportProgressError]);
 
   const handlePreparationClick = useCallback(async () => {
     const competition = useCompetitionStore.getState();
@@ -226,16 +229,26 @@ export function useModeSwitchActions() {
     const { competitionId, phase, scored } = useCompetitionStore.getState();
     if (!competitionId || phase === 'FINISHED') return;
 
+    setProgressError(null);
     try {
       if (phase === 'ACTIVE' && !scored) {
         await endStage(competitionId);
       } else if (phase === 'SERIES_COMPLETE') {
         await advanceStage(competitionId);
       }
-    } catch {
-      // Error handled by useCompetition
+    } catch (error) {
+      reportProgressError(error);
     }
-  }, [endStage, advanceStage]);
+  }, [endStage, advanceStage, reportProgressError]);
 
-  return { handlePreparationClick, handleMatchClick, handleNextStageClick, confirmation, confirm, cancelConfirmation };
+  return {
+    handlePreparationClick,
+    handleMatchClick,
+    handleNextStageClick,
+    progressError,
+    dismissProgressError,
+    confirmation,
+    confirm,
+    cancelConfirmation,
+  };
 }
