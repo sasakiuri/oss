@@ -5,6 +5,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { CompetitionClockSample, ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { codedError } from '@/shared/errors/codedError';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 export interface SavedLaneClock {
@@ -422,9 +423,7 @@ export class LaneTimerService implements ICompetitionTimer {
   private assertRunPermitted(): void {
     if (this.isRunPermitted()) return;
     this.stop();
-    const error = new Error('Competition timer operation is blocked by the Lane execution gate');
-    (error as Error & { code: string }).code = 'LANE_TIMER_RUN_BLOCKED';
-    throw error;
+    throw codedError('LANE_TIMER_RUN_BLOCKED', 'Competition timer operation is blocked by the Lane execution gate');
   }
 }
 
