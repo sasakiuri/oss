@@ -326,6 +326,10 @@ function IrregularShotCaseCard({
   const evidenceIds = new Set(value.evidence.map((item) => `${item.observationId}:${item.relation}`));
   const entryTypes = availableEntryTypes(value.status);
 
+  useEffect(() => {
+    if (!entryTypes.includes(entryType)) setEntryType(entryTypes[0] ?? 'NOTE');
+  }, [entryType, entryTypes]);
+
   const run = async (
     operation: () => Promise<{ success: boolean; data?: IrregularShotCaseDto; error?: { message: string } }>,
   ) => {
