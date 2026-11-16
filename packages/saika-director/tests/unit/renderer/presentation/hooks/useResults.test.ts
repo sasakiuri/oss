@@ -221,4 +221,105 @@ describe('useResults', () => {
       expect(result.current.error).toBeNull();
     });
   });
+
+  describe('responses and failure texts', () => {
+    type Query = 'getEventResults' | 'getRelayResults' | 'confirmResults';
+    const queries: Record<Query, { mock: typeof mockGetByEvent; fallback: string }> = {
+      getEventResults: { mock: mockGetByEvent, fallback: 'Failed to load results' },
+      getRelayResults: { mock: mockGetByRelay, fallback: 'Failed to load relay results' },
+      confirmResults: { mock: mockConfirm, fallback: 'Failed to confirm results' },
+    };
+
+    function run(hook: ReturnType<typeof useResults>, query: Query) {
+      if (query === 'getEventResults') return hook.getEventResults('event-1');
+      if (query === 'getRelayResults') return hook.getRelayResults('event-1', 2);
+      return hook.confirmResults('event-1', ['r1']);
+    }
+
+    it.each(['getEventResults', 'getRelayResults', 'confirmResults'] as const)(
+      '%s shows the message of a failed response, or its fallback text, and resolves null',
+      async (query) => {
+        const { mock, fallback } = queries[query];
+        const { result } = renderHook(() => useResults());
+
+        for (const [response, message] of [
+          [{ success: false, error: { message: 'Request refused' } }, 'Request refused'],
+          [{ success: false }, fallback],
+        ] as const) {
+          mock.mockResolvedValueOnce(response);
+          let returned: unknown = 'unset';
+          await act(async () => {
+            returned = await run(result.current, query);
+          });
+          expect(returned).toBeNull();
+          expect(result.current.error).toBe(message);
+          expect(result.current.loading).toBe(false);
+        }
+      },
+    );
+
+    it.each(['getEventResults', 'getRelayResults', 'confirmResults'] as const)(
+      '%s shows its fallback text for a rejected value without a message',
+      async (query) => {
+        const { mock, fallback } = queries[query];
+        mock.mockRejectedValueOnce('offline');
+        const { result } = renderHook(() => useResults());
+
+        await act(async () => {
+          await run(result.current, query);
+        });
+
+        expect(result.current.error).toBe(fallback);
+        expect(result.current.loading).toBe(false);
+      },
+    );
+
+    it.each(['getEventResults', 'getRelayResults', 'confirmResults'] as const)(
+      '%s resolves the successful response itself',
+      async (query) => {
+        const response = { success: true, data: { results: [{ id: 'r1' }] } };
+        queries[query].mock.mockResolvedValueOnce(response);
+        const { result } = renderHook(() => useResults());
+        let returned: unknown;
+
+        await act(async () => {
+          returned = await run(result.current, query);
+        });
+
+        expect(returned).toBe(response);
+      },
+    );
+
+    it('keeps the loaded results when a later request fails', async () => {
+      mockGetByEvent.mockResolvedValueOnce({ success: true, data: { results: [{ id: 'r1' }] } });
+      mockGetByRelay.mockResolvedValueOnce({ success: false, error: { message: 'Relay refused' } });
+      const { result } = renderHook(() => useResults());
+
+      await act(async () => {
+        await result.current.getEventResults('event-1');
+      });
+      await act(async () => {
+        await result.current.getRelayResults('event-1', 2);
+      });
+
+      expect(result.current.results).toEqual([{ id: 'r1' }]);
+      expect(result.current.error).toBe('Relay refused');
+    });
+
+    it('keeps the loaded results and clears the error after a confirmation', async () => {
+      mockGetByEvent.mockResolvedValueOnce({ success: false, error: { message: 'Results refused' } });
+      mockConfirm.mockResolvedValueOnce({ success: true });
+      const { result } = renderHook(() => useResults());
+
+      await act(async () => {
+        await result.current.getEventResults('event-1');
+      });
+      await act(async () => {
+        await result.current.confirmResults('event-1', ['r1']);
+      });
+
+      expect(result.current.error).toBeNull();
+      expect(result.current.results).toEqual([]);
+    });
+  });
 });
