@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BackupCaptureReadinessPanel } from '@/renderer/presentation/features/backup-capture-readiness/BackupCaptureReadinessPanel';
 import { backupCaptureReadinessService } from '@/renderer/services';
-import type { BackupCaptureReadinessDto } from '@/shared/ipc/contracts/backupCaptureReadiness.contract';
+import type { BackupCaptureReadinessDto } from '@/shared/ipc/contracts';
 
 import { fail } from '../../../../../helpers/renderer/serviceResponses';
 

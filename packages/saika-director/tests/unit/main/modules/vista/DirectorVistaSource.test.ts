@@ -43,7 +43,7 @@ import { BR60S_FINAL } from '@/shared/competitionTypes/definitions/BR60S_FINAL';
 import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRulePack';
 import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfStandardStrategy';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
-import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts';
 import { type ReserveLaneTransferBundle } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 import { VISTA_EVENT_CODES } from '@sasakiuri/saika-protocol/Vista';
 

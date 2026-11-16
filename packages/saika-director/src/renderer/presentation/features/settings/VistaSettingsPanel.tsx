@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { vistaService } from '@/renderer/services';
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type { VistaSettingsDto } from '@/shared/ipc/contracts/vista.contract';
+import type { VistaSettingsDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 
 export function VistaSettingsPanel() {

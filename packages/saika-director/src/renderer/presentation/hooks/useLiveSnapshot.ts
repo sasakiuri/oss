@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import type { EventName } from '@/renderer/events/EventBus';
 import { errorMessage } from '@/renderer/services/serviceError';
-import type { IpcEvents } from '@/shared/ipc/contracts/events.contract';
+import type { IpcEvents } from '@/shared/ipc/contracts';
 
 import { useEvent } from './useEvent';
 

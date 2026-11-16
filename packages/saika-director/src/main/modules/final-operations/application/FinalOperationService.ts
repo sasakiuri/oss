@@ -13,7 +13,7 @@ import type {
   RecordFinalOperationExecutionPayload,
   SkipFinalOperationStepPayload,
   StartFinalOperationShootOffPayload,
-} from '@/shared/ipc/contracts/finalOperations.contract';
+} from '@/shared/ipc/contracts';
 
 import { projectFinalOperation, type FinalOperationProjection } from '../domain/FinalOperationProjector';
 import { normalizeShootOffUnits } from '../domain/FinalOperationShootOffUnit';

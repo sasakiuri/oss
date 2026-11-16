@@ -9,7 +9,7 @@ import {
   type OperatorAccessStatus,
   type OperatorAuditEntry,
   type OperatorPermission,
-} from '@/shared/ipc/contracts/operatorAccess.contract';
+} from '@/shared/ipc/contracts';
 
 export interface StoredOperatorAccount extends OperatorAccount {
   salt: string;

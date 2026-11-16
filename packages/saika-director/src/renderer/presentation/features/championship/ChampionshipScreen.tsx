@@ -25,7 +25,7 @@ import { AdjudicationCasesPanel } from '../adjudication-cases';
 import { AthleteSanctionsPanel } from '../athlete-sanctions';
 import { useChampionshipStore } from '../../stores/domain/championship.store';
 import { useChampionshipActions } from '../../hooks/useChampionshipActions';
-import type { ChampionshipDto, EventDto } from '@/shared/ipc/contracts/championship.contract';
+import type { ChampionshipDto, EventDto } from '@/shared/ipc/contracts';
 
 type View = 'list' | 'create' | 'edit' | 'detail';
 type EventTab =

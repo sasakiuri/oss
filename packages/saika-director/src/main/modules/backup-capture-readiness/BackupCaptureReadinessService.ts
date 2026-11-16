@@ -7,7 +7,7 @@ import {
   BackupCaptureReadinessSettingsSchema,
   type BackupCaptureReadinessDto,
   type BackupCaptureReadinessSettings,
-} from '@/shared/ipc/contracts/backupCaptureReadiness.contract';
+} from '@/shared/ipc/contracts';
 
 import {
   BackupCaptureHealthPolicy,

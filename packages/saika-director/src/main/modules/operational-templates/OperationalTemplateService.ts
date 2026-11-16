@@ -6,7 +6,7 @@ import {
   SaveOperationalTemplateSchema,
   type OperationalTemplateDto,
   type SaveOperationalTemplateInput,
-} from '@/shared/ipc/contracts/operationalTemplates.contract';
+} from '@/shared/ipc/contracts';
 
 export interface IOperationalTemplateRepository {
   list(): OperationalTemplateDto[];

@@ -52,10 +52,10 @@ import {
   athleteSanctionsContract,
   estComplaintsContract,
 } from '@/shared/ipc/contracts';
-import { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
-import { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
-import { operationalTemplatesContract } from '@/shared/ipc/contracts/operationalTemplates.contract';
-import { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
+import { equipmentRegistryContract } from '@/shared/ipc/contracts';
+import { operationalProfilesContract } from '@/shared/ipc/contracts';
+import { operationalTemplatesContract } from '@/shared/ipc/contracts';
+import { operatorAccessContract } from '@/shared/ipc/contracts';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
 import { buildEventBridge, buildAliasedBridge } from './buildPreloadAPI';

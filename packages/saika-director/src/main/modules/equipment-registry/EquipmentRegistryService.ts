@@ -10,7 +10,7 @@ import {
   type EquipmentDetails,
   type EquipmentRegistryEntry,
   type EquipmentRegistryWorkspace,
-} from '@/shared/ipc/contracts/equipmentRegistry.contract';
+} from '@/shared/ipc/contracts';
 
 export interface IEquipmentRegistryRepository {
   list(championshipId: string): EquipmentRegistryEntry[];

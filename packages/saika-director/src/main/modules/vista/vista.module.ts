@@ -9,7 +9,7 @@ import { SqliteFinalOperationRepository } from '@/main/modules/final-operations'
 import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { ResultBoardSnapshotService, ResultPublicationService } from '@/main/modules/result-publication';
-import { vistaContract } from '@/shared/ipc/contracts/vista.contract';
+import { vistaContract } from '@/shared/ipc/contracts';
 import { Logger } from '@/shared/utils/Logger';
 import { DirectorVistaSource } from './application/DirectorVistaSource';
 import { SqliteVistaSourceStore } from './infra/SqliteVistaSourceStore';

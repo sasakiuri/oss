@@ -4,7 +4,7 @@ import { Button } from '../../shared/common/Button';
 import { PageHeader } from '../../shared/layout/PageHeader';
 import { useChampionshipStore } from '../../../stores/domain/championship.store';
 import { useChampionshipActions } from '../../../hooks/useChampionshipActions';
-import type { ChampionshipDto } from '@/shared/ipc/contracts/championship.contract';
+import type { ChampionshipDto } from '@/shared/ipc/contracts';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 
 interface ChampionshipListProps {

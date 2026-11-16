@@ -14,15 +14,9 @@ import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinitio
 import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
 import { competitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { championshipContract, eventsContract, resultPublicationContract } from '@/shared/ipc/contracts';
-import {
-  backupCaptureReadinessContract,
-  type BackupCaptureReadinessDto,
-} from '@/shared/ipc/contracts/backupCaptureReadiness.contract';
-import { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
-import {
-  publicationReviewPolicyContract,
-  type PublicationReviewPolicyStatus,
-} from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
+import { backupCaptureReadinessContract, type BackupCaptureReadinessDto } from '@/shared/ipc/contracts';
+import { operatorAccessContract } from '@/shared/ipc/contracts';
+import { publicationReviewPolicyContract, type PublicationReviewPolicyStatus } from '@/shared/ipc/contracts';
 
 const desktop = vi.hoisted(() => ({
   userData: '',

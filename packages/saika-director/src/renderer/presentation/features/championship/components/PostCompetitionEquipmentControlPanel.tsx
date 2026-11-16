@@ -6,7 +6,7 @@ import { postCompetitionEquipmentControlService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import type { PostCompetitionEquipmentCheckDto, RecordEquipmentControlTestPayload } from '@/shared/ipc/contracts';
-import type { ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
+import type { ParticipantDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
 import { inputClass, sectionClass } from '@/renderer/presentation/features/shared/common/formClasses';

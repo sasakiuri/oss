@@ -2,7 +2,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PublishedResultsSummary } from '@/renderer/presentation/features/boards/PublishedResultsSummary';
-import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts';
 
 import { fail } from '../../../../../helpers/renderer/serviceResponses';
 

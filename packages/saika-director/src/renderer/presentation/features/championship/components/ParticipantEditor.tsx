@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, Save } from 'lucide-react';
 import { Button } from '../../shared/common/Button';
 import { ParticipantRow as ParticipantRowComponent } from './ParticipantRow';
-import type { ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
+import type { ParticipantDto } from '@/shared/ipc/contracts';
 
 type ParticipantGender = Exclude<ParticipantDto['gender'], undefined>;
 type ParticipantEntryStatus = Exclude<ParticipantDto['entryStatus'], undefined>;

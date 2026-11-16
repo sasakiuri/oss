@@ -29,7 +29,7 @@ import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinitio
 import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
 import { competitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { registerBuiltinCompetitionTypes } from '@/shared/competitionTypes/registerBuiltinCompetitionTypes';
-import { backupCaptureReadinessContract } from '@/shared/ipc/contracts/backupCaptureReadiness.contract';
+import { backupCaptureReadinessContract } from '@/shared/ipc/contracts';
 import { Logger } from '@/shared/utils/Logger';
 
 import { createBackupServices } from './createBackupServices';

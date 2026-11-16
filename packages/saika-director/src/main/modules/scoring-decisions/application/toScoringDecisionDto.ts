@@ -1,4 +1,4 @@
-import type { ScoringDecisionDto } from '@/shared/ipc/contracts/scoringDecisions.contract';
+import type { ScoringDecisionDto } from '@/shared/ipc/contracts';
 import { getActiveScoringDecisions, type ScoringDecision } from '../domain/ScoringDecision';
 
 export function toScoringDecisionDtos(history: readonly ScoringDecision[]): ScoringDecisionDto[] {

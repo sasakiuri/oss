@@ -1,4 +1,4 @@
-import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts';
 
 type Scope = ResultBoardSnapshotDto['resultScope'];
 type BoardRow = ResultBoardSnapshotDto['results'][number];

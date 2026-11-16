@@ -17,7 +17,7 @@ import {
   RULE_PACK_SETUP_REQUIREMENT_ID,
   RULE_PACK_TARGET_RESET_REQUIREMENT_ID,
 } from '@/shared/competitionTypes';
-import { FinalOperationScriptStepDtoSchema } from '@/shared/ipc/contracts/finalOperations.contract';
+import { FinalOperationScriptStepDtoSchema } from '@/shared/ipc/contracts';
 
 describe('competitionTypeFromRulePack', () => {
   it('maps the ISSF 10m qualification course and Lane protocol metadata', () => {

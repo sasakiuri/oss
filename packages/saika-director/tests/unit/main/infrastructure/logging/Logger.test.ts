@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { DebugLogStore } from '@/main/infrastructure/logging/Logger';
-import type { DebugLogEntry } from '@/shared/ipc/contracts/debug.contract';
+import type { DebugLogEntry } from '@/shared/ipc/contracts';
 
 describe('DebugLogStore', () => {
   afterEach(() => vi.restoreAllMocks());

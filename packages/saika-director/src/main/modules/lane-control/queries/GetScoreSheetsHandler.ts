@@ -1,9 +1,5 @@
 import type { ILaneControlRepository } from '../domain/ILaneControlRepository';
-import type {
-  GetScoreSheetsResponse,
-  ScoreSheetDto,
-  ScoreSheetShotDto,
-} from '@/shared/ipc/contracts/laneControl.contract';
+import type { GetScoreSheetsResponse, ScoreSheetDto, ScoreSheetShotDto } from '@/shared/ipc/contracts';
 
 export interface GetScoreSheetsQuery {
   laneIds: string[];

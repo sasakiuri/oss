@@ -1,9 +1,6 @@
 import type Database from 'better-sqlite3';
 
-import {
-  OperationalTemplateSchema,
-  type OperationalTemplateDto,
-} from '@/shared/ipc/contracts/operationalTemplates.contract';
+import { OperationalTemplateSchema, type OperationalTemplateDto } from '@/shared/ipc/contracts';
 
 import type { IOperationalTemplateRepository } from './OperationalTemplateService';
 

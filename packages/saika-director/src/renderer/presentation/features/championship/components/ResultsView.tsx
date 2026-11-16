@@ -2,7 +2,7 @@ import { CheckCircle, ClipboardCheck, FileClock, Printer, Scale } from 'lucide-r
 import { useEffect, useState, useMemo, useCallback } from 'react';
 
 import { boardService } from '@/renderer/services';
-import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts/results.contract';
+import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts';
 import { Logger } from '@/shared/utils/Logger';
 import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
 

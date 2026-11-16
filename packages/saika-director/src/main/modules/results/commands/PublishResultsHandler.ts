@@ -6,7 +6,7 @@ import { Result } from '../domain/Result';
 import { ResultId } from '../domain/ResultId';
 import { EventId, ParticipantId } from '@/main/modules/championship';
 import type { PublishResultsCommand } from './PublishResults';
-import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
+import type { PublishResultsResponse } from '@/shared/ipc/contracts';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { GetEventByIdResponse } from '@/main/modules/championship';
 import { Logger } from '@/shared/utils/Logger';

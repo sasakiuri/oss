@@ -1,4 +1,4 @@
-import type { ScoreSheetDto, ScoreSheetShotDto } from '@/shared/ipc/contracts/laneControl.contract';
+import type { ScoreSheetDto, ScoreSheetShotDto } from '@/shared/ipc/contracts';
 
 interface ScoreSheetProps {
   data: ScoreSheetDto;

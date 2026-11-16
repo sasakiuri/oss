@@ -12,7 +12,7 @@ import { directorOperatorPermission } from '@/main/modules/operator-access/Direc
 import { SessionSanctionAuthorizationResolver } from '@/main/modules/operator-access/SessionSanctionAuthorizationResolver';
 import { SqliteOperatorAccessStore } from '@/main/modules/operator-access/SqliteOperatorAccessStore';
 import { ManualAttestationSanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
-import type { OperatorAuditEntry } from '@/shared/ipc/contracts/operatorAccess.contract';
+import type { OperatorAuditEntry } from '@/shared/ipc/contracts';
 
 class MemoryStore implements IOperatorAccessStore {
   required = false;

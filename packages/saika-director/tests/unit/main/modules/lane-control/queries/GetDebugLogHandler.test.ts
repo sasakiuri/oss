@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetDebugLogHandler } from '@/main/modules/lane-control/queries/GetDebugLogHandler';
 import type { IDebugLogStore } from '@/main/infrastructure/logging/Logger';
-import type { DebugLogEntry } from '@/shared/ipc/contracts/debug.contract';
+import type { DebugLogEntry } from '@/shared/ipc/contracts';
 
 describe('GetDebugLogHandler', () => {
   let mockLogStore: IDebugLogStore;

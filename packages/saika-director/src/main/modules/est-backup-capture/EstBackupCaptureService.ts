@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { SelectedEstBackupRecordFile, EstBackupRecordParser } from '@/main/modules/est-backup-verification';
-import type { EstBackupCaptureStatusDto } from '@/shared/ipc/contracts/estBackupVerification.contract';
+import type { EstBackupCaptureStatusDto } from '@/shared/ipc/contracts';
 
 import type { EstBackupAdapterReference, IEstBackupCapturePersistence } from './EstBackupCapturePersistence';
 import {

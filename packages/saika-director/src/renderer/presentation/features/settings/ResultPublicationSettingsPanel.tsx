@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { resultPublicationService } from '@/renderer/services';
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { unwrap } from '@/renderer/services/serviceError';
-import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 

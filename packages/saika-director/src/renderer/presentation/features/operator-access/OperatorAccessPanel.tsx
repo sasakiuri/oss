@@ -6,7 +6,7 @@ import type {
   OperatorAccessStatus,
   OperatorAuditEntry,
   OperatorPermission,
-} from '@/shared/ipc/contracts/operatorAccess.contract';
+} from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { Input } from '../shared/common/Input';
 import { Modal } from '../shared/common/Modal';

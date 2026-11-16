@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { mqttService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type { CompetitionStartReadinessDto } from '@/shared/ipc/contracts/mqtt.contract';
+import type { CompetitionStartReadinessDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 

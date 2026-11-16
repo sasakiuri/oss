@@ -14,7 +14,7 @@ import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main
 import type { IReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
-import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
+import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts';
 import { ReserveLaneTransferBundleSchema } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 import { directorVistaDefinition, vistaDigest } from './directorVistaDefinition';

@@ -1,4 +1,4 @@
-import type { IpcEvents } from '@/shared/ipc/contracts/events.contract';
+import type { IpcEvents } from '@/shared/ipc/contracts';
 
 /**
  * Event name type derived from the IpcEvents interface.

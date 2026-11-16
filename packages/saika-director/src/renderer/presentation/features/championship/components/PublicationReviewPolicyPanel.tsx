@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { publicationReviewPolicyService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
-import type { PublicationReviewPolicyStatus } from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
+import type { PublicationReviewPolicyStatus } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 
 const checks: { key: keyof ResultPublicationReviewSettingsDto; label: string }[] = [

@@ -61,10 +61,10 @@ import type {
   UpdateChampionshipPayload,
   UpdateEventPayload,
 } from '@/shared/ipc/contracts';
-import type { equipmentRegistryContract } from '@/shared/ipc/contracts/equipmentRegistry.contract';
-import type { operationalProfilesContract } from '@/shared/ipc/contracts/operationalProfiles.contract';
-import type { operationalTemplatesContract } from '@/shared/ipc/contracts/operationalTemplates.contract';
-import type { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
+import type { equipmentRegistryContract } from '@/shared/ipc/contracts';
+import type { operationalProfilesContract } from '@/shared/ipc/contracts';
+import type { operationalTemplatesContract } from '@/shared/ipc/contracts';
+import type { operatorAccessContract } from '@/shared/ipc/contracts';
 /**
  * ElectronAPI - Renderer-side type definitions for the preload bridge.
  *

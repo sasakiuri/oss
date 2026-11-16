@@ -1,5 +1,5 @@
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
-import { publicationReviewPolicyContract } from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
+import { publicationReviewPolicyContract } from '@/shared/ipc/contracts';
 import type { PublicationReviewPolicyService } from './PublicationReviewPolicyService';
 
 export {

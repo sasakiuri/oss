@@ -8,7 +8,7 @@ import {
   type GetEventByIdResponse,
 } from '@/main/modules/championship';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
+import type { PublishResultsResponse } from '@/shared/ipc/contracts';
 import type { CompetitionShotPayload } from '@sasakiuri/saika-protocol/Shots';
 import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
 

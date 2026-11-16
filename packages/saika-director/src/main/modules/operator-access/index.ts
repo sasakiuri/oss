@@ -1,6 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
-import { operatorAccessContract } from '@/shared/ipc/contracts/operatorAccess.contract';
+import { operatorAccessContract } from '@/shared/ipc/contracts';
 import type { OperatorAccessService } from './OperatorAccessService';
 
 export { OperatorAccessService } from './OperatorAccessService';

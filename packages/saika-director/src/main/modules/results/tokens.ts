@@ -4,7 +4,7 @@ import type { PublishResultsCommand } from './commands/PublishResults';
 import type { PublishMqttResultsCommand } from './commands/PublishMqttResults';
 import type { PublishFinalResultsCommand } from './commands/PublishFinalResults';
 import type { ConfirmResultsCommand } from './commands/ConfirmResults';
-import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
+import type { PublishResultsResponse } from '@/shared/ipc/contracts';
 
 // --- Command Tokens ---
 export const PublishResultsToken = defineCommand<PublishResultsCommand, unknown>('PublishResults');

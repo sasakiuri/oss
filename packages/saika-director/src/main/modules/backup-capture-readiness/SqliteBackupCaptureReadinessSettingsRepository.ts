@@ -1,9 +1,6 @@
 import type Database from 'better-sqlite3';
 
-import {
-  BackupCaptureReadinessSettingsSchema,
-  type BackupCaptureReadinessSettings,
-} from '@/shared/ipc/contracts/backupCaptureReadiness.contract';
+import { BackupCaptureReadinessSettingsSchema, type BackupCaptureReadinessSettings } from '@/shared/ipc/contracts';
 
 import type { IBackupCaptureReadinessSettingsRepository } from './BackupCaptureReadinessService';
 
