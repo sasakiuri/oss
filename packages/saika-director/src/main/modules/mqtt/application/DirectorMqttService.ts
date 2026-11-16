@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import type { FinalFiringTransportInput } from '@/main/modules/final-recovery-firing';
 import type { CompetitionStartIssue } from '@/main/shared-infra/operations/CompetitionStartReadiness';
 import { KeyedOperationQueue } from '@/main/shared-infra/operations/KeyedOperationQueue';
@@ -67,7 +68,6 @@ import type {
   CommandExecutionResult,
   CompetitionResultLane,
   CreateCompetitionInput,
-  DirectorCommandAction,
   DirectorMqttCallbacks,
   DirectorMqttOptions,
   LaneClockProbeResult,
@@ -85,7 +85,7 @@ import { RangeSafetyCommands } from './RangeSafetyCommands';
 const logger = Logger.create('DirectorMqttService');
 
 type BroadcastCommandAction = Extract<
-  DirectorCommandAction,
+  MqttCommandActionOf<'competition'>,
   | 'end-sighting'
   | 'start-match'
   | 'timer-started'
@@ -1786,7 +1786,7 @@ export class DirectorMqttService {
 
   private commandPublishFailure(
     commandId: string,
-    action: Extract<DirectorCommandAction, 'join-competition' | 'leave-competition'>,
+    action: Extract<MqttCommandActionOf<'lane'>, 'join-competition' | 'leave-competition'>,
     laneId: string,
     error: unknown,
   ): CommandExecutionResult {

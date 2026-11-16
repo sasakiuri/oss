@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
+import type { MqttCommandAction } from '@sasakiuri/saika-protocol/commands';
 import type { CommandAcknowledgement } from '@/shared/mqtt';
 import type { IMqttTransport } from '../domain/IMqttTransport';
-import type { DirectorCommandAction, CommandExecutionResult, LaneCommandResult } from './DirectorMqttTypes';
+import type { CommandExecutionResult, LaneCommandResult } from './DirectorMqttTypes';
 
 interface PendingCommand {
-  action: DirectorCommandAction;
+  action: MqttCommandAction;
   expectedLaneIds: Set<string>;
   expectedAcknowledgementTopics: Map<string, string>;
   acknowledgements: Map<string, CommandAcknowledgement>;
@@ -13,7 +14,7 @@ interface PendingCommand {
 }
 
 export interface PublishCommandOptions {
-  action: DirectorCommandAction;
+  action: MqttCommandAction;
   topic: string;
   acknowledgementTopic: (laneId: string) => string;
   payload: Record<string, unknown> & { commandId: string };

@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
+import type { MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import { ActivateSafetyStopCommandSchema, ClearSafetyStopCommandSchema, mqttTopics } from '@/shared/mqtt';
 
 import { createLaneCommandFailure } from './createLaneCommandFailure';
 import type { DirectorCommandPort } from './DirectorCommandPort';
-import type { CommandBatchResult, CommandExecutionResult, DirectorCommandAction } from './DirectorMqttTypes';
+import type { CommandBatchResult, CommandExecutionResult } from './DirectorMqttTypes';
 
 export interface RangeSafetyContext {
   hasLane(laneId: string): boolean;
@@ -98,7 +99,7 @@ export class RangeSafetyCommands {
   }
 
   private safetyCommandFailure(
-    action: Extract<DirectorCommandAction, 'activate-safety-stop' | 'clear-safety-stop'>,
+    action: Extract<MqttCommandActionOf<'lane'>, 'activate-safety-stop' | 'clear-safety-stop'>,
     laneId: string,
     error: unknown,
   ): CommandExecutionResult {
