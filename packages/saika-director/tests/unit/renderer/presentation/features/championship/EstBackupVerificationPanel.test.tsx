@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EstBackupVerificationPanel } from '@/renderer/presentation/features/championship/components/EstBackupVerificationPanel';
 
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
+
 const { list, captureRecords, verify } = vi.hoisted(() => ({
   list: vi.fn(),
   captureRecords: vi.fn(),
@@ -114,5 +116,25 @@ describe('EST backup import preview', () => {
     });
     expect(reference).toHaveValue('');
     expect(reference).not.toHaveAttribute('readonly');
+  });
+
+  it('shows failed comparisons and imports as their messages and other failures as fallback texts', async () => {
+    list.mockResolvedValue(ok([]));
+    verify.mockResolvedValueOnce(fail('The result list changed')).mockRejectedValueOnce('offline');
+    captureRecords.mockResolvedValueOnce(fail('The file could not be read')).mockRejectedValueOnce('offline');
+    render(<EstBackupVerificationPanel eventId="event" onClose={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Printout or independent-memory source'), {
+      target: { value: 'Target memory' },
+    });
+    fireEvent.change(screen.getByLabelText('RTS official'), { target: { value: 'Jury' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Compare and retain' }));
+    expect(await screen.findByText('The result list changed')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Compare and retain' }));
+    expect(await screen.findByText('Invalid backup input')).toBeVisible();
+    expect(screen.queryByText('The result list changed')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Import JSON / CSV' }));
+    expect(await screen.findByText('The file could not be read')).toBeVisible();
+    fireEvent.click(await screen.findByRole('button', { name: 'Import JSON / CSV' }));
+    expect(await screen.findByText('Failed to import the EST backup source')).toBeVisible();
   });
 });

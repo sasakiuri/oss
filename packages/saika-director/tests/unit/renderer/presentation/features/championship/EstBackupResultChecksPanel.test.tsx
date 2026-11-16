@@ -2,6 +2,9 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { EstBackupResultChecksPanel } from '@/renderer/presentation/features/championship/components/EstBackupResultChecksPanel';
 import type { EstBackupVerificationRunDto } from '@/shared/ipc/contracts';
+
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
+
 const { previewChecks, applyChecks } = vi.hoisted(() => ({ previewChecks: vi.fn(), applyChecks: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ estBackupVerificationService: { previewChecks, applyChecks } }));
 const run: EstBackupVerificationRunDto = {
@@ -90,5 +93,23 @@ describe('EST individual check handoff', () => {
     );
     expect(await screen.findByText(/Athlete A: FAILED.*Concurrent result change/)).toBeInTheDocument();
     await waitFor(() => expect(save).toBeDisabled());
+  });
+
+  it('shows a failed preview and a failed recording as their messages', async () => {
+    previewChecks.mockResolvedValueOnce(fail('The comparison is no longer current'));
+    render(<EstBackupResultChecksPanel run={run} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview individual RTS checks' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^The comparison is no longer current$/);
+
+    previewChecks.mockResolvedValue(ok(preview));
+    applyChecks.mockResolvedValue(fail('Results changed after the preview'));
+    fireEvent.click(screen.getByRole('button', { name: 'Preview individual RTS checks' }));
+    const save = await screen.findByRole('button', { name: 'Record selected RTS checks' });
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Backup evidence type'), { target: { value: 'TARGET_PRINTOUT' } });
+    fireEvent.change(screen.getByLabelText('Source and intervention review'), { target: { value: 'Compared' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /I reviewed the backup/ }));
+    fireEvent.click(save);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Results changed after the preview$/);
   });
 });
