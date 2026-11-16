@@ -6,9 +6,6 @@ import tailwindConfig from '../../../../../tailwind.config.js';
 
 const packageRoot = resolve(import.meta.dirname, '../../../../..');
 
-/** `focus:border-vscode-focus` generates no CSS; focus outlines come from `src/renderer/index.css`. */
-const KNOWN_UNDEFINED = new Set(['focus']);
-
 function sourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
@@ -30,7 +27,7 @@ describe('renderer colour tokens', () => {
     const undefinedTokens = files.flatMap((file) =>
       [...readFileSync(file, 'utf8').matchAll(/-vscode-([a-z0-9-]+)/g)]
         .map((match) => match[1]!)
-        .filter((token) => !defined.has(token) && !KNOWN_UNDEFINED.has(token))
+        .filter((token) => !defined.has(token))
         .map((token) => `${relative(packageRoot, file)}: vscode-${token}`),
     );
 
