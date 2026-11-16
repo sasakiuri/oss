@@ -1,4 +1,3 @@
-import { vistaModule } from '@/main/modules/vista';
 // SPDX-License-Identifier: MIT
 import { adjudicationCasesModule } from '@/main/modules/adjudication-cases';
 import { athleteSanctionsModule } from '@/main/modules/athlete-sanctions';
@@ -45,6 +44,7 @@ import { squaddingModule } from '@/main/modules/squadding';
 import { startListsModule } from '@/main/modules/start-lists';
 import { targetExaminationsModule } from '@/main/modules/target-examinations';
 import { teamResultsModule } from '@/main/modules/team-results';
+import { vistaModule } from '@/main/modules/vista';
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 
 // Static module list (Vite/Electron safe — no dynamic import)
