@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { malfunctionScoreApplicationsService, qualificationMalfunctionsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   MalfunctionScoreApplicationHistoryDto,
   MalfunctionScoreApplicationPreviewDto,
@@ -29,34 +31,18 @@ export function MalfunctionScoreApplicationPanel({
   const [innerTens, setInnerTens] = useState<Record<string, string>>({});
   const [preview, setPreview] = useState<MalfunctionScoreApplicationPreviewDto | null>(null);
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run: perform } = useAsyncAction();
   const sheet = sheets.filter((candidate) => candidate.input.caseId === value.id).at(-1);
   const load = useCallback(async () => {
-    const response = await malfunctionScoreApplicationsService.list({ caseId: value.id });
-    if (!response.success) throw new Error(response.error.message);
-    setHistory(response.data);
+    setHistory(unwrap(await malfunctionScoreApplicationsService.list({ caseId: value.id })));
   }, [value.id]);
   useEffect(() => {
-    if (open) void load().catch((caught) => setError(message(caught)));
+    if (open) void load().catch((caught) => setError(errorMessage(caught)));
   }, [load, open]);
 
-  async function perform(work: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    try {
-      await work();
-    } catch (caught) {
-      setError(message(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
   async function refresh() {
     await load();
-    const result = await qualificationMalfunctionsService.getById({ caseId: value.id });
-    if (!result.success) throw new Error(result.error.message);
-    onChanged(result.data);
+    onChanged(unwrap(await qualificationMalfunctionsService.getById({ caseId: value.id })));
     setPreview(null);
     setRequestId(crypto.randomUUID());
   }
@@ -158,9 +144,7 @@ export function MalfunctionScoreApplicationPanel({
                   onClick={() =>
                     void perform(async () => {
                       setPreview(null);
-                      const response = await malfunctionScoreApplicationsService.preview(request());
-                      if (!response.success) throw new Error(response.error.message);
-                      setPreview(response.data);
+                      setPreview(unwrap(await malfunctionScoreApplicationsService.preview(request())));
                     })
                   }
                 >
@@ -190,7 +174,7 @@ export function MalfunctionScoreApplicationPanel({
                       expectedDigest: preview.digest,
                       confirmed: true,
                     });
-                    if (!response.success) throw new Error(response.error.message);
+                    unwrap(response);
                     await refresh();
                   })
                 }
@@ -225,7 +209,7 @@ export function MalfunctionScoreApplicationPanel({
                         officialRole,
                         statement,
                       });
-                      if (!response.success) throw new Error(response.error.message);
+                      unwrap(response);
                       await refresh();
                     })
                   }
@@ -239,7 +223,4 @@ export function MalfunctionScoreApplicationPanel({
       )}
     </section>
   );
-}
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
