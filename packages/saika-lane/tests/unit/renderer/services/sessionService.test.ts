@@ -3,18 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ServiceError } from '@/renderer/services/createServiceMethod';
 
-const mockStartSession = vi.fn();
 const mockSwitchMode = vi.fn();
-const mockResetSession = vi.fn();
 const mockGetSessionScore = vi.fn();
 const mockGetShotHistory = vi.fn();
 
 vi.stubGlobal('window', {
   electronAPI: {
     commands: {
-      startSession: mockStartSession,
       switchMode: mockSwitchMode,
-      resetSession: mockResetSession,
     },
     queries: {
       getSessionScore: mockGetSessionScore,
@@ -29,94 +25,6 @@ const { sessionService } = await import('@/renderer/services/sessionService');
 describe('sessionService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  describe('startSession', () => {
-    it('returns sessionId on success', async () => {
-      mockStartSession.mockResolvedValue({
-        success: true,
-        data: { sessionId: 'session-123' },
-      });
-
-      const result = await sessionService.startSession({ discipline: 'AIR_RIFLE_10M' });
-
-      expect(result).toEqual({ sessionId: 'session-123' });
-      expect(mockStartSession).toHaveBeenCalledWith({ discipline: 'AIR_RIFLE_10M' });
-    });
-
-    it('throws ServiceError on failure', async () => {
-      expect.assertions(4);
-      mockStartSession.mockResolvedValue({
-        success: false,
-        error: { code: 'SESSION_ERROR', message: 'Failed to start' },
-      });
-
-      await expect(sessionService.startSession({ discipline: 'AIR_RIFLE_10M' })).rejects.toThrow(ServiceError);
-
-      try {
-        await sessionService.startSession({ discipline: 'AIR_RIFLE_10M' });
-      } catch (err) {
-        expect(err).toBeInstanceOf(ServiceError);
-        expect((err as ServiceError).code).toBe('SESSION_ERROR');
-        expect((err as ServiceError).message).toBe('Failed to start');
-      }
-    });
-
-    it('failure without error object results in UNKNOWN code', async () => {
-      expect.assertions(1);
-      mockStartSession.mockResolvedValue({ success: false });
-
-      try {
-        await sessionService.startSession({ discipline: 'AIR_PISTOL_10M' });
-      } catch (err) {
-        expect((err as ServiceError).code).toBe('UNKNOWN');
-      }
-    });
-
-    it('IPC communication error is wrapped with IPC_ERROR code', async () => {
-      expect.assertions(3);
-      mockStartSession.mockRejectedValue(new Error('IPC channel closed'));
-
-      try {
-        await sessionService.startSession({ discipline: 'AIR_RIFLE_10M' });
-      } catch (err) {
-        expect(err).toBeInstanceOf(ServiceError);
-        expect((err as ServiceError).code).toBe('IPC_ERROR');
-        expect((err as ServiceError).message).toBe('IPC channel closed');
-      }
-    });
-
-    it('non-Error reject is also wrapped with IPC_ERROR', async () => {
-      expect.assertions(3);
-      mockStartSession.mockRejectedValue('string error');
-
-      try {
-        await sessionService.startSession({ discipline: 'AIR_RIFLE_10M' });
-      } catch (err) {
-        expect(err).toBeInstanceOf(ServiceError);
-        expect((err as ServiceError).code).toBe('IPC_ERROR');
-        expect((err as ServiceError).message).toBe('string error');
-      }
-    });
-
-    it('can be called with each discipline', async () => {
-      mockStartSession.mockResolvedValue({
-        success: true,
-        data: { sessionId: 'id' },
-      });
-
-      for (const discipline of [
-        'AIR_RIFLE_10M',
-        'AIR_PISTOL_10M',
-        'RIFLE_50M',
-        'PISTOL_25M',
-        'BEAM_RIFLE_10M',
-        'BEAM_PISTOL_10M',
-      ] as const) {
-        await sessionService.startSession({ discipline });
-        expect(mockStartSession).toHaveBeenCalledWith({ discipline });
-      }
-    });
   });
 
   describe('switchMode', () => {
@@ -146,25 +54,6 @@ describe('sessionService', () => {
       } catch (err) {
         expect((err as ServiceError).code).toBe('IPC_ERROR');
       }
-    });
-  });
-
-  describe('resetSession', () => {
-    it('returns void on success', async () => {
-      mockResetSession.mockResolvedValue({ success: true });
-
-      await expect(sessionService.resetSession({ sessionId: 's1' })).resolves.toBeUndefined();
-
-      expect(mockResetSession).toHaveBeenCalledWith({ sessionId: 's1' });
-    });
-
-    it('throws ServiceError on failure', async () => {
-      mockResetSession.mockResolvedValue({
-        success: false,
-        error: { code: 'RESET_ERROR', message: 'Reset failed' },
-      });
-
-      await expect(sessionService.resetSession({ sessionId: 's1' })).rejects.toThrow(ServiceError);
     });
   });
 
