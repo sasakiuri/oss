@@ -26,6 +26,7 @@ import {
   projectLaneVista,
   type LaneVistaShotContext,
 } from '../application/LaneVistaProjection';
+import { readVistaLaneAlias } from '../application/readVistaLaneAlias';
 
 interface LaneVistaArchive {
   competitionId: string;
@@ -204,7 +205,7 @@ export class LaneVistaSource {
       }
     }
     const preferences = storage.get<{ laneNumber?: number }>('userPreferences');
-    const laneName = storage.get<string>('mqtt.laneAlias') || `Lane ${preferences?.laneNumber ?? 1}`;
+    const laneName = readVistaLaneAlias(storage) ?? `Lane ${preferences?.laneNumber ?? 1}`;
     for (const id of ids) {
       await setImmediate();
       if (this.blockedCompetitions.has(id)) continue;
