@@ -37,10 +37,6 @@ vi.mock('@/renderer/presentation/hooks/useCompetition', () => ({
     startNextSeries: mockStartNextSeries,
     advanceStage: mockAdvanceStage,
     endStage: mockEndStage,
-    startCompetition: vi.fn(),
-    finishCompetition: vi.fn(),
-    loading: false,
-    error: null,
   }),
 }));
 
