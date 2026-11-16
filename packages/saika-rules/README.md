@@ -11,7 +11,9 @@ Officials remain responsible for classifying incidents and authorizing firing an
 score changes.
 
 Public types are in `src/RulePack.ts`. `defineRulePack` validates a supplied pack
-and its capability references before freezing it. The package has no application
+and its capability references before freezing it. `identifyRulePack` returns a
+pack's exact identity (ID, schema version and SHA-256 fingerprint);
+`sameRulePackIdentity` compares two identities. The package has no application
 or transport dependencies. Lane and Director use their own
 `competitionTypeFromRulePack` adapters. See
 [shared competition rules](../../ARCHITECTURE.md#shared-competition-rules) for

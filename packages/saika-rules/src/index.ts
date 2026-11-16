@@ -6,7 +6,7 @@ export type {
   EstComplaintRuleContext,
   RuleEstComplaintIssue,
 } from './EstComplaint';
-export { canonicalJson, identifyRulePack } from './RulePackIdentity';
+export { canonicalJson, identifyRulePack, sameRulePackIdentity } from './RulePackIdentity';
 export { projectShotResult } from './ShotResultProjection';
 export { recommendQualificationTimedTargetInterruption } from './QualificationTimedTargetInterruption';
 export { planQualificationMalfunctionFiring } from './QualificationMalfunctionFiring';
