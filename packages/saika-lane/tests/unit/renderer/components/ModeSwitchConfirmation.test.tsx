@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '@/renderer/presentation/App';
+import type { SettingsTab } from '@/renderer/presentation/components/SettingsModal';
 import { SideMenu } from '@/renderer/presentation/components/SideMenu';
 import { useMainScreenKeyboardShortcuts } from '@/renderer/presentation/hooks/useMainScreenKeyboardShortcuts';
 import type { MainScreenProps } from '@/renderer/presentation/screens/MainScreen';
@@ -44,7 +45,7 @@ vi.mock('@/renderer/presentation/screens/MainScreen', () => ({
     const shots = useSessionStore((s) => s.shots);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
     const [zoomMode, setZoomMode] = useState<ZoomMode>('AUTO');
-    const [, setSettingsInitialTab] = useState<'general' | 'target' | 'connection'>('general');
+    const [, setSettingsInitialTab] = useState<SettingsTab>('general');
     useMainScreenKeyboardShortcuts({
       isSettingsModalOpen,
       setIsSettingsModalOpen,

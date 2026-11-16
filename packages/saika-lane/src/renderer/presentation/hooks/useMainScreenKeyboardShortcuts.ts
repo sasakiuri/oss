@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect } from 'react';
 
+import type { SettingsTab } from '@/renderer/presentation/components/SettingsModal';
 import { SHORTCUTS } from '@/renderer/presentation/constants/shortcuts';
 import { isEditableShortcutTarget } from '@/renderer/presentation/utils/keyboardShortcuts';
 import type { ZoomMode } from '@/renderer/presentation/utils/zoomCalculator';
@@ -9,7 +10,7 @@ interface UseMainScreenKeyboardShortcutsParams {
   isSettingsModalOpen: boolean;
   onZoomClick: () => void;
   setZoomMode: React.Dispatch<React.SetStateAction<ZoomMode>>;
-  setSettingsInitialTab: (tab: 'general' | 'target' | 'connection') => void;
+  setSettingsInitialTab: (tab: SettingsTab) => void;
   setIsSettingsModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 

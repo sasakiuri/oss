@@ -6,7 +6,7 @@ import { DebugPane } from '@/renderer/presentation/components/DebugPane';
 import { FinalCommandCue } from '@/renderer/presentation/components/FinalCommandCue';
 import { FinishSavedRun } from '@/renderer/presentation/components/FinishSavedRun';
 import { SafetyStopOverlay } from '@/renderer/presentation/components/SafetyStopOverlay';
-import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
+import { SettingsModal, type SettingsTab } from '@/renderer/presentation/components/SettingsModal';
 import { SideMenu } from '@/renderer/presentation/components/SideMenu';
 import { SidePanel } from '@/renderer/presentation/components/SidePanel';
 import { StatusBar } from '@/renderer/presentation/components/StatusBar';
@@ -61,9 +61,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
   const scoringGaugeProfileId = useCompetitionStore((state) => state.scoringGaugeProfileId);
   const [isDebugPaneOpen, setIsDebugPaneOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [settingsInitialTab, setSettingsInitialTab] = useState<'general' | 'target' | 'connection' | 'printing'>(
-    'general',
-  );
+  const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const [zoomMode, setZoomMode] = useState<ZoomMode>('AUTO');
 
   const handleZoomClick = useCallback(() => {
