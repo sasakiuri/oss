@@ -3,6 +3,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert';
 import type { SelectOption } from '@/renderer/presentation/components/common/Select';
 import { DeviceSelector } from '@/renderer/presentation/components/DeviceSelector';
 import { PortSelector } from '@/renderer/presentation/components/PortSelector';
@@ -219,16 +220,7 @@ export const SettingsConnectionTab: React.FC = () => {
         onDeviceChange={handleDeviceChange}
       />
 
-      {error && (
-        <div
-          className="rounded-lg border border-red-500 bg-red-500/10 p-3 text-sm text-red-400"
-          role="alert"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {error}
-        </div>
-      )}
+      {error && <ErrorAlert>{error}</ErrorAlert>}
 
       <div className="mt-2 flex justify-end gap-3">
         {isConnected ? (
