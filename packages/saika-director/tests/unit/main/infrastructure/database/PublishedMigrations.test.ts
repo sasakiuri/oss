@@ -23,6 +23,15 @@ const published = JSON.parse(
   readFileSync(new URL('./published-migrations.json', import.meta.url), 'utf8'),
 ) as PublishedMigration[];
 
+/** Module specifiers of static, side-effect and re-export statements, dynamic imports and require calls. */
+function importedModules(source: string): string[] {
+  return [
+    ...source.matchAll(/^\s*(?:import|export)\b[^;'"`]*?\bfrom\s*['"]([^'"]+)['"]/gm),
+    ...source.matchAll(/^\s*import\s*['"]([^'"]+)['"]/gm),
+    ...source.matchAll(/\b(?:import|require)\s*\(\s*['"`]([^'"`]+)['"`]/g),
+  ].map((match) => match[1]!);
+}
+
 describe('published migrations', () => {
   it('keeps every published migration source byte-identical', () => {
     for (const migration of published) {
@@ -45,6 +54,32 @@ describe('published migrations', () => {
         .sort(),
     ).toEqual(published.map(({ file }) => file));
     for (const { version, file } of published) expect(file.startsWith(String(version).padStart(3, '0'))).toBe(true);
+  });
+
+  it('finds every form of module reference', () => {
+    const source = [
+      "import { a } from './a';",
+      'import type {',
+      '  B,',
+      "} from '../b';",
+      "import '../c';",
+      "export { d } from '../d';",
+      "export * from '../e';",
+      "const f = await import('../f');",
+      "const g = require('../g');",
+      'const sql = `SELECT id from events`;',
+    ].join('\n');
+    expect(importedModules(source).sort()).toEqual(['../b', '../c', '../d', '../e', '../f', '../g', './a']);
+  });
+
+  it('keeps migrations independent of current feature code', () => {
+    for (const { file } of published) {
+      const source = readFileSync(`${migrationDirectory}${file}`, 'utf8');
+      expect(
+        importedModules(source).filter((specifier) => !/^(\.\/Migration|node:.+|zod|better-sqlite3)$/.test(specifier)),
+        `${file} must not import application or protocol code`,
+      ).toEqual([]);
+    }
   });
 
   it('creates the pinned schema on an empty database', async () => {

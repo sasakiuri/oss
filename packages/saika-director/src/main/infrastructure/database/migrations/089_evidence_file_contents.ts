@@ -1,9 +1,37 @@
+import { createHash } from 'node:crypto';
 import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { evidenceFileReferences, verifyEvidenceFileContent } from '../EvidenceFileContents';
+import type Database from 'better-sqlite3';
 
 import type { Migration } from './Migration';
+
+// Frozen copies of the evidence helpers this migration was published with; keep them unchanged.
+function verifyEvidenceFileContent(bytes: Uint8Array, sha256: string, sizeBytes: number): void {
+  if (bytes.byteLength !== sizeBytes) throw new Error('Evidence file size does not match the custody record');
+  if (createHash('sha256').update(bytes).digest('hex') !== sha256) throw new Error('Evidence file SHA-256 mismatch');
+}
+
+function evidenceFileReferences(database: Database.Database): Array<{ sha256: string; sizeBytes: number }> {
+  if (!database.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'evidence_files'").get()) {
+    return [];
+  }
+  const rows = database
+    .prepare(
+      `SELECT DISTINCT json_extract(snapshot_json, '$.sha256') AS sha256,
+      json_extract(snapshot_json, '$.sizeBytes') AS sizeBytes FROM evidence_files`,
+    )
+    .all() as Array<{ sha256: string; sizeBytes: number }>;
+  for (const row of rows) {
+    if (typeof row.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(row.sha256)) {
+      throw new Error('Invalid evidence content key in the custody record');
+    }
+    if (!Number.isSafeInteger(row.sizeBytes) || row.sizeBytes < 0 || row.sizeBytes > 32 * 1024 * 1024) {
+      throw new Error('Invalid evidence file size in the custody record');
+    }
+  }
+  return rows;
+}
 
 export const migration089EvidenceFileContents: Migration = {
   version: 89,
