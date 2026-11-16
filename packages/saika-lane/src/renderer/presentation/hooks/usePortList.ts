@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { SelectOption } from '@/renderer/presentation/components/common/Select';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { connectionService } from '@/renderer/services/connectionService';
 import type { PortInfo } from '@/shared/ipc/contracts';
 
@@ -31,7 +32,7 @@ export function usePortList() {
       if (signal?.aborted) return;
       setPorts([]);
       setPortOptions([]);
-      setPortError(err instanceof Error ? err.message : 'Failed to fetch port list');
+      setPortError(errorMessage(err, 'Failed to fetch port list'));
     } finally {
       if (signal?.aborted) return;
       setIsLoadingPorts(false);

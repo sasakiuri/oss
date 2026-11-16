@@ -2,6 +2,7 @@
 import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { useState } from 'react';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
 import type { TimingProfileStatus } from '@/shared/ipc/contracts/timingProfiles.schema';
 
@@ -37,7 +38,7 @@ export function TimingProfilesPanel({
     try {
       await work();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setBusy(false);
     }

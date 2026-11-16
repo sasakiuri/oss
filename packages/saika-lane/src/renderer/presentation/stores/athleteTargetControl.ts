@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
 import type { CompetitionStateDto } from '@/shared/ipc/contracts';
 
@@ -18,7 +19,7 @@ function reportFailure(error: unknown): void {
     id: `athlete-target-error-${Date.now()}`,
     timestamp: new Date().toISOString(),
     level: 'error',
-    message: `Failed to update athlete target mode: ${error instanceof Error ? error.message : String(error)}`,
+    message: `Failed to update athlete target mode: ${errorMessage(error)}`,
     source: 'renderer',
   });
 }

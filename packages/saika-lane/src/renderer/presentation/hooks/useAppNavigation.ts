@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { mergeShots, useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
 import { sessionService } from '@/renderer/services/sessionService';
 import { startupService } from '@/renderer/services/startupService';
@@ -113,7 +114,7 @@ export function useAppNavigation() {
       } catch (error) {
         state = {
           status: 'ERROR',
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
           competitionId: null,
           sessionId: null,
           currentSeriesStartIndex: 0,

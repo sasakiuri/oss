@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useState } from 'react';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
 
 import { ModeSwitchConfirmation } from './ModeSwitchConfirmation';
@@ -22,7 +23,7 @@ export function FinishSavedRun({
       await competitionService.finishCompetition({ competitionId });
       await onFinished();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }

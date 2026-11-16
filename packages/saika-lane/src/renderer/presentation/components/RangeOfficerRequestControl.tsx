@@ -2,6 +2,7 @@
 import { BellRing, CheckCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { mqttService } from '@/renderer/services/mqttService';
 import type { RangeOfficerRequestDto, RequestRangeOfficerInput } from '@/shared/ipc/contracts';
 
@@ -33,7 +34,7 @@ export function RangeOfficerRequestControl({ isOpen, onClose, onActiveChange }: 
       setMqttConnected(mqtt.status === 'connected');
       setError(null);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     }
   };
 
@@ -54,7 +55,7 @@ export function RangeOfficerRequestControl({ isOpen, onClose, onActiveChange }: 
       const mqtt = await mqttService.getMqttStatus();
       setMqttConnected(mqtt.status === 'connected');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setBusy(false);
     }
@@ -69,7 +70,7 @@ export function RangeOfficerRequestControl({ isOpen, onClose, onActiveChange }: 
       setState(next);
       setMessage('');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setBusy(false);
     }

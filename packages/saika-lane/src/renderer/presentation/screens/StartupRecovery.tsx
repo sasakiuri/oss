@@ -5,6 +5,7 @@ import { FinishSavedRun } from '@/renderer/presentation/components/FinishSavedRu
 import { ModeSwitchConfirmation } from '@/renderer/presentation/components/ModeSwitchConfirmation';
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
 import { settingsService } from '@/renderer/services/settingsService';
 import { startupService } from '@/renderer/services/startupService';
@@ -42,7 +43,7 @@ export function StartupRecovery({ state, onRetry }: { state: StartupStateDto; on
       await startupService.setAsideSavedRun();
       await onRetry();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }
@@ -54,7 +55,7 @@ export function StartupRecovery({ state, onRetry }: { state: StartupStateDto; on
       await settingsService.saveUserPreferences({ competitionTypeId: typeId });
       await onRetry();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }

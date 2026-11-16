@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
 import type { TimedTargetStateDto } from '@/shared/ipc/contracts';
 import { isTargetScoringProfileId } from '@/shared/target';
@@ -96,7 +97,7 @@ export function TimedTargetOverlay() {
             setCancelError(null);
             void timedTargetService
               .cancel({ sequenceId: state.sequenceId, reason: 'Emergency local cancellation' })
-              .catch((error: unknown) => setCancelError(error instanceof Error ? error.message : String(error)));
+              .catch((error: unknown) => setCancelError(errorMessage(error)));
           }}
         >
           Cancel sequence

@@ -4,6 +4,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { mqttService } from '@/renderer/services/mqttService';
 
 export const MqttSettingsTab: React.FC = () => {
@@ -47,7 +48,7 @@ export const MqttSettingsTab: React.FC = () => {
         setError(mqttStatus.error ?? null);
       } catch (err) {
         if (controller.signal.aborted) return;
-        setError(err instanceof Error ? err.message : String(err));
+        setError(errorMessage(err));
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -72,7 +73,7 @@ export const MqttSettingsTab: React.FC = () => {
       await mqttService.saveMqttSettings(newSettings);
       setSettings(newSettings);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -91,7 +92,7 @@ export const MqttSettingsTab: React.FC = () => {
       setStatus('connected');
     } catch (err) {
       setStatus('disconnected');
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -104,7 +105,7 @@ export const MqttSettingsTab: React.FC = () => {
       await mqttService.disconnectMqtt();
       setStatus('disconnected');
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setLoading(false);
     }

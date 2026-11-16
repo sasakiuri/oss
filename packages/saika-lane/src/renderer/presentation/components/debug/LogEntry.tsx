@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import React from 'react';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import type { LogEntry as LogEntryType } from '@/shared/types/log';
 
 import { LogLevelIndicator } from './LogLevelIndicator';
@@ -23,7 +24,7 @@ function formatMetadata(metadata: Record<string, unknown>): string {
   try {
     return JSON.stringify(metadata, null, 2);
   } catch (error) {
-    return '[Metadata serialization failed: ' + (error instanceof Error ? error.message : 'Unknown error') + ']';
+    return '[Metadata serialization failed: ' + errorMessage(error, 'Unknown error') + ']';
   }
 }
 

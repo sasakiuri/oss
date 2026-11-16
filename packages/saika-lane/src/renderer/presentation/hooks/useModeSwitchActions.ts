@@ -11,6 +11,7 @@ import {
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 
 export interface ModeSwitchActions {
   handlePreparationClick: () => Promise<void>;
@@ -59,7 +60,7 @@ export function useModeSwitchActions() {
 
   const dismissProgressError = useCallback(() => setProgressError(null), []);
   const reportProgressError = useCallback((error: unknown) => {
-    setProgressError(error instanceof Error ? error.message : String(error));
+    setProgressError(errorMessage(error));
   }, []);
 
   const cancelConfirmation = useCallback(() => {

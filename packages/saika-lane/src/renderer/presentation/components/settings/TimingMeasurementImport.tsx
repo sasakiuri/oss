@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useRef, useState } from 'react';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
 import {
   MAX_TIMING_MEASUREMENT_BYTES,
@@ -44,7 +45,7 @@ export function TimingMeasurementImport({
     try {
       await work();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setBusy(false);
     }

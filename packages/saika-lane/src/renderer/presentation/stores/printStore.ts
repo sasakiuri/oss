@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { create } from 'zustand';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { reportService } from '@/renderer/services/reportService';
 
 interface PrintState {
@@ -19,7 +20,7 @@ export const usePrintStore = create<PrintState>((set, get) => ({
     try {
       await reportService.openPrintWindow({ sessionId });
     } catch (error) {
-      set({ error: error instanceof Error ? error.message : 'Printing failed. Check Settings > Printing.' });
+      set({ error: errorMessage(error, 'Printing failed. Check Settings > Printing.') });
     } finally {
       set({ isPrinting: false });
     }

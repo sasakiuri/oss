@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useCallback, useEffect, useState } from 'react';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { reportService } from '@/renderer/services/reportService';
 import { PrintSettingsSchema, type ScoreSheetDto } from '@/shared/ipc/contracts';
 
@@ -33,7 +34,7 @@ export function ScoreSheetPrintScreen() {
       await document.fonts.ready;
       if (!cancelled) await reportService.printReady(error ? { error: error.slice(0, 2000) } : {});
     })().catch((err: unknown) => {
-      if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to prepare printing');
+      if (!cancelled) setError(errorMessage(err, 'Failed to prepare printing'));
     });
     return () => {
       cancelled = true;
@@ -52,7 +53,7 @@ export function ScoreSheetPrintScreen() {
         const data = await reportService.getScoreSheet({ sessionId });
         setScoreSheet(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to retrieve score sheet');
+        setError(errorMessage(err, 'Failed to retrieve score sheet'));
       } finally {
         setLoading(false);
       }
