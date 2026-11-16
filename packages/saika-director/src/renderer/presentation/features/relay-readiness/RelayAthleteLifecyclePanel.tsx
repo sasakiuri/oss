@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BadgeCheck, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 
 import { relayAthleteLifecycleService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { RelayAthleteLifecycleAssessmentDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 
@@ -79,10 +80,10 @@ export function RelayAthleteLifecyclePanel({
         statement: statement.trim(),
         officialName: officialName.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       await load();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setSavingKey(null);
     }

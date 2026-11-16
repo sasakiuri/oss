@@ -2,6 +2,7 @@ import { CheckCircle2, ClipboardCheck, RefreshCw, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { relayReadinessService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { RelayReadinessAssessmentDto, RelayStartSettingsDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -38,16 +39,16 @@ export function RelayReadinessPanel({
         relayReadinessService.assess({ competitionId, relayNumber, phase, laneIds }),
         relayReadinessService.getStartSettings({ competitionId }),
       ]);
-      if (!settings.success) throw new Error(settings.error.message);
-      setStartSettings(settings.data);
-      setMode(settings.data.mode);
+      const loadedSettings = unwrap(settings);
+      setStartSettings(loadedSettings);
+      setMode(loadedSettings.mode);
       if (!response.success) {
         setError(response.error.message);
         return;
       }
       setAssessment(response.data);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     }
   }, [competitionId, laneIdsKey, phase, relayNumber]);
 
@@ -60,10 +61,10 @@ export function RelayReadinessPanel({
     setError(null);
     try {
       const response = await relayReadinessService.setStartSettings({ competitionId, relayNumber, mode });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       await load();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setSavingKey(null);
     }
@@ -88,10 +89,10 @@ export function RelayReadinessPanel({
         statement: statement.trim(),
         officialName: officialName.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       await load();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setSavingKey(null);
     }
