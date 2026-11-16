@@ -16,7 +16,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "test:mutation": "stryker run"
+    "test:mutation": "stryker run",
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
@@ -29,6 +30,7 @@
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
     "@vitest/coverage-v8": "4.1.12",
+    "dependency-cruiser": "17.4.3",
     "electron": "43.8.3",
     "eslint": "^9",
     "prettier": "^3.6.2",
