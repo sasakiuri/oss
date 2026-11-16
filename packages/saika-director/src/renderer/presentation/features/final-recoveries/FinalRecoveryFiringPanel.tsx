@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { finalRecoveryFiringService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { FinalFiringRecordDto, FinalRecoveryCaseDto } from '@/shared/ipc/contracts';
+import type { IpcErrorDto } from '@sasakiuri/saika-ipc';
 import { Button } from '../shared/common/Button';
 
 export function FinalRecoveryFiringPanel({ value, disabled }: { value: FinalRecoveryCaseDto; disabled: boolean }) {
@@ -15,26 +17,23 @@ export function FinalRecoveryFiringPanel({ value, disabled }: { value: FinalReco
   const supported =
     ['PISTOL_25M_RAPID_FIRE', 'PISTOL_25M_WOMEN'].includes(value.procedureProfile) && value.phase === 'MATCH_SERIES';
   async function load() {
-    const response = await finalRecoveryFiringService.list({ caseId: value.id });
-    if (!response.success) throw new Error(response.error.message);
-    setRuns(response.data);
+    setRuns(unwrap(await finalRecoveryFiringService.list({ caseId: value.id })));
   }
   useEffect(() => {
-    void load().catch((caught: unknown) => setError(messageOf(caught)));
+    void load().catch((caught: unknown) => setError(errorMessage(caught)));
   }, [value.id]);
-  async function execute(operation: () => Promise<{ success: boolean; error?: { message: string } }>) {
+  async function execute(operation: () => Promise<{ success: boolean; error?: IpcErrorDto }>) {
     setBusy(true);
     setError(null);
     try {
-      const response = await operation();
-      if (!response.success) throw new Error(response.error?.message ?? 'Operation failed');
+      unwrap(await operation(), 'Operation failed');
     } catch (caught) {
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     } finally {
       try {
         await load();
       } catch (caught) {
-        setError(messageOf(caught));
+        setError(errorMessage(caught));
       }
       setBusy(false);
     }
@@ -184,7 +183,4 @@ export function FinalRecoveryFiringPanel({ value, disabled }: { value: FinalReco
       ))}
     </section>
   );
-}
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
