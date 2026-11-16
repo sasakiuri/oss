@@ -1,7 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { EquipmentRegistryPanel } from '@/renderer/presentation/features/championship/components/EquipmentRegistryPanel';
 import { equipmentRegistryService } from '@/renderer/services';
+
+import { fail, ok } from '../../../../../../helpers/renderer/serviceResponses';
+
 vi.mock('@/renderer/services', () => ({ equipmentRegistryService: { getWorkspace: vi.fn(), saveEquipment: vi.fn() } }));
 describe('EquipmentRegistryPanel', () => {
   it('requires attribution and retains form input on a stale-record failure', async () => {
@@ -31,7 +34,7 @@ describe('EquipmentRegistryPanel', () => {
     fireEvent.change(screen.getByLabelText('Registered athlete'), { target: { value: athleteId } });
     fireEvent.change(screen.getByLabelText('Equipment description'), { target: { value: 'Air rifle' } });
     fireEvent.click(screen.getByRole('button', { name: 'Register equipment' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Equipment records changed');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Equipment records changed; reload before saving$/);
     expect(equipmentRegistryService.saveEquipment).toHaveBeenCalledWith(
       expect.objectContaining({
         expectedRevision: 3,
@@ -40,5 +43,19 @@ describe('EquipmentRegistryPanel', () => {
       }),
     );
     expect(screen.getByLabelText('Equipment description')).toHaveValue('Air rifle');
+  });
+
+  it('shows a failed load and a failed reload as their messages', async () => {
+    vi.mocked(equipmentRegistryService.getWorkspace).mockResolvedValueOnce(fail('Championship not found'));
+    render(<EquipmentRegistryPanel championshipId="11111111-1111-4111-8111-111111111111" />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Championship not found$/);
+    vi.mocked(equipmentRegistryService.getWorkspace).mockResolvedValueOnce(fail('The register is unavailable'));
+    fireEvent.click(screen.getByRole('button', { name: 'Reload register' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^The register is unavailable$/));
+    vi.mocked(equipmentRegistryService.getWorkspace).mockResolvedValueOnce(
+      ok({ revision: 4, athletes: [], equipment: [], entries: [], activeCalibrationIds: [] }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reload register' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
   });
 });
