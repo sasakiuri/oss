@@ -61,4 +61,4 @@ export type {
 } from './domain/events';
 
 // Module definition
-export { laneControlModule } from './lane-control.module';
+export { laneControlModule } from './laneControl.module';

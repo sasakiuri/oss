@@ -1,7 +1,3 @@
-import { migration086VistaSources } from './086_vista_sources';
-import { migration087FinalResultSourceCompetition } from './087_final_result_source_competition';
-import { migration088VistaRankingScopes } from './088_vista_ranking_scopes';
-import { migration089EvidenceFileContents } from './089_evidence_file_contents';
 import { migration003CreateSchema } from './003_create_schema';
 import { migration004AddResultsStatus } from './004_add_results_status';
 import { migration005AddFinalResults } from './005_add_final_results';
@@ -85,6 +81,10 @@ import { migration082EstBackupSources } from './082_est_backup_sources';
 import { migration083EstBackupCapturePlans } from './083_est_backup_capture_plans';
 import { migration084BackupCaptureReadiness } from './084_backup_capture_readiness';
 import { migration085OperationalSettingTemplates } from './085_operational_setting_templates';
+import { migration086VistaSources } from './086_vista_sources';
+import { migration087FinalResultSourceCompetition } from './087_final_result_source_competition';
+import { migration088VistaRankingScopes } from './088_vista_ranking_scopes';
+import { migration089EvidenceFileContents } from './089_evidence_file_contents';
 import { migration090NullifiedPositionExtra } from './090_nullified_position_extra';
 import type { Migration } from './Migration';
 

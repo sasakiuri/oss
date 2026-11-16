@@ -19,7 +19,7 @@ const MAX_SEQ = 0xffffffff;
 
 /**
  * EventTransformer for LaneControlUpdated, reimplemented for tests.
- * Production code is defined in lane-control.module.ts.
+ * Production code is defined in laneControl.module.ts.
  */
 class LaneControlUpdatedTransformer implements EventTransformer {
   private diffCalculator = new DiffCalculator<LaneControlIpcPayload>();
