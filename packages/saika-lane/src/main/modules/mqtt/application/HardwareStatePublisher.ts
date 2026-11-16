@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Publishes connection changes and a hardware heartbeat every 60 seconds. */
 
-import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import type { TimingEvidenceReport } from '@sasakiuri/saika-protocol/TimingEvidenceReport';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import type { RulePackIdentity } from '@sasakiuri/saika-rules';
@@ -36,7 +36,7 @@ export interface LaneRuntimeCapabilities {
   readonly targetIntegration?: LaneTargetIntegrationCapabilities;
   readonly timedTargetPolicy?: {
     readonly enforcementMode: 'DISABLED' | 'ADVISORY' | 'REQUIRED';
-    readonly shotTiming?: TimedTargetTimingSettings;
+    readonly shotTiming?: ShotTimingSettings;
   };
 }
 
