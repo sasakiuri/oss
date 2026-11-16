@@ -19,7 +19,6 @@ const logger = Logger.create('mqtt.module');
 
 export interface MqttObservationRecorderDependencies {
   readonly eventBus: Pick<IEventBus, 'emit'>;
-  readonly debugLogStore: { addEntry(entry: { timestamp: number; direction: 'LOG'; raw: string }): void };
   readonly competitionTypeRegistry: Pick<CompetitionTypeRegistry, 'get'>;
   readonly laneControlRepository: Pick<ILaneControlRepository, 'findByChannel'>;
   readonly competitionShotJournal: ICompetitionShotJournal;
@@ -41,7 +40,6 @@ type ObservationCallbacks = Required<
     | 'onShotObservationEvidenceObserved'
     | 'onFiringBoundary'
     | 'onCompetitionShot'
-    | 'onDebugLog'
     | 'onSessionReset'
     | 'onError'
   >
@@ -159,18 +157,6 @@ export class MqttObservationRecorder {
         shotNumber,
         score: (shot.effectiveScoreX10 ?? shot.rawScoreX10) / 10,
         seriesNumber: shot.seriesIndex + 1,
-      });
-    },
-    onDebugLog: (message) => {
-      const entry = {
-        timestamp: Date.now(),
-        direction: 'LOG' as const,
-        raw: message,
-      };
-      this.deps.debugLogStore.addEntry(entry);
-      this.deps.eventBus.emit({
-        type: 'DebugLogEmitted',
-        ...entry,
       });
     },
     onSessionReset: () => {

@@ -22,13 +22,12 @@ import { ResolveLaneShootoffHandler } from './commands/ResolveLaneShootoffHandle
 // Query handlers
 import { GetScoreSheetsHandler } from './queries/GetScoreSheetsHandler';
 import { GetAllLaneControlsHandler } from './queries/GetAllLaneControlsHandler';
-import { GetDebugLogHandler } from './queries/GetDebugLogHandler';
 import { GetLaneByIdHandler } from './queries/GetLaneByIdHandler';
 import { GetLaneByChannelHandler } from './queries/GetLaneByChannelHandler';
 import { GetAllLanesHandler } from './queries/GetAllLanesHandler';
 
 // IPC Contracts
-import { laneControlContract, debugContract, eventsContract } from '@/shared/ipc/contracts';
+import { laneControlContract, eventsContract } from '@/shared/ipc/contracts';
 
 // Domain Entities (for event listeners)
 import { LaneControl } from './domain/LaneControl';
@@ -58,7 +57,6 @@ import {
   ResolveLaneShootoffToken,
   GetAllLaneControlsToken,
   GetScoreSheetsToken,
-  GetDebugLogToken,
   GetLaneByIdToken,
   GetLaneByChannelToken,
   GetAllLanesToken,
@@ -139,7 +137,6 @@ export const laneControlModule = defineModule({
     'commandBus',
     'queryBus',
     'competitionTypeRegistry',
-    'debugLogStore',
     'ipcRouter',
     'laneTimerService',
     'participantEligibilityReader',
@@ -151,7 +148,6 @@ export const laneControlModule = defineModule({
       commandBus,
       queryBus,
       competitionTypeRegistry,
-      debugLogStore,
       ipcRouter,
       laneTimerService,
       participantEligibilityReader,
@@ -198,14 +194,12 @@ export const laneControlModule = defineModule({
     // === Query Handlers ===
     const getScoreSheets = new GetScoreSheetsHandler(laneControlRepository);
     const getAllLaneControls = new GetAllLaneControlsHandler(laneControlRepository);
-    const getDebugLog = new GetDebugLogHandler(debugLogStore);
     const getLaneById = new GetLaneByIdHandler(laneControlRepository);
     const getLaneByChannel = new GetLaneByChannelHandler(laneControlRepository);
     const getAllLanes = new GetAllLanesHandler(laneControlRepository);
 
     queryBus.register(GetScoreSheetsToken, async (input) => getScoreSheets.execute(input));
     queryBus.register(GetAllLaneControlsToken, async () => getAllLaneControls.execute());
-    queryBus.register(GetDebugLogToken, async () => getDebugLog.execute());
     queryBus.register(GetLaneByIdToken, async (input) => getLaneById.execute(input));
     queryBus.register(GetLaneByChannelToken, async (input) => getLaneByChannel.execute(input));
     queryBus.register(GetAllLanesToken, async () => getAllLanes.execute());
@@ -225,11 +219,6 @@ export const laneControlModule = defineModule({
       insertShot: (input) => commandBus.execute(InsertShotToken, input),
       eliminate: (input) => commandBus.execute(EliminatePlayerToken, input),
       getScoreSheets: (input) => queryBus.execute(GetScoreSheetsToken, input),
-    });
-
-    // === IPC Registration: Debug ===
-    ipcRouter.register(debugContract, {
-      getDebugLog: () => queryBus.execute(GetDebugLogToken, {}),
     });
 
     // === Domain Event Listeners ===

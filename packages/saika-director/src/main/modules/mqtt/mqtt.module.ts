@@ -71,7 +71,6 @@ export const mqttModule = defineModule({
     'commandBus',
     'queryBus',
     'ipcRouter',
-    'debugLogStore',
     'appConfigService',
     'competitionTypeRegistry',
     'laneControlRepository',
@@ -91,7 +90,6 @@ export const mqttModule = defineModule({
       commandBus,
       queryBus,
       ipcRouter,
-      debugLogStore,
       appConfigService,
       competitionTypeRegistry,
       laneControlRepository,
@@ -113,7 +111,6 @@ export const mqttModule = defineModule({
 
     const recorder = new MqttObservationRecorder({
       eventBus,
-      debugLogStore,
       competitionTypeRegistry,
       laneControlRepository,
       competitionShotJournal,

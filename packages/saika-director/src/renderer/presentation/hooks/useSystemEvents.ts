@@ -2,18 +2,16 @@ import { useEvent } from './useEvent';
 import { useLiveSnapshot } from './useLiveSnapshot';
 import { mqttService } from '@/renderer/services';
 import { useConnectionStore } from '@/renderer/presentation/stores/system/connection.store';
-import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import { formatCompetitionAnnouncementReminder } from '@/renderer/presentation/formatters/competitionAnnouncement';
 import { formatFiringWindowViolationReminder } from '@/renderer/presentation/formatters/firingWindowViolation';
 
-/** Updates connection and debug stores and displays system notifications from IPC events. */
+/** Updates the connection store and displays system notifications from IPC events. */
 export function useSystemEvents(): void {
   const addChannel = useConnectionStore((s) => s.addChannel);
   const setConnected = useConnectionStore((s) => s.setConnected);
   const setDisconnected = useConnectionStore((s) => s.setDisconnected);
-  const addDebugEntry = useDebugStore((s) => s.addEntry);
   const addNotification = useNotificationStore((s) => s.addNotification);
 
   const applyMqttSnapshot = (snapshot: MqttControlSnapshotDto) => {
@@ -48,10 +46,6 @@ export function useSystemEvents(): void {
 
   useEvent('firingWindowViolationDetected', (violation) => {
     addNotification('warning', formatFiringWindowViolationReminder(violation));
-  });
-
-  useEvent('debugLog', (data) => {
-    addDebugEntry(data);
   });
 
   useEvent('mqttConnectionError', (data) => {

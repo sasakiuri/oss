@@ -80,9 +80,6 @@ const mockMethods = {
     resolve: vi.fn(),
     getActive: vi.fn(),
   },
-  queries: {
-    getDebugLog: vi.fn(),
-  },
 };
 
 Object.defineProperty(globalThis, 'window', {
@@ -188,7 +185,6 @@ describe('createApiService', () => {
         method: 'resolve',
         args: [{ shootoffId: 's1', rankedLaneIds: ['l1'] }],
       },
-      { namespace: 'queries', method: 'getDebugLog' },
     ];
 
     it.each(testCases)('should proxy $namespace.$method', async ({ namespace, method, args }) => {
@@ -216,7 +212,7 @@ describe('createApiService', () => {
     });
 
     it('should not swallow errors for any namespace', async () => {
-      const namespaces = ['laneControl', 'championship', 'board', 'mqtt', 'results', 'shootoff', 'queries'] as const;
+      const namespaces = ['laneControl', 'championship', 'board', 'mqtt', 'results', 'shootoff'] as const;
 
       for (const ns of namespaces) {
         const mockNs = mockMethods[ns] as Record<string, ReturnType<typeof vi.fn>>;
@@ -242,7 +238,6 @@ describe('createApiService', () => {
       expect(services.boardService).toBeDefined();
       expect(services.mqttService).toBeDefined();
       expect(services.resultsService).toBeDefined();
-      expect(services.debugService).toBeDefined();
     });
   });
 });

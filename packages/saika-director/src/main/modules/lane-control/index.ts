@@ -42,7 +42,6 @@ export {
   ResolveLaneShootoffToken,
   GetScoreSheetsToken,
   GetAllLaneControlsToken,
-  GetDebugLogToken,
   GetLaneByIdToken,
   GetLaneByChannelToken,
   GetAllLanesToken,

@@ -30,7 +30,6 @@ export type {
 export type {
   ShotReceived,
   LaneConnected,
-  DebugLogEmitted,
   MqttConnectionError,
   MqttControlStateChanged,
   FiringWindowViolationDetected,

@@ -22,16 +22,6 @@ export const mqttEventForwarding: EventForwardingRule[] = [
     extractPayload: (event) => ({ channel: event.channel }),
   },
   {
-    eventType: 'DebugLogEmitted',
-    channel: eventsContract.channels.debugLog,
-    extractPayload: (entry) => ({
-      timestamp: entry.timestamp,
-      direction: entry.direction,
-      raw: entry.raw,
-      parsed: entry.parsed,
-    }),
-  },
-  {
     eventType: 'MqttConnectionError',
     channel: eventsContract.channels.mqttConnectionError,
     extractPayload: (event) => ({ message: event.message }),

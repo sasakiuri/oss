@@ -126,7 +126,6 @@ export interface DirectorMqttCallbacks {
   onFiringBoundary?: (boundary: FiringBoundarySignal) => void;
   onSessionReset?: () => void;
   onError?: (message: string) => void;
-  onDebugLog?: (message: string) => void;
 }
 
 export interface CompetitionResultLane {
