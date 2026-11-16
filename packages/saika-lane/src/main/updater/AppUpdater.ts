@@ -15,19 +15,12 @@ export interface AppUpdaterOptions {
 
 export class AppUpdater extends UpdaterService {
   constructor(options: AppUpdaterOptions) {
-    let nativeHandlerAttached = false;
     super({
       isPackaged: options.isPackaged ?? app.isPackaged,
       currentVersion: options.currentVersion ?? (typeof app.getVersion === 'function' ? app.getVersion() : '0.0.0'),
-      autoInstallOnAppQuit: true,
-      loadAutoUpdater: async () => {
-        const loaded = options.loadAutoUpdater ? await options.loadAutoUpdater() : await import('electron-updater');
-        if (!nativeHandlerAttached) {
-          nativeAutoUpdater.on('before-quit-for-update', () => options.onBeforeQuitForInstall?.());
-          nativeHandlerAttached = true;
-        }
-        return loaded;
-      },
+      // As in Director and Vista, a downloaded update is installed only by the explicit restart action.
+      autoInstallOnAppQuit: false,
+      loadAutoUpdater: options.loadAutoUpdater,
       onStateChange: (state) => {
         if (!options.mainWindow.isDestroyed()) {
           options.mainWindow.webContents.send(
@@ -38,5 +31,7 @@ export class AppUpdater extends UpdaterService {
       },
       log: (level, message, details) => getLogger()[level](message, 'main', details),
     });
+    const { onBeforeQuitForInstall } = options;
+    if (onBeforeQuitForInstall) nativeAutoUpdater.on('before-quit-for-update', () => onBeforeQuitForInstall());
   }
 }

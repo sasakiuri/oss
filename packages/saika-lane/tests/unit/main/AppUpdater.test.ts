@@ -44,6 +44,29 @@ vi.mock('@/main/shared-infra/logging', () => ({
   getLogger: () => logger,
 }));
 
+// The electron-updater module as packaged on Linux: its updater is an AppImage updater.
+const electronUpdater = vi.hoisted(() => {
+  const instances: unknown[] = [];
+  class AppImageUpdater {
+    autoDownload = false;
+    autoInstallOnAppQuit = true;
+    allowPrerelease = false;
+    allowDowngrade = true;
+    on = vi.fn().mockReturnThis();
+    checkForUpdates = vi.fn(async () => undefined);
+    quitAndInstall = vi.fn();
+    constructor() {
+      instances.push(this);
+    }
+  }
+  return { AppImageUpdater, instances, autoUpdater: new AppImageUpdater() };
+});
+
+vi.mock('electron-updater', () => ({
+  AppImageUpdater: electronUpdater.AppImageUpdater,
+  autoUpdater: electronUpdater.autoUpdater,
+}));
+
 import { AppUpdater } from '@/main/updater/AppUpdater';
 
 class FakeAutoUpdater extends EventEmitter {
@@ -131,7 +154,7 @@ describe('AppUpdater', () => {
     expect(state.targetVersion).toBe('0.2.2');
     expect(state.canInstallUpdate).toBe(true);
     expect(fakeAutoUpdater.autoDownload).toBe(true);
-    expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(true);
+    expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(false);
     expect(mainWindow.webContents.send).toHaveBeenCalledWith(
       'event:updateStateChanged',
       expect.objectContaining({
@@ -139,6 +162,53 @@ describe('AppUpdater', () => {
         targetVersion: '0.2.2',
       }),
     );
+  });
+
+  it('installs a downloaded update only through the explicit restart action, not on a normal quit', async () => {
+    const { mainWindow } = createMainWindowMock();
+    const fakeAutoUpdater = new FakeAutoUpdater();
+    fakeAutoUpdater.autoInstallOnAppQuit = true;
+    fakeAutoUpdater.checkForUpdates.mockImplementationOnce(async () => {
+      fakeAutoUpdater.emit('update-downloaded', { version: '0.2.2' });
+    });
+    const updater = new AppUpdater({
+      mainWindow: mainWindow as never,
+      currentVersion: '0.2.1',
+      isPackaged: true,
+      loadAutoUpdater: async () => ({ autoUpdater: fakeAutoUpdater }),
+    });
+
+    await updater.checkForUpdates();
+
+    expect(updater.getState().canInstallUpdate).toBe(true);
+    expect(fakeAutoUpdater.autoInstallOnAppQuit).toBe(false);
+    expect(fakeAutoUpdater.quitAndInstall).not.toHaveBeenCalled();
+
+    await updater.quitAndInstall();
+
+    expect(fakeAutoUpdater.quitAndInstall).toHaveBeenCalledExactlyOnceWith(false, true);
+  });
+
+  it('installs AppImage updates with the shared explicit-restart installer, as Director and Vista do', async () => {
+    const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+    try {
+      const { mainWindow } = createMainWindowMock();
+      const updater = new AppUpdater({ mainWindow: mainWindow as never, currentVersion: '0.2.1', isPackaged: true });
+
+      await updater.checkForUpdates();
+
+      const [moduleUpdater, installer, ...others] = electronUpdater.instances as Array<
+        InstanceType<typeof electronUpdater.AppImageUpdater>
+      >;
+      expect(others).toEqual([]);
+      expect(moduleUpdater).toBe(electronUpdater.autoUpdater);
+      expect(moduleUpdater!.checkForUpdates).not.toHaveBeenCalled();
+      expect(installer!.constructor.name).toBe('SafeAppImageUpdater');
+      expect(installer!.autoInstallOnAppQuit).toBe(false);
+      expect(installer!.checkForUpdates).toHaveBeenCalledOnce();
+    } finally {
+      platform.mockRestore();
+    }
   });
 
   it('waits for the native before-quit-for-update event before bypassing close confirmation', async () => {
