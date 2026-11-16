@@ -1,8 +1,12 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ResultsView } from '@/renderer/presentation/features/championship/components/ResultsView';
+import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
 import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts/results.contract';
+
+import { fail, ok } from '../../../../../../helpers/renderer/serviceResponses';
 
 const {
   getByEvent,
@@ -459,5 +463,272 @@ describe('ResultsView', () => {
     expect(screen.getByText('New Event Athlete')).toBeInTheDocument();
     expect(screen.queryByText('Relay One Athlete')).not.toBeInTheDocument();
     expect(getByEvent.mock.calls.map(([input]) => input)).toEqual([{ eventId: 'event-1' }, { eventId: 'event-2' }]);
+  });
+
+  describe('loading, confirming and printing', () => {
+    const mixedTeamResult: MixedTeamFinalResultDto = {
+      id: '66666666-6666-4666-8666-666666666666',
+      eventId: '77777777-7777-4777-8777-777777777777',
+      sourceCompetitionId: '88888888-8888-4888-8888-888888888888',
+      teamId: 'JPN-1',
+      teamName: 'Japan 1',
+      nationCode: 'JPN',
+      rank: 2,
+      stage1Total: 102.3,
+      stage2Total: 20.4,
+      totalScore: 410.2,
+      eliminatedAtShot: 4,
+      shootoffId: null,
+      remarks: 'Shoot-off won',
+      members: [
+        {
+          participantId: 'member-1',
+          playerName: 'Alex Mixed',
+          gender: 'M',
+          firingPointNumber: 3,
+          stage1Shots: [],
+          stage2Shots: [],
+          totalScore: 205.1,
+        },
+        {
+          participantId: 'member-2',
+          playerName: 'Bea Mixed',
+          gender: 'F',
+          firingPointNumber: 4,
+          stage1Shots: [],
+          stage2Shots: [],
+          totalScore: 204,
+        },
+      ],
+    };
+    const errorBannerClass = 'border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error';
+
+    function notifications() {
+      return useNotificationStore.getState().notifications.map(({ type, message }) => ({ type, message }));
+    }
+
+    beforeEach(() => {
+      useNotificationStore.setState({ notifications: [] });
+    });
+
+    it.each([
+      [
+        'a failed Final response',
+        () => getFinalByEvent.mockResolvedValue(fail('Final unavailable')),
+        'Final unavailable',
+      ],
+      [
+        'a failed Final response without an error',
+        () => getFinalByEvent.mockResolvedValue({ success: false }),
+        'Failed to load results',
+      ],
+      [
+        'a failed Mixed Team response',
+        () => getMixedFinal.mockResolvedValue(fail('Mixed Team unavailable')),
+        'Mixed Team unavailable',
+      ],
+      [
+        'a failed Mixed Team response without an error',
+        () => getMixedFinal.mockResolvedValue({ success: false }),
+        'Failed to load Mixed Team results',
+      ],
+      [
+        'the Final failure when both responses failed',
+        () => {
+          getFinalByEvent.mockResolvedValue(fail('Final unavailable'));
+          getMixedFinal.mockResolvedValue(fail('Mixed Team unavailable'));
+        },
+        'Final unavailable',
+      ],
+      ['a rejected error', () => getFinalByEvent.mockRejectedValue(new Error('Final rejected')), 'Final rejected'],
+      [
+        'a rejected value without a message',
+        () => getFinalByEvent.mockRejectedValue('offline'),
+        'Failed to load results',
+      ],
+    ])(
+      'shows %s while loading Final results and keeps the EST backup verification',
+      async (_case, arrange, message) => {
+        arrange();
+        render(<ResultsView eventId="event-final" eventName="Final" round="Final" />);
+
+        const banner = await screen.findByText(message);
+
+        expect(banner.outerHTML).toBe(`<p class="${errorBannerClass}">${message}</p>`);
+        expect(screen.getByRole('button', { name: 'EST backup verification' })).toBeInTheDocument();
+        expect(screen.queryByText('Final Athlete')).not.toBeInTheDocument();
+        expect(getFinalByEvent).toHaveBeenCalledWith({ eventId: 'event-final' });
+        expect(getMixedFinal).toHaveBeenCalledWith({ eventId: 'event-final' });
+      },
+    );
+
+    it('shows Final loading and ignores the response of an earlier event', async () => {
+      let finishEarlierLoad!: (response: unknown) => void;
+      getFinalByEvent.mockImplementationOnce(() => new Promise((resolve) => (finishEarlierLoad = resolve)));
+      const { rerender } = render(<ResultsView eventId="event-final" eventName="Final" round="Final" />);
+
+      expect(screen.getByText('Loading results…')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'EST backup verification' })).toBeInTheDocument();
+      getFinalByEvent.mockResolvedValueOnce(
+        ok({
+          eventId: 'event-final-2',
+          results: [{ ...finalResult, id: 'final-result-2', playerName: 'Second Final Athlete' }],
+        }),
+      );
+      rerender(<ResultsView eventId="event-final-2" eventName="Final" round="Final" />);
+      expect(await screen.findByText('Second Final Athlete')).toBeInTheDocument();
+
+      await act(async () => finishEarlierLoad(ok({ eventId: 'event-final', results: [finalResult] })));
+
+      expect(screen.getByText('Second Final Athlete')).toBeInTheDocument();
+      expect(screen.queryByText('Final Athlete')).not.toBeInTheDocument();
+      expect(screen.queryByText('Loading results…')).not.toBeInTheDocument();
+      expect(getFinalByEvent.mock.calls.map(([input]) => input)).toEqual([
+        { eventId: 'event-final' },
+        { eventId: 'event-final-2' },
+      ]);
+    });
+
+    it('shows Mixed Team Final results instead of the individual Final table', async () => {
+      getMixedFinal.mockResolvedValue(ok([mixedTeamResult]));
+      render(<ResultsView eventId="event-final" eventName="Final" round="Final" />);
+
+      expect(await screen.findByRole('heading', { name: 'Mixed Team Final results' })).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'Team totals combine the two athletes’ recorded Lane scores. Places follow the recorded Final decisions.',
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
+        'Rank',
+        'Team',
+        'NOC',
+        'Members',
+        'Stage 1',
+        'Stage 2',
+        'Total',
+        'Decision',
+      ]);
+      expect(
+        within(screen.getAllByRole('row')[1]!)
+          .getAllByRole('cell')
+          .map((cell) => cell.textContent),
+      ).toEqual([
+        '2',
+        'Japan 1JPN-1',
+        'JPN',
+        'M · FP 3 · Alex Mixed · 205.1F · FP 4 · Bea Mixed · 204.0',
+        '102.3',
+        '20.4',
+        '410.2',
+        'Placed after shot 4Shoot-off won',
+      ]);
+      expect(screen.getByRole('button', { name: 'RTS verification' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Results final' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Print' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Final Athlete')).not.toBeInTheDocument();
+    });
+
+    it('names the winning Mixed Team and hides its actions when read-only', async () => {
+      getMixedFinal.mockResolvedValue(ok([{ ...mixedTeamResult, rank: 1, eliminatedAtShot: null, remarks: '' }]));
+      render(<ResultsView eventId="event-final" eventName="Final" round="Final" readOnly />);
+
+      expect(await screen.findByText('Winner')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'RTS verification' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Results final' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'EST backup verification' })).not.toBeInTheDocument();
+    });
+
+    it('closes the open result workflows when the event changes', async () => {
+      const { rerender } = render(<ResultsView eventId="event-1" eventName="Qualification" />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'RTS verification' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Publication' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Scoring decisions for Relay One Athlete' }));
+      await waitFor(() => expect(screen.getAllByRole('dialog')).toHaveLength(3));
+      rerender(<ResultsView eventId="event-2" eventName="Qualification" />);
+
+      expect(await screen.findByText('New Event Athlete')).toBeInTheDocument();
+      expect(screen.queryAllByRole('dialog')).toHaveLength(0);
+    });
+
+    it('shows the loading state while confirming and then reloads the selected relay', async () => {
+      let finishConfirm!: (response: unknown) => void;
+      confirm.mockReturnValue(new Promise((resolve) => (finishConfirm = resolve)));
+      render(<ResultsView eventId="event-1" />);
+      await screen.findByText('Relay Two Athlete');
+      fireEvent.change(screen.getByLabelText('Relay:'), { target: { value: '2' } });
+      await waitFor(() => expect(getByRelay).toHaveBeenCalledWith({ eventId: 'event-1', relayNumber: 2 }));
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirm (1)' }));
+
+      expect(confirm).toHaveBeenCalledWith({ eventId: 'event-1', resultIds: ['result-2'] });
+      expect(await screen.findByText('Loading results…')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^Confirm/ })).not.toBeInTheDocument();
+      await act(async () => finishConfirm({ success: true }));
+      await waitFor(() => expect(getByRelay).toHaveBeenCalledTimes(2));
+      expect(getByRelay).toHaveBeenLastCalledWith({ eventId: 'event-1', relayNumber: 2 });
+      expect(getByEvent).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText('Relay Two Athlete')).toBeInTheDocument();
+    });
+
+    it.each([
+      ['a failed confirmation', fail('Confirmation refused'), 'Confirmation refused'],
+      ['a failed confirmation without an error', { success: false }, 'Failed to confirm results'],
+    ])('replaces the results with %s and does not reload them', async (_case, response, message) => {
+      confirm.mockResolvedValue(response);
+      render(<ResultsView eventId="event-1" />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Confirm (2)' }));
+
+      expect((await screen.findByText(message)).outerHTML).toBe(`<p class="${errorBannerClass}">${message}</p>`);
+      expect(screen.queryByText('Relay One Athlete')).not.toBeInTheDocument();
+      expect(getByEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens the print window for the selected relay and disables printing while it opens', async () => {
+      let finishOpening!: (response: unknown) => void;
+      openResultsListPrint.mockResolvedValueOnce({ success: true });
+      render(<ResultsView eventId="event-1" eventName="Qualification" />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
+      await waitFor(() =>
+        expect(openResultsListPrint).toHaveBeenCalledWith({
+          eventId: 'event-1',
+          eventName: 'Qualification',
+          relayNumber: undefined,
+        }),
+      );
+      fireEvent.change(screen.getByLabelText('Relay:'), { target: { value: '2' } });
+      await waitFor(() => expect(getByRelay).toHaveBeenCalledWith({ eventId: 'event-1', relayNumber: 2 }));
+      openResultsListPrint.mockReturnValueOnce(new Promise((resolve) => (finishOpening = resolve)));
+      fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
+
+      expect(await screen.findByRole('button', { name: 'Opening…' })).toBeDisabled();
+      expect(openResultsListPrint).toHaveBeenLastCalledWith({
+        eventId: 'event-1',
+        eventName: 'Qualification',
+        relayNumber: 2,
+      });
+      await act(async () => finishOpening({ success: true }));
+      expect(screen.getByRole('button', { name: 'Print' })).toBeEnabled();
+      expect(notifications()).toEqual([]);
+    });
+
+    it.each([
+      ['a failed response', () => openResultsListPrint.mockResolvedValueOnce(fail('Print refused'))],
+      ['a rejected value', () => openResultsListPrint.mockRejectedValueOnce('offline')],
+    ])('reports %s while opening the print window', async (_case, arrange) => {
+      arrange();
+      render(<ResultsView eventId="event-final" eventName="Final" round="Final" />);
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
+
+      await waitFor(() =>
+        expect(notifications()).toEqual([{ type: 'error', message: 'Failed to open the print window' }]),
+      );
+      expect(openResultsListPrint).toHaveBeenCalledWith({ eventId: 'event-final', eventName: 'Final' });
+      expect(screen.getByRole('button', { name: 'Print' })).toBeEnabled();
+    });
   });
 });
