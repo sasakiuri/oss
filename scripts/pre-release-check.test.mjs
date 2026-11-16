@@ -171,6 +171,16 @@ const vistaGuardSource = [
   "",
 ];
 
+const directorDocumentWindow =
+  "packages/saika-director/src/main/modules/results-books/infra/ElectronResultsBookDocumentExporter.ts";
+const directorDocumentWindowSource = [
+  windowOptions.trimEnd(),
+  "const preferences = { javascript: false };",
+  "window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));",
+  "window.webContents.on('will-navigate', (event) => event.preventDefault());",
+  "",
+];
+
 function securityFixture(t) {
   const f = fixture(t);
   f.write(".gitignore", ".local/\n.next/\nout/\n");
@@ -189,6 +199,7 @@ function securityFixture(t) {
     f.write(file, `${windowOptions}protectWindow(window);\n`);
   }
   f.write(vistaGuard, vistaGuardSource.join("\n"));
+  f.write(directorDocumentWindow, directorDocumentWindowSource.join("\n"));
   const bin = join(f.root, ".local/bin");
   // Isolate network/dependency scanners; the source-security functions are real.
   for (const [name, output] of [
@@ -282,6 +293,115 @@ test("rejects a missing Vista window guard", (t) => {
   assert.equal(result.status, 1, result.output);
   assert.ok(
     result.output.includes(`${vistaGuard}: window guard file not found`),
+    result.output,
+  );
+});
+
+for (const [setting, insecure, message] of [
+  [
+    "nodeIntegration",
+    "nodeIntegration: true",
+    "nodeIntegration is set to true (must be false)",
+  ],
+  [
+    "contextIsolation",
+    "contextIsolation: false",
+    "contextIsolation is set to false (must be true)",
+  ],
+  ["sandbox", "sandbox: false", "sandbox is set to false (must be true)"],
+]) {
+  test(`rejects the Director document window with ${setting} weakened`, (t) => {
+    const f = securityFixture(t);
+    f.write(
+      directorDocumentWindow,
+      directorDocumentWindowSource
+        .join("\n")
+        .replace(new RegExp(`${setting}: (true|false)`), insecure),
+    );
+    const result = f.run();
+    assert.equal(result.status, 1, result.output);
+    assert.match(result.output, /FAIL +Security \/ Electron security/);
+    assert.ok(
+      result.output.includes(`${directorDocumentWindow}: ${message}`),
+      result.output,
+    );
+  });
+}
+
+for (const [line, problem] of [
+  [1, "JavaScript is not disabled"],
+  [2, "new windows are not denied"],
+  [3, "navigation is not prevented"],
+]) {
+  test(`rejects the Director document window when ${problem}`, (t) => {
+    const f = securityFixture(t);
+    f.write(
+      directorDocumentWindow,
+      directorDocumentWindowSource
+        .filter((_, index) => index !== line)
+        .join("\n"),
+    );
+    const result = f.run();
+    assert.equal(result.status, 1, result.output);
+    assert.ok(
+      result.output.includes(`${directorDocumentWindow}: ${problem}`),
+      result.output,
+    );
+  });
+}
+
+test("rejects the Director document window when JavaScript is enabled", (t) => {
+  const f = securityFixture(t);
+  f.write(
+    directorDocumentWindow,
+    directorDocumentWindowSource
+      .join("\n")
+      .replace("javascript: false", "javascript: true"),
+  );
+  const result = f.run();
+  assert.equal(result.status, 1, result.output);
+  assert.ok(
+    result.output.includes(
+      `${directorDocumentWindow}: JavaScript is not disabled`,
+    ),
+    result.output,
+  );
+});
+
+test("rejects the Director document window when JavaScript is enabled beside a disabled mention", (t) => {
+  const f = securityFixture(t);
+  f.write(
+    directorDocumentWindow,
+    directorDocumentWindowSource
+      .join("\n")
+      .replace(
+        "javascript: false",
+        "javascript: true /* was javascript: false */",
+      ),
+  );
+  const result = f.run();
+  assert.equal(result.status, 1, result.output);
+  assert.ok(
+    result.output.includes(
+      `${directorDocumentWindow}: JavaScript is not disabled`,
+    ),
+    result.output,
+  );
+});
+
+test("rejects a missing Director document window", (t) => {
+  const f = securityFixture(t);
+  rmSync(join(f.root, directorDocumentWindow));
+  const result = f.run();
+  assert.equal(result.status, 1, result.output);
+  assert.ok(
+    result.output.includes(
+      `${directorDocumentWindow}: window options file not found`,
+    ),
+    result.output,
+  );
+  assert.ok(
+    !result.output.includes(`${directorDocumentWindow}: JavaScript`),
     result.output,
   );
 });

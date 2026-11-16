@@ -39,6 +39,7 @@ test("Electron applications match their builder product and update metadata name
       "product",
       "updateMetadataNamespace",
       "windowFiles",
+      "documentWindowFiles",
       "windowGuard",
     ]);
     assert.equal(
@@ -66,9 +67,12 @@ test("Electron applications match their builder product and update metadata name
   }
 });
 
-test("every Electron window and guard file named for the security check exists", () => {
+test("every Electron window, document window and guard file named for the security check exists", () => {
   for (const { directory, electron } of electronApplications) {
-    for (const file of electron.windowFiles) {
+    for (const file of [
+      ...electron.windowFiles,
+      ...electron.documentWindowFiles,
+    ]) {
       assert.ok(existsSync(join(repoRoot, directory, file)), file);
     }
     if (electron.windowGuard !== null) {
