@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import { type CompetitionShotPayload, type CompetitionStatePayload } from '@/shared/mqtt';
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
+import type { CompetitionShotPayload } from '@sasakiuri/saika-protocol/Shots';
 import type { CompetitionLaneData, CompetitionResultLane, DirectorLaneSnapshot } from './DirectorMqttTypes';
 
 interface CompetitionLaneSnapshotRevision {

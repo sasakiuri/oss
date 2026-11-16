@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 
-import { ShotObservationEvidencePayloadSchema } from '@/shared/mqtt';
+import { ShotObservationEvidencePayloadSchema } from '@sasakiuri/saika-protocol/Shots';
 
 import type {
   IShotObservationEvidenceJournal,

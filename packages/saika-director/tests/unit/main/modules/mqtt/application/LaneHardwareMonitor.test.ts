@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DirectorMqttState } from '@/main/modules/mqtt/application/DirectorMqttState';
 import { LaneHardwareMonitor } from '@/main/modules/mqtt/application/LaneHardwareMonitor';
-import type { HardwareStatePayload } from '@/shared/mqtt';
+import type { HardwareStatePayload } from '@sasakiuri/saika-protocol/LaneState';
 
 function setup() {
   const state = new DirectorMqttState(1000, vi.fn());

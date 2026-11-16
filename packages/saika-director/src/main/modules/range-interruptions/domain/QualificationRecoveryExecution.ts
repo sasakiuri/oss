@@ -3,7 +3,7 @@ import {
   type QualificationRecoveryFiringAuthorizationPayload,
   type QualificationRecoveryShotPayload,
   type QualificationRecoveryStatePayload,
-} from '@/shared/mqtt';
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
 
 export type QualificationRecoveryExecutionPhase = QualificationRecoveryFiringAuthorizationPayload['phase'];
 export type QualificationRecoveryExecutionStatus =

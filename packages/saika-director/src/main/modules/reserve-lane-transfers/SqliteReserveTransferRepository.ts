@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type Database from 'better-sqlite3';
 
-import type { ReserveLaneTransferRequest } from '@/shared/mqtt/ReserveLaneTransfer';
+import type { ReserveLaneTransferRequest } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 import type { IReserveTransferRepository, ReserveTransferEntry } from './ReserveLaneTransferService';
 

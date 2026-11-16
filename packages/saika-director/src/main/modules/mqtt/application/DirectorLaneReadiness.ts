@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { CompetitionStartIssue } from '@/main/shared-infra/operations/CompetitionStartReadiness';
-import { ClockProbeAcknowledgementDataSchema, type HardwareStatePayload } from '@/shared/mqtt';
+import { ClockProbeAcknowledgementDataSchema } from '@sasakiuri/saika-protocol/Acknowledgement';
+import type { HardwareStatePayload } from '@sasakiuri/saika-protocol/LaneState';
 
 import {
   ClockQualityPolicy,

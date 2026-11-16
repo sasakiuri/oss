@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ActiveCompetitionTimer, CompetitionStatePayload } from '@/shared/mqtt';
+import type { ActiveCompetitionTimer, CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 
 import type { DirectorMqttState } from './DirectorMqttState';
 import type { CommandExecutionResult } from './DirectorMqttTypes';

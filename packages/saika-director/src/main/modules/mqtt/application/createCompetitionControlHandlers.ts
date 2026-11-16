@@ -19,7 +19,7 @@ import type { ICompetitionStartReadiness } from '@/main/shared-infra/operations/
 import type { IParticipantEligibilityReader } from '@/main/shared-infra/operations/ParticipantEligibility';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { InferHandlers } from '@sasakiuri/saika-ipc';
-import type { CompetitionStatePayload } from '@/shared/mqtt';
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import { getLaneCompetitionMetadata, getNextSeriesTimer } from './CompetitionSeriesNavigation';
 
 interface Dependencies {

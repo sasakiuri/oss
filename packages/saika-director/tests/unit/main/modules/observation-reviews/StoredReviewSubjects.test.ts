@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { IFiringWindowJournal, IShotObservationEvidenceJournal } from '@/main/modules/mqtt';
-import type { ShotObservationEvidencePayload } from '@/shared/mqtt';
+import type { ShotObservationEvidencePayload } from '@sasakiuri/saika-protocol/Shots';
 import { StoredReviewSubjects } from '@/main/modules/observation-reviews/StoredReviewSubjects';
 
 it('keeps each unscored outcome separate from detections and excludes recorded shots', () => {

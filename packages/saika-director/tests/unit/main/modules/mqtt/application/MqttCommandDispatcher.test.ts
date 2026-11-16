@@ -4,7 +4,7 @@ import {
   MqttCommandDispatcher,
   type PublishCommandOptions,
 } from '@/main/modules/mqtt/application/MqttCommandDispatcher';
-import type { CommandAcknowledgement } from '@/shared/mqtt';
+import type { CommandAcknowledgement } from '@sasakiuri/saika-protocol/Acknowledgement';
 
 function setup() {
   const publish = vi.fn(async () => {});

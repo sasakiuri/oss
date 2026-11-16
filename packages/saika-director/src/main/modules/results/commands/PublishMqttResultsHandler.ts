@@ -9,7 +9,7 @@ import {
 } from '@/main/modules/championship';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { PublishResultsResponse } from '@/shared/ipc/contracts/results.contract';
-import type { CompetitionShotPayload } from '@/shared/mqtt';
+import type { CompetitionShotPayload } from '@sasakiuri/saika-protocol/Shots';
 import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
 
 import type { IResultRepository } from '../domain/IResultRepository';

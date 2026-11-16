@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { FinalOperationScriptStepDto } from '@/shared/ipc/contracts';
-import type { CompetitionCuePayload } from '@/shared/mqtt';
+import type { CompetitionCuePayload } from '@sasakiuri/saika-protocol/CompetitionCue';
 
 import type { CommandExecutionResult } from './DirectorMqttTypes';
 

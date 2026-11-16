@@ -11,7 +11,7 @@ import type {
   FinalRecoveryPhaseDto,
   FinalRecoveryProcedureProfileDto,
 } from '@/shared/ipc/contracts';
-import type { CompetitionPhase } from '@/shared/mqtt';
+import type { CompetitionPhase } from '@sasakiuri/saika-protocol/CompetitionState';
 
 import { Button } from '../shared/common/Button';
 import { FinalRecoveryFiringPanel } from './FinalRecoveryFiringPanel';

@@ -9,7 +9,7 @@ import type { FinalOperationService } from '@/main/modules/final-operations';
 import type { FinalResultDeclarationService } from '@/main/modules/result-publication';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { InferHandlers } from '@sasakiuri/saika-ipc';
-import type { CompetitionStatePayload } from '@/shared/mqtt';
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import { getNextSeriesTimer, getPreviousSeriesPosition } from './CompetitionSeriesNavigation';
 
 interface Dependencies {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { HardwareStatePayload } from '@/shared/mqtt';
+import type { HardwareStatePayload } from '@sasakiuri/saika-protocol/LaneState';
 
 import type { DirectorMqttState } from './DirectorMqttState';
 

@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
-import type { MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
-import { ActivateSafetyStopCommandSchema, ClearSafetyStopCommandSchema, mqttTopics } from '@/shared/mqtt';
+import {
+  ActivateSafetyStopCommandSchema,
+  ClearSafetyStopCommandSchema,
+  type MqttCommandActionOf,
+} from '@sasakiuri/saika-protocol/commands';
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import { createLaneCommandFailure } from './createLaneCommandFailure';
 import type { DirectorCommandPort } from './DirectorCommandPort';

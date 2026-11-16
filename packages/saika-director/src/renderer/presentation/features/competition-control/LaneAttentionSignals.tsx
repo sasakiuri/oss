@@ -2,7 +2,7 @@
 import { AlertTriangle, BellRing } from 'lucide-react';
 
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
-import type { EstComplaintIssue } from '@/shared/mqtt';
+import type { EstComplaintIssue } from '@sasakiuri/saika-protocol/EstComplaintSignal';
 
 function formatEstComplaintIssue(issue: EstComplaintIssue | null): string {
   switch (issue) {

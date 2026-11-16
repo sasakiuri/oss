@@ -5,7 +5,7 @@ import { CompetitionExpiryScheduler } from '@/main/modules/mqtt/application/Comp
 import { DirectorMqttState } from '@/main/modules/mqtt/application/DirectorMqttState';
 import type { CommandExecutionResult } from '@/main/modules/mqtt/application/DirectorMqttTypes';
 import { KeyedOperationQueue } from '@/main/shared-infra/operations/KeyedOperationQueue';
-import type { CompetitionStatePayload } from '@/shared/mqtt';
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 
 const now = '2026-09-09T00:00:00.000Z';
 function competition(competitionId = 'competition'): CompetitionStatePayload {

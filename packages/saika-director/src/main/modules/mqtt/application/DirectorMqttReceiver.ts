@@ -1,27 +1,33 @@
 // SPDX-License-Identifier: MIT
 import { parseMqttTopic, type ParsedMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
-import type { CommandAcknowledgement, CompetitionShotPayload } from '@/shared/mqtt';
+import { CommandAcknowledgementSchema, type CommandAcknowledgement } from '@sasakiuri/saika-protocol/Acknowledgement';
+import { CompetitionShootOffShotPayloadSchema } from '@sasakiuri/saika-protocol/CompetitionShootOffShot';
 import {
-  CommandAcknowledgementSchema,
-  CompetitionShootOffShotPayloadSchema,
-  CompetitionShotPayloadSchema,
   CompetitionStatePayloadSchema,
-  EstComplaintSignalPayloadSchema,
+  type CompetitionStatePayload,
+} from '@sasakiuri/saika-protocol/CompetitionState';
+import { EstComplaintSignalPayloadSchema } from '@sasakiuri/saika-protocol/EstComplaintSignal';
+import { LaneAssignmentPayloadSchema } from '@sasakiuri/saika-protocol/LaneAssignment';
+import { LaneScorePayloadSchema } from '@sasakiuri/saika-protocol/LaneScore';
+import {
   HardwareStatePayloadSchema,
-  LaneAssignmentPayloadSchema,
   LaneCompetitionStatePayloadSchema,
   LaneSafetyStatePayloadSchema,
-  LaneScorePayloadSchema,
-  QualificationMalfunctionSignalPayloadSchema,
+  type HardwareStatePayload,
+} from '@sasakiuri/saika-protocol/LaneState';
+import { QualificationMalfunctionSignalPayloadSchema } from '@sasakiuri/saika-protocol/QualificationMalfunctionSignal';
+import {
   QualificationRecoveryShotPayloadSchema,
   QualificationRecoveryStatePayloadSchema,
-  RangeOfficerRequestPayloadSchema,
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
+import { RangeOfficerRequestPayloadSchema } from '@sasakiuri/saika-protocol/RangeOfficerRequest';
+import {
+  CompetitionShotPayloadSchema,
   RawShotPayloadSchema,
   ShotObservationEvidencePayloadSchema,
-  TimedTargetStatePayloadSchema,
-  type CompetitionStatePayload,
-  type HardwareStatePayload,
-} from '@/shared/mqtt';
+  type CompetitionShotPayload,
+} from '@sasakiuri/saika-protocol/Shots';
+import { TimedTargetStatePayloadSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 import type { CompetitionLaneData, DirectorLaneSnapshot, DirectorMqttCallbacks } from './DirectorMqttTypes';
 
 type CompetitionScopedTopic = Extract<ParsedMqttTopic, { competitionId: string }>;

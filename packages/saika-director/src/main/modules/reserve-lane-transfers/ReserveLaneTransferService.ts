@@ -7,7 +7,7 @@ import {
   type ReserveLaneTransferAction,
   type ReserveLaneTransferBundle,
   type ReserveLaneTransferRequest,
-} from '@/shared/mqtt/ReserveLaneTransfer';
+} from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 export interface ReserveTransferEntry {
   id: string;

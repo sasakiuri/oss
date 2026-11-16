@@ -2,7 +2,7 @@
 import { createHash } from 'node:crypto';
 import { ISSF_2026_RULE_PACKS, canonicalJson } from '@sasakiuri/saika-rules';
 import { VistaDefinitionSchema, type VistaDefinition } from '@sasakiuri/saika-protocol/Vista';
-import type { CompetitionStatePayload } from '@/shared/mqtt';
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import type { CompetitionTypeDefinition, CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRulePack';
 import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';

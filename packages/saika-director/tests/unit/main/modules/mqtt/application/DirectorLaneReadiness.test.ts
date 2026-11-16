@@ -6,7 +6,7 @@ import type { CommandExecutionResult } from '@/main/modules/mqtt/application/Dir
 import { ClockQualityPolicy } from '@/main/modules/mqtt/domain/ClockQualityPolicy';
 import { LaneTimingEvidencePolicy } from '@/main/modules/mqtt/domain/LaneTimingEvidencePolicy';
 import { TimedTargetReadinessPolicy } from '@/main/modules/mqtt/domain/TimedTargetReadinessPolicy';
-import type { HardwareStatePayload } from '@/shared/mqtt';
+import type { HardwareStatePayload } from '@sasakiuri/saika-protocol/LaneState';
 
 const now = new Date('2026-09-09T00:00:00.000Z');
 const source = { isReady: () => true, getHardware: () => undefined };

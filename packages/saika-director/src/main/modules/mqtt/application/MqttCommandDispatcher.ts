@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { MqttCommandAction } from '@sasakiuri/saika-protocol/commands';
-import type { CommandAcknowledgement } from '@/shared/mqtt';
+import type { CommandAcknowledgement } from '@sasakiuri/saika-protocol/Acknowledgement';
 import type { IMqttTransport } from '../domain/IMqttTransport';
 import type { CommandExecutionResult, LaneCommandResult } from './DirectorMqttTypes';
 

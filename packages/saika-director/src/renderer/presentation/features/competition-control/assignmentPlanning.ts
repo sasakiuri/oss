@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { DirectorLaneSnapshotDto, FiringPointAssignmentDto, ParticipantDto } from '@/shared/ipc/contracts';
-import type { Athlete } from '@/shared/mqtt';
+import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
 
 export interface PlannedFiringPointAssignment {
   firingPointNumber: number;

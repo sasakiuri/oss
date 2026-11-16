@@ -1,4 +1,4 @@
-import type { EstComplaintIssue, EstComplaintSignalPayload } from '@/shared/mqtt';
+import type { EstComplaintIssue, EstComplaintSignalPayload } from '@sasakiuri/saika-protocol/EstComplaintSignal';
 
 export interface EstComplaintSignalSnapshot {
   readonly signalId: string;

@@ -13,7 +13,10 @@ import { ObservationReviewPublicationBlocker } from '@/main/modules/observation-
 import { SqliteObservationReviewRepository } from '@/main/modules/observation-reviews/SqliteObservationReviewRepository';
 import type { IFiringWindowJournal } from '@/main/modules/mqtt';
 import { SqliteShotObservationEvidenceJournal } from '@/main/modules/mqtt/infra/SqliteShotObservationEvidenceJournal';
-import { ShotObservationEvidencePayloadSchema, type ShotObservationEvidencePayload } from '@/shared/mqtt';
+import {
+  ShotObservationEvidencePayloadSchema,
+  type ShotObservationEvidencePayload,
+} from '@sasakiuri/saika-protocol/Shots';
 
 const evidence: ShotObservationEvidencePayload = {
   evidenceVersion: 1,

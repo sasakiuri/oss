@@ -1,6 +1,6 @@
 import type { CompetitionStartIssue } from '@/main/shared-infra/operations/CompetitionStartReadiness';
-import type { ShotTimingSettings } from '@/shared/mqtt/ShotTimingSettings';
-import type { TimingEvidenceReport } from '@/shared/mqtt/TimingEvidenceReport';
+import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import type { TimingEvidenceReport } from '@sasakiuri/saika-protocol/TimingEvidenceReport';
 
 export interface LaneTimingEvidenceFacts {
   connected: boolean;
