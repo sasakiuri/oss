@@ -23,8 +23,10 @@ export interface UseShotResult {
 }
 
 export function useShot(): UseShotResult {
-  // Retrieve state from the store
-  const { currentSessionId, shots, setShots, updateScores } = useSessionStore();
+  const currentSessionId = useSessionStore((state) => state.currentSessionId);
+  const shots = useSessionStore((state) => state.shots);
+  const setShots = useSessionStore((state) => state.setShots);
+  const updateScores = useSessionStore((state) => state.updateScores);
 
   // Loading state
   const [isLoading, setIsLoading] = useState(false);

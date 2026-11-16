@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import React, { useEffect, useId, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 import { competitionService } from '@/renderer/services/competitionService';
 import { settingsService } from '@/renderer/services/settingsService';
@@ -14,8 +15,21 @@ interface CompetitionTypeItem {
 }
 
 export const SettingsTargetTab: React.FC = () => {
-  const membershipState = useDirectorMembershipStore();
-  const competition = useCompetitionStore();
+  // Subscribe only to the fields the progress policy reads, not to every timer tick.
+  const membershipState = useDirectorMembershipStore(
+    useShallow(({ membership, hydrated, hydrationFailed }) => ({ membership, hydrated, hydrationFailed })),
+  );
+  const competition = useCompetitionStore(
+    useShallow(
+      ({ phase, interruption, athleteTargetControl, athleteTargetControlPending, athleteTargetControlLoaded }) => ({
+        phase,
+        interruption,
+        athleteTargetControl,
+        athleteTargetControlPending,
+        athleteTargetControlLoaded,
+      }),
+    ),
+  );
   const permission = localProgressControls(membershipState, 'progress', competition);
   const reasonId = useId();
   const savedCompetitionTypeId = useCompetitionStore((s) => s.savedCompetitionTypeId);

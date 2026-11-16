@@ -107,7 +107,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   initialTab = 'general',
   className = '',
 }) => {
-  const { laneNumber, setLaneNumber, audioVolume, setAudioVolume } = useSessionStore();
+  const laneNumber = useSessionStore((state) => state.laneNumber);
+  const setLaneNumber = useSessionStore((state) => state.setLaneNumber);
+  const audioVolume = useSessionStore((state) => state.audioVolume);
+  const setAudioVolume = useSessionStore((state) => state.setAudioVolume);
   const { playTestSound } = useAudioPlayback();
   const updateState = useUpdateStore((state) => state);
   const [inputValue, setInputValue] = useState(laneNumber.toString());

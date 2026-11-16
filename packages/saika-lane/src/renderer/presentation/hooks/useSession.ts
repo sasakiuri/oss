@@ -36,8 +36,14 @@ export interface UseSessionResult {
 }
 
 export function useSession(): UseSessionResult {
-  const { currentSessionId, mode, totalScore, seriesScores, setSessionId, setMode, setDiscipline, clearSessionData } =
-    useSessionStore();
+  const currentSessionId = useSessionStore((state) => state.currentSessionId);
+  const mode = useSessionStore((state) => state.mode);
+  const totalScore = useSessionStore((state) => state.totalScore);
+  const seriesScores = useSessionStore((state) => state.seriesScores);
+  const setSessionId = useSessionStore((state) => state.setSessionId);
+  const setMode = useSessionStore((state) => state.setMode);
+  const setDiscipline = useSessionStore((state) => state.setDiscipline);
+  const clearSessionData = useSessionStore((state) => state.clearSessionData);
 
   const starting = useAsyncAction(
     async (discipline: string) => {
