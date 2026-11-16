@@ -107,7 +107,7 @@ describe('connection.module', () => {
   });
 
   describe('register', () => {
-    function registerModule(readyForIntake = true) {
+    function registerModule(readyForIntake = true, startupStatus: () => string = () => 'READY') {
       const sessionContextCache = new SessionContextCache(eventBus);
       const ready = sessionContextCache.bootstrap(sessionRepository, competitionRepository, {
         get: getInterruption,
@@ -118,7 +118,7 @@ describe('connection.module', () => {
           isReady: () => readyForIntake,
           snapshot: async () => {
             await ready;
-            return { status: 'READY' };
+            return { status: startupStatus() };
           },
         },
         commandBus,
@@ -1090,6 +1090,135 @@ describe('connection.module', () => {
         await vi.waitFor(() => {
           expect(usbManager.sendMode).toHaveBeenCalled();
         });
+      });
+    });
+
+    describe('mode refresh ordering', () => {
+      function deferSessionRead() {
+        let release!: () => void;
+        const released = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const read = vi.mocked(sessionRepository.findById).getMockImplementation();
+        vi.mocked(sessionRepository.findById).mockImplementationOnce(async (id) => {
+          await released;
+          return read ? read(id) : null;
+        });
+        return release;
+      }
+
+      function emitStageAdvanced() {
+        (eventBus.emit as Mock)({
+          type: 'StageAdvanced',
+          aggregateId: 'competition-1',
+          previousStageIndex: 0,
+          newStageIndex: 1,
+          stageName: 'Match',
+          scored: true,
+          timestamp: Date.now(),
+        });
+      }
+
+      function usbCallback<T>(event: string): (payload?: unknown) => T {
+        return vi.mocked(usbManager.on).mock.calls.find((call) => call[0] === event)![1] as (payload?: unknown) => T;
+      }
+
+      it('sends a direct mode event at once while a refresh is pending, and the stale refresh sends nothing', async () => {
+        await registerWithStage(false);
+        const { session } = persistStage(true);
+        vi.mocked(sessionRepository.findById).mockImplementation(async () => session);
+        const release = deferSessionRead();
+
+        emitStageAdvanced();
+        await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(2));
+        (eventBus.emit as Mock)({
+          type: 'ModeSwitched',
+          aggregateId: session.id,
+          previousMode: Mode.sighting(),
+          newMode: Mode.sighting(),
+          timestamp: Date.now(),
+        });
+        expect(vi.mocked(usbManager.sendMode).mock.calls.map(([mode]) => mode.value)).toEqual(['SIGHTING']);
+
+        release();
+        emitStageAdvanced();
+        await vi.waitFor(() => expect(sessionRepository.findById).toHaveBeenCalledTimes(3));
+        await vi.waitFor(() => expect(usbManager.sendMode).toHaveBeenCalledTimes(2));
+        expect(vi.mocked(usbManager.sendMode).mock.calls.map(([mode]) => mode.value)).toEqual(['SIGHTING', 'MATCH']);
+      });
+
+      it('keeps refreshing after a failed refresh', async () => {
+        await registerWithStage(false);
+        const { session } = persistStage(true);
+        vi.mocked(sessionRepository.findById).mockImplementation(async () => session);
+        vi.mocked(sessionRepository.findById).mockRejectedValueOnce(new Error('read failed'));
+
+        emitStageAdvanced();
+        emitStageAdvanced();
+
+        await vi.waitFor(() => expect(usbManager.sendMode).toHaveBeenCalledExactlyOnceWith(Mode.match()));
+        expect(sessionRepository.findById).toHaveBeenCalledTimes(3);
+      });
+
+      it('restores the device mode after an automatic reconnect only once a pending refresh settles', async () => {
+        await registerWithStage(false);
+        const { session } = persistStage(true);
+        vi.mocked(sessionRepository.findById).mockImplementation(async () => session);
+        const release = deferSessionRead();
+        const activeConnection = Connection.create({
+          manufacturer: TargetManufacturer.kohto(),
+          portPath: '/dev/ttyUSB0',
+          baudRate: 9600,
+          deviceId: 'MT201',
+        }).connect();
+        vi.mocked(connectionRepository.findActive).mockResolvedValue(activeConnection);
+
+        emitStageAdvanced();
+        usbCallback<void>('disconnected')();
+        usbCallback<void>('connected')(activeConnection);
+        await vi.waitFor(() =>
+          expect(eventBus.emit).toHaveBeenCalledWith(expect.objectContaining({ type: 'ConnectionEstablished' })),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(usbManager.sendMode).not.toHaveBeenCalled();
+
+        release();
+
+        await vi.waitFor(() => expect(usbManager.sendMode).toHaveBeenCalledTimes(2));
+        expect(vi.mocked(usbManager.sendMode).mock.calls.map(([mode]) => mode.value)).toEqual(['MATCH', 'MATCH']);
+      });
+
+      it('leaves an unexpected disconnect pending when the target reconnects before the run is restored', async () => {
+        let status = 'RECOVERY_REQUIRED';
+        registerModule(true, () => status);
+        const activeConnection = Connection.create({
+          manufacturer: TargetManufacturer.kohto(),
+          portPath: '/dev/ttyUSB0',
+          baudRate: 9600,
+          deviceId: 'MT201',
+        }).connect();
+        vi.mocked(connectionRepository.findActive).mockResolvedValue(activeConnection);
+
+        usbCallback<void>('disconnected')();
+        usbCallback<void>('connected')(activeConnection);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(connectionRepository.save).not.toHaveBeenCalled();
+        expect(eventBus.emit).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'ConnectionEstablished' }));
+
+        status = 'READY';
+        usbCallback<void>('reconnectFailed')({ attempts: 3, lastError: new Error('Reconnect failed') });
+
+        await vi.waitFor(() =>
+          expect(eventBus.emit).toHaveBeenCalledWith(
+            expect.objectContaining({ type: 'ConnectionLost', reason: 'USB device disconnected unexpectedly' }),
+          ),
+        );
+        expect(connectionRepository.save).toHaveBeenCalledExactlyOnceWith(
+          expect.objectContaining({
+            id: activeConnection.id,
+            status: expect.objectContaining({ value: 'DISCONNECTED' }),
+          }),
+        );
       });
     });
   });
