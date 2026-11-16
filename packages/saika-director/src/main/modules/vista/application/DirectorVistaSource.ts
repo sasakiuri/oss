@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import {
+  VISTA_PROTOCOL_VERSION,
   VistaSnapshotSchema,
   type VistaCatalog,
   type VistaIdentity,
@@ -494,7 +495,7 @@ export class DirectorVistaSource {
       }
       const next = this.projector.publicScores(
         CanonicalSnapshotSchema.parse({
-          protocolVersion: 1,
+          protocolVersion: VISTA_PROTOCOL_VERSION,
           sourceId: this.identity.sourceId,
           subjectId,
           generation: vistaDigest({

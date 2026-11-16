@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { app } from 'electron';
 import { createVistaDiscovery, createVistaServer, loadVistaCredentials } from '@sasakiuri/saika-protocol/vista-node';
-import { VISTA_CATALOG_PATH, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
+import { VISTA_PROTOCOL_VERSION, parseVistaSourcePath, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
 import { SqliteFinalControlRepository } from '@/main/modules/final-control';
 import { SqliteFinalOperationRepository } from '@/main/modules/final-operations';
 import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
@@ -73,7 +73,7 @@ export const vistaModule: ModuleDefinition<
       return;
     }
     const identity: VistaIdentity = {
-      protocolVersion: 1,
+      protocolVersion: VISTA_PROTOCOL_VERSION,
       sourceId: credentials.sourceId,
       bootId: randomUUID(),
       kind: 'director',
@@ -134,9 +134,9 @@ export const vistaModule: ModuleDefinition<
         handle: (method, path) => {
           if (projectionError) throw new Error(projectionError);
           if (method !== 'GET') throw new Error('Vista source accepts read requests only');
-          if (path === VISTA_CATALOG_PATH) return source.catalog();
-          const match = /^\/vista\/v1\/snapshot\/([^/]+)$/.exec(path);
-          if (match) return source.snapshot(decodeURIComponent(match[1]!));
+          const request = parseVistaSourcePath(path);
+          if (request?.kind === 'catalog') return source.catalog();
+          if (request?.kind === 'snapshot') return source.snapshot(request.subjectId);
           throw new Error('Unknown Vista read endpoint');
         },
       });
