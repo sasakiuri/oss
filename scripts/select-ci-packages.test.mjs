@@ -296,6 +296,23 @@ test("text and policy tooling changes do not rebuild applications", () => {
   assert.equal(select(["scripts/pre-release-check.sh"]).infrastructure, true);
 });
 
+test("suite manifest inputs run the release checks of the text job", () => {
+  const changesets = select([".changeset/config.json"]);
+  assert.equal(changesets.text, true);
+  assert.deepEqual(changesets.packages, []);
+  assert.equal(changesets.docs, false);
+  for (const app of ["saika-lane", "saika-director", "saika-vista"]) {
+    const plan = select([`packages/${app}/electron-builder.json`]);
+    assert.equal(plan.text, true, app);
+    assert.deepEqual(names(plan), [app]);
+  }
+  assert.equal(select([".changeset/pre.json"]).text, false);
+  assert.equal(
+    select(["packages/saika-lane/build/electron-builder.json"]).text,
+    false,
+  );
+});
+
 test("unused-code configuration runs its own check without rebuilding applications", () => {
   const plan = select(["knip.config.ts"]);
   assert.equal(plan.knip, true);
