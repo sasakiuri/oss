@@ -6,13 +6,14 @@ import { readMirroredLaneId } from '@/main/modules/settings/application/Mirrored
 import type { ITimedTargetControl, TimedTargetState } from '@/main/modules/timed-target';
 import { toTimedTargetStateDto } from '@/main/modules/timed-target/toTimedTargetStateDto';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** MQTT projection adapter for the independently persisted target schedule. */
 export class TimedTargetStatePublisher {
-  private publicationQueue: Promise<void> = Promise.resolve();
+  private readonly publications = new SerialQueue();
 
   constructor(
     private readonly mqttClient: IMqttClientService,
@@ -53,9 +54,7 @@ export class TimedTargetStatePublisher {
   }
 
   private enqueue(operation: () => Promise<void>): Promise<void> {
-    const publication = this.publicationQueue.then(operation);
-    this.publicationQueue = publication.catch(() => undefined);
-    return publication;
+    return this.publications.run(operation);
   }
 
   private topic(competitionId: string, laneId: string): string {

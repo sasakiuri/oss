@@ -7,12 +7,13 @@ import { readMirroredLaneId } from '@/main/modules/settings/application/Mirrored
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
 export class CompetitionShootOffShotPublisher {
-  private drainTail = Promise.resolve();
+  private readonly drains = new SerialQueue();
   private unregisterReconnectDrain: (() => void) | null = null;
 
   constructor(
@@ -59,14 +60,13 @@ export class CompetitionShootOffShotPublisher {
   }
 
   requestDrain(): Promise<void> {
-    this.drainTail = this.drainTail
-      .then(() => this.drain())
+    return this.drains
+      .run(() => this.drain())
       .catch((error: unknown) => {
         getLogger().error('[CompetitionShootOffShotPublisher] Failed to drain outbox', 'mqtt', {
           error: error instanceof Error ? error.message : String(error),
         });
       });
-    return this.drainTail;
   }
 
   private async capture(event: ShotRecordedEvent): Promise<void> {

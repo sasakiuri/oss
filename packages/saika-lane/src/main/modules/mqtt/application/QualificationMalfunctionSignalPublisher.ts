@@ -11,13 +11,14 @@ import type {
   QualificationMalfunctionSignalState,
 } from '@/main/modules/qualification-malfunction-signal';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes the Lane-owned declaration without issuing a competition-control command. */
 export class QualificationMalfunctionSignalPublisher {
-  private publicationQueue: Promise<void> = Promise.resolve();
+  private readonly publications = new SerialQueue();
 
   constructor(
     private readonly mqttClient: IMqttClientService,
@@ -26,9 +27,7 @@ export class QualificationMalfunctionSignalPublisher {
   ) {}
 
   publishCurrentState(): Promise<void> {
-    const publication = this.publicationQueue.then(() => this.publishCurrentStateNow());
-    this.publicationQueue = publication.catch(() => undefined);
-    return publication;
+    return this.publications.run(() => this.publishCurrentStateNow());
   }
 
   private async publishCurrentStateNow(): Promise<void> {
