@@ -96,6 +96,43 @@ describe('Evidence original database migration', () => {
     },
   );
 
+  it('stores each original byte for byte under its custody key', async () => {
+    const db = await legacyDatabase();
+    const first = await addOriginal(db, Buffer.from([0, 255, 128, 13, 10]));
+    const second = await addOriginal(db, Buffer.alloc(0));
+    new MigrationRunner(db).run([migration089EvidenceFileContents]);
+    expect(db.prepare('SELECT sha256, content FROM evidence_file_contents ORDER BY sha256').all()).toEqual(
+      [
+        { sha256: first.sha256, content: Buffer.from([0, 255, 128, 13, 10]) },
+        { sha256: second.sha256, content: Buffer.alloc(0) },
+      ].sort((a, b) => (a.sha256 < b.sha256 ? -1 : 1)),
+    );
+  });
+
+  it.each([
+    ['corrupt', Buffer.from([4, 5, 0]), 'Evidence file SHA-256 mismatch'],
+    ['shorter than recorded', Buffer.from([4]), 'Evidence file size does not match the custody record'],
+  ] as const)('reports an original that is %s with the full operator message', async (_case, bytes, reason) => {
+    const db = await legacyDatabase();
+    const original = await addOriginal(db, Buffer.from([4, 5, 6]));
+    await writeFile(original.file, bytes);
+    expect(() => new MigrationRunner(db).run([migration089EvidenceFileContents])).toThrow(
+      new Error(
+        `Could not migrate evidence original ${original.sha256}. Restore the original evidence-files directory beside saika.db and retry: ${reason}`,
+      ),
+    );
+  });
+
+  it.each([
+    [{ sha256: 'A'.repeat(64), sizeBytes: 1 }, 'Invalid evidence content key in the custody record'],
+    [{ sha256: 'a'.repeat(64), sizeBytes: -1 }, 'Invalid evidence file size in the custody record'],
+    [{ sha256: 'a'.repeat(64), sizeBytes: 32 * 1024 * 1024 + 1 }, 'Invalid evidence file size in the custody record'],
+  ])('rejects the custody record %j before reading any file', async (reference, message) => {
+    const db = await legacyDatabase();
+    db.prepare('INSERT INTO evidence_files VALUES (?)').run(JSON.stringify(reference));
+    expect(() => new MigrationRunner(db).run([migration089EvidenceFileContents])).toThrow(new Error(message));
+  });
+
   it('does not read a custody key outside the original directory', async () => {
     const db = await legacyDatabase();
     db.prepare('INSERT INTO evidence_files VALUES (?)').run(JSON.stringify({ sha256: '../other', sizeBytes: 0 }));
