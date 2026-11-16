@@ -34,7 +34,10 @@ export function sameRulePackIdentity(left: RulePackIdentity, right: RulePackIden
   );
 }
 
-/** Stable JSON used when two applications compare an exact rule definition. */
+/**
+ * Stable JSON used when two applications compare an exact rule definition.
+ * Keys are ordered by UTF-16 code units so the result does not depend on the process locale.
+ */
 export function canonicalJson(value: unknown): string {
   return JSON.stringify(canonicalize(value));
 }
@@ -45,7 +48,7 @@ function canonicalize(value: unknown): unknown {
     return Object.fromEntries(
       Object.entries(value)
         .filter(([, child]) => child !== undefined)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
         .map(([key, child]) => [key, canonicalize(child)]),
     );
   }
