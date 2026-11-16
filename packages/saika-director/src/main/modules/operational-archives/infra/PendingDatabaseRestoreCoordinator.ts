@@ -6,6 +6,7 @@ import Database from 'better-sqlite3';
 
 import { assertEvidenceFileContents } from '@/main/infrastructure/database/EvidenceFileContents';
 
+import { passesIntegrityCheck, readSchemaVersionValue } from './databaseFileFacts';
 import { parseRestoreMarker, PENDING_RESTORE_DATABASE, PENDING_RESTORE_MARKER } from './SqliteDatabaseBackupGateway';
 
 export interface PendingRestoreApplicationResult {
@@ -95,13 +96,11 @@ function checkpointAndClose(path: string): void {
 function assertRestorableDatabase(path: string, expectedSchemaVersion: number): void {
   const database = new Database(path, { readonly: true, fileMustExist: true });
   try {
-    const integrityRows = database.pragma('integrity_check') as Array<Record<string, unknown>>;
-    if (integrityRows.length !== 1 || Object.values(integrityRows[0] ?? {})[0] !== 'ok') {
+    if (!passesIntegrityCheck(database)) {
       throw new Error('The staged database failed its startup integrity check');
     }
-    const row = database.prepare("SELECT value FROM schema_meta WHERE key = 'version'").get() as
-      { value: string } | undefined;
-    if (!row || Number(row.value) !== expectedSchemaVersion) {
+    const schemaValue = readSchemaVersionValue(database);
+    if (schemaValue === undefined || Number(schemaValue) !== expectedSchemaVersion) {
       throw new Error('The staged database schema changed after it was selected');
     }
     assertEvidenceFileContents(database);
