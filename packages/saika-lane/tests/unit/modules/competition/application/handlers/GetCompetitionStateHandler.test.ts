@@ -2,14 +2,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createGetCompetitionStateHandler } from '@/main/modules/competition/application/handlers/GetCompetitionStateHandler';
-import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 
 import { athleteCompetition } from '../../../../../helpers/athleteCompetition';
-import { buildSession } from '../../../../../helpers/factories';
+import { buildCompetitionState, buildSession } from '../../../../../helpers/factories';
 import { createMockSessionRepository } from '../../../../../helpers/mockDependencies';
 
 describe('createGetCompetitionStateHandler', () => {
@@ -69,7 +67,7 @@ describe('createGetCompetitionStateHandler', () => {
   });
 
   it('should return CompetitionStateDto', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
     const sessions = createMockSessionRepository();
@@ -95,7 +93,7 @@ describe('createGetCompetitionStateHandler', () => {
   });
 
   it('should correctly return state of match stage', async () => {
-    let state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    let state = buildCompetitionState();
     state = state.startStage().expireTimer();
     state = state.advanceToNextStage(); // match stage
     state = state.startNextSeries();

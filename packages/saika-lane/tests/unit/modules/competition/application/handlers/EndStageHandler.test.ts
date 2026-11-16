@@ -2,10 +2,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createEndStageHandler } from '@/main/modules/competition/application/handlers/EndStageHandler';
-import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+
+import { buildCompetitionState } from '../../../../../helpers/factories';
 
 describe('createEndStageHandler', () => {
   let mockCompetitionRepo: ICompetitionRepository;
@@ -26,7 +26,7 @@ describe('createEndStageHandler', () => {
   });
 
   it('should transition from ACTIVE to SERIES_COMPLETE and save', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
     const handler = createEndStageHandler(mockCompetitionRepo, mockEventBus);
@@ -38,7 +38,7 @@ describe('createEndStageHandler', () => {
   });
 
   it('should emit PhaseChanged event', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
     const handler = createEndStageHandler(mockCompetitionRepo, mockEventBus);
@@ -61,7 +61,7 @@ describe('createEndStageHandler', () => {
   });
 
   it('should throw error from IDLE phase', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    const state = buildCompetitionState();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
     const handler = createEndStageHandler(mockCompetitionRepo, mockEventBus);
