@@ -133,6 +133,38 @@ describe('useRangeInterruptionCases', () => {
     expect(listAll).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps a selection made while an interruption command was pending', async () => {
+    const first = fixture({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', summary: 'First' });
+    const second = fixture({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', summary: 'Second' });
+    listAll.mockResolvedValue(response(first, second));
+    const mutation = deferred<RangeInterruptionCaseDto>();
+    const { result } = renderHook(() => useRangeInterruptionCases());
+    await waitFor(() => expect(result.current.cases).toHaveLength(2));
+    act(() => result.current.setSelectedCaseId(first.id));
+    let pending!: Promise<boolean>;
+    act(() => {
+      pending = result.current.runMutation(() => mutation.promise);
+    });
+    act(() => result.current.setSelectedCaseId(second.id));
+    await act(async () => {
+      mutation.resolve(first);
+      await pending;
+    });
+    expect(result.current.selectedCase?.summary).toBe('Second');
+  });
+
+  it('selects the changed record when the selection did not change meanwhile', async () => {
+    const first = fixture({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', summary: 'First' });
+    const second = fixture({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', summary: 'Second' });
+    listAll.mockResolvedValue(response(first, second));
+    const { result } = renderHook(() => useRangeInterruptionCases());
+    await waitFor(() => expect(result.current.selectedCase?.summary).toBe('Second'));
+    await act(async () => {
+      expect(await result.current.runMutation(async () => first)).toBe(true);
+    });
+    expect(result.current.selectedCase?.summary).toBe('First');
+  });
+
   it('prevents overlapping mutations from executing twice', async () => {
     const mutation = deferred<RangeInterruptionCaseDto>();
     const { result } = renderHook(() => useRangeInterruptionCases());

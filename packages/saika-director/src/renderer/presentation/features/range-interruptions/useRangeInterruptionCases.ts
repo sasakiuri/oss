@@ -14,7 +14,10 @@ export function useRangeInterruptionCases(primaryScope?: RangeInterruptionScopeP
   const scopeType = primaryScope?.scopeType;
   const scopeId = primaryScope?.scopeId;
   // Identity distinguishes separate visits to the same scope (A -> B -> A).
-  const lifetime = useMemo(() => ({ active: false, requestId: 0, mutating: false }), [scopeType, scopeId]);
+  const lifetime = useMemo(
+    () => ({ active: false, requestId: 0, mutating: false, selectionVersion: 0 }),
+    [scopeType, scopeId],
+  );
 
   const loadCases = useCallback(async () => {
     if (!lifetime.active) return;
@@ -59,17 +62,27 @@ export function useRangeInterruptionCases(primaryScope?: RangeInterruptionScopeP
     };
   }, [lifetime, loadCases]);
 
+  const selectCase = useCallback(
+    (caseId: string) => {
+      lifetime.selectionVersion += 1;
+      setSelectedCaseId(caseId);
+    },
+    [lifetime],
+  );
+
   const runMutation = useCallback(
     async (operation: () => Promise<RangeInterruptionCaseDto>): Promise<boolean> => {
       if (!lifetime.active || lifetime.mutating) return false;
       lifetime.mutating = true;
       lifetime.requestId += 1;
+      const selectionVersion = lifetime.selectionVersion;
       setSaving(true);
       setError(null);
       try {
         const interruption = await operation();
         if (!lifetime.active) return false;
-        setSelectedCaseId(interruption.id);
+        // A completed command must not undo a selection made while it was pending.
+        if (selectionVersion === lifetime.selectionVersion) setSelectedCaseId(interruption.id);
         await loadCases();
         return lifetime.active;
       } catch (caught) {
@@ -93,7 +106,7 @@ export function useRangeInterruptionCases(primaryScope?: RangeInterruptionScopeP
   return {
     cases,
     selectedCaseId,
-    setSelectedCaseId,
+    setSelectedCaseId: selectCase,
     selectedCase,
     activeHolds,
     loading,
