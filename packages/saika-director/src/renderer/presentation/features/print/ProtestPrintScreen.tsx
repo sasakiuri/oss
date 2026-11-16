@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { protestsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ProtestCaseDto } from '@/shared/ipc/contracts';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 
@@ -25,8 +26,7 @@ export function ProtestPrintScreen({ config }: { config: BoardWindowConfig }) {
     const load = async () => {
       if (!config.protestId) throw new Error('No protest or appeal was specified');
       const response = await protestsService.getById({ caseId: config.protestId });
-      if (!response.success) throw new Error(response.error.message);
-      const protest = response.data;
+      const protest = unwrap(response);
       if (protest.id !== config.protestId) throw new Error('The loaded protest does not match the requested record');
       let parent: ProtestCaseDto | null = null;
       if (protest.kind === 'APPEAL') {
@@ -46,7 +46,7 @@ export function ProtestPrintScreen({ config }: { config: BoardWindowConfig }) {
       }
     };
     void load().catch((caught: unknown) => {
-      if (!cancelled) setError(caught instanceof Error ? caught.message : 'Failed to load the protest record');
+      if (!cancelled) setError(errorMessage(caught, 'Failed to load the protest record'));
     });
     return () => {
       cancelled = true;

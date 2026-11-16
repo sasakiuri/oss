@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { incidentReportsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { RangeIncidentReportDto } from '@/shared/ipc/contracts';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 import { IncidentReportSheet } from './components/IncidentReportSheet';
@@ -25,11 +26,10 @@ export function IncidentReportPrintScreen({ config }: IncidentReportPrintScreenP
       .getById({ reportId: config.reportId })
       .then((response) => {
         if (cancelled) return;
-        if (!response.success) throw new Error(response.error.message);
-        setReport(response.data);
+        setReport(unwrap(response));
       })
       .catch((caught: unknown) => {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : 'Failed to load the incident report');
+        if (!cancelled) setError(errorMessage(caught, 'Failed to load the incident report'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

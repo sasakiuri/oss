@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { estBackupVerificationService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { EstBackupSourceDto } from '@/shared/ipc/contracts/estBackupVerification.contract';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 
@@ -15,12 +16,12 @@ export function EstBackupSourcePrintScreen({ config }: { config: BoardWindowConf
     const load = async () => {
       if (!config.sourceId) throw new Error('No retained backup source was selected');
       const result = await estBackupVerificationService.getSource({ sourceId: config.sourceId });
-      if (!result.success) throw new Error(result.error.message);
-      if (result.data.id !== config.sourceId) throw new Error('The returned backup source does not match');
-      if (!cancelled) setSource(result.data);
+      const loaded = unwrap(result);
+      if (loaded.id !== config.sourceId) throw new Error('The returned backup source does not match');
+      if (!cancelled) setSource(loaded);
     };
     void load().catch((caught: unknown) => {
-      if (!cancelled) setError(caught instanceof Error ? caught.message : String(caught));
+      if (!cancelled) setError(errorMessage(caught));
     });
     return () => {
       cancelled = true;
