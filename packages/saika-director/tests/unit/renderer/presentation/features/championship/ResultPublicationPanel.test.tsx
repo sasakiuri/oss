@@ -111,4 +111,21 @@ describe('Result publication errors', () => {
     await waitFor(() => expect(screen.queryByText('Results are not approved')).toBeNull());
     expect(await screen.findByText('Publication command failed')).toBeVisible();
   });
+
+  it('shows a successful command without a status as the fallback text and keeps the input', async () => {
+    getStatus.mockResolvedValue(
+      ok({ ...status, status: 'PROTEST_PENDING', preliminaryId: 'preliminary', canRegisterProtest: true }),
+    );
+    registerProtest.mockResolvedValueOnce({ success: true });
+    render(<ResultPublicationPanel eventId="event" onClose={() => undefined} />);
+    fireEvent.change(await screen.findByLabelText('Result publication official'), {
+      target: { value: 'RTS Officer' },
+    });
+    fireEvent.change(screen.getByLabelText('Score protest reference'), { target: { value: 'P-2' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+
+    expect(await screen.findByText('Publication command failed')).toBeVisible();
+    expect(screen.getByLabelText('Score protest reference')).toHaveValue('P-2');
+  });
 });

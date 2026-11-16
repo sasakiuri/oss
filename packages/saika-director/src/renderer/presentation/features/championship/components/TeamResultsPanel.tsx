@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { teamResultsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { TeamResultDto, TeamResultFormatDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 
@@ -15,10 +16,9 @@ export function TeamResultsPanel({ eventId, onClose }: { eventId: string; onClos
     setError(null);
     try {
       const response = await teamResultsService.getQualification({ eventId, format });
-      if (!response.success) throw new Error(response.error.message);
-      setResults(response.data);
+      setResults(unwrap(response));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load team results');
+      setError(errorMessage(caught, 'Failed to load team results'));
     } finally {
       setLoading(false);
     }

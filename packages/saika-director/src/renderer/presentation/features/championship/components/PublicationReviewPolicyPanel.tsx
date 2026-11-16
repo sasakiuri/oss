@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 
 import { publicationReviewPolicyService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
 import type { PublicationReviewPolicyStatus } from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
 import { Button } from '../../shared/common/Button';
@@ -40,13 +41,13 @@ export function PublicationReviewPolicyPanel({
       .get({ eventId, resultScope })
       .then((response) => {
         if (!active) return;
-        if (!response.success) throw new Error(response.error.message);
-        setStatus(response.data);
-        setMode(response.data.mode);
-        setSettings(response.data.effectiveSettings);
+        const policy = unwrap(response);
+        setStatus(policy);
+        setMode(policy.mode);
+        setSettings(policy.effectiveSettings);
       })
       .catch((caught: unknown) => {
-        if (active) setError(caught instanceof Error ? caught.message : 'Failed to load event review settings');
+        if (active) setError(errorMessage(caught, 'Failed to load event review settings'));
       });
     return () => {
       active = false;
@@ -68,14 +69,14 @@ export function PublicationReviewPolicyPanel({
         officialName,
         reason,
       });
-      if (!response.success) throw new Error(response.error.message);
-      setStatus(response.data);
-      setMode(response.data.mode);
-      setSettings(response.data.effectiveSettings);
+      const saved = unwrap(response);
+      setStatus(saved);
+      setMode(saved.mode);
+      setSettings(saved.effectiveSettings);
       setReason('');
       await onChanged();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to save event review settings');
+      setError(errorMessage(caught, 'Failed to save event review settings'));
     } finally {
       setSaving(false);
     }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { CheckCircle2, History, ShieldCheck, TriangleAlert } from 'lucide-react';
 
 import { resultVerificationService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ResultVerificationStatusDto, VerificationResultItemDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
@@ -54,19 +55,18 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
     setLoading(true);
     setError(null);
     try {
-      const response = await resultVerificationService.getStatus({ eventId, resultScope });
-      if (!response.success) throw new Error(response.error.message);
-      setStatus(response.data);
+      const loaded = unwrap(await resultVerificationService.getStatus({ eventId, resultScope }));
+      setStatus(loaded);
       setSelectedResultId((current) => {
-        if (current && response.data.results.some((result) => result.resultId === current)) return current;
+        if (current && loaded.results.some((result) => result.resultId === current)) return current;
         return (
-          response.data.results.find((result) => result.required && !result.currentCheck?.qualifies)?.resultId ??
-          response.data.results.find((result) => result.required)?.resultId ??
+          loaded.results.find((result) => result.required && !result.currentCheck?.qualifies)?.resultId ??
+          loaded.results.find((result) => result.required)?.resultId ??
           null
         );
       });
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load result verification status');
+      setError(errorMessage(caught, 'Failed to load result verification status'));
     } finally {
       setLoading(false);
     }
@@ -110,10 +110,10 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
           ...(note.trim() ? { note } : {}),
           officialName: checkOfficialName,
         });
-        if (!response.success) throw new Error(response.error.message);
+        unwrap(response);
         await loadStatus();
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Failed to append the verification check');
+        setError(errorMessage(caught, 'Failed to append the verification check'));
       } finally {
         setSaving(false);
       }
@@ -151,11 +151,11 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
             }
           : {}),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       resetSignature();
       await loadStatus();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to approve the result list');
+      setError(errorMessage(caught, 'Failed to approve the result list'));
     } finally {
       setSaving(false);
     }
@@ -189,14 +189,14 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
             }
           : {}),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       resetSignature();
       setShowRevocation(false);
       setRevocationReason('');
       setRevocationOfficialName('');
       await loadStatus();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to revoke the result-list approval');
+      setError(errorMessage(caught, 'Failed to revoke the result-list approval'));
     } finally {
       setSaving(false);
     }

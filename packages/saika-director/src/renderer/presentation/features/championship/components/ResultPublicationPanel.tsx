@@ -1,7 +1,9 @@
 import { Clock3, FileCheck2, History, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { resultPublicationService } from '@/renderer/services';
+import { errorMessage, unwrap, unwrapData } from '@/renderer/services/serviceError';
 import type { ResultPublicationStatusDto } from '@/shared/ipc/contracts';
 
 import { ObservationReviewsPanel } from '../../observation-reviews/ObservationReviewsPanel';
@@ -20,8 +22,7 @@ const inputClass =
 export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPublicationPanelProps) {
   const [status, setStatus] = useState<ResultPublicationStatusDto | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, setError, run: perform } = useAsyncAction();
   const [officialName, setOfficialName] = useState('');
   const [postingLocation, setPostingLocation] = useState('');
   const [postingReference, setPostingReference] = useState('');
@@ -39,10 +40,9 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
         eventId,
         resultScope: 'QUALIFICATION',
       });
-      if (!response.success) throw new Error(response.error.message);
-      setStatus(response.data);
+      setStatus(unwrap(response));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load result publication status');
+      setError(errorMessage(caught, 'Failed to load result publication status'));
     } finally {
       setLoading(false);
     }
@@ -60,25 +60,11 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
   }, [loadStatus, status?.canRegisterProtest, status?.protestEndsAt]);
 
   const run = useCallback(
-    async (
-      operation: () => Promise<{ success: boolean; data?: ResultPublicationStatusDto; error?: { message: string } }>,
-    ): Promise<boolean> => {
-      setSaving(true);
-      setError(null);
-      try {
-        const response = await operation();
-        if (!response.success || !response.data)
-          throw new Error(response.error?.message ?? 'Publication command failed');
-        setStatus(response.data);
-        return true;
-      } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Publication command failed');
-        return false;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [],
+    (operation: () => ReturnType<typeof resultPublicationService.publishOfficial>): Promise<boolean> =>
+      perform(async () => {
+        setStatus(unwrapData(await operation(), 'Publication command failed'));
+      }, 'Publication command failed'),
+    [perform],
   );
 
   const publishPreliminary = useCallback(
