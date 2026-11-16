@@ -24,6 +24,16 @@ export function identifyRulePack(pack: RulePack): RulePackIdentity {
   };
 }
 
+/** True when both identities name the same exact Rule Pack: ID, schema version and fingerprint. */
+export function sameRulePackIdentity(left: RulePackIdentity, right: RulePackIdentity): boolean {
+  return (
+    left.id === right.id &&
+    left.schemaVersion === right.schemaVersion &&
+    left.fingerprint.algorithm === right.fingerprint.algorithm &&
+    left.fingerprint.value === right.fingerprint.value
+  );
+}
+
 /** Stable JSON used when two applications compare an exact rule definition. */
 export function canonicalJson(value: unknown): string {
   return JSON.stringify(canonicalize(value));
