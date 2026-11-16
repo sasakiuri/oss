@@ -1,4 +1,4 @@
-import type { QualificationRecoveryFiringAuthorizationPayload } from '@/shared/mqtt';
+import type { QualificationRecoveryFiringAuthorizationPayload } from '@sasakiuri/saika-protocol/QualificationRecovery';
 import { defineCommand } from '@/main/shared-infra/cqrs/CommandBus';
 
 import type { QualificationRecoveryCommandResult } from './QualificationRecoveryExecution';

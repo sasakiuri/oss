@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { EstComplaintTimingPolicy, type EstComplaintSignalSnapshot } from '@/main/modules/est-complaints';
 import { EstComplaintCasePolicy } from '@/main/modules/est-complaints/domain/EstComplaintCasePolicy';
-import { EstComplaintSignalContextSchema } from '@/shared/mqtt';
+import { EstComplaintSignalContextSchema } from '@sasakiuri/saika-protocol/EstComplaintSignal';
 
 describe('EstComplaintTimingPolicy', () => {
   it.each(['SHOT_VALUE', 'SHOT_NOT_REGISTERED', 'TARGET_FAILURE', 'TARGET_MEDIA_ADVANCE'] as const)(

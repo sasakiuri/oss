@@ -4,7 +4,7 @@ import {
   QualificationRecoveryFiringAuthorizationSchema,
   QualificationRecoveryShotPayloadSchema,
   QualificationRecoveryStatePayloadSchema,
-} from '@/shared/mqtt';
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 

@@ -1,4 +1,4 @@
-import type { ShotObservationEvidencePayload } from '@/shared/mqtt';
+import type { ShotObservationEvidencePayload } from '@sasakiuri/saika-protocol/Shots';
 
 export interface ShotObservationEvidenceRecord {
   readonly evidence: ShotObservationEvidencePayload;

@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DirectorMqttState } from '@/main/modules/mqtt/application/DirectorMqttState';
-import type {
-  CompetitionStatePayload,
-  LaneAssignmentPayload,
-  LaneCompetitionStatePayload,
-  LaneScorePayload,
-} from '@/shared/mqtt';
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
+import type { LaneAssignmentPayload } from '@sasakiuri/saika-protocol/LaneAssignment';
+import type { LaneScorePayload } from '@sasakiuri/saika-protocol/LaneScore';
+import type { LaneCompetitionStatePayload } from '@sasakiuri/saika-protocol/LaneState';
 
 const publishedAt = '2026-09-09T00:00:00.000Z';
 function competition(competitionId = 'competition-1'): CompetitionStatePayload {

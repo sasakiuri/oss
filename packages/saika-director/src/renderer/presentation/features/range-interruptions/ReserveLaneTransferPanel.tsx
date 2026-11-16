@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { reserveLaneTransfersService } from '@/renderer/services';
 import type { ReserveTransferWorkspaceDto } from '@/shared/ipc/contracts';
-import type { ReserveLaneTransferRequest } from '@/shared/mqtt/ReserveLaneTransfer';
+import type { ReserveLaneTransferRequest } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 const field = 'rounded border border-vscode-border bg-vscode-input p-2 text-vscode-text';
 export function ReserveLaneTransferPanel({

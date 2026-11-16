@@ -1,24 +1,27 @@
 import { z } from 'zod';
 
 import { MqttBrokerUrlSchema } from '@/shared/config/AppConfigSchema';
+import { CompetitionStatePayloadSchema } from '@sasakiuri/saika-protocol/CompetitionState';
+import { EstComplaintSignalPayloadSchema } from '@sasakiuri/saika-protocol/EstComplaintSignal';
+import { AthleteSchema, LaneAssignmentPayloadSchema } from '@sasakiuri/saika-protocol/LaneAssignment';
+import { LaneScorePayloadSchema } from '@sasakiuri/saika-protocol/LaneScore';
 import {
-  AthleteSchema,
-  CompetitionShotPayloadSchema,
-  CompetitionStatePayloadSchema,
-  EstComplaintSignalPayloadSchema,
   HardwareStatePayloadSchema,
-  LaneAssignmentPayloadSchema,
   LaneCompetitionStatePayloadSchema,
   LaneSafetyStatePayloadSchema,
-  QualificationMalfunctionSignalPayloadSchema,
+} from '@sasakiuri/saika-protocol/LaneState';
+import { QualificationMalfunctionSignalPayloadSchema } from '@sasakiuri/saika-protocol/QualificationMalfunctionSignal';
+import {
   QualificationRecoveryShotPayloadSchema,
   QualificationRecoveryStatePayloadSchema,
-  RangeOfficerRequestPayloadSchema,
-  TimedTargetStatePayloadSchema,
-  LaneScorePayloadSchema,
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
+import { RangeOfficerRequestPayloadSchema } from '@sasakiuri/saika-protocol/RangeOfficerRequest';
+import {
+  CompetitionShotPayloadSchema,
   RawShotPayloadSchema,
   ShotObservationEvidencePayloadSchema,
-} from '@/shared/mqtt';
+} from '@sasakiuri/saika-protocol/Shots';
+import { TimedTargetStatePayloadSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 
 import {
   CommandResponseSchema,

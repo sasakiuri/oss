@@ -13,7 +13,7 @@ import { SqliteFinalFiringRepository } from '@/main/modules/final-recovery-firin
 import type {
   MalfunctionFiringRequestPayload,
   MalfunctionFiringEvidencePayload,
-} from '@/shared/mqtt/MalfunctionFiring';
+} from '@sasakiuri/saika-protocol/MalfunctionFiring';
 
 const databases: Database.Database[] = [];
 afterEach(() => {

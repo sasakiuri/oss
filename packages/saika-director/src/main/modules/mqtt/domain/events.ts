@@ -4,8 +4,8 @@ import type { FiringWindowViolation } from './IFiringWindowJournal';
 import type {
   QualificationRecoveryShotPayload,
   QualificationRecoveryStatePayload,
-  ShotObservationEvidencePayload,
-} from '@/shared/mqtt';
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
+import type { ShotObservationEvidencePayload } from '@sasakiuri/saika-protocol/Shots';
 
 export interface ShotReceived extends DomainEvent {
   type: 'ShotReceived';

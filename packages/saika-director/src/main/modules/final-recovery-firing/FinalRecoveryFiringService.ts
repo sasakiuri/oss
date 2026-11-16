@@ -5,7 +5,7 @@ import {
   MalfunctionFiringEvidenceSchema,
   type MalfunctionFiringEvidencePayload,
   type MalfunctionFiringRequestPayload,
-} from '@/shared/mqtt/MalfunctionFiring';
+} from '@sasakiuri/saika-protocol/MalfunctionFiring';
 
 export interface FinalFiringIntent {
   readinessConfirmed: true;

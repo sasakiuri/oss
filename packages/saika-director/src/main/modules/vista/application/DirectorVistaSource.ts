@@ -19,7 +19,7 @@ import { assembleRankingEvidence, type ResultDisplayProjection } from '@/main/mo
 import type { CompetitionTypeRegistry, QualificationRankingInput } from '@/shared/competitionTypes';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
-import { ReserveLaneTransferBundleSchema } from '@/shared/mqtt/ReserveLaneTransfer';
+import { ReserveLaneTransferBundleSchema } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 import { directorVistaDefinition, vistaDigest } from './directorVistaDefinition';
 

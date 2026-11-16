@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-import type { CompetitionShotPayload, LaneAssignmentPayload, LaneScorePayload } from '@/shared/mqtt';
+import type { LaneAssignmentPayload } from '@sasakiuri/saika-protocol/LaneAssignment';
+import type { LaneScorePayload } from '@sasakiuri/saika-protocol/LaneScore';
+import type { CompetitionShotPayload } from '@sasakiuri/saika-protocol/Shots';
 
 export interface PublishMqttResultLane {
   laneId: string;

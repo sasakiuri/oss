@@ -1,7 +1,7 @@
 import { canonicalJson } from '@sasakiuri/saika-rules';
 import type Database from 'better-sqlite3';
 
-import type { MalfunctionFiringEvidencePayload } from '@/shared/mqtt/MalfunctionFiring';
+import type { MalfunctionFiringEvidencePayload } from '@sasakiuri/saika-protocol/MalfunctionFiring';
 import type { FinalFiringRecord, IFinalFiringRepository } from './FinalRecoveryFiringService';
 
 export class SqliteFinalFiringRepository implements IFinalFiringRepository {

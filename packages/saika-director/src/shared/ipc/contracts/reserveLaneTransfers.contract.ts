@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { z } from 'zod';
 
-import { ReserveLaneTransferBundleSchema, ReserveLaneTransferRequestSchema } from '@/shared/mqtt/ReserveLaneTransfer';
+import {
+  ReserveLaneTransferBundleSchema,
+  ReserveLaneTransferRequestSchema,
+} from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 import {
   command,

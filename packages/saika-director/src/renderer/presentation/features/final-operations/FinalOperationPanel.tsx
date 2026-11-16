@@ -4,7 +4,7 @@ import { Clock3, ListChecks, RefreshCw } from 'lucide-react';
 
 import { finalOperationsService, mqttService } from '@/renderer/services';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
-import type { CompetitionPhase } from '@/shared/mqtt';
+import type { CompetitionPhase } from '@sasakiuri/saika-protocol/CompetitionState';
 import type {
   DirectorLaneSnapshotDto,
   FinalOperationRunDto,

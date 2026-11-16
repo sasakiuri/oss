@@ -10,7 +10,7 @@ import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifica
 import { championshipService, mqttService } from '@/renderer/services';
 import type { CompetitionStartPhase } from '@/shared/competitionTypes';
 import type { ClockQualityAssessmentDto, MqttCommandExecutionResultDto } from '@/shared/ipc/contracts';
-import type { Athlete } from '@/shared/mqtt';
+import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
 
 import { applyFiringPointAssignmentPlan, type FiringPointAssignmentPlan } from './assignmentPlanning';
 import { formatClockMetric } from './competitionFormatting';

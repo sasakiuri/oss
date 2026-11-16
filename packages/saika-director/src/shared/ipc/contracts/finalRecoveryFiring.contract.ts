@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { MalfunctionFiringEvidenceSchema, MalfunctionFiringRequestSchema } from '@/shared/mqtt/MalfunctionFiring';
+import {
+  MalfunctionFiringEvidenceSchema,
+  MalfunctionFiringRequestSchema,
+} from '@sasakiuri/saika-protocol/MalfunctionFiring';
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const intent = z.object({

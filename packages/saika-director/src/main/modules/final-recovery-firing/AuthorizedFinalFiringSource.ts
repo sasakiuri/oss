@@ -1,6 +1,6 @@
 import type { IFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import { finalRecoveryStatus } from '@/main/modules/final-recoveries';
-import { MalfunctionFiringRequestSchema } from '@/shared/mqtt/MalfunctionFiring';
+import { MalfunctionFiringRequestSchema } from '@sasakiuri/saika-protocol/MalfunctionFiring';
 
 import type { FinalFiringIntent, IFinalFiringAuthorizationSource } from './FinalRecoveryFiringService';
 

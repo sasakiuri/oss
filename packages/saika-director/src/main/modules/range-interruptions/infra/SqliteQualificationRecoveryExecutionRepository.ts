@@ -12,7 +12,7 @@ import {
   type QualificationRecoveryExecutionRecord,
   type QualificationRecoveryExecutionStart,
 } from '../domain/QualificationRecoveryExecution';
-import type { QualificationRecoveryFiringAuthorizationPayload } from '@/shared/mqtt';
+import type { QualificationRecoveryFiringAuthorizationPayload } from '@sasakiuri/saika-protocol/QualificationRecovery';
 
 interface StartRow {
   run_id: string;

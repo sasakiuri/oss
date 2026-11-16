@@ -4,10 +4,9 @@ import {
   CancelQualificationRecoveryCommandSchema,
   SettleQualificationRecoveryCommandSchema,
   StartQualificationRecoveryCommandSchema,
-  mqttTopics,
-  type CompetitionPhase,
-  type CompetitionStatePayload,
-} from '@/shared/mqtt';
+} from '@sasakiuri/saika-protocol/commands';
+import type { CompetitionPhase, CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type {

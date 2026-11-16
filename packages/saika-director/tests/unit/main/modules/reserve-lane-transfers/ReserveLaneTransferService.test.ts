@@ -9,7 +9,10 @@ import {
 } from '@/main/modules/reserve-lane-transfers/ReserveLaneTransferService';
 import { ReserveTransferDataGuard } from '@/main/modules/reserve-lane-transfers/ReserveTransferDataGuard';
 import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers/SqliteReserveTransferRepository';
-import type { ReserveLaneTransferBundle, ReserveLaneTransferRequest } from '@/shared/mqtt/ReserveLaneTransfer';
+import type {
+  ReserveLaneTransferBundle,
+  ReserveLaneTransferRequest,
+} from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 const request: ReserveLaneTransferRequest = {
   id: '11111111-1111-4111-8111-111111111111',

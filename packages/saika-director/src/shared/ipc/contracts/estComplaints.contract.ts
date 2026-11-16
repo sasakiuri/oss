@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { EstComplaintIssueSchema, EstComplaintSignalContextSchema } from '@/shared/mqtt';
+import { EstComplaintIssueSchema, EstComplaintSignalContextSchema } from '@sasakiuri/saika-protocol/EstComplaintSignal';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 

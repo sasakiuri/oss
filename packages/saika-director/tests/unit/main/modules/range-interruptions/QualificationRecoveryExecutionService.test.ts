@@ -8,7 +8,10 @@ import type { IQualificationRecoveryExecutionTransport } from '@/main/modules/ra
 import { SqliteQualificationRecoveryExecutionRepository } from '@/main/modules/range-interruptions/infra/SqliteQualificationRecoveryExecutionRepository';
 import { SqliteRangeInterruptionRepository } from '@/main/modules/range-interruptions/infra/SqliteRangeInterruptionRepository';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';
-import type { QualificationRecoveryShotPayload, QualificationRecoveryStatePayload } from '@/shared/mqtt';
+import type {
+  QualificationRecoveryShotPayload,
+  QualificationRecoveryStatePayload,
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
 
 import { migratedDatabase } from '../../../../helpers/database';
 

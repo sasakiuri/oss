@@ -42,7 +42,7 @@ import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRuleP
 import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfStandardStrategy';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
-import { type ReserveLaneTransferBundle } from '@/shared/mqtt/ReserveLaneTransfer';
+import { type ReserveLaneTransferBundle } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
 import { migratedDatabase, seedChampionship, seedEvent, seedParticipant } from '../../../../helpers/database';
 

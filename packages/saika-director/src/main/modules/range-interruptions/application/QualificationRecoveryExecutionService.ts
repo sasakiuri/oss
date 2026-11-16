@@ -1,6 +1,9 @@
 import type { QualificationTimedTargetSeriesRecoveryRecommendation } from '@sasakiuri/saika-rules';
 
-import type { QualificationRecoveryShotPayload, QualificationRecoveryStatePayload } from '@/shared/mqtt';
+import type {
+  QualificationRecoveryShotPayload,
+  QualificationRecoveryStatePayload,
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
 
 import type { IQualificationRecoveryExecutionRepository } from '../domain/IQualificationRecoveryExecutionRepository';
 import type { IQualificationRecoveryExecutionTransport } from '../domain/IQualificationRecoveryExecutionTransport';

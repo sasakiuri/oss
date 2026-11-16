@@ -1,4 +1,4 @@
-import type { CompetitionShotPayload } from '@/shared/mqtt';
+import type { CompetitionShotPayload } from '@sasakiuri/saika-protocol/Shots';
 import type { CompetitionShotObservation } from '../domain/ICompetitionShotJournal';
 
 export function toCompetitionShotObservation(

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-import type { MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import {
   PauseTimerCommandSchema,
   ResumeMatchCommandSchema,
   ResumeTimerCommandSchema,
-  mqttTopics,
-  type CompetitionStatePayload,
-} from '@/shared/mqtt';
+  type MqttCommandActionOf,
+} from '@sasakiuri/saika-protocol/commands';
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import { createLaneCommandFailure } from './createLaneCommandFailure';
 import type { DirectorCommandPort } from './DirectorCommandPort';

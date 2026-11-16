@@ -3,19 +3,21 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ApplyQualificationRecoveryCommandSchema,
-  EstComplaintSignalPayloadSchema,
-  HardwareStatePayloadSchema,
-  LaneScorePayloadSchema,
-  QualificationMalfunctionSignalPayloadSchema,
-  QualificationRecoveryFiringAuthorizationSchema,
-  QualificationRecoveryShotPayloadSchema,
-  QualificationRecoveryStatePayloadSchema,
-  RawShotPayloadSchema,
   SettleQualificationRecoveryCommandSchema,
   StartQualificationRecoveryCommandSchema,
   StartShootOffCommandSchema,
-  TimedTargetStatePayloadSchema,
-} from '@/shared/mqtt/protocol';
+} from '@sasakiuri/saika-protocol/commands';
+import { EstComplaintSignalPayloadSchema } from '@sasakiuri/saika-protocol/EstComplaintSignal';
+import { LaneScorePayloadSchema } from '@sasakiuri/saika-protocol/LaneScore';
+import { HardwareStatePayloadSchema } from '@sasakiuri/saika-protocol/LaneState';
+import { QualificationMalfunctionSignalPayloadSchema } from '@sasakiuri/saika-protocol/QualificationMalfunctionSignal';
+import {
+  QualificationRecoveryFiringAuthorizationSchema,
+  QualificationRecoveryShotPayloadSchema,
+  QualificationRecoveryStatePayloadSchema,
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
+import { RawShotPayloadSchema } from '@sasakiuri/saika-protocol/Shots';
+import { TimedTargetStatePayloadSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 
 describe('HardwareStatePayloadSchema', () => {
   const legacyState = {
