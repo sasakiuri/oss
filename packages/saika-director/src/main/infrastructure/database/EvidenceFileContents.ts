@@ -9,7 +9,7 @@ export function verifyEvidenceFileContent(bytes: Uint8Array, sha256: string, siz
   if (createHash('sha256').update(bytes).digest('hex') !== sha256) throw new Error('Evidence file SHA-256 mismatch');
 }
 
-export function evidenceFileReferences(database: Database.Database): Array<{ sha256: string; sizeBytes: number }> {
+function evidenceFileReferences(database: Database.Database): Array<{ sha256: string; sizeBytes: number }> {
   if (!database.prepare("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'evidence_files'").get()) {
     return [];
   }
