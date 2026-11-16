@@ -4021,3 +4021,258 @@ describe('DirectorMqttService reserve Lane transfer', () => {
     await service.disconnect();
   });
 });
+
+describe('DirectorMqttService timed target commands', () => {
+  const SEQUENCE_ID = '99999999-9999-4999-8999-999999999991';
+  const startInput = {
+    competitionId: COMPETITION_ID,
+    programId: 'P25_MATCH_PRECISION_240',
+    purpose: 'MATCH' as const,
+    stageIndex: 1,
+    seriesIndex: 0,
+  };
+  let transport: FakeMqttTransport;
+
+  beforeEach(() => {
+    transport = new FakeMqttTransport();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  function emitLaneStates(laneIds = [LANE_ID, SECOND_LANE_ID]) {
+    for (const laneId of laneIds)
+      transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${laneId}/state`, activeTimedLaneState(laneId));
+  }
+
+  function competitionCommandTopic(action: string) {
+    return `saika/competition/${COMPETITION_ID}/command/${action}`;
+  }
+
+  it('checks phase, Lanes, safety STOP and active sequences before a timed start', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID, SECOND_LANE_ID]);
+    await expect(service.startTimedTarget(startInput)).rejects.toThrow(
+      new Error(`Cannot start a timed target sequence while competition ${COMPETITION_ID} is in phase NOT_STARTED`),
+    );
+    await service.disconnect();
+
+    const running = new FakeMqttTransport();
+    transport = running;
+    const started = createService(running);
+    await startMatchCompetition(started, running);
+    emitLaneStates();
+    await expect(started.startTimedTarget({ ...startInput, targetLaneIds: [] })).rejects.toThrow(
+      new Error('A timed target sequence requires at least one Lane'),
+    );
+    await expect(started.startTimedTarget({ ...startInput, targetLaneIds: [THIRD_LANE_ID] })).rejects.toThrow(
+      new Error(`Lane ${THIRD_LANE_ID} is not joined to competition ${COMPETITION_ID}`),
+    );
+    stopLane(running, SECOND_LANE_ID);
+    await expect(started.startTimedTarget(startInput)).rejects.toThrow(
+      new Error(`Cannot start a timed target sequence; safety STOP is active on Lane(s): ${SECOND_LANE_ID}`),
+    );
+    await expect(started.startTimedTarget({ ...startInput, targetLaneIds: [LANE_ID] })).resolves.toBeDefined();
+    running.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/timed-target/state`, {
+      ...completedTimedTargetState(LANE_ID, new Date().toISOString()),
+      phase: 'LOAD',
+    });
+    expect(started.getSnapshot().lanes.find((lane) => lane.laneId === LANE_ID)?.timedTargetState?.phase).toBe('LOAD');
+    await expect(started.startTimedTarget({ ...startInput, targetLaneIds: [LANE_ID] })).rejects.toThrow(
+      new Error(`A timed target sequence is already active on Lane(s): ${LANE_ID}`),
+    );
+    expect(
+      running.publications.filter((entry) => entry.topic === competitionCommandTopic('start-timed-target')),
+    ).toHaveLength(1);
+    await started.disconnect();
+  });
+
+  it('reports Lanes that do not reach the requested series', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    emitLaneStates([LANE_ID]);
+
+    await expect(service.startTimedTarget({ ...startInput, seriesIndex: 1 })).rejects.toThrow(
+      new Error(`Timed target Lanes are not ready at 1:1: ${LANE_ID}, ${SECOND_LANE_ID}`),
+    );
+    expect(transport.publications.some((entry) => entry.topic === competitionCommandTopic('start-timed-target'))).toBe(
+      false,
+    );
+    await service.disconnect();
+  });
+
+  it('asks the start readiness check with the purpose and Lanes before publishing LOAD', async () => {
+    const assertPhaseStartAllowed = vi.fn<NonNullable<DirectorMqttCallbacks['assertPhaseStartAllowed']>>(() => {
+      throw new Error('Relay readiness is incomplete');
+    });
+    const service = createService(transport, vi.fn(), { assertPhaseStartAllowed });
+    await startMatchCompetition(service, transport);
+    emitLaneStates();
+
+    await expect(service.startTimedTarget({ ...startInput, purpose: 'SIGHTING' })).rejects.toThrow(
+      new Error('Relay readiness is incomplete'),
+    );
+    expect(assertPhaseStartAllowed).toHaveBeenCalledExactlyOnceWith({
+      competitionId: COMPETITION_ID,
+      phase: 'SIGHTING',
+      laneIds: [LANE_ID, SECOND_LANE_ID],
+    });
+    expect(transport.publications.some((entry) => entry.topic === competitionCommandTopic('start-timed-target'))).toBe(
+      false,
+    );
+
+    assertPhaseStartAllowed.mockImplementation(() => undefined);
+    const starting = service.startTimedTarget(startInput);
+    const { command } = await waitForPublication(transport, competitionCommandTopic('start-timed-target'));
+    expect(command).toEqual({
+      commandId: expect.any(String),
+      issuedBy: 'director-test',
+      issuerId: 'director-test',
+      issuedAt: expect.any(String),
+      programId: 'P25_MATCH_PRECISION_240',
+      purpose: 'MATCH',
+      stageIndex: 1,
+      seriesIndex: 0,
+      loadAt: expect.any(String),
+      targetLaneIds: [LANE_ID, SECOND_LANE_ID],
+    });
+    for (const laneId of [LANE_ID, SECOND_LANE_ID])
+      transport.emitMessage(`${competitionCommandTopic('start-timed-target')}/acknowledgement/${laneId}`, {
+        commandId: command.commandId,
+        laneId,
+        status: 'done',
+        acknowledgedAt: new Date().toISOString(),
+      });
+    await expect(starting).resolves.toMatchObject({ action: 'start-timed-target', success: true });
+    await service.disconnect();
+  });
+
+  it('records UNLOAD only for completed or cancelled sequences on joined Lanes', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    const input = {
+      competitionId: COMPETITION_ID,
+      sequenceId: SEQUENCE_ID,
+      observedAt: new Date().toISOString(),
+      officialName: 'CRO',
+    };
+
+    await expect(service.recordTimedTargetUnload({ ...input, targetLaneIds: [] })).rejects.toThrow(
+      new Error('UNLOAD requires at least one Lane'),
+    );
+    await expect(service.recordTimedTargetUnload({ ...input, targetLaneIds: [THIRD_LANE_ID] })).rejects.toThrow(
+      new Error(`Lane ${THIRD_LANE_ID} is not joined to competition ${COMPETITION_ID}`),
+    );
+    await expect(service.recordTimedTargetUnload({ ...input, targetLaneIds: [LANE_ID] })).rejects.toThrow(
+      new Error(`UNLOAD sequence is not completed or cancelled on Lane ${LANE_ID}`),
+    );
+    transport.emitMessage(`saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/timed-target/state`, {
+      ...completedTimedTargetState(LANE_ID, new Date().toISOString()),
+      phase: 'FIRING',
+    });
+    expect(service.getSnapshot().lanes.find((lane) => lane.laneId === LANE_ID)?.timedTargetState?.phase).toBe('FIRING');
+    await expect(service.recordTimedTargetUnload({ ...input, targetLaneIds: [LANE_ID] })).rejects.toThrow(
+      new Error(`UNLOAD sequence is not completed or cancelled on Lane ${LANE_ID}`),
+    );
+    await expect(
+      service.recordTimedTargetUnload({ ...input, competitionId: SECOND_COMPETITION_ID, targetLaneIds: [LANE_ID] }),
+    ).rejects.toThrow(new Error(`MQTT competition not found: ${SECOND_COMPETITION_ID}`));
+    expect(transport.publications.some((entry) => entry.topic.endsWith('/record-timed-target-unload'))).toBe(false);
+    await service.disconnect();
+  });
+
+  it('cancels a sequence on every competition Lane unless Lanes are selected', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID, SECOND_LANE_ID]);
+    const topic = competitionCommandTopic('cancel-timed-target');
+
+    await expect(
+      service.cancelTimedTarget({
+        competitionId: COMPETITION_ID,
+        sequenceId: SEQUENCE_ID,
+        reason: 'x',
+        targetLaneIds: [],
+      }),
+    ).rejects.toThrow(new Error('Timed target cancellation requires at least one Lane'));
+    await expect(
+      service.cancelTimedTarget({
+        competitionId: COMPETITION_ID,
+        sequenceId: SEQUENCE_ID,
+        reason: 'x',
+        targetLaneIds: [THIRD_LANE_ID],
+      }),
+    ).rejects.toThrow(new Error(`Lane ${THIRD_LANE_ID} is not joined to competition ${COMPETITION_ID}`));
+
+    const cancelling = service.cancelTimedTarget({
+      competitionId: COMPETITION_ID,
+      sequenceId: SEQUENCE_ID,
+      reason: 'Target malfunction',
+    });
+    const { command } = await waitForPublication(transport, topic);
+    expect(command).toEqual({
+      commandId: expect.any(String),
+      issuedBy: 'director-test',
+      issuerId: 'director-test',
+      issuedAt: expect.any(String),
+      sequenceId: SEQUENCE_ID,
+      reason: 'Target malfunction',
+      targetLaneIds: [LANE_ID, SECOND_LANE_ID],
+    });
+    transport.emitMessage(`${topic}/acknowledgement/${LANE_ID}`, {
+      commandId: command.commandId,
+      laneId: LANE_ID,
+      status: 'done',
+      acknowledgedAt: new Date().toISOString(),
+    });
+    const result = await cancelling;
+    expect(result).toMatchObject({ action: 'cancel-timed-target', success: false });
+    expect(result.lanes).toEqual([
+      expect.objectContaining({ laneId: LANE_ID, status: 'done' }),
+      expect.objectContaining({ laneId: SECOND_LANE_ID, status: 'timeout' }),
+    ]);
+
+    const selected = service.cancelTimedTarget({
+      competitionId: COMPETITION_ID,
+      sequenceId: SEQUENCE_ID,
+      reason: 'Target malfunction',
+      targetLaneIds: [SECOND_LANE_ID, SECOND_LANE_ID],
+    });
+    const second = await waitForPublication(transport, topic, 2);
+    expect(second.command.targetLaneIds).toEqual([SECOND_LANE_ID]);
+    transport.emitMessage(`${topic}/acknowledgement/${SECOND_LANE_ID}`, {
+      commandId: second.command.commandId,
+      laneId: SECOND_LANE_ID,
+      status: 'done',
+      acknowledgedAt: new Date().toISOString(),
+    });
+    await expect(selected).resolves.toMatchObject({ success: true });
+    await service.disconnect();
+  });
+
+  it('runs a timed start behind an earlier operation on the same competition', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    emitLaneStates();
+    stopLane(transport, LANE_ID);
+    const transferring = service.transferReserveLane({
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      transfer: { operation: 'CANCEL_SOURCE', id: SEQUENCE_ID, digest: 'b'.repeat(64) },
+    });
+    await waitForPublication(transport, laneCompetitionCommandTopic(LANE_ID, 'reserve-lane-transfer'));
+
+    const starting = service.startTimedTarget({ ...startInput, targetLaneIds: [SECOND_LANE_ID] });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    expect(transport.publications.some((entry) => entry.topic === competitionCommandTopic('start-timed-target'))).toBe(
+      false,
+    );
+    await expect(transferring).rejects.toThrow('Reserve transfer was not acknowledged');
+    await waitForPublication(transport, competitionCommandTopic('start-timed-target'));
+    await expect(starting).resolves.toMatchObject({ action: 'start-timed-target' });
+    await service.disconnect();
+  });
+});
