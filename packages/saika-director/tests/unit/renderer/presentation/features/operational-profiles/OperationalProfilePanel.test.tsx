@@ -178,4 +178,44 @@ describe('OperationalProfilePanel', () => {
     );
     expect(applied).toHaveBeenCalledOnce();
   });
+
+  it('shows a failed preview as error text and a failed application as its message', async () => {
+    vi.mocked(operationalProfilesService.preview).mockResolvedValueOnce({
+      success: false,
+      data: null,
+      error: { code: 'NOT_FOUND', message: 'Competition not found' },
+    });
+    const { unmount } = render(<OperationalProfilePanel competitionId="competition" onApplied={() => {}} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: Competition not found$/);
+    unmount();
+
+    vi.mocked(operationalProfilesService.preview).mockResolvedValue({
+      success: true,
+      data: {
+        competitionId: 'competition',
+        fingerprint: 'a'.repeat(64),
+        changes: [
+          {
+            id: 'clock',
+            label: 'Clock quality',
+            scope: 'DIRECTOR',
+            before: 'ADVISORY',
+            after: 'REQUIRED',
+            context: '',
+          },
+        ],
+      },
+    });
+    vi.mocked(operationalProfilesService.apply).mockResolvedValue({
+      success: false,
+      error: { code: 'CONFLICT', message: 'The settings changed; review them again' },
+    });
+    const applied = vi.fn();
+    render(<OperationalProfilePanel competitionId="competition" onApplied={applied} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Require all listed checks' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Apply reviewed settings' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Apply reviewed settings' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^The settings changed; review them again$/);
+    expect(applied).not.toHaveBeenCalled();
+  });
 });
