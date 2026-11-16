@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import type { TimedTargetProgram, TimedTargetPurpose } from '@sasakiuri/saika-rules';
 
 import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
@@ -34,7 +34,7 @@ export interface TimedTargetState {
   readonly terminalReason: string | null;
   readonly commandPause?: CommandPauseAssessment;
   readonly executionContext?: TimedTargetExecutionContext;
-  readonly timingSettings?: TimedTargetTimingSettings;
+  readonly timingSettings?: ShotTimingSettings;
 }
 
 export interface TimedTargetShotDecision {
@@ -53,7 +53,7 @@ export interface TimedTargetShotDecision {
 
 export interface ITimedTargetControl {
   readonly enforcementMode: TimedTargetEnforcementMode;
-  readonly timingSettings?: TimedTargetTimingSettings;
+  readonly timingSettings?: ShotTimingSettings;
   start(input: {
     sequenceId: string;
     competitionId: string;

@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { createHash, randomUUID } from 'node:crypto';
 
-import {
-  ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema,
-  type ShotTimingSettings as TimedTargetTimingSettings,
-} from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import { ShotTimingSettingsSchema, type ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 
+import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
 import type { ConnectionSettingsDto } from '@/shared/ipc/contracts';
 import type { TimingMeasurementRequest } from '@/shared/ipc/contracts/timingMeasurements.schema';
 import {
@@ -18,7 +16,6 @@ import {
   type TimingProfileStatus,
   type TimingProfileStore,
 } from '@/shared/ipc/contracts/timingProfiles.schema';
-import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 import { TimingMeasurementAnalyzer, type ITimingMeasurementAnalyzer } from '../domain/TimingMeasurementAnalyzer';
 import { TimingProfileValidityPolicy, type ITimingProfileValidityPolicy } from '../domain/TimingProfileValidityPolicy';
@@ -26,7 +23,7 @@ import { TimingProfileValidityPolicy, type ITimingProfileValidityPolicy } from '
 import { TimingEvidenceReporter } from './TimingEvidenceReporter';
 
 export interface TimingProfileState extends TimingProfileStore {
-  settings: TimedTargetTimingSettings;
+  settings: ShotTimingSettings;
 }
 export interface ITimingProfileStore {
   load(): TimingProfileState;
@@ -87,7 +84,7 @@ export class TimingProfileService {
     };
   }
 
-  effectiveSettings(): TimedTargetTimingSettings {
+  effectiveSettings(): ShotTimingSettings {
     try {
       const saved = this.store.load();
       if (!saved.activeApplicationId) return saved.settings;
@@ -200,8 +197,8 @@ export class TimingProfileService {
     return this.status();
   }
 
-  async setManualSettings(input: TimedTargetTimingSettings): Promise<TimedTargetTimingSettings> {
-    const settings = TimedTargetTimingSettingsSchema.parse(input);
+  async setManualSettings(input: ShotTimingSettings): Promise<ShotTimingSettings> {
+    const settings = ShotTimingSettingsSchema.parse(input);
     await this.requireIdle();
     const saved = this.store.load();
     this.store.write({ ...saved, settings, activeApplicationId: null });

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import { ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import { ShotTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { TimingEvidenceReportSchema } from '@sasakiuri/saika-protocol/TimingEvidenceReport';
 import { z } from 'zod';
 
@@ -17,7 +17,7 @@ export const TimingProfileInputSchema = z.object({
   measuredBy: text,
   measuredAt: z.string().datetime(),
   validUntil: z.string().datetime().optional(),
-  settings: TimedTargetTimingSettingsSchema.extend({ mode: z.literal('BOUNDED') }),
+  settings: ShotTimingSettingsSchema.extend({ mode: z.literal('BOUNDED') }),
 });
 export const TimingProfileSchema = TimingProfileInputSchema.extend({
   connectionRevision: revision,
@@ -50,7 +50,7 @@ export const TimingProfileStatusSchema = TimingProfileStoreSchema.extend({
   revision,
   connectionLabel: z.string(),
   evidence: TimingEvidenceReportSchema.optional(),
-  settings: TimedTargetTimingSettingsSchema,
+  settings: ShotTimingSettingsSchema,
   state: z.enum(['MANUAL', 'ACTIVE', 'REVIEW_REQUIRED']),
   issue: z.string().nullable(),
 });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 
 import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
@@ -16,15 +16,15 @@ export interface ShotTimingAssessment {
 }
 
 export interface IShotTimingPolicy {
-  readonly settings: TimedTargetTimingSettings;
+  readonly settings: ShotTimingSettings;
   assess(shot: TimedTargetShotTime, schedule: TimedTargetSchedule): ShotTimingAssessment;
 }
 
 /** Uses an interval of possible shot times; never extends a rule-defined recording window. */
 export class BoundedShotTimingPolicy implements IShotTimingPolicy {
-  constructor(private readonly readSettings: () => TimedTargetTimingSettings) {}
+  constructor(private readonly readSettings: () => ShotTimingSettings) {}
 
-  get settings(): TimedTargetTimingSettings {
+  get settings(): ShotTimingSettings {
     return this.readSettings();
   }
 

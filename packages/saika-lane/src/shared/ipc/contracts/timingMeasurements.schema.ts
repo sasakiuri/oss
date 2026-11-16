@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import { ShotTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { z } from 'zod';
 
 export const MAX_TIMING_MEASUREMENT_BYTES = 262_144;
@@ -15,7 +15,7 @@ export const TimingMeasurementAnalysisSchema = z.object({
   sourceSha256: z.string().regex(/^[a-f0-9]{64}$/),
   receiptSamples: z.number().int().nonnegative(),
   clockSamples: z.number().int().nonnegative(),
-  settings: TimedTargetTimingSettingsSchema.extend({ mode: z.literal('BOUNDED') }),
+  settings: ShotTimingSettingsSchema.extend({ mode: z.literal('BOUNDED') }),
 });
 export const TimingMeasurementEvidenceSchema = z.object({
   request: TimingMeasurementRequestSchema,

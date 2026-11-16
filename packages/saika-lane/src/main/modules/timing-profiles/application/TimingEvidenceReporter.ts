@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import type { TimingEvidenceReport } from '@sasakiuri/saika-protocol/TimingEvidenceReport';
 
+import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
 import type { ConnectionSettingsDto } from '@/shared/ipc/contracts';
 import type { TimingProfileStatus } from '@/shared/ipc/contracts/timingProfiles.schema';
-import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 import type { ITimingMeasurementAnalyzer } from '../domain/TimingMeasurementAnalyzer';
 
