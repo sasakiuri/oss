@@ -32,9 +32,6 @@ describe('useConnection', () => {
       const { result } = renderHook(() => useConnection());
 
       expect(result.current.status).toBe('disconnected');
-      expect(result.current.connectionId).toBeNull();
-      expect(result.current.portName).toBeNull();
-      expect(result.current.manufacturer).toBeNull();
     });
 
     it('loading state is false', () => {
@@ -243,9 +240,11 @@ describe('useConnection', () => {
       });
 
       expect(result.current.status).toBe('connected');
-      expect(result.current.connectionId).toBe('conn-789');
-      expect(result.current.portName).toBe('/dev/ttyUSB0');
-      expect(result.current.manufacturer).toBe('DISAG');
+      expect(useConnectionStore.getState()).toMatchObject({
+        connectionId: 'conn-789',
+        portName: '/dev/ttyUSB0',
+        manufacturer: 'DISAG',
+      });
 
       // Disconnect
       await act(async () => {
@@ -253,9 +252,7 @@ describe('useConnection', () => {
       });
 
       expect(result.current.status).toBe('disconnected');
-      expect(result.current.connectionId).toBeNull();
-      expect(result.current.portName).toBeNull();
-      expect(result.current.manufacturer).toBeNull();
+      expect(useConnectionStore.getState()).toMatchObject({ connectionId: null, portName: null, manufacturer: null });
     });
 
     it('can reconnect after an error', async () => {
@@ -280,7 +277,7 @@ describe('useConnection', () => {
 
       expect(result.current.error).toBeNull();
       expect(result.current.status).toBe('connected');
-      expect(result.current.connectionId).toBe('conn-retry');
+      expect(useConnectionStore.getState().connectionId).toBe('conn-retry');
     });
   });
 });

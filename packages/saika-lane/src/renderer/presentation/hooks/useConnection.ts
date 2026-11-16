@@ -16,12 +16,6 @@ import type { ConnectionStatus, TargetManufacturer } from '@/shared/ipc/contract
 export interface UseConnectionResult {
   /** Connection status */
   status: ConnectionStatus;
-  /** Connection ID (null when disconnected) */
-  connectionId: string | null;
-  /** Serial port name (null when disconnected) */
-  portName: string | null;
-  /** Target manufacturer name (null when disconnected) */
-  manufacturer: TargetManufacturer | null;
   /** Connect action; resolves `false` when the connection failed (the error is in `error`). */
   connect: (
     portName: string,
@@ -49,8 +43,6 @@ function toErrorMessage(err: unknown, fallback: string): string {
 export function useConnection(): UseConnectionResult {
   const status = useConnectionStore((state) => state.status);
   const connectionId = useConnectionStore((state) => state.connectionId);
-  const portName = useConnectionStore((state) => state.portName);
-  const manufacturer = useConnectionStore((state) => state.manufacturer);
   const setConnection = useConnectionStore((state) => state.setConnection);
   const disconnectStore = useConnectionStore((state) => state.disconnect);
   const setDeviceId = useSessionStore((state) => state.setDeviceId);
@@ -115,9 +107,6 @@ export function useConnection(): UseConnectionResult {
 
   return {
     status,
-    connectionId,
-    portName,
-    manufacturer,
     connect,
     disconnect,
     isConnecting: connecting.loading,
