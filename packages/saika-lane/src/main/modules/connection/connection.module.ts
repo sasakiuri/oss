@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
-import type { Connection } from '@/main/modules/connection/domain/Connection';
-import { Mode } from '@/main/modules/session/domain/Mode';
 import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
 import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -10,6 +8,8 @@ import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
 
 import { createConnectToTargetHandler } from './application/handlers/ConnectToTargetHandler';
 import { createDisconnectFromTargetHandler } from './application/handlers/DisconnectFromTargetHandler';
+import { TargetModeSynchronizer } from './application/TargetModeSynchronizer';
+import { UnexpectedDisconnectRecorder } from './application/UnexpectedDisconnectRecorder';
 import { createConnectionIpcHandlers } from './infra/ConnectionIpcHandlers';
 import { createShotIngestionHandler } from './infra/ShotIngestionHandler';
 
@@ -84,77 +84,18 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     // missed or overwritten by an older persisted snapshot.
     sessionContextCache.subscribeEvents(() => usbManager.resetShotCounter());
 
-    const getCachedMode = (): Mode | null => {
-      try {
-        return sessionContextCache.getContext().mode;
-      } catch {
-        return null;
-      }
-    };
-    const getCurrentMode = (): Mode => getCachedMode() ?? Mode.sighting();
+    const modeSync = new TargetModeSynchronizer({
+      sessionContext: sessionContextCache,
+      sessionRepository,
+      competitionRepository,
+      competitionInterruptionControl,
+      target: usbManager,
+    });
+    const unexpectedDisconnects = new UnexpectedDisconnectRecorder(connectionRepository, eventBus);
 
-    // Automatic series changes can change the target mode without a stage event.
-    // Stage boundaries synchronize the device even when the cache already matches;
-    // other notifications send only a changed projection.
-    let competitionModeUpdates = Promise.resolve();
-    const refreshCompetitionMode = (forceSend: boolean): void => {
-      competitionModeUpdates = competitionModeUpdates
-        .then(async () => {
-          const previousMode = getCachedMode();
-          const mode = await sessionContextCache.bootstrap(
-            sessionRepository,
-            competitionRepository,
-            competitionInterruptionControl,
-          );
-          if (mode && (forceSend || mode.value !== previousMode?.value)) await usbManager.sendMode(mode);
-        })
-        .catch((err: unknown) => {
-          getLogger().warn('Failed to refresh competition target mode', 'main', {
-            err: err instanceof Error ? err.message : String(err),
-          });
-        });
-    };
-
-    const connectToTarget = createConnectToTargetHandler(connectionRepository, usbManager, eventBus, getCurrentMode);
-
-    let pendingUnexpectedDisconnect: Promise<Connection | null> | null = null;
-
-    const takePendingUnexpectedDisconnect = async (): Promise<Connection | null> => {
-      const pending = pendingUnexpectedDisconnect;
-      pendingUnexpectedDisconnect = null;
-      return pending ? await pending : null;
-    };
-
-    const flushPendingUnexpectedDisconnect = async (): Promise<void> => {
-      try {
-        const disconnectedConnection = await takePendingUnexpectedDisconnect();
-        if (!disconnectedConnection) {
-          return;
-        }
-
-        await connectionRepository.save(disconnectedConnection);
-        eventBus.emit({
-          type: 'ConnectionLost',
-          timestamp: Date.now(),
-          aggregateId: disconnectedConnection.id,
-          reason: 'USB device disconnected unexpectedly',
-        });
-      } catch (err: unknown) {
-        getLogger().warn('Failed to finalize pending unexpected USB disconnect before manual connect', 'main', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-    };
-
-    const discardPendingUnexpectedDisconnect = async (): Promise<void> => {
-      try {
-        await takePendingUnexpectedDisconnect();
-      } catch (err: unknown) {
-        getLogger().warn('Failed to discard pending unexpected USB disconnect before manual disconnect', 'main', {
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-    };
+    const connectToTarget = createConnectToTargetHandler(connectionRepository, usbManager, eventBus, () =>
+      modeSync.currentMode(),
+    );
 
     // Register CQRS handlers
     commandBus.register(ConnectToTargetToken, async (input) => {
@@ -162,13 +103,13 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       // row's stale SIGHTING mode before competition recovery has completed.
       if ((await startup.snapshot()).status !== 'READY')
         throw new Error('Restore the saved run before connecting the target');
-      await competitionModeUpdates;
-      await flushPendingUnexpectedDisconnect();
+      await modeSync.settled();
+      await unexpectedDisconnects.flushBeforeConnect();
       await connectToTarget(input);
     });
     const disconnectFromTarget = createDisconnectFromTargetHandler(connectionRepository, usbManager, eventBus);
     commandBus.register(DisconnectFromTargetToken, async (input) => {
-      await discardPendingUnexpectedDisconnect();
+      await unexpectedDisconnects.discard();
       await disconnectFromTarget(input);
     });
 
@@ -205,52 +146,18 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
       if (startup.isReady()) await handleShotIngestion(data);
     });
 
-    usbManager.on('disconnected', () => {
-      pendingUnexpectedDisconnect = (async () => {
-        try {
-          const activeConnection = await connectionRepository.findActive();
-          if (!activeConnection || activeConnection.isDisconnected) {
-            return null;
-          }
-
-          return activeConnection.disconnect();
-        } catch (err: unknown) {
-          getLogger().warn('Failed to propagate unexpected USB disconnect', 'main', {
-            err: err instanceof Error ? err.message : String(err),
-          });
-          return null;
-        }
-      })();
-    });
+    usbManager.on('disconnected', () => unexpectedDisconnects.record());
 
     usbManager.on('connected', (reconnectedConnection) => {
       void (async () => {
         try {
           if ((await startup.snapshot()).status !== 'READY')
             throw new Error('Restore the saved run before connecting the target');
-          const disconnectedConnection = await takePendingUnexpectedDisconnect();
-          if (!disconnectedConnection) {
+          if (!(await unexpectedDisconnects.completeReconnect(reconnectedConnection))) {
             return;
           }
 
-          await connectionRepository.save(disconnectedConnection);
-          await connectionRepository.save(reconnectedConnection);
-
-          eventBus.emit({
-            type: 'ConnectionEstablished',
-            timestamp: Date.now(),
-            aggregateId: reconnectedConnection.id,
-            manufacturer: reconnectedConnection.manufacturer,
-            portPath: reconnectedConnection.portPath,
-            deviceId: reconnectedConnection.deviceId,
-          });
-
-          await competitionModeUpdates;
-          usbManager.sendMode(getCurrentMode()).catch((err: unknown) => {
-            getLogger().warn('Failed to restore device mode after automatic USB reconnect', 'main', {
-              err: err instanceof Error ? err.message : String(err),
-            });
-          });
+          await modeSync.restoreAfterReconnect();
         } catch (err: unknown) {
           getLogger().warn('Failed to propagate automatic USB reconnect', 'main', {
             err: err instanceof Error ? err.message : String(err),
@@ -260,57 +167,9 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     });
 
     usbManager.on('reconnectFailed', () => {
-      void (async () => {
-        try {
-          const disconnectedConnection = await takePendingUnexpectedDisconnect();
-          if (!disconnectedConnection) {
-            return;
-          }
-
-          await connectionRepository.save(disconnectedConnection);
-
-          eventBus.emit({
-            type: 'ConnectionLost',
-            timestamp: Date.now(),
-            aggregateId: disconnectedConnection.id,
-            reason: 'USB device disconnected unexpectedly',
-          });
-        } catch (err: unknown) {
-          getLogger().warn('Failed to finalize unexpected USB disconnect', 'main', {
-            err: err instanceof Error ? err.message : String(err),
-          });
-        }
-      })();
+      void unexpectedDisconnects.flushAfterReconnectFailure();
     });
 
-    // Subscribe to ModeSwitched events → send mode byte to device
-    eventBus.on('ModeSwitched', (event) => {
-      usbManager.sendMode(event.newMode).catch((err: unknown) => {
-        getLogger().warn('sendMode failed on ModeSwitched', 'main', {
-          mode: event.newMode.value,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      });
-    });
-
-    eventBus.on('AthleteTargetModeChanged', (event) => {
-      usbManager.sendMode(event.newMode).catch((err: unknown) => {
-        getLogger().warn('sendMode failed on AthleteTargetModeChanged', 'main', {
-          mode: event.newMode.value,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      });
-    });
-
-    eventBus.on('StageAdvanced', () => refreshCompetitionMode(true));
-    eventBus.on('PhaseChanged', (event) => {
-      refreshCompetitionMode(event.previousPhase === 'IDLE' && event.newPhase === 'ACTIVE');
-    });
-    eventBus.on('ShotRecorded', (event) => {
-      if (event.shot.mode.isSighting() && event.shot.competitionContext?.athleteModeObserved)
-        refreshCompetitionMode(false);
-    });
-    eventBus.on('CompetitionProgressChanged', () => refreshCompetitionMode(false));
-    eventBus.on('SeriesCompleted', () => refreshCompetitionMode(false));
+    modeSync.subscribe(eventBus);
   },
 };
