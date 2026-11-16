@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Clock3, RefreshCw } from 'lucide-react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { mixedTeamTimeoutsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { DirectorLaneSnapshotDto, MixedTeamTimeoutDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 
@@ -37,8 +39,7 @@ export function MixedTeamTimeoutPanel({
   const [officialName, setOfficialName] = useState('');
   const [statement, setStatement] = useState('Timeout requested after completed round; Jury timing started');
   const [now, setNow] = useState(Date.now());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
   const active = sessions.find((session) => session.active && Date.parse(session.expiresAt) > now) ?? null;
   const remainingSeconds = active ? Math.max(0, Math.ceil((Date.parse(active.expiresAt) - now) / 1000)) : 0;
 
@@ -74,9 +75,7 @@ export function MixedTeamTimeoutPanel({
 
   const start = async () => {
     if (consistentShotCount === null) return;
-    setBusy(true);
-    setError(null);
-    try {
+    await run(async () => {
       const response = await mixedTeamTimeoutsService.start({
         competitionId,
         requestingTeamId,
@@ -87,33 +86,22 @@ export function MixedTeamTimeoutPanel({
         officialName: officialName.trim(),
         statement: statement.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       setNow(Date.now());
       await load();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
-  const close = async (session: MixedTeamTimeoutDto) => {
-    setBusy(true);
-    setError(null);
-    try {
+  const close = (session: MixedTeamTimeoutDto) =>
+    run(async () => {
       const response = await mixedTeamTimeoutsService.close({
         timeoutId: session.id,
         officialName: officialName.trim(),
         statement: statement.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       await load();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   return (
     <div className="space-y-3">
