@@ -130,6 +130,7 @@ export const mqttModule: ModuleDefinition<
     const safetyStopClearancePolicy = new SafetyStopClearancePolicy();
     const embeddedBrokerSecurity = embeddedMqttSecurityFromEnvironment(process.env);
     const directorMqttCredentials = mqttCredentialsFromEnvironment(process.env);
+    const reserveTransferGuard = new ReserveTransferDataGuard(new SqliteReserveTransferRepository(database));
 
     const recorder = new MqttObservationRecorder({
       eventBus,
@@ -164,10 +165,7 @@ export const mqttModule: ModuleDefinition<
       {
         assertPhaseStartAllowed: (scope) => ctx.competitionStartReadiness.assertAllowed(scope),
         assertCompetitionFinishAllowed: (competitionId) =>
-          new ReserveTransferDataGuard(new SqliteReserveTransferRepository(database)).assertAllowed({
-            competitionId,
-            operation: 'CLEAR_COMPETITION_DATA',
-          }),
+          reserveTransferGuard.assertAllowed({ competitionId, operation: 'CLEAR_COMPETITION_DATA' }),
         ...recorder.callbacks,
       },
       new MqttTransport(),

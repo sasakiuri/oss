@@ -67,28 +67,26 @@ export function createScoringServices({
   finalPlacementReviewRepository,
   participantRepository,
 }: ScoringServicesDependencies) {
+  const events = new SqliteEventRepository(database, competitionTypeRegistry);
+  const scoreCorrections = new SqliteScoreCorrectionRepository(database);
   const malfunctionScoreApplicationRepository = new SqliteMalfunctionScoreApplicationRepository(database);
   const malfunctionScoreCases = new SqliteQualificationMalfunctionRepository(database);
   const malfunctionScoreApplicationService = new MalfunctionScoreApplicationService(
     malfunctionScoreCases,
     new SqliteMalfunctionScoreSheetRepository(database),
     malfunctionScoreApplicationRepository,
-    new ResultMalfunctionScoreTargetSource(
-      resultRepository,
-      new SqliteEventRepository(database, competitionTypeRegistry),
-      competitionTypeRegistry,
-    ),
+    new ResultMalfunctionScoreTargetSource(resultRepository, events, competitionTypeRegistry),
   );
   const qualificationOverlays = new MalfunctionQualificationScoreOverlaySource(
     malfunctionScoreApplicationRepository,
     malfunctionScoreCases,
   );
   const scoreCorrectionService = new ScoreCorrectionService(
-    new SqliteScoreCorrectionRepository(database),
+    scoreCorrections,
     new StoredScoreCorrectionTargetSource(
       resultRepository,
       finalResultRepository,
-      new SqliteEventRepository(database, competitionTypeRegistry),
+      events,
       competitionTypeRegistry,
       qualificationOverlays,
     ),
@@ -104,10 +102,8 @@ export function createScoringServices({
   const observationReviewService = new ObservationReviewService(
     new StoredReviewSubjects(shotObservationEvidenceJournal, firingWindowJournal),
     new SqliteObservationReviewRepository(database),
-    new AppliedReviewCorrections(
-      new SqliteScoreCorrectionRepository(database),
-      scoreCorrectionService,
-      (eventId, scope) => reviewCompetitionScope.competitionIds(eventId, scope),
+    new AppliedReviewCorrections(scoreCorrections, scoreCorrectionService, (eventId, scope) =>
+      reviewCompetitionScope.competitionIds(eventId, scope),
     ),
     undefined,
     (eventId, scope) => reviewCompetitionScope.competitionIds(eventId, scope),
