@@ -130,4 +130,52 @@ describe('application update settings', () => {
     await act(async () => resolveQuery({ success: true, data: state }));
     expect(screen.getByText('Downloading update… 65%')).toBeVisible();
   });
+
+  it('shows a failed or rejected initial query and clears it when a state is pushed', async () => {
+    mocks.getUpdateState.mockResolvedValueOnce({
+      success: false,
+      data: null,
+      error: { code: 'ERROR', message: 'Update state unavailable' },
+    });
+    const { unmount } = renderPanel();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Update state unavailable$/);
+    emit({ status: 'idle' });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    unmount();
+
+    mocks.getUpdateState.mockRejectedValueOnce(new Error('IPC closed'));
+    renderPanel();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^IPC closed$/);
+  });
+
+  it('shows a failed check and the fallback text of an installation failure without a message', async () => {
+    mocks.checkForUpdates.mockResolvedValue({
+      success: false,
+      error: { code: 'ERROR', message: 'Update feed rejected the request' },
+    });
+    mocks.quitAndInstall.mockResolvedValue({ success: false });
+    renderPanel();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Check for updates' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Update feed rejected the request$/);
+
+    emit({ status: 'downloaded', targetVersion: '0.3.1', canInstallUpdate: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Restart and install' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Failed to install the update$/);
+  });
+
+  it('drops a check result when a newer state was pushed meanwhile', async () => {
+    let resolveCheck!: (response: unknown) => void;
+    mocks.checkForUpdates.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      }),
+    );
+    renderPanel();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Check for updates' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }));
+    emit({ status: 'downloading', downloadPercent: 30, targetVersion: '0.3.1', canCheckForUpdates: false });
+    await act(async () => resolveCheck({ success: true, data: { ...state, status: 'checking' } }));
+    expect(screen.getByText('Downloading update… 30%')).toBeVisible();
+  });
 });

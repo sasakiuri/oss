@@ -5,7 +5,7 @@ import { useConnectionStore } from '@/renderer/presentation/stores/system/connec
 import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import { mqttService } from '@/renderer/services';
-import { ok } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 
 // Suppress Logger output in tests
@@ -225,6 +225,49 @@ describe('useSystemEvents', () => {
         isConnected: true,
         connectedChannels: [3],
       });
+    });
+
+    it.each([
+      ['laneConnected', { channel: 5 }],
+      ['mqttConnectionError', { message: 'Broker refused the connection' }],
+    ])('should drop the initial query response after a %s event', async (eventName, data) => {
+      let resolveInitialState: (value: ReturnType<typeof ok<MqttControlSnapshotDto>>) => void = () => {};
+      getControlState.mockReturnValue(
+        new Promise((resolve) => {
+          resolveInitialState = resolve;
+        }),
+      );
+      const { fireEvent } = renderSystemEvents();
+      fireEvent(eventName, data);
+      const before = useConnectionStore.getState();
+
+      await act(async () => {
+        resolveInitialState(
+          ok({
+            connected: true,
+            lanes: [{ firingPointNumber: 7, hardware: { connection: { status: 'connected' } } }],
+          } as MqttControlSnapshotDto),
+        );
+        await Promise.resolve();
+      });
+
+      expect(useConnectionStore.getState()).toMatchObject({
+        isConnected: before.isConnected,
+        connectedChannels: before.connectedChannels,
+      });
+    });
+
+    it('should ignore a failed or rejected initial query', async () => {
+      getControlState.mockResolvedValueOnce(fail('Broker state unavailable'));
+      renderSystemEvents();
+      getControlState.mockRejectedValueOnce(new Error('IPC closed'));
+      renderSystemEvents();
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(useConnectionStore.getState()).toMatchObject({ isConnected: false, connectedChannels: [] });
+      expect(useNotificationStore.getState().notifications).toEqual([]);
     });
 
     it('should replace stale channels with the connected lanes from the latest snapshot', () => {
