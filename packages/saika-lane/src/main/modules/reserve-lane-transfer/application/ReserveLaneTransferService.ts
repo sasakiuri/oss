@@ -8,6 +8,8 @@ import {
 } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 import { canonicalJson } from '@sasakiuri/saika-rules';
 
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
+
 import type {
   IReserveLaneTransferControl,
   IReserveLaneTransferJournal,
@@ -20,7 +22,7 @@ export function reserveTransferDigest(bundle: Omit<ReserveLaneTransferBundle, 'd
 }
 
 export class ReserveLaneTransferService implements IReserveLaneTransferControl {
-  private tail: Promise<void> = Promise.resolve();
+  private readonly operations = new SerialQueue();
   constructor(
     private readonly journal: IReserveLaneTransferJournal,
     private readonly state: IReserveLaneTransferStatePort,
@@ -33,12 +35,7 @@ export class ReserveLaneTransferService implements IReserveLaneTransferControl {
       throw new Error('Complete or cancel the pending reserve transfer before changing Lane state');
   }
   execute(competitionId: string, action: ReserveLaneTransferAction): Promise<ReserveLaneTransferBundle> {
-    const result = this.tail.then(() => this.executeNow(competitionId, action));
-    this.tail = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
+    return this.operations.run(() => this.executeNow(competitionId, action));
   }
   private async executeNow(
     competitionId: string,

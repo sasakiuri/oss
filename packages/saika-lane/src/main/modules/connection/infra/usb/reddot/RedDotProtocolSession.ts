@@ -5,6 +5,7 @@ import {
   RedDotStreamScanner,
 } from '@/main/modules/target/infra/parsers/disag/RedDotStreamScanner';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import { type ProtocolTimerClock, SerializedProtocolTimer } from '../SerializedProtocolTimer';
@@ -87,7 +88,7 @@ export class RedDotProtocolSession {
   private readonly pollTimer: SerializedProtocolTimer;
   private readonly responseTimer: SerializedProtocolTimer;
   private readiness: Readiness | null = null;
-  private operationQueue: Promise<void> = Promise.resolve();
+  private operations = new SerialQueue();
   private receiptSequence = 0;
   private lastPreInitializationReceiptSequence = Number.POSITIVE_INFINITY;
   private lastReceiptBeforeTargetTypeCommand = Number.POSITIVE_INFINITY;
@@ -134,7 +135,7 @@ export class RedDotProtocolSession {
     this.lastPreInitializationReceiptSequence = Number.POSITIVE_INFINITY;
     this.lastReceiptBeforeTargetTypeCommand = Number.POSITIVE_INFINITY;
     this.scanner.clear();
-    this.operationQueue = Promise.resolve();
+    this.operations = new SerialQueue();
     const readiness = this.createReadiness();
     this.readiness = readiness;
     this.port.on('data', this.dataListener);
@@ -200,9 +201,7 @@ export class RedDotProtocolSession {
   }
 
   private runSerialized(operation: () => Promise<void>): Promise<void> {
-    const result = this.operationQueue.then(operation);
-    this.operationQueue = result.catch(() => undefined);
-    return result;
+    return this.operations.run(operation);
   }
 
   private async beginProbe(generation: number): Promise<void> {
@@ -685,7 +684,7 @@ export class RedDotProtocolSession {
     this.invalidResponseCount = 0;
     this.port.removeListener('data', this.dataListener);
     this.state = 'STOPPED';
-    this.operationQueue = Promise.resolve();
+    this.operations = new SerialQueue();
   }
 
   private isActive(generation: number): boolean {
