@@ -121,8 +121,6 @@ const config: KnipConfig = {
     // Public module exports and test entry points.
     "packages/saika-director/src/**/index.ts": ["exports"],
     "packages/saika-lane/src/**/index.ts": ["exports"],
-    "packages/saika-director/src/main/modules/lane-control/infra/InMemoryLaneControlRepository.ts":
-      ["exports"],
   },
   ignoreBinaries: [
     "playwright",

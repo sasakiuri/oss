@@ -16,7 +16,6 @@ export type { ILaneControlRepository } from './domain/ILaneControlRepository';
 export type { LaneControlSnapshot } from './domain/LaneControl';
 
 // Infrastructure implementations (used by composition)
-export { InMemoryLaneControlRepository } from './infra/InMemoryLaneControlRepository';
 export { SqliteLaneControlRepository } from './infra/SqliteLaneControlRepository';
 export { LaneTimerService } from './infra/LaneTimerService';
 export { DiffCalculator } from './infra/DiffCalculator';
