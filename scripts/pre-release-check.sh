@@ -139,7 +139,8 @@ suite_list() {
     const lists = {
       'electron-directories': electron.map((app) => app.directory),
       'electron-window-files': electron.flatMap((app) =>
-        app.electron.windowFiles.map((file) => app.directory + '/' + file)),
+        [...app.electron.windowFiles, ...app.electron.documentWindowFiles].map(
+          (file) => app.directory + '/' + file)),
     };
     const list = lists[process.argv[1]];
     if (!list || list.length === 0) process.exit(1);
@@ -476,19 +477,35 @@ check_electron_security() {
 
   # An application with a window guard must deny new windows, navigation,
   # webviews and permissions there, and pass every window to it. The guard
-  # function has the guard file's name.
+  # function has the guard file's name. A document window only renders
+  # generated HTML, such as a PDF export: it must disable JavaScript, deny
+  # new windows and prevent navigation itself.
   local guard_listing
   if ! guard_listing=$(node -e "
     const fs = require('fs');
     const path = require('path');
+    const newWindows = [/setWindowOpenHandler\(.*'deny'/, 'new windows are not denied'];
+    const navigation = [/'will-navigate'.*preventDefault\(\)/, 'navigation is not prevented'];
     const requirements = [
-      [/setWindowOpenHandler\(.*'deny'/, 'new windows are not denied'],
-      [/'will-navigate'.*preventDefault\(\)/, 'navigation is not prevented'],
+      newWindows,
+      navigation,
       [/'will-attach-webview'.*preventDefault\(\)/, 'webview attachment is not prevented'],
       [/setPermissionRequestHandler\(.*callback\(false\)/, 'permission requests are not denied'],
       [/setPermissionCheckHandler\(\(\) => false\)/, 'permission checks are not denied'],
     ];
+    const documentRequirements = [newWindows, navigation];
     for (const app of require('./scripts/saika-suite.json').applications) {
+      for (const file of app.electron?.documentWindowFiles ?? []) {
+        const documentFile = app.directory + '/' + file;
+        if (!fs.existsSync(documentFile)) continue;
+        const source = fs.readFileSync(documentFile, 'utf8');
+        if (/javascript:\s*true/.test(source) || !/javascript:\s*false/.test(source)) {
+          console.log(documentFile + ': JavaScript is not disabled');
+        }
+        for (const [pattern, problem] of documentRequirements) {
+          if (!pattern.test(source)) console.log(documentFile + ': ' + problem);
+        }
+      }
       const guard = app.electron?.windowGuard;
       if (!guard) continue;
       const guardFile = app.directory + '/' + guard;
