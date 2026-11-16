@@ -1,11 +1,11 @@
-import { AppUpdateStateSchema, type AppUpdateStateDto } from '@sasakiuri/saika-updater';
+import { AppUpdateStateSchema } from '@sasakiuri/saika-updater';
 import { z } from 'zod';
 import {
   FiringWindowViolationDtoSchema,
   MqttControlSnapshotSchema,
   ShotObservationEvidenceDtoSchema,
 } from './mqtt.contract';
-import { defineEventContract, defineEvent } from '@sasakiuri/saika-ipc';
+import { defineEventContract, defineEvent, type InferEventPayload } from '@sasakiuri/saika-ipc';
 
 // ---------------------------------------------------------------------------
 // Shared sub-schemas
@@ -142,22 +142,6 @@ export type ShotObservationEvidenceObservedEvent = z.infer<typeof shotObservatio
 export type CompetitionAnnouncementDueEvent = z.infer<typeof competitionAnnouncementDueSchema>;
 export type LaneControlPatchedEvent = z.infer<typeof laneControlPatchedSchema>;
 
-export interface IpcEvents {
-  appUpdateStateChanged: AppUpdateStateDto;
-  shotReceived: ShotReceivedEvent;
-  laneConnected: LaneConnectedEvent;
-  debugLog: DebugLogEvent;
-  mqttConnectionError: MqttConnectionErrorEvent;
-  mqttControlStateChanged: MqttControlStateChangedEvent;
-  firingWindowViolationDetected: FiringWindowViolationDetectedEvent;
-  shotObservationEvidenceObserved: ShotObservationEvidenceObservedEvent;
-  competitionAnnouncementDue: CompetitionAnnouncementDueEvent;
-  laneTimerTick: LaneTimerTickEvent;
-  laneTimerExpired: LaneTimerExpiredEvent;
-  laneControlUpdated: LaneControlUpdatedEvent;
-  laneControlPatched: LaneControlPatchedEvent;
-}
-
 // ---------------------------------------------------------------------------
 // Event Contract
 // ---------------------------------------------------------------------------
@@ -177,3 +161,8 @@ export const eventsContract = defineEventContract('event', {
   laneControlUpdated: defineEvent(laneControlUpdatedSchema),
   laneControlPatched: defineEvent(laneControlPatchedSchema),
 });
+
+/** Payload of each renderer event, by event name. */
+export type IpcEvents = {
+  [K in keyof (typeof eventsContract)['events']]: InferEventPayload<(typeof eventsContract)['events'][K]>;
+};

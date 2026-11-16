@@ -1,5 +1,4 @@
 import { defineModule, type ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
-import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import type { EventTransformer } from '@/main/shared-infra/ipc/EventForwardingRule';
 import type { LaneControlIpcPayload } from '@/shared/types/LaneControlIpcPayload';
 
@@ -34,7 +33,7 @@ import { laneControlContract, debugContract, eventsContract } from '@/shared/ipc
 // Domain Entities (for event listeners)
 import { LaneControl } from './domain/LaneControl';
 import { Channel } from './domain/Channel';
-import type { LaneControlUpdated, LaneTimerTick, LaneTimerExpired } from './domain/events';
+import type { LaneControlUpdated } from './domain/events';
 import { emitLaneControlUpdated } from './commands/helpers/emitLaneControlUpdated';
 import { DiffCalculator } from './infra/DiffCalculator';
 import { buildRoundConfig } from '@/shared/constants/roundConfig';
@@ -67,12 +66,11 @@ import {
 
 const MAX_SEQ = 0xffffffff;
 
-class LaneControlUpdatedTransformer implements EventTransformer {
+class LaneControlUpdatedTransformer implements EventTransformer<'LaneControlUpdated'> {
   private diffCalculator = new DiffCalculator<LaneControlIpcPayload>();
   private seqMap = new Map<string, number>();
 
-  forward(event: AnyDomainEvent, send: (ch: string, data: unknown) => void): void {
-    const e = event as LaneControlUpdated;
+  forward(e: LaneControlUpdated, send: (ch: string, data: unknown) => void): void {
     const current = this.extractPayload(e);
     const { isInitial, patch } = this.diffCalculator.calculateDiff(e.laneId, current);
 
@@ -279,25 +277,19 @@ export const laneControlModule = defineModule({
         {
           eventType: 'LaneTimerTick',
           channel: eventsContract.channels.laneTimerTick,
-          extractPayload: (event: AnyDomainEvent) => {
-            const e = event as LaneTimerTick;
-            return {
-              laneId: e.laneId,
-              remainingTime: e.remainingTime,
-              phase: e.phase,
-            };
-          },
+          extractPayload: (e) => ({
+            laneId: e.laneId,
+            remainingTime: e.remainingTime,
+            phase: e.phase,
+          }),
         },
         {
           eventType: 'LaneTimerExpired',
           channel: eventsContract.channels.laneTimerExpired,
-          extractPayload: (event: AnyDomainEvent) => {
-            const e = event as LaneTimerExpired;
-            return {
-              laneId: e.laneId,
-              phase: e.phase,
-            };
-          },
+          extractPayload: (e) => ({
+            laneId: e.laneId,
+            phase: e.phase,
+          }),
         },
       ],
     };
