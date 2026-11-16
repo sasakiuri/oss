@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { useLogStore } from '@/renderer/presentation/stores/logStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { mqttService } from '@/renderer/services/mqttService';
 
 /** Subscribe before querying so a delayed snapshot cannot overwrite a newer membership. */
@@ -25,7 +26,7 @@ export function useDirectorMembershipEvents(): void {
           id: `director-membership-error-${Date.now()}`,
           timestamp: new Date().toISOString(),
           level: 'error',
-          message: `Failed to load Director membership: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Failed to load Director membership: ${errorMessage(error)}`,
           source: 'renderer',
         });
       },

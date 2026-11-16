@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useLogStore } from '@/renderer/presentation/stores/logStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { settingsService } from '@/renderer/services/settingsService';
 
 /**
@@ -33,7 +34,7 @@ export function useSavedSettingsRestore(): void {
           id: `settings-restore-error-${Date.now()}`,
           timestamp: new Date().toISOString(),
           level: 'error',
-          message: `Failed to load user preferences: ${error instanceof Error ? error.message : String(error)}`,
+          message: `Failed to load user preferences: ${errorMessage(error)}`,
           source: 'renderer',
         });
       }

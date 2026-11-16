@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { vistaService } from '@/renderer/services/vistaService';
 import type { LaneVistaStatus } from '@/shared/ipc/contracts/vista.contract';
 
@@ -9,7 +10,7 @@ export function VistaSettingsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    vistaService.getStatus().then(setStatus, (cause: Error) => setError(cause.message));
+    vistaService.getStatus().then(setStatus, (cause: unknown) => setError(errorMessage(cause)));
   }, []);
   const update = async (change: () => Promise<LaneVistaStatus>) => {
     setBusy(true);
@@ -17,7 +18,7 @@ export function VistaSettingsPanel() {
     try {
       setStatus(await change());
     } catch (cause) {
-      setError((cause as Error).message);
+      setError(errorMessage(cause));
     } finally {
       setBusy(false);
     }

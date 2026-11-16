@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { reportService } from '@/renderer/services/reportService';
 import { settingsService } from '@/renderer/services/settingsService';
 import { PrintSettingsSchema, type PrinterDto, type PrintSettingsDto } from '@/shared/ipc/contracts';
@@ -64,7 +65,7 @@ export function SettingsPrintingTab() {
       await settingsService.savePrintSettings(PrintSettingsSchema.parse(settings));
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save printing settings');
+      setError(errorMessage(err, 'Failed to save printing settings'));
     } finally {
       setSaving(false);
     }

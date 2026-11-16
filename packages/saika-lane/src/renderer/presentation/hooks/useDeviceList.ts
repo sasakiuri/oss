@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { connectionService } from '@/renderer/services/connectionService';
 import type { TargetDeviceDto, TargetManufacturer } from '@/shared/ipc/contracts';
 
@@ -51,7 +52,7 @@ export function useDeviceList(manufacturer: TargetManufacturer) {
         }
       } catch (err) {
         if (signal?.aborted) return;
-        setDeviceError(err instanceof Error ? err.message : 'Failed to fetch device list');
+        setDeviceError(errorMessage(err, 'Failed to fetch device list'));
         setDeviceOptions([]);
       } finally {
         if (signal?.aborted) return;

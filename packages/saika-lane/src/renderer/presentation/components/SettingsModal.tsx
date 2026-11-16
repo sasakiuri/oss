@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
+import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { settingsService } from '@/renderer/services/settingsService';
 import { updateService } from '@/renderer/services/updateService';
 import type {
@@ -190,7 +191,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         }
       } catch (err) {
         if (!cancelled) {
-          setJsonError(err instanceof Error ? err.message : String(err));
+          setJsonError(errorMessage(err));
         }
       }
     })();
@@ -218,7 +219,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         audioVolume: volumeValue,
       });
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : String(err));
+      setSaveError(errorMessage(err));
       return;
     }
 
@@ -243,7 +244,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         setJsonDraft(JSON.stringify(settings, null, 2));
       }
     } catch (err) {
-      setJsonError(err instanceof Error ? err.message : String(err));
+      setJsonError(errorMessage(err));
     }
   };
 
@@ -273,7 +274,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setJsonDraft(JSON.stringify(normalized, null, 2));
       applySettingsToStores(normalized);
     } catch (err) {
-      setJsonError(err instanceof Error ? err.message : String(err));
+      setJsonError(errorMessage(err));
     }
   };
 
@@ -288,7 +289,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setUpdateActionError(null);
       await updateService.checkForUpdates();
     } catch (err) {
-      setUpdateActionError(err instanceof Error ? err.message : String(err));
+      setUpdateActionError(errorMessage(err));
     }
   };
 
@@ -297,7 +298,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setUpdateActionError(null);
       await updateService.quitAndInstall();
     } catch (err) {
-      setUpdateActionError(err instanceof Error ? err.message : String(err));
+      setUpdateActionError(errorMessage(err));
     }
   };
 
