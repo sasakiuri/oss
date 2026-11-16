@@ -1,8 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { LogTransport } from './LogTransport';
-import { safeStringify } from './safeStringify';
+import { safeStringify, type LogTransport } from '@/shared/logging';
 
 interface LogRotationConfig {
   /** Maximum file size in bytes. Defaults to 10MB */

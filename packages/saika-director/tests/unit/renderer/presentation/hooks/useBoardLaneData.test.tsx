@@ -6,7 +6,7 @@ import { EventBusProvider } from '@/renderer/events/EventBusProvider';
 import { TestEventBus } from '../../../../helpers/renderer/TestEventBus';
 import { useBoardLaneData } from '@/renderer/presentation/hooks/useBoardLaneData';
 
-vi.mock('@/shared/utils/Logger', () => ({
+vi.mock('@/shared/logging', () => ({
   Logger: {
     create: () => ({ error: vi.fn() }),
   },

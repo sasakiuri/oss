@@ -44,7 +44,7 @@ const {
 });
 
 // --- Mock: Logger ---
-vi.mock('@/shared/utils/Logger', () => ({
+vi.mock('@/shared/logging', () => ({
   Logger: {
     create: () => ({
       debug: vi.fn(),

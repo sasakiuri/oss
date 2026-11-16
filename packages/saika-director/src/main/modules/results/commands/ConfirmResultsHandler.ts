@@ -2,7 +2,7 @@ import type { IResultRepository } from '../domain/IResultRepository';
 import type { ConfirmResultsCommand } from './ConfirmResults';
 import type { ConfirmResultsResponse } from '@/shared/ipc/contracts';
 import { DomainError, ErrorCatalog } from '@/shared/errors';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 export type { ConfirmResultsResponse };
 

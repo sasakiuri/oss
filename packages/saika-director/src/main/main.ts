@@ -5,8 +5,8 @@ import { app, BrowserWindow, dialog } from 'electron';
 // Logger configuration must be done before any Logger.create() calls
 import { hardenBrowserWindow } from '@/main/infrastructure/window/hardenBrowserWindow';
 import { resolveDevServerUrl } from '@/main/infrastructure/window/resolveDevServerUrl';
-import { FileTransport } from '@/shared/logging/FileTransport';
-import { Logger } from '@/shared/utils/Logger';
+import { FileTransport } from '@/main/infrastructure/logging/FileTransport';
+import { Logger } from '@/shared/logging';
 
 Logger.configure({
   minLevel: app.isPackaged ? 'INFO' : 'DEBUG',

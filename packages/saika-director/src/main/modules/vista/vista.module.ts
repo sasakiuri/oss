@@ -10,7 +10,7 @@ import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-tra
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { ResultBoardSnapshotService, ResultPublicationService } from '@/main/modules/result-publication';
 import { vistaContract } from '@/shared/ipc/contracts';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 import { DirectorVistaSource } from './application/DirectorVistaSource';
 import { SqliteVistaSourceStore } from './infra/SqliteVistaSourceStore';
 

@@ -1,6 +1,6 @@
 import { ResultId } from './ResultId';
 import { EventId, ParticipantId } from '@/main/modules/championship';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 import type { IRankable } from './IRankable';
 import {
   Result as ResultUtil,

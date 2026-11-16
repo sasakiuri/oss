@@ -1,6 +1,6 @@
 /** Command tokens associate handler input and output types at compile time. */
 
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 // --- Token-based dispatch ---
 

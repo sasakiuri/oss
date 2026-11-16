@@ -1,7 +1,7 @@
 import type { ILaneControlRepository } from '../domain/ILaneControlRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { emitLaneControlUpdated } from './helpers/emitLaneControlUpdated';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 export interface RecordShotCommand {
   channel: number;

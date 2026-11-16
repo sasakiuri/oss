@@ -3,7 +3,7 @@ import { join } from 'path';
 import { BrowserWindow, app } from 'electron';
 
 import type { BoardType, BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 import { hardenBrowserWindow } from './hardenBrowserWindow';
 import { resolveDevServerUrl } from './resolveDevServerUrl';

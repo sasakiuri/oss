@@ -1,4 +1,4 @@
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 import { createServiceMethod } from './createServiceMethod';
 
 type ApiNamespace = keyof Omit<typeof window.electronAPI, 'appVersion' | 'on'>;

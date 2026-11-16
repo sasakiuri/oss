@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useEvent } from './useEvent';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('useBoardLaneData');
 

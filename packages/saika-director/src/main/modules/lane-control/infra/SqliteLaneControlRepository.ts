@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 import { LaneControl } from '../domain/LaneControl';
 import type { LaneControlSnapshot } from '../domain/LaneControl';
 import type { ILaneControlRepository } from '../domain/ILaneControlRepository';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('SqliteLaneControlRepository');
 

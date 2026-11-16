@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 
 import { boardService } from '@/renderer/services';
 import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 import { classificationSuppressesScore } from '@/shared/utils/resultClassification';
 
 import { useFinalResults, useResults } from '../../../hooks/useResults';

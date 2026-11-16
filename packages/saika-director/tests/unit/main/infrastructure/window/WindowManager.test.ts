@@ -27,7 +27,7 @@ const mocks = vi.hoisted(() => ({
   logError: vi.fn(),
 }));
 
-vi.mock('@/shared/utils/Logger', () => ({
+vi.mock('@/shared/logging', () => ({
   Logger: { create: () => ({ logError: mocks.logError }) },
 }));
 

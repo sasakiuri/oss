@@ -1,5 +1,5 @@
 import type { EventBus, EventName, EventHandler } from './EventBus';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('ElectronEventBus');
 

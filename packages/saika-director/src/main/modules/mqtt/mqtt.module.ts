@@ -5,7 +5,7 @@ import { defineModule, type ModuleOutput } from '@/main/shared-infra/module/Modu
 import { RuntimeOperationGate } from '@/main/shared-infra/operations/RuntimeOperationGate';
 import { mqttContract } from '@/shared/ipc/contracts';
 import { operationalProfilesContract } from '@/shared/ipc/contracts';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 import { createCompetitionControlHandlers } from './application/createCompetitionControlHandlers';
 import { createFinalControlHandlers } from './application/createFinalControlHandlers';

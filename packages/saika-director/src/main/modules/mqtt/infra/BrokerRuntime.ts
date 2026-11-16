@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { networkInterfaces } from 'node:os';
 
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 import type { EmbeddedMqttSecurityConfig } from '../domain/EmbeddedMqttAccessPolicy';
 import { EmbeddedMqttBroker } from './EmbeddedMqttBroker';

@@ -7,7 +7,7 @@ import type {
   EventForwardingRule,
   TransformerForwardingRule,
 } from './ModuleDefinition';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('ModuleLoader');
 

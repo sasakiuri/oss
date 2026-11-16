@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import { AppConfigSchema, type AppConfigKey, type AppConfig } from '@/shared/config/AppConfigSchema';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('AppConfigService');
 

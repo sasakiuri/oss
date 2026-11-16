@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createServiceMethod } from '@/renderer/services/createServiceMethod';
-import type { Logger } from '@/shared/utils/Logger';
+import type { Logger } from '@/shared/logging';
 
 describe('createServiceMethod', () => {
   let mockLogger: Logger;

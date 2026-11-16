@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import { competitionAnnouncementsService, mqttService } from '@/renderer/services';
 import type { BrokerStatus } from '@/shared/ipc/contracts';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 // The log lines keep the screen's context name.
 const logger = Logger.create('SettingsScreen');

@@ -2,7 +2,7 @@
 
 import type { CommandMiddleware } from '../CommandBus';
 import type { QueryMiddleware } from '../QueryBus';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('CQRS');
 

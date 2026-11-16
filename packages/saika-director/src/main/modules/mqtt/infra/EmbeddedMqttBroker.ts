@@ -1,6 +1,6 @@
 import { Aedes } from 'aedes';
 import { createServer, type Server } from 'node:net';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 import type { Client } from 'aedes';
 import {
   EmbeddedMqttAccessPolicy,
