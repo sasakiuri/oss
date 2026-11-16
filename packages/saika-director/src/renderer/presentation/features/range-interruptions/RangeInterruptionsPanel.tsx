@@ -3,6 +3,7 @@ import { ClockAlert, Plus, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { rangeInterruptionsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { RangeInterruptionPhaseDto, RangeInterruptionScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -92,9 +93,7 @@ export function RangeInterruptionsPanel({
           onCancel={() => setShowCreate(false)}
           onCreate={async (input) => {
             const succeeded = await runMutation(async () => {
-              const response = await rangeInterruptionsService.create(input);
-              if (!response.success) throw new Error(response.error.message);
-              return response.data;
+              return unwrap(await rangeInterruptionsService.create(input));
             });
             if (succeeded) setShowCreate(false);
           }}

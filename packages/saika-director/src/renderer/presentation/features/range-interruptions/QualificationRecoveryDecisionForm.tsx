@@ -2,6 +2,7 @@
 import { useState } from 'react';
 
 import { rangeInterruptionsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type {
   QualificationTimedTargetInterruptionRecommendationDto,
   QualificationTimedTargetRecoveryDecisionDto,
@@ -127,9 +128,9 @@ export function QualificationRecoveryDecisionForm({ interruption, saving, onCanc
             ruleReference,
             decidedAt: new Date().toISOString(),
           });
-          if (!response.success) throw new Error(response.error.message);
+          const recorded = unwrap(response);
           onCancel();
-          return response.data;
+          return recorded;
         });
       }}
     >

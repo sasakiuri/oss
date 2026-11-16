@@ -1,14 +1,12 @@
+import { unwrap } from '@/renderer/services/serviceError';
 import type {
   AppendRangeInterruptionEntryPayload,
   MqttCommandExecutionResultDto,
   RangeInterruptionCaseDto,
 } from '@/shared/ipc/contracts';
+import type { IpcErrorDto } from '@sasakiuri/saika-ipc';
 
-interface ApiError {
-  message: string;
-}
-
-type ApiResult<T> = { success: true; data: T } | { success: false; error: ApiError };
+type ApiResult<T> = { success: true; data: T } | { success: false; error: IpcErrorDto };
 
 export interface RangeInterruptionLaneWorkflowPorts {
   lane: {
@@ -133,15 +131,15 @@ export async function applyLaneMatchResume(
 }
 
 function requireCommandSuccess(response: ApiResult<MqttCommandExecutionResultDto>): MqttCommandExecutionResultDto {
-  if (!response.success) throw new Error(response.error.message);
-  if (!response.data.success) {
-    const failures = response.data.lanes
+  const result = unwrap(response);
+  if (!result.success) {
+    const failures = result.lanes
       .filter((lane) => lane.status !== 'done')
       .map((lane) => lane.error?.message ?? `${lane.laneId}: ${lane.status}`)
       .join('; ');
-    throw new Error(failures || `Lane command ${response.data.action} was not acknowledged`);
+    throw new Error(failures || `Lane command ${result.action} was not acknowledged`);
   }
-  return response.data;
+  return result;
 }
 
 function requireLaneResult(result: MqttCommandExecutionResultDto, laneId: string) {

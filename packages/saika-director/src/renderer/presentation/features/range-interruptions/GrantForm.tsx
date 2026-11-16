@@ -2,6 +2,7 @@
 import { useState } from 'react';
 
 import { rangeInterruptionsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 
 import { FormButtons, Field, inputClass, formClass } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
@@ -36,9 +37,9 @@ export function GrantForm({ interruption, saving, onCancel, onMutate }: FormProp
             incidentReportReference,
             ruleReference,
           });
-          if (!response.success) throw new Error(response.error.message);
+          const recorded = unwrap(response);
           onCancel();
-          return response.data;
+          return recorded;
         });
       }}
     >

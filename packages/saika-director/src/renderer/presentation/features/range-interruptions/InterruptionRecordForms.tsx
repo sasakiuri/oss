@@ -3,6 +3,7 @@ import { Link } from 'lucide-react';
 import { useState } from 'react';
 
 import { rangeInterruptionsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type {
   AppendRangeInterruptionEntryPayload,
   RangeInterruptionCaseDto,
@@ -33,9 +34,9 @@ export function EndInterruptionForm({ interruption, saving, onCancel, onMutate }
             statement,
             officialName,
           });
-          if (!response.success) throw new Error(response.error.message);
+          const recorded = unwrap(response);
           onCancel();
-          return response.data;
+          return recorded;
         });
       }}
     >
@@ -141,10 +142,9 @@ export function GenericEntryForm({
             officialName,
             ...(ruleReference.trim() ? { ruleReference: ruleReference.trim() } : {}),
           } as AppendRangeInterruptionEntryPayload;
-          const response = await rangeInterruptionsService.appendEntry(payload);
-          if (!response.success) throw new Error(response.error.message);
+          const recorded = unwrap(await rangeInterruptionsService.appendEntry(payload));
           onCancel();
-          return response.data;
+          return recorded;
         });
       }}
     >
@@ -217,8 +217,7 @@ export function LinkScopeForm({
             linkedBy,
             note: `Linked from the current ${scope.scopeType.toLowerCase()} workspace`,
           });
-          if (!response.success) throw new Error(response.error.message);
-          return response.data;
+          return unwrap(response);
         });
       }}
     >
