@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
+
 const { getReviewSettings, setReviewSettings } = vi.hoisted(() => ({
   getReviewSettings: vi.fn(),
   setReviewSettings: vi.fn(),
@@ -33,5 +35,27 @@ describe('ResultPublicationSettingsPanel', () => {
       }),
     );
     expect(await screen.findByRole('status')).toHaveTextContent('checks saved');
+  });
+
+  it('shows a failed load as error text and a failed save as its message', async () => {
+    getReviewSettings.mockResolvedValue(fail('Review settings are unavailable'));
+    const { unmount } = render(<ResultPublicationSettingsPanel />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: Review settings are unavailable$/);
+    unmount();
+
+    getReviewSettings.mockResolvedValue(
+      ok({
+        requireObservationReviews: true,
+        requireIncidentReports: true,
+        requireFinalRecoveriesComplete: true,
+        requireProtestCasesComplete: true,
+        requireEquipmentChecksComplete: true,
+      }),
+    );
+    setReviewSettings.mockResolvedValue(fail('Review settings were not saved', 'VALIDATION_ERROR'));
+    render(<ResultPublicationSettingsPanel />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Save official result checks' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Review settings were not saved$/);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
