@@ -6,8 +6,6 @@ import { app } from 'electron';
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { MalfunctionFiringService, SqliteMalfunctionFiringRepository } from '@/main/modules/malfunction-firing';
-import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
-import { StoredReserveLaneTransferState } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { mqttContract } from '@/shared/ipc/contracts';
 
@@ -63,7 +61,7 @@ type MqttDeps =
   | 'qualificationRecoveryAdjudicationControl'
   | 'qualificationRecoverySettlementControl'
   | 'safetyStopControl'
-  | 'reserveTransferJournal'
+  | 'createReserveTransferControl'
   | 'rangeOfficerRequestService'
   | 'qualificationMalfunctionSignalService'
   | 'estComplaintSignalService'
@@ -107,7 +105,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'qualificationRecoveryAdjudicationControl',
     'qualificationRecoverySettlementControl',
     'safetyStopControl',
-    'reserveTransferJournal',
+    'createReserveTransferControl',
     'rangeOfficerRequestService',
     'qualificationMalfunctionSignalService',
     'estComplaintSignalService',
@@ -137,7 +135,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     qualificationRecoveryAdjudicationControl,
     qualificationRecoverySettlementControl,
     safetyStopControl,
-    reserveTransferJournal,
+    createReserveTransferControl,
     rangeOfficerRequestService,
     qualificationMalfunctionSignalService,
     estComplaintSignalService,
@@ -221,26 +219,15 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       competitionShootOffControl,
     );
     const assignmentPublisher = new LaneAssignmentPublisher(mqttClient, storage, getLaneId);
-    const reserveTransferControl = new ReserveLaneTransferService(
-      reserveTransferJournal,
-      new StoredReserveLaneTransferState(
-        competitionRepository,
-        sessionRepository,
-        {
-          read: (competitionId) => assignmentPublisher.getCurrentAssignment(competitionId),
-          restore: async (competitionId, json) => {
-            await assignmentPublisher.assign(
-              competitionId,
-              json === null ? null : AthleteSchema.parse(JSON.parse(json).athlete),
-            );
-          },
-        },
-        safetyStopControl,
-        competitionInterruptionControl,
-        eventBus,
-      ),
-      getLaneId,
-    );
+    const reserveTransferControl = createReserveTransferControl({
+      read: (competitionId) => assignmentPublisher.getCurrentAssignment(competitionId),
+      restore: async (competitionId, json) => {
+        await assignmentPublisher.assign(
+          competitionId,
+          json === null ? null : AthleteSchema.parse(JSON.parse(json).athlete),
+        );
+      },
+    });
     const mayFire = () => !safetyStopControl.isStopped();
     const finalRecoveryFiringContext = new AssignedFinalRecoveryFiringContextSource(
       competitionRepository,

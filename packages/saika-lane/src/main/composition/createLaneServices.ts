@@ -38,8 +38,13 @@ import {
 } from '@/main/modules/qualification-recovery';
 import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
 import { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
+import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
 import { ReserveTransferCommandGuard } from '@/main/modules/reserve-lane-transfer/infra/ReserveTransferCommandGuard';
 import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
+import {
+  StoredReserveLaneTransferState,
+  type ITransferAssignmentPort,
+} from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import {
   CompetitionSafetyTimerFreezer,
   LaneSafetyStopService,
@@ -251,7 +256,19 @@ export function createLaneServices(
     qualificationRecoveryAdjudicationControl,
     qualificationRecoverySettlementControl,
     safetyStopControl,
-    reserveTransferJournal,
+    createReserveTransferControl: (assignments: ITransferAssignmentPort) =>
+      new ReserveLaneTransferService(
+        reserveTransferJournal,
+        new StoredReserveLaneTransferState(
+          competitionRepository,
+          sessionRepository,
+          assignments,
+          safetyStopControl,
+          competitionInterruptionControl,
+          eventBus,
+        ),
+        () => settingsStore.getLaneId(),
+      ),
     rangeOfficerRequestService,
     qualificationMalfunctionSignalService,
     estComplaintSignalService,
