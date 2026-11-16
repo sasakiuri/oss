@@ -2,16 +2,7 @@
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
-
-import type { DeviceDefinition } from './targetDeviceDefinitions';
-import { DEVICE_DEFINITIONS } from './targetDeviceDefinitions';
-
-export interface SerialConfig {
-  baudRate: number;
-  dataBits: 5 | 6 | 7 | 8;
-  stopBits: 1 | 1.5 | 2;
-  parity: 'none' | 'even' | 'odd';
-}
+import { DEVICE_DEFINITIONS, type DeviceDefinition, type SerialConfig } from '@/shared/target/targetDevices';
 
 // Build Map from definition data (once at startup)
 const deviceMap = new Map<string, DeviceDefinition>();
@@ -22,7 +13,7 @@ for (const def of DEVICE_DEFINITIONS) {
   }
 }
 
-/** Immutable device definition from targetDeviceDefinitions.ts. */
+/** Immutable device definition from DEVICE_DEFINITIONS. */
 export class TargetDevice {
   readonly id: string;
   readonly manufacturer: TargetManufacturer;
