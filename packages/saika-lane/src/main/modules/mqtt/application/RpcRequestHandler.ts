@@ -7,6 +7,7 @@ import { GetCompetitionStateToken, GetSessionScoreToken, GetShotHistoryToken } f
 import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { RpcRequestSchema } from '@/main/modules/mqtt/domain/MqttRpcSchemas';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
@@ -37,13 +38,13 @@ export class RpcRequestHandler {
   async subscribe(competitionId: string): Promise<void> {
     await this.unsubscribe();
 
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     await this.subscription.open(mqttTopicFilters.laneQueryRequests(competitionId, laneId), (msgTopic, payload) => {
       const parsed = parseMqttTopic(msgTopic);
       if (parsed?.kind !== 'laneQueryRequest') return;
 
       // Verify the target laneId matches this lane's laneId
-      const currentLaneId = this.storage.get<string>('mqtt.laneId') ?? '';
+      const currentLaneId = readMirroredLaneId(this.storage);
       if (parsed.laneId !== currentLaneId) return;
 
       void this.handleRequest(parsed, payload);

@@ -7,6 +7,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { mapToLanePhase } from '@/main/modules/mqtt/domain/PhaseMapper';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
@@ -57,7 +58,7 @@ export class LaneCompetitionStatePublisher {
       : await this.competitionRepository.findActive();
     if (!competition) return;
 
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const currentStage = competition.config.stages[competition.currentStageIndex];
     if (!currentStage) return;
 

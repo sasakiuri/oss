@@ -10,6 +10,7 @@ import type {
   QualificationMalfunctionSignalService,
   QualificationMalfunctionSignalState,
 } from '@/main/modules/qualification-malfunction-signal';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
@@ -32,7 +33,7 @@ export class QualificationMalfunctionSignalPublisher {
 
   private async publishCurrentStateNow(): Promise<void> {
     if (!this.mqttClient.isConnected()) return;
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const payload = toQualificationMalfunctionSignalPayload(laneId, this.service.getState());
     await this.mqttClient.publish(mqttTopics.laneQualificationMalfunctionSignal(laneId), JSON.stringify(payload), {
       qos: 1,

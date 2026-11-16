@@ -3,6 +3,7 @@ import type { CompetitionShootOffShotPayload } from '@sasakiuri/saika-protocol/C
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { ICompetitionShootOffControl, ICompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -42,7 +43,7 @@ export class CompetitionShootOffShotPublisher {
   private restoreRecordedShotFromOutbox(): void {
     const state = this.control.getState();
     if (!state || state.status === 'COMPLETE') return;
-    const laneId = this.storage.get<string>('mqtt.laneId');
+    const laneId = readMirroredLaneId(this.storage);
     if (!laneId) return;
     const persisted = this.outbox.findByRound(state.runId, state.iteration, laneId);
     for (const shot of persisted) {
@@ -71,7 +72,7 @@ export class CompetitionShootOffShotPublisher {
   private async capture(event: ShotRecordedEvent): Promise<void> {
     const state = this.control.getState();
     if (!state || !this.control.canAcceptShot(state.competitionId, event.shot.timestamp)) return;
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+    const laneId = readMirroredLaneId(this.storage);
     const shot = event.shot;
     const payload: CompetitionShootOffShotPayload = {
       schemaVersion: 1,

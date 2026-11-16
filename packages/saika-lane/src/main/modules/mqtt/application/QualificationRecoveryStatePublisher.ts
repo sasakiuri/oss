@@ -6,6 +6,7 @@ import type {
   IQualificationRecoveryControl,
   QualificationRecoveryRunRecord,
 } from '@/main/modules/qualification-recovery';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
@@ -37,7 +38,7 @@ export class QualificationRecoveryStatePublisher {
   private publish(state: QualificationRecoveryRunRecord): Promise<void> {
     return this.enqueue(async () => {
       if (!this.mqttClient.isConnected()) return;
-      const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
+      const laneId = readMirroredLaneId(this.storage);
       const payload = QualificationRecoveryStatePayloadSchema.parse({
         schemaVersion: 1,
         laneId,
