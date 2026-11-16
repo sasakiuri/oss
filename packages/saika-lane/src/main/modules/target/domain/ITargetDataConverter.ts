@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { Shot } from '@/main/modules/session/domain/Shot';
-import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 
+import type { AdapterContext } from './AdapterContext';
 import type { RawData } from './ISerialDataParser';
 
 /** Converts a received target record into a shot through the registered device adapters. */

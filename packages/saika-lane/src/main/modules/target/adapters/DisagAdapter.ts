@@ -3,13 +3,13 @@ import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { isDomainError } from '@/shared/errors/isDomainError';
 
-import type { AdapterContext } from './AdapterContext';
 import { RedDotFrameDecodeError, RedDotFrameDecoder } from './disag/RedDotFrameDecoder';
 import { ITargetAdapter } from './ITargetAdapter';
 

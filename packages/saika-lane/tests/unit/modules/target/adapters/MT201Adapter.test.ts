@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
-import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import { MT201Adapter } from '@/main/modules/target/adapters/MT201Adapter';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { DomainError } from '@/shared/errors/DomainError';

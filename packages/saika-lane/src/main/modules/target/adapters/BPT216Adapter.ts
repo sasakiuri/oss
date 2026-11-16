@@ -2,12 +2,12 @@
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { isDomainError } from '@/shared/errors/isDomainError';
 
-import type { AdapterContext } from './AdapterContext';
 import { BPT216CoordinateConverter } from './bpt216/BPT216CoordinateConverter';
 import { BPT216DataParser } from './bpt216/BPT216DataParser';
 import { ITargetAdapter } from './ITargetAdapter';

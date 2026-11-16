@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Shot } from '@/main/modules/session/domain/Shot';
+import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext';
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { isDomainError } from '@/shared/errors/isDomainError';
 
-import type { AdapterContext } from './AdapterContext';
 import { ITargetAdapter } from './ITargetAdapter';
 
 /**
