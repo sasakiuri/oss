@@ -14,9 +14,6 @@ export const IpcErrorSchema = z.object({
 
 export type IpcErrorDto = z.infer<typeof IpcErrorSchema>;
 
-/** @deprecated Use IpcErrorDto */
-export type IpcError = IpcErrorDto;
-
 export const CommandResponseSchema = z.object({
   success: z.boolean(),
   error: IpcErrorSchema.optional(),
@@ -24,14 +21,11 @@ export const CommandResponseSchema = z.object({
 
 export type CommandResponseDto = z.infer<typeof CommandResponseSchema>;
 
-/** @deprecated Use CommandResponseDto */
-export type CommandResponse = CommandResponseDto;
-
 /**
  * Build a discriminated-union response schema for queries.
  *
  * Success: `{ success: true, data: T }`
- * Failure: `{ success: false, data: null, error: IpcError }`
+ * Failure: `{ success: false, data: null, error: IpcErrorDto }`
  */
 export function queryResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   return z.discriminatedUnion('success', [
@@ -43,7 +37,7 @@ export function queryResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
 /**
  * Build a command response schema that optionally carries data.
  *
- * `{ success: boolean, data?: T, error?: IpcError }`
+ * `{ success: boolean, data?: T, error?: IpcErrorDto }`
  */
 export function commandWithDataSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   return z.object({
@@ -57,7 +51,7 @@ export function commandWithDataSchema<T extends z.ZodTypeAny>(dataSchema: T) {
  * Build a discriminated-union response schema for commands that return data.
  *
  * Success: `{ success: true, data: T }`
- * Failure: `{ success: false, error: IpcError }`
+ * Failure: `{ success: false, error: IpcErrorDto }`
  */
 export function commandDataResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
   return z.discriminatedUnion('success', [
@@ -262,7 +256,7 @@ export type InferEventBridge<C extends EventContract<string, EventMap>> = {
 };
 
 /**
- * Handlers return domain values; IpcRouter wraps them in CommandResponse or QueryResponse.
+ * Handlers return domain values; IpcRouter wraps them in command or query response objects.
  * A z.void() input produces a handler with no arguments.
  */
 export type InferHandlers<C extends Contract<string, ProcedureMap>> = {

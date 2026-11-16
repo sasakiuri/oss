@@ -27,7 +27,7 @@ import { championshipContract } from '@/shared/ipc/contracts';
 // Response types
 import type {
   ChampionshipListResponse,
-  ChampionshipDetailResponse,
+  ChampionshipDetailDto,
   ParticipantListResponse,
   FiringPointAssignmentListResponse,
   CompetitionTypeListResponse,
@@ -371,7 +371,7 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
         };
       },
 
-      getDetail: async (input): Promise<ChampionshipDetailResponse | null> => {
+      getDetail: async (input): Promise<ChampionshipDetailDto | null> => {
         const championship = championshipRepository.findById(input.id);
         if (!championship) return null;
 
