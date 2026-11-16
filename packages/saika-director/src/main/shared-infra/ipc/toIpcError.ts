@@ -1,5 +1,5 @@
 import { app } from 'electron';
-import type { IpcError } from '@/shared/ipc/defineContract';
+import type { IpcErrorDto } from '@/shared/ipc/defineContract';
 import { DomainError } from '@/shared/errors';
 
 /**
@@ -15,12 +15,12 @@ function isProduction(): boolean {
 }
 
 /** Converts errors for IPC. Production responses omit stack traces. */
-export function toIpcError(error: unknown, metadata?: Record<string, unknown>): IpcError {
+export function toIpcError(error: unknown, metadata?: Record<string, unknown>): IpcErrorDto {
   const err = error instanceof Error ? error : new Error(String(error));
   const isDomain = err instanceof DomainError;
   const isProd = isProduction();
 
-  const ipcError: IpcError = {
+  const ipcError: IpcErrorDto = {
     code: isDomain ? err.code : 'UNKNOWN_ERROR',
     message: err.message,
   };

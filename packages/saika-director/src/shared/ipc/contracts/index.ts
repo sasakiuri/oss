@@ -46,7 +46,7 @@ export { athleteSanctionsContract } from './athleteSanctions.contract';
 export { estComplaintsContract } from './estComplaints.contract';
 
 // Common types (from defineContract)
-export type { CommandResponseDto, CommandResponse, IpcErrorDto, IpcError } from '../defineContract';
+export type { CommandResponseDto, IpcErrorDto } from '../defineContract';
 
 export type {
   AthleteIdentityDto,

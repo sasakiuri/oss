@@ -4,7 +4,7 @@ import type { Contract, ProcedureMap, InferHandlers } from '@/shared/ipc/defineC
 import { toIpcError } from './toIpcError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { Logger } from '@/shared/utils/Logger';
-import type { CommandResponse, IpcError } from '@/shared/ipc/contracts';
+import type { CommandResponseDto, IpcErrorDto } from '@/shared/ipc/contracts';
 import type { IpcInvocationMiddleware } from './IpcInvocationMiddleware';
 
 const logger = Logger.create('IpcRouter');
@@ -13,7 +13,7 @@ const logger = Logger.create('IpcRouter');
 interface QueryErrorResponse {
   success: false;
   data: null;
-  error: IpcError;
+  error: IpcErrorDto;
 }
 
 /**
@@ -67,7 +67,7 @@ export class IpcRouter {
               errors: zodErrors,
             });
 
-            const validationError: IpcError = {
+            const validationError: IpcErrorDto = {
               code: ErrorCatalog.IPC.INVALID_PAYLOAD.code,
               message: errorMessage,
               metadata: {
@@ -88,7 +88,7 @@ export class IpcRouter {
               );
             }
             return this.validateOutput(
-              { success: false, error: validationError } satisfies CommandResponse,
+              { success: false, error: validationError } satisfies CommandResponseDto,
               proc.output,
               key,
               false,
@@ -177,7 +177,7 @@ export class IpcRouter {
       operation: operationName,
       validationErrors,
     });
-    const error: IpcError = {
+    const error: IpcErrorDto = {
       code: ErrorCatalog.IPC.INVALID_RESPONSE.code,
       message: `[${operationName}] ${ErrorCatalog.IPC.INVALID_RESPONSE.message}`,
       metadata: {
