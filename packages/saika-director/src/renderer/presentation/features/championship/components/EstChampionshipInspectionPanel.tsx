@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { estChampionshipInspectionsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { EstChampionshipInspectionAssessmentDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
@@ -17,8 +19,7 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
   const [technicalDelegateName, setTechnicalDelegateName] = useState('');
   const [statement, setStatement] = useState('Function and accuracy verified');
   const [evidenceReference, setEvidenceReference] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
 
   const load = useCallback(async () => {
     setError(null);
@@ -44,8 +45,7 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
         methodStatement: methodStatement.trim(),
         createdBy: createdBy.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
-      setAssessment(response.data);
+      setAssessment(unwrap(response));
     });
   };
 
@@ -62,8 +62,7 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
         technicalDelegateName: technicalDelegateName.trim(),
         inspectedAt: new Date().toISOString(),
       });
-      if (!response.success) throw new Error(response.error.message);
-      setAssessment(response.data);
+      setAssessment(unwrap(response));
     });
   };
 
@@ -77,21 +76,8 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
         performedBy: performedBy.trim(),
         technicalDelegateName: technicalDelegateName.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
-      setAssessment(response.data);
+      setAssessment(unwrap(response));
     });
-  };
-
-  const run = async (operation: () => Promise<void>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await operation();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
   };
 
   const canRecord = Boolean(performedBy.trim() && technicalDelegateName.trim() && statement.trim() && !busy);
