@@ -8,6 +8,7 @@ import {
   query,
   queryResponseSchema,
 } from '@/shared/ipc/defineContract';
+import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 // Mock electron
@@ -33,7 +34,7 @@ vi.mock('@/shared/utils/Logger', () => ({
   },
 }));
 
-import { ipcMain } from 'electron';
+import { app, ipcMain } from 'electron';
 
 const mockedHandle = vi.mocked(ipcMain.handle);
 
@@ -223,6 +224,42 @@ describe('IpcRouter', () => {
       };
 
       expect(result.error?.metadata?.operation).toBe('doSomething');
+    });
+
+    it('keeps the code and metadata of a DomainError and adds the operation name', async () => {
+      const contract = createCommandContract();
+      const error = DomainError.from(ErrorCatalog.DATA.NOT_FOUND, { laneId: 3 });
+      router.register(contract, { doSomething: vi.fn().mockRejectedValue(error) });
+
+      const result = await getRegisteredHandler()(null, { name: 'test' });
+
+      expect(result).toEqual({
+        success: false,
+        error: {
+          code: 'DATA_001',
+          message: 'Data not found',
+          stack: error.stack,
+          metadata: { laneId: 3, operation: 'doSomething' },
+        },
+      });
+    });
+
+    it('omits the stack trace when the app is packaged', async () => {
+      const electronApp = app as { isPackaged: boolean };
+      electronApp.isPackaged = true;
+      try {
+        const contract = createCommandContract();
+        router.register(contract, { doSomething: vi.fn().mockRejectedValue(new Error('fail')) });
+
+        const result = await getRegisteredHandler()(null, { name: 'test' });
+
+        expect(result).toEqual({
+          success: false,
+          error: { code: 'UNKNOWN_ERROR', message: 'fail', metadata: { operation: 'doSomething' } },
+        });
+      } finally {
+        electronApp.isPackaged = false;
+      }
     });
   });
 
