@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TypedEventBus, type IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { LaneConnected, LanePhaseChanged, ShotReceived } from '@/main/domain/events';
+import type { LanePhaseChanged } from '@/main/modules/lane-control';
+import type { LaneConnected, ShotReceived } from '@/main/modules/mqtt';
 
 describe('EventBusIntegration', () => {
   let eventBus: IEventBus;
