@@ -2,11 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Crosshair, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { FinalSeriesAdjudicationCapability, FinalSeriesIncidentConsequence } from '@sasakiuri/saika-rules';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { incidentReportsService, irregularShotCasesService, scoringDecisionsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { IrregularShotCaseDto, RangeIncidentReportDto, ScoringDecisionDto } from '@/shared/ipc/contracts';
 
+import { lowerCaseLabel } from '../../formatters/enumLabel';
 import { useEntryTypeSelection } from '../shared/cases/useEntryTypeSelection';
 import { Button } from '../shared/common/Button';
+import { toDateTimeLocalValue } from '../shared/common/dateUtils';
+import { inputClass, stackedLabelClass } from '../shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
+import { toggleSetMember } from '../shared/common/toggleSetMember';
 
 interface Props {
   eventId: string;
@@ -29,17 +36,18 @@ export function IrregularShotCasesPanel({
   const [reports, setReports] = useState<RangeIncidentReportDto[]>([]);
   const [decisions, setDecisions] = useState<ScoringDecisionDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, setError, run } = useAsyncAction();
   const [kind, setKind] = useState<IrregularShotCaseDto['kind']>('CROSS_FIRE');
   const [ruleReference, setRuleReference] = useState('ISSF 6.11.6');
   const [subjectLaneId, setSubjectLaneId] = useState('');
   const [adjacentLaneIds, setAdjacentLaneIds] = useState<Set<string>>(() => new Set());
-  const [occurredAt, setOccurredAt] = useState(() => toLocalDateTime(new Date()));
-  const [windowStartAt, setWindowStartAt] = useState(() => toLocalDateTime(new Date(Date.now() - 15_000)));
-  const [windowEndAt, setWindowEndAt] = useState(() => toLocalDateTime(new Date(Date.now() + 15_000)));
+  const [occurredAt, setOccurredAt] = useState(() => toDateTimeLocalValue(new Date(), 'minutes'));
+  const [windowStartAt, setWindowStartAt] = useState(() =>
+    toDateTimeLocalValue(new Date(Date.now() - 15_000), 'minutes'),
+  );
+  const [windowEndAt, setWindowEndAt] = useState(() => toDateTimeLocalValue(new Date(Date.now() + 15_000), 'minutes'));
   const [summary, setSummary] = useState('');
   const [officialName, setOfficialName] = useState('');
-  const [saving, setSaving] = useState(false);
   const selectedPolicy = adjudication?.incidents.find((incident) => incident.kind === kind) ?? null;
   const kindOptions = useMemo(
     () => [
@@ -60,13 +68,13 @@ export function IrregularShotCasesPanel({
         incidentReportsService.listByEvent({ eventId }),
         scoringDecisionsService.listByEvent({ eventId, resultScope }),
       ]);
-      if (!caseResponse.success) throw new Error(caseResponse.error.message);
-      if (!reportResponse.success) throw new Error(reportResponse.error.message);
-      if (!decisionResponse.success) throw new Error(decisionResponse.error.message);
-      setCases(caseResponse.data.filter((value) => value.competitionId === competitionId));
-      setReports(reportResponse.data.reports.filter((report) => !report.voided));
+      const listed = unwrap(caseResponse);
+      const reportStatus = unwrap(reportResponse);
+      const decisionList = unwrap(decisionResponse);
+      setCases(listed.filter((value) => value.competitionId === competitionId));
+      setReports(reportStatus.reports.filter((report) => !report.voided));
       setDecisions(
-        decisionResponse.data.decisions.filter(
+        decisionList.decisions.filter(
           (decision) =>
             decision.active &&
             decision.type !== 'REVOCATION' &&
@@ -74,11 +82,11 @@ export function IrregularShotCasesPanel({
         ),
       );
     } catch (caught) {
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     } finally {
       setLoading(false);
     }
-  }, [competitionId, eventId, resultScope]);
+  }, [competitionId, eventId, resultScope, setError]);
 
   useEffect(() => {
     void load();
@@ -90,31 +98,26 @@ export function IrregularShotCasesPanel({
 
   const createCase = async () => {
     if (!subjectLaneId || !summary.trim() || !officialName.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const response = await irregularShotCasesService.create({
-        eventId,
-        competitionId,
-        resultScope,
-        kind,
-        subjectLaneId,
-        adjacentLaneIds: [...adjacentLaneIds],
-        windowStartAt: new Date(windowStartAt).toISOString(),
-        windowEndAt: new Date(windowEndAt).toISOString(),
-        summary: summary.trim(),
-        ruleReference: ruleReference.trim(),
-        openedBy: officialName.trim(),
-        occurredAt: new Date(occurredAt).toISOString(),
-      });
-      if (!response.success) throw new Error(response.error.message);
-      setCases((current) => [...current, response.data]);
+    await run(async () => {
+      const created = unwrap(
+        await irregularShotCasesService.create({
+          eventId,
+          competitionId,
+          resultScope,
+          kind,
+          subjectLaneId,
+          adjacentLaneIds: [...adjacentLaneIds],
+          windowStartAt: new Date(windowStartAt).toISOString(),
+          windowEndAt: new Date(windowEndAt).toISOString(),
+          summary: summary.trim(),
+          ruleReference: ruleReference.trim(),
+          openedBy: officialName.trim(),
+          occurredAt: new Date(occurredAt).toISOString(),
+        }),
+      );
+      setCases((current) => [...current, created]);
       setSummary('');
-    } catch (caught) {
-      setError(messageOf(caught));
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   const laneLabels = useMemo(() => new Map(lanes.map((lane) => [lane.laneId, lane.label])), [lanes]);
@@ -137,12 +140,12 @@ export function IrregularShotCasesPanel({
         </Button>
       </header>
 
-      {error && <div className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</div>}
+      {error && <InlineError as="div">{error}</InlineError>}
 
       <section className="rounded-[3px] border border-vscode-border p-3">
         <p className="text-xs font-semibold text-vscode-text">Open a review case</p>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Case type
             <select
               className={inputClass}
@@ -163,7 +166,7 @@ export function IrregularShotCasesPanel({
               ))}
             </select>
           </label>
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Subject Lane
             <select
               className={inputClass}
@@ -178,7 +181,7 @@ export function IrregularShotCasesPanel({
               ))}
             </select>
           </label>
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Reporting official
             <input
               className={inputClass}
@@ -186,7 +189,7 @@ export function IrregularShotCasesPanel({
               onChange={(event) => setOfficialName(event.target.value)}
             />
           </label>
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             ISSF rule reference
             <input
               className={inputClass}
@@ -194,7 +197,7 @@ export function IrregularShotCasesPanel({
               onChange={(event) => setRuleReference(event.target.value)}
             />
           </label>
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Occurred at
             <input
               type="datetime-local"
@@ -203,7 +206,7 @@ export function IrregularShotCasesPanel({
               onChange={(event) => setOccurredAt(event.target.value)}
             />
           </label>
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Evidence window start
             <input
               type="datetime-local"
@@ -212,7 +215,7 @@ export function IrregularShotCasesPanel({
               onChange={(event) => setWindowStartAt(event.target.value)}
             />
           </label>
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Evidence window end
             <input
               type="datetime-local"
@@ -246,12 +249,7 @@ export function IrregularShotCasesPanel({
                     type="checkbox"
                     checked={adjacentLaneIds.has(lane.laneId)}
                     onChange={(event) =>
-                      setAdjacentLaneIds((current) => {
-                        const next = new Set(current);
-                        if (event.target.checked) next.add(lane.laneId);
-                        else next.delete(lane.laneId);
-                        return next;
-                      })
+                      setAdjacentLaneIds((current) => toggleSetMember(current, lane.laneId, event.target.checked))
                     }
                   />
                   {lane.label}
@@ -259,7 +257,7 @@ export function IrregularShotCasesPanel({
               ))}
           </div>
         </fieldset>
-        <label className={`${labelClass} mt-3`}>
+        <label className={`${stackedLabelClass} mt-3`}>
           Initial observation
           <textarea
             className={`${inputClass} min-h-16 resize-y`}
@@ -327,18 +325,15 @@ function IrregularShotCaseCard({
   const [saving, setSaving] = useState(false);
   const evidenceIds = new Set(value.evidence.map((item) => `${item.observationId}:${item.relation}`));
 
-  const run = async (
-    operation: () => Promise<{ success: boolean; data?: IrregularShotCaseDto; error?: { message: string } }>,
-  ) => {
+  // The card's own busy state disables only this card; errors go to the panel banner.
+  const run = async (operation: () => ReturnType<typeof irregularShotCasesService.appendEntry>) => {
     setSaving(true);
     onError(null);
     try {
-      const response = await operation();
-      if (!response.success || !response.data) throw new Error(response.error?.message ?? 'Operation failed');
-      onChanged(response.data);
+      onChanged(unwrap(await operation(), 'Operation failed'));
       setStatement('');
     } catch (caught) {
-      onError(messageOf(caught));
+      onError(errorMessage(caught));
     } finally {
       setSaving(false);
     }
@@ -422,7 +417,7 @@ function IrregularShotCaseCard({
       </div>
 
       <div className="mt-3 grid gap-2 md:grid-cols-3">
-        <label className={labelClass}>
+        <label className={stackedLabelClass}>
           Evidence relation
           <select
             className={inputClass}
@@ -434,7 +429,7 @@ function IrregularShotCaseCard({
             ))}
           </select>
         </label>
-        <label className={labelClass}>
+        <label className={stackedLabelClass}>
           Official name
           <input
             className={inputClass}
@@ -442,7 +437,7 @@ function IrregularShotCaseCard({
             onChange={(event) => setOfficialName(event.target.value)}
           />
         </label>
-        <label className={labelClass}>
+        <label className={stackedLabelClass}>
           Case action
           <select
             className={inputClass}
@@ -458,7 +453,7 @@ function IrregularShotCaseCard({
 
       {entryType === 'RESOLVED' && (
         <div className="mt-2 grid gap-2 md:grid-cols-2">
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Jury resolution
             <select
               className={inputClass}
@@ -470,7 +465,7 @@ function IrregularShotCaseCard({
               ))}
             </select>
           </label>
-          <label className={labelClass}>
+          <label className={stackedLabelClass}>
             Range Incident Report
             <select
               className={inputClass}
@@ -495,12 +490,7 @@ function IrregularShotCaseCard({
                     className="mt-0.5"
                     checked={decisionIds.has(decision.id)}
                     onChange={(event) =>
-                      setDecisionIds((current) => {
-                        const next = new Set(current);
-                        if (event.target.checked) next.add(decision.id);
-                        else next.delete(decision.id);
-                        return next;
-                      })
+                      setDecisionIds((current) => toggleSetMember(current, decision.id, event.target.checked))
                     }
                   />
                   {decision.type} · {decision.publicRemark}
@@ -511,7 +501,7 @@ function IrregularShotCaseCard({
         </div>
       )}
 
-      <label className={`${labelClass} mt-2`}>
+      <label className={`${stackedLabelClass} mt-2`}>
         Statement
         <textarea
           className={`${inputClass} min-h-14 resize-y`}
@@ -574,7 +564,7 @@ function defaultIrregularRuleReference(kind: IrregularShotCaseDto['kind']): stri
 }
 
 function formatConsequence(consequence: FinalSeriesIncidentConsequence): string {
-  const timing = consequence.when.replaceAll('_', ' ').toLowerCase();
+  const timing = lowerCaseLabel(consequence.when);
   if (consequence.action === 'DISQUALIFY') return `${timing}: disqualify (${consequence.classification}).`;
   const source = consequence.sourceShotTreatment ? `; source shot is ${consequence.sourceShotTreatment}` : '';
   return `${timing}: deduct ${consequence.amount} ${consequence.unit.toLowerCase()}${source}.`;
@@ -588,17 +578,4 @@ function availableEntryTypes(
   if (status === 'RESOLVED') return ['NOTE', 'CLOSED', 'REOPENED', 'VOID'];
   if (status === 'REFERRED') return ['NOTE', 'RESOLVED', 'VOID'];
   return ['NOTE', 'REFERRED', 'RESOLVED', 'VOID'];
-}
-
-function toLocalDateTime(value: Date): string {
-  const offset = value.getTimezoneOffset() * 60_000;
-  return new Date(value.getTime() - offset).toISOString().slice(0, 16);
-}
-
-const labelClass = 'flex flex-col gap-1 text-xs text-vscode-text-muted';
-const inputClass =
-  'min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1 text-[13px] text-vscode-text';
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
