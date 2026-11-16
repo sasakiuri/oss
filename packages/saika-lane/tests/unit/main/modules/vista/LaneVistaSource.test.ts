@@ -93,6 +93,7 @@ function fixture() {
     directory,
     storage,
     competitions,
+    catalog: competitions,
     sessions,
     timer: { sample: () => null },
     readShotContexts: () => shotContexts,

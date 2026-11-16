@@ -232,6 +232,7 @@ export function createLaneServices(
     sessionRepository,
     connectionRepository,
     competitionRepository,
+    competitionCatalog: competitionRepository,
     printWindowService,
     adapterRegistry,
     timerService,

@@ -13,7 +13,10 @@ import {
   type VistaSnapshot,
 } from '@sasakiuri/saika-protocol/Vista';
 
-import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type {
+  ICompetitionCatalog,
+  ICompetitionRepository,
+} from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
@@ -56,6 +59,7 @@ export class LaneVistaSource {
       directory: string;
       storage: ILocalStorage;
       competitions: ICompetitionRepository;
+      catalog: ICompetitionCatalog;
       sessions: ISessionRepository;
       timer: Pick<LaneTimerService, 'sample'>;
       readShotContexts: (competitionId: string, sessionId: string) => ReadonlyMap<string, LaneVistaShotContext>;
@@ -188,12 +192,8 @@ export class LaneVistaSource {
   }
 
   private async capture(requestedIds: Set<string> | null): Promise<void> {
-    const { sessions, storage } = this.options;
-    const ids = requestedIds
-      ? [...requestedIds]
-      : Object.keys(storage.getAll())
-          .filter((key) => key.startsWith('competition:') && key !== 'competition:active')
-          .map((key) => key.slice('competition:'.length));
+    const { sessions, storage, catalog } = this.options;
+    const ids = requestedIds ? [...requestedIds] : catalog.listIds();
     if (requestedIds === null) {
       this.unsupported.clear();
       for (const [id, subject] of this.rejectedArchives) this.unsupported.set(id, subject);
@@ -228,8 +228,7 @@ export class LaneVistaSource {
     // Checking presence avoids reconstructing a failed competition again after
     // its error has already been isolated above.
     if (requestedIds !== null) return;
-    const activeId = storage.get<string>('competition:active');
-    if (!activeId || !storage.get(`competition:${activeId}`)) {
+    if (!catalog.activeId()) {
       try {
         const activeSession = await sessions.findActive();
         if (activeSession) {
@@ -251,12 +250,12 @@ export class LaneVistaSource {
   }
 
   private async captureCompetition(id: string, laneName: string): Promise<LaneVistaArchive[] | null> {
-    const { competitions, sessions, storage, timer, identity } = this.options;
+    const { competitions, catalog, sessions, timer, identity } = this.options;
     const competition = await competitions.findById(id);
     if (!competition) {
       return this.unconfirmedArchives(id);
     }
-    const links = storage.get<Array<{ sessionId: string; stage: number }>>(`vista-session-links:${id}`) ?? [
+    const links = catalog.sessionLinks(id) ?? [
       { sessionId: competition.sessionId, stage: competition.currentStageIndex },
     ];
     const sessionEpochs = await Promise.all(links.map((link) => sessions.readResetEpoch(link.sessionId)));

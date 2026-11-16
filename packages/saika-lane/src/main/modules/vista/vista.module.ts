@@ -24,6 +24,7 @@ type Deps =
   | 'userDataPath'
   | 'storage'
   | 'competitionRepository'
+  | 'competitionCatalog'
   | 'sessionRepository'
   | 'timerService'
   | 'competitionInterruptionControl'
@@ -39,6 +40,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
     'userDataPath',
     'storage',
     'competitionRepository',
+    'competitionCatalog',
     'sessionRepository',
     'timerService',
     'competitionInterruptionControl',
@@ -52,6 +54,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
     userDataPath,
     storage,
     competitionRepository,
+    competitionCatalog,
     sessionRepository,
     timerService,
     competitionInterruptionControl,
@@ -80,6 +83,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
         directory: join(userDataPath, 'vista', 'snapshots'),
         storage,
         competitions: competitionRepository,
+        catalog: competitionCatalog,
         sessions: sessionRepository,
         timer: timerService,
         readShotContexts: (competitionId, sessionId) => shotContexts.read(competitionId, sessionId),

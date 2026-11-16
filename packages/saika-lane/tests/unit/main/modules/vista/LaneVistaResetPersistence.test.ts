@@ -64,6 +64,7 @@ function fixture() {
       directory: join(directory, 'snapshots'),
       storage,
       competitions,
+      catalog: competitions,
       sessions,
       timer: { sample: () => null },
       readShotContexts: () => new Map(),
