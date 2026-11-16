@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { operationalTemplatesService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   OperationalProfileMode,
   OperationalProfilePreviewDto,
@@ -41,8 +42,7 @@ export function OperationalTemplatePanel({
       .list({})
       .then((response) => {
         if (disposed) return;
-        if (!response.success) throw new Error(response.error.message);
-        setTemplates(response.data);
+        setTemplates(unwrap(response));
       })
       .catch((caught: unknown) => {
         if (!disposed) setError(errorMessage(caught));
@@ -82,11 +82,11 @@ export function OperationalTemplatePanel({
         ...(replace && selected ? { id: selected.id, expectedRevision: selected.revision } : { expectedRevision: 0 }),
       });
       if (!mounted.current) return;
-      if (!response.success) throw new Error(response.error.message);
-      setTemplates((current) => [...(current ?? []).filter((item) => item.id !== response.data.id), response.data]);
-      setSelectedId(response.data.id);
-      setName(response.data.name);
-      setDescription(response.data.description);
+      const saved = unwrap(response);
+      setTemplates((current) => [...(current ?? []).filter((item) => item.id !== saved.id), saved]);
+      setSelectedId(saved.id);
+      setName(saved.name);
+      setDescription(saved.description);
       setMessage('Template saved.');
     } catch (caught) {
       if (mounted.current) setError(errorMessage(caught));
@@ -105,7 +105,7 @@ export function OperationalTemplatePanel({
         expectedRevision: selected.revision,
       });
       if (!mounted.current) return;
-      if (!response.success) throw new Error(response.error?.message ?? 'Unable to remove template');
+      unwrap(response, 'Unable to remove template');
       setTemplates((current) => (current ?? []).filter((item) => item.id !== selected.id));
       select('');
       setMessage('Template removed.');
@@ -211,8 +211,4 @@ export function OperationalTemplatePanel({
       </fieldset>
     </section>
   );
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
