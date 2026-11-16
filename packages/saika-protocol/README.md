@@ -1,8 +1,7 @@
 # Saika Protocol
 
-MQTT contracts shared by Saika Lane and Saika Director: schemas, payload types,
-command validation and topic builders. Application policies and competition rules
-belong to the applications or `@sasakiuri/saika-rules`.
+Wire contracts shared by the Saika applications: MQTT schemas, payload types, command validation, topics and
+Vista transport. Application policies and competition rules belong to the applications or `@sasakiuri/saika-rules`.
 
 Use a message-family subpath for a focused dependency:
 
@@ -16,6 +15,12 @@ const topic = mqttTopics.competitionCue(cue.competitionId);
 
 The root export is available for consumers that need several message families. The applications' existing MQTT
 schema modules remain compatibility facades.
+
+`mqttTopics` builds every MQTT topic and `mqttTopicFilters` the wildcard subscriptions. `parseMqttTopic()`
+returns a received topic's builder name as `kind` with its identifiers exactly as received, including empty ones.
+`MQTT_COMMAND_ACTIONS` maps each command action to its topic scope and schema; `commandSchemasForScope()` selects
+the schemas of one scope from a schema set. Topic strings and action names are a released contract, pinned by
+golden tests.
 
 `createCommandSchemas()` requires non-empty issuer labels by default. Lane calls it with `z.string()` to preserve
 legacy empty-label acceptance. This only selects label validation; command authorization remains application-owned.
