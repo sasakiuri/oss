@@ -1,18 +1,19 @@
 // SPDX-License-Identifier: MIT
 import { findTargetDeviceDefinition } from './targetDeviceDefinitions';
 
+/** The adapter lookups that decide whether a manufacturer or device can be connected. */
+export interface TargetAdapterAvailability {
+  hasAdapter(manufacturerId: string): boolean;
+  hasDeviceAdapter(deviceId: string): boolean;
+}
+
 export interface ITargetConnectionSupport {
   unavailableReason(manufacturerId: string, deviceId?: string): string | null;
 }
 
 /** Connection availability follows the installed readers, independently of target geometry and competition rules. */
 export class TargetConnectionSupport implements ITargetConnectionSupport {
-  constructor(
-    private readonly adapters: {
-      hasAdapter(manufacturerId: string): boolean;
-      hasDeviceAdapter(deviceId: string): boolean;
-    },
-  ) {}
+  constructor(private readonly adapters: TargetAdapterAvailability) {}
 
   unavailableReason(manufacturerId: string, deviceId?: string): string | null {
     if (deviceId !== undefined) {

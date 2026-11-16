@@ -55,6 +55,8 @@ import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
+import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
+import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
 import {
   BoundedShotTimingPolicy,
   SqliteTimedTargetSequenceRepository,
@@ -106,7 +108,11 @@ export function createLaneServices(
     () => settingsStore.getAll().printing,
   );
   const adapterRegistry = new AdapterRegistry();
-  const usbConnectionManager = new USBConnectionManager(adapterRegistry);
+  const usbConnectionManager = new USBConnectionManager({
+    adapters: adapterRegistry,
+    dataParser: new SerialDataParser(SerialDataParser.defaultParsers()),
+    dataConverter: new DataConversionService(adapterRegistry),
+  });
 
   usbConnectionManager.on('error', ({ error, recoverable }) => {
     logger.error('[USBConnectionManager] Error', 'usb', { error: error.stack, recoverable });

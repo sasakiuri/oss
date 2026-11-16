@@ -18,6 +18,8 @@ import { BPT216Adapter } from '@/main/modules/target/adapters/BPT216Adapter';
 import { DisagAdapter } from '@/main/modules/target/adapters/DisagAdapter';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
+import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
+import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
 import { targetModule } from '@/main/modules/target/target.module';
 
 import { validRedDotFrame, validRedDotPistolFrame } from '../../../../../helpers/redDotFixtures';
@@ -137,6 +139,15 @@ vi.mock('@/main/modules/connection/infra/usb/USBDeviceDetector', () => ({
   }),
 }));
 
+/** Builds the manager as the composition root does, with the (mocked) parser and a real converter. */
+function createManager(adapters: AdapterRegistry): USBConnectionManager {
+  return new USBConnectionManager({
+    adapters,
+    dataParser: new SerialDataParser(SerialDataParser.defaultParsers()),
+    dataConverter: new DataConversionService(adapters),
+  });
+}
+
 // Mock SerialDataParser
 vi.mock('@/main/modules/target/infra/SerialDataParser', () => {
   const MockSerialDataParser = Object.assign(
@@ -174,7 +185,7 @@ describe('USBConnectionManager', () => {
     mockDataParserInstance = null;
     const adapterRegistry = new AdapterRegistry();
     targetModule.register({ adapterRegistry });
-    manager = new USBConnectionManager(adapterRegistry);
+    manager = createManager(adapterRegistry);
     manager.setSessionContextProvider(() => ({
       discipline: Discipline.airRifle10m(),
       mode: Mode.sighting(),
@@ -330,7 +341,7 @@ describe('USBConnectionManager', () => {
       const registry = new AdapterRegistry();
       registry.registerAdapter('DISAG', new DisagAdapter());
       registry.assignDeviceAdapter('DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG');
-      manager = new USBConnectionManager(registry);
+      manager = createManager(registry);
       manager.setSessionContextProvider(() => ({
         discipline: Discipline.airRifle10m(),
         mode: Mode.sighting(),
@@ -372,7 +383,7 @@ describe('USBConnectionManager', () => {
       const registry = new AdapterRegistry();
       registry.registerAdapter('DISAG', new DisagAdapter());
       registry.assignDeviceAdapter('DISAG_KT_RDT_ZIE_1_PISTOL', 'DISAG');
-      manager = new USBConnectionManager(registry);
+      manager = createManager(registry);
       manager.setSessionContextProvider(() => ({
         discipline: Discipline.airPistol10m(),
         mode: Mode.match(),
@@ -404,7 +415,7 @@ describe('USBConnectionManager', () => {
     it('should emit only terminal BPT-216 shots and keep S/R mode commands', async () => {
       const registry = new AdapterRegistry();
       registry.registerDeviceAdapter('BPT216', new BPT216Adapter());
-      manager = new USBConnectionManager(registry);
+      manager = createManager(registry);
       manager.setSessionContextProvider(() => ({
         discipline: Discipline.beamPistol10m(),
         mode: Mode.match(),
@@ -440,7 +451,7 @@ describe('USBConnectionManager', () => {
     it('should isolate BPT-216 RS-232C pistol frames at 9600 bps', async () => {
       const registry = new AdapterRegistry();
       registry.registerDeviceAdapter('BPT216_RS232', new BPT216Adapter());
-      manager = new USBConnectionManager(registry);
+      manager = createManager(registry);
       manager.setSessionContextProvider(() => ({
         discipline: Discipline.beamPistol10m(),
         mode: Mode.sighting(),
@@ -664,7 +675,7 @@ describe('USBConnectionManager', () => {
       const registry = new AdapterRegistry();
       registry.registerAdapter('DISAG', new DisagAdapter());
       registry.assignDeviceAdapter('DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG');
-      manager = new USBConnectionManager(registry);
+      manager = createManager(registry);
       manager.setSessionContextProvider(() => ({
         discipline: Discipline.airRifle10m(),
         mode: Mode.sighting(),
@@ -699,7 +710,7 @@ describe('USBConnectionManager', () => {
       const registry = new AdapterRegistry();
       registry.registerAdapter('DISAG', new DisagAdapter());
       registry.assignDeviceAdapter('DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG');
-      manager = new USBConnectionManager(registry);
+      manager = createManager(registry);
       let discipline = Discipline.airRifle10m();
       manager.setSessionContextProvider(() => ({ discipline, mode: Mode.sighting() }));
       const data = vi.fn();

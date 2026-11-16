@@ -11,10 +11,12 @@ import type {
   USBPortInfo,
 } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { Mode } from '@/main/modules/session/domain/Mode';
-import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
-import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
-import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
-import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
+import type { ISerialDataParser } from '@/main/modules/target/domain/ISerialDataParser';
+import type { ITargetDataConverter } from '@/main/modules/target/domain/ITargetDataConverter';
+import {
+  TargetConnectionSupport,
+  type TargetAdapterAvailability,
+} from '@/main/modules/target/domain/TargetConnectionSupport';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
@@ -40,14 +42,17 @@ export class USBConnectionManager implements IUSBConnectionManager {
   private activeProtocol: { readonly port: SerialPort; readonly session: TargetProtocolSession } | null = null;
 
   constructor(
-    adapterRegistry: AdapterRegistry,
+    target: {
+      /** The registered target adapters, which decide whether a device can be connected. */
+      adapters: TargetAdapterAvailability;
+      dataParser: ISerialDataParser;
+      dataConverter: ITargetDataConverter;
+    },
     private readonly protocolRegistry = TargetProtocolRegistry.createDefault(),
   ) {
-    this.targetConnectionSupport = new TargetConnectionSupport(adapterRegistry);
+    this.targetConnectionSupport = new TargetConnectionSupport(target.adapters);
     this.emitter = new USBEventEmitter();
-    const dataParser = new SerialDataParser(SerialDataParser.defaultParsers());
-    const dataConversionService = new DataConversionService(adapterRegistry);
-    this.pipeline = new USBDataPipeline(dataParser, dataConversionService, this.emitter);
+    this.pipeline = new USBDataPipeline(target.dataParser, target.dataConverter, this.emitter);
     this.lifecycle = new USBConnectionLifecycle(
       this.emitter,
       (port, config) => this.attachProtocol(port, config),

@@ -5,9 +5,8 @@ import type {
 } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { ShotData } from '@/main/modules/connection/domain/ShotData';
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
-import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
-import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
-import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
+import type { ISerialDataParser, RawData } from '@/main/modules/target/domain/ISerialDataParser';
+import type { ITargetDataConverter } from '@/main/modules/target/domain/ITargetDataConverter';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
@@ -19,18 +18,18 @@ import type { USBEventEmitter } from './USBEventEmitter';
  *
  * Parse and conversion pipeline for data received via USB.
  * Receives binary data from the serial port,
- * parses it with SerialDataParser, then converts it to ShotData via DataConversionService.
+ * splits it into target records, then converts each one to ShotData through the device adapters.
  */
 export class USBDataPipeline {
-  readonly dataParser: SerialDataParser;
-  readonly dataConversionService: DataConversionService;
+  readonly dataParser: ISerialDataParser;
+  readonly dataConversionService: ITargetDataConverter;
   private shotNumberCounter = 0;
   private sessionContextProvider: SessionContextProvider | null = null;
   private onShotDetected: (() => void) | null = null;
 
   constructor(
-    dataParser: SerialDataParser,
-    dataConversionService: DataConversionService,
+    dataParser: ISerialDataParser,
+    dataConversionService: ITargetDataConverter,
     private readonly emitter: USBEventEmitter,
   ) {
     this.dataParser = dataParser;
