@@ -65,6 +65,26 @@ interface CompetitionActions {
   resetCompetition: () => void;
 }
 
+/** The competition coordinates a response or a pending confirmation belongs to. */
+interface CompetitionPosition {
+  competitionId: string | null;
+  phase: string;
+  stageIndex: number;
+  seriesIndex: number;
+}
+
+export function isSameCompetitionPosition(a: CompetitionPosition, b: CompetitionPosition): boolean {
+  return (
+    a.competitionId === b.competitionId &&
+    a.phase === b.phase &&
+    a.stageIndex === b.stageIndex &&
+    a.seriesIndex === b.seriesIndex
+  );
+}
+
+/** Drops the athlete target control of a previous position; the next query loads the new one. */
+export const clearedAthleteTargetControl = { athleteTargetControl: null, athleteTargetControlLoaded: false } as const;
+
 const initialState: CompetitionState = {
   athleteTargetControl: null,
   athleteTargetControlPending: false,
@@ -103,7 +123,7 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
       currentStageName: stageName,
       scored,
       ...(state.phase !== phase || state.stageIndex !== stageIndex || state.seriesIndex !== seriesIndex
-        ? { athleteTargetControl: null, athleteTargetControlLoaded: false }
+        ? clearedAthleteTargetControl
         : {}),
     }));
   },
@@ -126,16 +146,14 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
       currentStageName: stageName,
       scored,
       seriesIndex: 0,
-      ...(state.stageIndex !== stageIndex || state.seriesIndex !== 0
-        ? { athleteTargetControl: null, athleteTargetControlLoaded: false }
-        : {}),
+      ...(state.stageIndex !== stageIndex || state.seriesIndex !== 0 ? clearedAthleteTargetControl : {}),
     }));
   },
 
   advanceSeries: (seriesIndex) => {
     set((state) => ({
       seriesIndex,
-      ...(state.seriesIndex !== seriesIndex ? { athleteTargetControl: null, athleteTargetControlLoaded: false } : {}),
+      ...(state.seriesIndex !== seriesIndex ? clearedAthleteTargetControl : {}),
     }));
   },
 
@@ -150,7 +168,7 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
   setCompetitionId: (id) => {
     set((state) => ({
       competitionId: id,
-      ...(state.competitionId !== id ? { athleteTargetControl: null, athleteTargetControlLoaded: false } : {}),
+      ...(state.competitionId !== id ? clearedAthleteTargetControl : {}),
     }));
   },
 
@@ -170,7 +188,7 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
     set((state) => ({
       waitingForDirector: false,
       ...(state.phase !== phase || state.stageIndex !== stageIndex || state.seriesIndex !== seriesIndex
-        ? { athleteTargetControl: null, athleteTargetControlLoaded: false }
+        ? clearedAthleteTargetControl
         : {}),
       phase,
       stageIndex,

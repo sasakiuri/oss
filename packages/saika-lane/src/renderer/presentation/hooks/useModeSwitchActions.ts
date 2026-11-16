@@ -8,7 +8,7 @@ import {
   retryAthleteTargetControl,
   selectAthleteTargetMode,
 } from '@/renderer/presentation/stores/athleteTargetControl';
-import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { isSameCompetitionPosition, useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { isProgressAllowed } from '@/renderer/presentation/stores/localProgressPermission';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
@@ -37,16 +37,13 @@ interface PendingConfirmation {
 }
 
 function isCurrentConfirmation(pending: PendingConfirmation): boolean {
-  const { competitionId, phase } = useCompetitionStore.getState();
+  const competition = useCompetitionStore.getState();
   return (
     isProgressAllowed() &&
     useDirectorMembershipStore.getState().membership?.revision === pending.membershipRevision &&
-    useCompetitionStore.getState().stageIndex === pending.stageIndex &&
-    useCompetitionStore.getState().seriesIndex === pending.seriesIndex &&
-    Boolean(useCompetitionStore.getState().athleteTargetControl) === pending.athleteControlled &&
-    useCompetitionStore.getState().athleteTargetControlLoaded === pending.targetControlLoaded &&
-    competitionId === pending.competitionId &&
-    phase === pending.phase &&
+    isSameCompetitionPosition(competition, pending) &&
+    Boolean(competition.athleteTargetControl) === pending.athleteControlled &&
+    competition.athleteTargetControlLoaded === pending.targetControlLoaded &&
     useSessionStore.getState().currentSessionId === pending.sessionId
   );
 }

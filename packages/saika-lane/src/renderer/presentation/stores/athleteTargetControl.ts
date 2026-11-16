@@ -3,7 +3,7 @@ import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
 import type { CompetitionStateDto } from '@/shared/ipc/contracts';
 
-import { useCompetitionStore } from './competitionStore';
+import { clearedAthleteTargetControl, isSameCompetitionPosition, useCompetitionStore } from './competitionStore';
 import { useLogStore } from './logStore';
 import { useSessionStore } from './sessionStore';
 
@@ -56,21 +56,14 @@ async function load(
       current.seriesIndex === expected.seriesIndex
     )
       useSessionStore.setState({ nullificationMessage: null, targetResetError: null });
-    if (
-      requestRevision !== revision ||
-      current.competitionId !== expected.competitionId ||
-      current.phase !== expected.phase ||
-      current.stageIndex !== expected.stageIndex ||
-      current.seriesIndex !== expected.seriesIndex
-    )
-      return;
+    if (requestRevision !== revision || !isSameCompetitionPosition(current, expected)) return;
     if (
       dto.id !== current.competitionId ||
       dto.phase !== current.phase ||
       dto.currentStageIndex !== current.stageIndex ||
       dto.currentSeriesIndex !== current.seriesIndex
     ) {
-      useCompetitionStore.setState({ athleteTargetControl: null, athleteTargetControlLoaded: false });
+      useCompetitionStore.setState(clearedAthleteTargetControl);
       return;
     }
     current.setAthleteTargetControl(dto.athleteTargetControl);

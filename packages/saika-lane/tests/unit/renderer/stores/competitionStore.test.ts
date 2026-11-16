@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
+import { isSameCompetitionPosition, useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 
 describe('competitionStore', () => {
   beforeEach(() => {
@@ -427,5 +427,17 @@ describe('competitionStore', () => {
       expect(state.isTimerRunning).toBe(false);
       expect(state.remainingSeconds).toBe(0);
     });
+  });
+});
+
+describe('isSameCompetitionPosition', () => {
+  const position = { competitionId: 'comp-1', phase: 'ACTIVE', stageIndex: 1, seriesIndex: 2 };
+
+  it('compares the competition, phase, stage and series only', () => {
+    expect(isSameCompetitionPosition(position, { ...position, scored: true } as typeof position)).toBe(true);
+    expect(isSameCompetitionPosition(position, { ...position, competitionId: 'comp-2' })).toBe(false);
+    expect(isSameCompetitionPosition(position, { ...position, phase: 'SERIES_COMPLETE' })).toBe(false);
+    expect(isSameCompetitionPosition(position, { ...position, stageIndex: 2 })).toBe(false);
+    expect(isSameCompetitionPosition(position, { ...position, seriesIndex: 3 })).toBe(false);
   });
 });
