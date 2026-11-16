@@ -123,10 +123,7 @@ module.exports = {
       comment: 'application/ must not import from infra/ within the same module',
       severity: 'error',
       from: { path: '^src/main/modules/[^/]+/application/' },
-      to: {
-        path: '^src/main/modules/[^/]+/infra/',
-        dependencyTypesNot: ['type-only'],
-      },
+      to: { path: '^src/main/modules/[^/]+/infra/' },
     },
 
     // === Override recommended no-circular to allow type-only cycles ===
