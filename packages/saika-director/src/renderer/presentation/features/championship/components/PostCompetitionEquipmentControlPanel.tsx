@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Clipboard, RefreshCw, ShieldCheck, TriangleAlert } from 'lucide-react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { postCompetitionEquipmentControlService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import type { PostCompetitionEquipmentCheckDto, RecordEquipmentControlTestPayload } from '@/shared/ipc/contracts';
 import type { ParticipantDto } from '@/shared/ipc/contracts/championship.contract';
@@ -42,8 +44,7 @@ const selectionOptions: ReadonlyArray<{ value: SelectionBasis; label: string; gu
 
 export function PostCompetitionEquipmentControlPanel({ championshipId, eventId, participants }: Props) {
   const [checks, setChecks] = useState<PostCompetitionEquipmentCheckDto[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run: perform } = useAsyncAction();
   const [notice, setNotice] = useState<string | null>(null);
   const requestVersion = useRef(0);
 
@@ -53,8 +54,7 @@ export function PostCompetitionEquipmentControlPanel({ championshipId, eventId, 
     try {
       const response = await postCompetitionEquipmentControlService.list({ championshipId });
       if (version !== requestVersion.current) return;
-      if (!response.success) throw new Error(response.error.message);
-      setChecks(response.data.filter((check) => check.eventId === eventId));
+      setChecks(unwrap(response).filter((check) => check.eventId === eventId));
     } catch (caught) {
       if (version === requestVersion.current) setError(errorMessage(caught));
     }
@@ -70,19 +70,13 @@ export function PostCompetitionEquipmentControlPanel({ championshipId, eventId, 
   const run = async (
     operation: () => Promise<PostCompetitionEquipmentCheckDto | PostCompetitionEquipmentCheckDto[]>,
   ) => {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
+    await perform(async () => {
+      setNotice(null);
       const changed = await operation();
       const changedChecks = Array.isArray(changed) ? changed : [changed];
       setChecks((current) => mergeChecks(current, changedChecks).filter((check) => check.eventId === eventId));
       setNotice(`${changedChecks.length} equipment-control record(s) updated.`);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return (
@@ -165,9 +159,9 @@ function SelectionForm({
         selectedBy: selectedBy.trim(),
         selectedAt: new Date().toISOString(),
       });
-      if (!response.success) throw new Error(response.error.message);
+      const selected = unwrap(response);
       setParticipantIds([]);
-      return response.data;
+      return selected;
     });
   };
 
@@ -353,8 +347,7 @@ function NoticeForm({ check, disabled, run }: CheckActionProps) {
         statement: statement.trim(),
         issuedAt: new Date().toISOString(),
       });
-      if (!response.success) throw new Error(response.error.message);
-      return response.data;
+      return unwrap(response);
     });
   };
 
@@ -419,9 +412,7 @@ function TestForm({ check, disabled, run }: CheckActionProps) {
       testedAt: new Date().toISOString(),
     };
     await run(async () => {
-      const response = await postCompetitionEquipmentControlService.recordTest(payload);
-      if (!response.success) throw new Error(response.error.message);
-      return response.data;
+      return unwrap(await postCompetitionEquipmentControlService.recordTest(payload));
     });
   };
 
@@ -515,8 +506,7 @@ function ConfirmationForm({ check, disabled, run }: CheckActionProps) {
         statement: statement.trim(),
         confirmedAt: new Date().toISOString(),
       });
-      if (!response.success) throw new Error(response.error.message);
-      return response.data;
+      return unwrap(response);
     });
   };
 
@@ -572,8 +562,7 @@ function VoidForm({ check, disabled, run }: CheckActionProps) {
         reason: reason.trim(),
         voidedAt: new Date().toISOString(),
       });
-      if (!response.success) throw new Error(response.error.message);
-      return response.data;
+      return unwrap(response);
     });
   };
 
@@ -677,11 +666,6 @@ function parseItems(value: string): string[] {
         .filter(Boolean),
     ),
   ];
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
 }
 
 const sectionClass = 'rounded-[3px] border border-vscode-border p-3';

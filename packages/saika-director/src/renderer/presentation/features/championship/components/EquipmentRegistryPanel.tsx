@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { equipmentRegistryService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { EquipmentDetails, EquipmentRegistryWorkspace } from '@/shared/ipc/contracts/equipmentRegistry.contract';
 
 import { Button } from '../../shared/common/Button';
@@ -51,8 +53,7 @@ export function EquipmentRegistryPanel({ championshipId }: { championshipId: str
   const [calibrationIds, setCalibrationIds] = useState<string[]>([]);
   const [instrument, setInstrument] = useState('');
   const [reference, setReference] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run: perform } = useAsyncAction();
   useEffect(() => {
     let disposed = false;
     setWorkspace(null);
@@ -74,22 +75,15 @@ export function EquipmentRegistryPanel({ championshipId }: { championshipId: str
   }, [championshipId, asOfDate]);
   const scope = { championshipId, asOfDate, expectedRevision: workspace?.revision ?? 0, officialName, statement };
   const canRecord = Boolean(workspace && officialName.trim() && statement.trim() && !busy);
-  async function run(
+  function run(
     operation: () => ReturnType<typeof equipmentRegistryService.saveEquipment>,
     onSaved?: (data: EquipmentRegistryWorkspace) => void,
   ) {
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await operation();
-      if (!result.success) throw new Error(result.error.message);
-      setWorkspace(result.data);
-      onSaved?.(result.data);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
+    return perform(async () => {
+      const saved = unwrap(await operation());
+      setWorkspace(saved);
+      onSaved?.(saved);
+    });
   }
   const withdrawn = new Set(
     workspace?.entries.flatMap((entry) => (entry.kind === 'WITHDRAWAL' ? [entry.withdrawsId] : [])),
