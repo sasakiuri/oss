@@ -528,6 +528,7 @@ function IrregularShotCaseCard({
         disabled={
           disabled ||
           saving ||
+          value.status === 'VOID' ||
           !officialName.trim() ||
           !statement.trim() ||
           (entryType === 'RESOLVED' &&
