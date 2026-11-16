@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 
 import type { TargetExaminationScopePayload } from '@/shared/ipc/contracts';
 
+import { CaseListItem } from '../shared/cases/CaseListItem';
 import { Button } from '../shared/common/Button';
 
 import { CaseDetail } from './CaseDetail';
@@ -102,13 +103,10 @@ function TargetExaminationWorkspace({
             </div>
             <div className="max-h-[42rem] overflow-auto">
               {[...cases].reverse().map((examination) => (
-                <button
+                <CaseListItem
                   key={examination.id}
-                  type="button"
-                  className={`block w-full border-b border-vscode-border px-3 py-2.5 text-left last:border-b-0 ${
-                    examination.id === selectedCaseId ? 'bg-vscode-highlight' : 'hover:bg-vscode-bg-hover'
-                  }`}
-                  onClick={() => selectCase(examination.id)}
+                  selected={examination.id === selectedCaseId}
+                  onSelect={() => selectCase(examination.id)}
                 >
                   <span className="flex items-center justify-between gap-2 text-[13px] font-medium text-vscode-text">
                     {examination.summary}
@@ -121,7 +119,7 @@ function TargetExaminationWorkspace({
                   <span className="block text-xs text-vscode-dimmed">
                     {new Date(examination.occurredAt).toLocaleString()} · {examination.id.slice(0, 8)}
                   </span>
-                </button>
+                </CaseListItem>
               ))}
             </div>
           </aside>
