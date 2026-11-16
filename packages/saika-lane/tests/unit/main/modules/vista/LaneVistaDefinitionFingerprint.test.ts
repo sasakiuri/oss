@@ -7,6 +7,9 @@ import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competi
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Session } from '@/main/modules/session/domain/Session';
 import { laneVistaDefinition } from '@/main/modules/vista/application/LaneVistaProjection';
+import { getTargetZoneConfig } from '@/renderer/presentation/components/target/targetColors';
+import type { Discipline as DisciplineValue } from '@/shared/ipc/contracts';
+import { getDefaultTargetScoringProfile } from '@/shared/target';
 
 /**
  * Vista definition fingerprints released with Lane. A spectator compares them across sources, so the
@@ -49,6 +52,17 @@ describe('Lane Vista definition fingerprints', () => {
     } finally {
       reversed.mockRestore();
     }
+  });
+
+  // The Vista definition encodes the black zone as "ring 4 for rifles, ring 7 for pistols"; the Lane target
+  // renderer keeps its own table. Both describe the same face, and the Vista value feeds the fingerprint.
+  it.each(VISTA_EVENT_CODES)('gives %s the black zone the Lane target renderer draws', (eventCode) => {
+    const discipline = ALL_COMPETITION_TYPES.find((candidate) => candidate.id === eventCode)!
+      .discipline as DisciplineValue;
+    const innerZoneRing = getDefaultTargetScoringProfile(discipline).ringLines.find(
+      (ring) => ring.score === getTargetZoneConfig(discipline).innerZoneStartScore,
+    )!;
+    expect(definitionFor(eventCode)?.target.blackDiameter).toBe(innerZoneRing.radiusMm * 2);
   });
 
   it('publishes no definition for a standard event outside the supported list', () => {
