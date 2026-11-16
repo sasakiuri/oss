@@ -13,11 +13,8 @@ npm ci
 npm run dev --workspace=@sasakiuri/saika-vista
 npm run build --workspace=@sasakiuri/saika-vista
 npm run test --workspace=@sasakiuri/saika-vista
-npm run test:load --workspace=@sasakiuri/saika-vista
 npm run test:e2e --workspace=@sasakiuri/saika-vista
 ```
-
-`test:load` runs the 100-lane timing check separately from `test`; run it without other heavy processes.
 
 Build installers on the respective OS with `build:win`, `build:mac` or `build:linux`. The packaged application includes its renderer, runtime, fonts supplied by the operating system, and third-party license notices. It does not download application assets or require an internet account at venue startup. Use an operating system with Japanese fonts installed when displaying Japanese athlete names.
 
