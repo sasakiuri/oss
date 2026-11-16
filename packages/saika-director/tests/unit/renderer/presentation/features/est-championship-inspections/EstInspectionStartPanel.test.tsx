@@ -1,23 +1,68 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { get, getStartSettings, setStartSettings } = vi.hoisted(() => ({
+const { get, getAll, getStartSettings, setStartSettings } = vi.hoisted(() => ({
   get: vi.fn(),
+  getAll: vi.fn(),
   getStartSettings: vi.fn(),
   setStartSettings: vi.fn(),
 }));
 vi.mock('@/renderer/services', () => ({
-  championshipService: {
-    getAll: async () => ({
-      success: true,
-      data: { championships: [{ id: 'championship', name: 'Championship' }] },
-    }),
-  },
+  championshipService: { getAll },
   estChampionshipInspectionsService: { get, getStartSettings, setStartSettings },
 }));
 import { EstInspectionStartPanel } from '@/renderer/presentation/features/est-championship-inspections/EstInspectionStartPanel';
 
+const settings = { competitionId: 'competition', championshipId: 'championship', mode: 'ADVISORY', laneTargets: [] };
+const failure = (message: string) => ({ success: false, error: { code: 'UNKNOWN_ERROR', message } });
+
+function renderPanel() {
+  render(<EstInspectionStartPanel competitionId="competition" lanes={[{ laneId: 'lane', label: 'Lane A' }]} />);
+}
+
 describe('EstInspectionStartPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getAll.mockResolvedValue({
+      success: true,
+      data: { championships: [{ id: 'championship', name: 'Championship' }] },
+    });
+    getStartSettings.mockResolvedValue({ success: true, data: settings });
+    get.mockResolvedValue({ success: true, data: { ready: true, plan: { versionNumber: 1 }, targets: [] } });
+  });
+
+  it('shows a failed settings load with the Error prefix and renders no form', async () => {
+    getStartSettings.mockResolvedValue(failure('Settings unavailable'));
+    renderPanel();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: Settings unavailable$/);
+    expect(screen.queryByLabelText('Inspection policy')).toBeNull();
+  });
+
+  it('shows a failed championship load with the Error prefix and renders no form', async () => {
+    getAll.mockResolvedValue(failure('Championships unavailable'));
+    renderPanel();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: Championships unavailable$/);
+    expect(screen.queryByLabelText('Inspection policy')).toBeNull();
+  });
+
+  it('shows a failed inspection load with the Error prefix and keeps the form', async () => {
+    get.mockResolvedValue(failure('Inspection unavailable'));
+    renderPanel();
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: Inspection unavailable$/);
+    expect(screen.getByLabelText('Inspection policy')).toBeInTheDocument();
+    expect(screen.getByText('Loading inspection…')).toBeInTheDocument();
+  });
+
+  it('shows a failed save as its message and does not report the policy as saved', async () => {
+    setStartSettings.mockResolvedValue(failure('Plan is stale'));
+    renderPanel();
+    await screen.findByText('Plan 1 · all targets passed');
+    fireEvent.click(screen.getByRole('button', { name: 'Save inspection start policy' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Plan is stale$/);
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByLabelText('Inspection policy')).toHaveValue('ADVISORY');
+  });
+
   it('saves multiple physical targets for one Lane and the chosen enforcement mode', async () => {
     getStartSettings.mockResolvedValue({
       success: true,
