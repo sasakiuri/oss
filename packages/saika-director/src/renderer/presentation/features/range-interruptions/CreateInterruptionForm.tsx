@@ -11,8 +11,9 @@ import type {
 import { Button } from '../shared/common/Button';
 
 import { Field, inputClass } from './InterruptionFields';
-import { formatDuration, toLocalInputValue } from './interruptionFormatting';
+import { formatDuration } from './interruptionFormatting';
 import { type RangeInterruptionLaneOption } from './interruptionPresentationTypes';
+import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
 export function CreateInterruptionForm({
   scopes,
@@ -37,7 +38,7 @@ export function CreateInterruptionForm({
 }) {
   const [cause, setCause] = useState<RangeInterruptionCauseDto>('ATHLETE_NON_FAULT');
   const [phase, setPhase] = useState(defaultPhase);
-  const [startedAt, setStartedAt] = useState(toLocalInputValue(new Date()));
+  const [startedAt, setStartedAt] = useState(toDateTimeLocalValue(new Date(), 'seconds'));
   const [remainingSeconds, setRemainingSeconds] = useState(String(Math.max(0, Math.round(defaultRemainingSeconds))));
   const [laneId, setLaneId] = useState(defaultLaneId ?? '');
   const [athleteName, setAthleteName] = useState('');

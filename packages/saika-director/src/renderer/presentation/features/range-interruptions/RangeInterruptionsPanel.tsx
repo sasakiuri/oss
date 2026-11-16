@@ -10,10 +10,11 @@ import { Button } from '../shared/common/Button';
 
 import { CreateInterruptionForm } from './CreateInterruptionForm';
 import { InterruptionDetail } from './InterruptionDetail';
-import { statusClass, formatEnum } from './interruptionFormatting';
+import { statusClass } from './interruptionFormatting';
 import { type RangeInterruptionLaneOption, type DetailAction } from './interruptionPresentationTypes';
 import { useRangeInterruptionCases } from './useRangeInterruptionCases';
 import { InlineError } from '../shared/common/InlineError';
+import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
 export function RangeInterruptionsPanel({
   primaryScope,
@@ -137,11 +138,11 @@ export function RangeInterruptionsPanel({
                 >
                   <span className="flex items-center justify-between gap-2 text-[13px] font-medium text-vscode-text">
                     <span className="truncate">{interruption.summary}</span>
-                    <span className={statusClass(interruption.status)}>{formatEnum(interruption.status)}</span>
+                    <span className={statusClass(interruption.status)}>{lowerCaseLabel(interruption.status)}</span>
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-vscode-text-muted">
                     {interruption.firingPointNumber ? `Firing point ${interruption.firingPointNumber}` : 'Range-wide'} ·{' '}
-                    {formatEnum(interruption.cause)}
+                    {lowerCaseLabel(interruption.cause)}
                   </span>
                   <span className="block text-xs text-vscode-dimmed">
                     {new Date(interruption.startedAt).toLocaleString()} · {interruption.id.slice(0, 8)}

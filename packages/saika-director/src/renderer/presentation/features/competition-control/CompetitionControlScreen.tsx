@@ -3,6 +3,7 @@ import { LoaderCircle, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
 import { useNavigationStore } from '@/renderer/presentation/stores/ui/navigation.store';
+import type { DirectorLaneSnapshotDto } from '@/shared/ipc/contracts';
 
 import { BackupCaptureReadinessPanel } from '../backup-capture-readiness/BackupCaptureReadinessPanel';
 import { EstInspectionStartPanel } from '../est-championship-inspections/EstInspectionStartPanel';
@@ -39,6 +40,12 @@ function formatActionName(action: string): string {
   return action.replaceAll('-', ' ');
 }
 
+/** `Firing point <n> · <alias or short id>`, else the alias or short id. */
+function laneOptionLabel(lane: Pick<DirectorLaneSnapshotDto, 'firingPointNumber' | 'laneAlias' | 'laneId'>): string {
+  const name = lane.laneAlias || lane.laneId.slice(0, 8);
+  return lane.firingPointNumber ? `Firing point ${lane.firingPointNumber} · ${name}` : name;
+}
+
 function estimateRemainingSeconds(timer: { timerStartAt: string; timerDurationSeconds: number } | undefined): number {
   if (!timer) return 0;
   const elapsedSeconds = Math.max(0, Math.floor((Date.now() - Date.parse(timer.timerStartAt)) / 1000));
@@ -63,6 +70,7 @@ export function CompetitionControlScreen() {
   } = selection;
   const { firingWindowViolations, shotObservationEvidence } = useCompetitionEvidence(selectedCompetitionId);
   const commands = useCompetitionCommands({ selection, refresh });
+  const laneOptions = competitionLanes.map((lane) => ({ laneId: lane.laneId, label: laneOptionLabel(lane) }));
   const {
     busyAction,
     resultContext,
@@ -211,12 +219,7 @@ export function CompetitionControlScreen() {
                           ? 'SIGHTING'
                           : 'MATCH'
                       }
-                      lanes={competitionLanes.map((lane) => ({
-                        laneId: lane.laneId,
-                        label: lane.firingPointNumber
-                          ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
-                          : lane.laneAlias || lane.laneId.slice(0, 8),
-                      }))}
+                      lanes={laneOptions}
                     />
                   </Card>
                 )}
@@ -269,12 +272,7 @@ export function CompetitionControlScreen() {
                       competitionId={activeCompetition.competitionId}
                       resultScope={activeCompetition.roundName === 'Final' ? 'FINAL' : 'QUALIFICATION'}
                       adjudication={activeCompetitionDefinition?.finalSeriesAdjudication}
-                      lanes={competitionLanes.map((lane) => ({
-                        laneId: lane.laneId,
-                        label: lane.firingPointNumber
-                          ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
-                          : lane.laneAlias || lane.laneId.slice(0, 8),
-                      }))}
+                      lanes={laneOptions}
                       disabled={baseControlsDisabled}
                     />
                   </Card>
@@ -375,12 +373,7 @@ export function CompetitionControlScreen() {
                   <ReserveLaneTransferPanel
                     key={`transfer:${activeCompetition.competitionId}`}
                     competitionId={activeCompetition.competitionId}
-                    lanes={competitionLanes.map((lane) => ({
-                      laneId: lane.laneId,
-                      label: lane.firingPointNumber
-                        ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
-                        : lane.laneAlias || lane.laneId.slice(0, 8),
-                    }))}
+                    lanes={laneOptions}
                   />
                 )}
                 <RangeInterruptionsPanel
@@ -402,9 +395,7 @@ export function CompetitionControlScreen() {
                   }
                   lanes={competitionLanes.map((lane) => ({
                     laneId: lane.laneId,
-                    label: lane.firingPointNumber
-                      ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
-                      : lane.laneAlias || lane.laneId.slice(0, 8),
+                    label: laneOptionLabel(lane),
                     firingPointNumber: lane.firingPointNumber,
                     ...(lane.assignment?.athlete ? { athleteName: lane.assignment.athlete.name } : {}),
                     ...(lane.competitionState?.interruption
@@ -445,9 +436,7 @@ export function CompetitionControlScreen() {
                       defaultLaneId={assignmentLaneId}
                       lanes={competitionLanes.map((lane) => ({
                         laneId: lane.laneId,
-                        label: lane.firingPointNumber
-                          ? `Firing point ${lane.firingPointNumber} · ${lane.laneAlias || lane.laneId.slice(0, 8)}`
-                          : lane.laneAlias || lane.laneId.slice(0, 8),
+                        label: laneOptionLabel(lane),
                         firingPointNumber: lane.firingPointNumber,
                         ...(lane.assignment?.athlete ? { athleteName: lane.assignment.athlete.name } : {}),
                       }))}

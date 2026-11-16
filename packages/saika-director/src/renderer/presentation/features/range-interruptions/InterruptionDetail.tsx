@@ -10,7 +10,7 @@ import { Button } from '../shared/common/Button';
 import { AuditHistory } from './AuditHistory';
 import { GrantForm } from './GrantForm';
 import { Detail } from './InterruptionFields';
-import { statusClass, formatEnum, formatDuration, shortLane } from './interruptionFormatting';
+import { statusClass, formatDuration, shortLane } from './interruptionFormatting';
 import { type RangeInterruptionLaneOption, type DetailAction } from './interruptionPresentationTypes';
 import { EndInterruptionForm, LaneOperationForm, GenericEntryForm, LinkScopeForm } from './InterruptionRecordForms';
 import {
@@ -40,6 +40,7 @@ import {
 } from './rangeInterruptionRangeWorkflow';
 import { RecommendationPanel } from './RecommendationPanel';
 import { TargetRecoveryForm } from './TargetRecoveryForm';
+import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
 export function InterruptionDetail({
   interruption,
@@ -99,12 +100,12 @@ export function InterruptionDetail({
           <div>
             <h3 className="text-sm font-semibold text-vscode-text">{interruption.summary}</h3>
             <p className="mt-1 text-xs text-vscode-text-muted">
-              {formatEnum(interruption.cause)} · {new Date(interruption.startedAt).toLocaleString()} · Record{' '}
+              {lowerCaseLabel(interruption.cause)} · {new Date(interruption.startedAt).toLocaleString()} · Record{' '}
               {interruption.id.slice(0, 8)}
             </p>
           </div>
           <span className={`text-xs font-semibold ${statusClass(interruption.status)}`}>
-            {formatEnum(interruption.status)}
+            {lowerCaseLabel(interruption.status)}
           </span>
         </div>
         <dl className="mt-3 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
@@ -126,7 +127,7 @@ export function InterruptionDetail({
             label="Lane state"
             value={
               lane?.interruption
-                ? `${formatEnum(lane.interruption.status)} · ${lane.interruption.interruptionId.slice(0, 8)}`
+                ? `${lowerCaseLabel(lane.interruption.status)} · ${lane.interruption.interruptionId.slice(0, 8)}`
                 : laneControlAvailable
                   ? 'No retained interruption state'
                   : 'Not connected'
@@ -513,8 +514,9 @@ export function InterruptionDetail({
             {interruption.commandBatches!.map((batch) => (
               <div key={batch.id} className="border-l-2 border-vscode-border pl-3 text-xs leading-5">
                 <p className={batch.success ? 'font-medium text-vscode-text' : 'font-medium text-vscode-warning'}>
-                  {formatEnum(batch.operation)} · {batch.outcomes.filter((outcome) => outcome.status === 'done').length}
-                  /{batch.outcomes.length} acknowledged in this attempt
+                  {lowerCaseLabel(batch.operation)} ·{' '}
+                  {batch.outcomes.filter((outcome) => outcome.status === 'done').length}/{batch.outcomes.length}{' '}
+                  acknowledged in this attempt
                 </p>
                 <p className="text-vscode-text-muted">
                   {batch.outcomes.map((outcome) => `${shortLane(outcome.laneId)}: ${outcome.status}`).join(' · ')}

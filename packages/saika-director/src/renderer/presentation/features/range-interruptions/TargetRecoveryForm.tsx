@@ -5,12 +5,12 @@ import { rangeInterruptionsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
 
 import { FormButtons, Field, inputClass, formClass } from './InterruptionFields';
-import { toLocalInputValue } from './interruptionFormatting';
 import { type FormProps } from './interruptionPresentationTypes';
+import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
 export function TargetRecoveryForm({ interruption, saving, onCancel, onMutate }: FormProps) {
   const [repairCompleted, setRepairCompleted] = useState(false);
-  const [repairCompletedAt, setRepairCompletedAt] = useState(toLocalInputValue(new Date()));
+  const [repairCompletedAt, setRepairCompletedAt] = useState(toDateTimeLocalValue(new Date(), 'seconds'));
   const [movedToReserve, setMovedToReserve] = useState(false);
   const [reserveFiringPointNumber, setReserveFiringPointNumber] = useState('');
   const [statement, setStatement] = useState('');
