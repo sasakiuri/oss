@@ -1,50 +1,29 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
+import { vistaService } from '@/renderer/services/vistaService';
 import type { LaneVistaStatus } from '@/shared/ipc/contracts/vista.contract';
 
 export function VistaSettingsPanel() {
   const [status, setStatus] = useState<LaneVistaStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const read = async () => {
-    try {
-      const result = await window.electronAPI.vista.getStatus();
-      if (result.success) setStatus(result.data);
-      else setError(result.error.message);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Vista settings unavailable');
-    }
-  };
   useEffect(() => {
-    void read();
+    vistaService.getStatus().then(setStatus, (cause: Error) => setError(cause.message));
   }, []);
-  const toggle = async () => {
+  const update = async (change: () => Promise<LaneVistaStatus>) => {
     setBusy(true);
     setError(null);
     try {
-      const result = await window.electronAPI.vista.setEnabled({ enabled: !status?.enabled });
-      if (result.success) setStatus(result.data);
-      else setError(result.error.message);
+      setStatus(await change());
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Vista settings could not be saved');
+      setError((cause as Error).message);
     } finally {
       setBusy(false);
     }
   };
-  const resetPairing = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await window.electronAPI.vista.resetPairing({});
-      if (result.success) setStatus(result.data);
-      else setError(result.error.message);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Pairing reset failed');
-    } finally {
-      setBusy(false);
-    }
-  };
+  const toggle = () => update(() => vistaService.setEnabled({ enabled: !status?.enabled }));
+  const resetPairing = () => update(() => vistaService.resetPairing({}));
   return (
     <section className="space-y-3 border-t border-zinc-700 p-4 text-sm text-zinc-200" aria-label="Saika Vista sharing">
       <h3 className="font-semibold">Saika Vista</h3>
