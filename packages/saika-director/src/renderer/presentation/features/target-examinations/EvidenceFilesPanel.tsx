@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { evidenceFilesService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { EvidenceFileDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 
@@ -17,23 +19,9 @@ export function EvidenceFilesPanel({
   const [files, setFiles] = useState<EvidenceFileDto[]>([]);
   const [importedBy, setImportedBy] = useState('');
   const [statement, setStatement] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const perform = async (operation: () => Promise<void>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await operation();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { busy, error, run: perform } = useAsyncAction();
   const load = async () => {
-    const response = await evidenceFilesService.list({ evidenceId });
-    if (!response.success) throw new Error(response.error.message);
-    setFiles(response.data);
+    setFiles(unwrap(await evidenceFilesService.list({ evidenceId })));
   };
   return (
     <div className="mt-2 space-y-2">
@@ -72,8 +60,7 @@ export function EvidenceFilesPanel({
                 disabled={busy}
                 onClick={() =>
                   void perform(async () => {
-                    const response = await evidenceFilesService.exportFile({ id: file.id });
-                    if (!response.success) throw new Error(response.error.message);
+                    unwrap(await evidenceFilesService.exportFile({ id: file.id }));
                   })
                 }
               >
@@ -115,7 +102,7 @@ export function EvidenceFilesPanel({
                       importedBy,
                       statement,
                     });
-                    if (!response.success) throw new Error(response.error.message);
+                    unwrap(response);
                     await load();
                   })
                 }
