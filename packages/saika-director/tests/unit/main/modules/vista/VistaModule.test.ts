@@ -2,10 +2,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import { vistaContract } from '@/shared/ipc/contracts/vista.contract';
-const { createServer, createDiscovery, loadCredentials } = vi.hoisted(() => ({
+const { createServer, createDiscovery, loadCredentials, sourceCatalog, sourceSnapshot } = vi.hoisted(() => ({
   createServer: vi.fn(),
   createDiscovery: vi.fn(),
   loadCredentials: vi.fn(),
+  sourceCatalog: vi.fn(),
+  sourceSnapshot: vi.fn(),
 }));
 vi.mock('electron', () => ({ app: { getPath: () => '/unused' } }));
 vi.mock('@sasakiuri/saika-protocol/vista-node', () => ({
@@ -14,7 +16,10 @@ vi.mock('@sasakiuri/saika-protocol/vista-node', () => ({
   createVistaDiscovery: createDiscovery,
 }));
 vi.mock('@/main/modules/vista/application/DirectorVistaSource', () => ({
-  DirectorVistaSource: class {},
+  DirectorVistaSource: class {
+    catalog = sourceCatalog;
+    snapshot = sourceSnapshot;
+  },
 }));
 import { vistaModule } from '@/main/modules/vista';
 describe('Vista failure isolation', () => {
@@ -102,5 +107,46 @@ describe('Vista failure isolation', () => {
       await lifecycle.stop?.();
     }
     expect([...activePorts]).toEqual([]);
+  });
+});
+
+describe('Vista read endpoints', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    loadCredentials.mockReturnValue({ sourceId: 'director', secret: 'a'.repeat(43) });
+    createServer.mockImplementation(async ({ port }: { port: number }) => ({
+      port,
+      endpoints: [`http://127.0.0.1:${port}`],
+      close: async () => undefined,
+    }));
+    createDiscovery.mockReturnValue({ close: () => undefined });
+  });
+
+  it('serves the catalog and decoded snapshot subjects to GET requests only', async () => {
+    const context = {
+      ipcRouter: { register: vi.fn() },
+      eventBus: { on: () => () => undefined },
+      appConfigService: { get: (key: string) => (key === 'vista.enabled' ? true : 45832), setMany: vi.fn() },
+    } as unknown as Parameters<typeof vistaModule.register>[0];
+    const lifecycle = vistaModule.register(context)!.lifecycle![0]!;
+    await lifecycle.start();
+    try {
+      const { handle, identity } = createServer.mock.calls[0]![0] as {
+        handle: (method: string, path: string) => unknown;
+        identity: Record<string, unknown>;
+      };
+      expect(identity).toMatchObject({ protocolVersion: 1, sourceId: 'director', kind: 'director' });
+      sourceCatalog.mockReturnValue('catalog');
+      sourceSnapshot.mockReturnValue('snapshot');
+
+      expect(handle('GET', '/vista/v1/catalog')).toBe('catalog');
+      expect(handle('GET', '/vista/v1/snapshot/competition%3A1%3Arelay')).toBe('snapshot');
+      expect(sourceSnapshot).toHaveBeenCalledExactlyOnceWith('competition:1:relay');
+      expect(() => handle('POST', '/vista/v1/catalog')).toThrow(new Error('Vista source accepts read requests only'));
+      expect(() => handle('GET', '/vista/v1/snapshot/a/b')).toThrow(new Error('Unknown Vista read endpoint'));
+      expect(() => handle('GET', '/vista/v1/other')).toThrow(new Error('Unknown Vista read endpoint'));
+    } finally {
+      await lifecycle.stop();
+    }
   });
 });
