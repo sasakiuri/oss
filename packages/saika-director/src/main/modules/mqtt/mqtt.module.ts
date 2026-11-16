@@ -2,11 +2,7 @@
 import { networkInterfaces } from 'node:os';
 
 import { FinalFiringContextToken, FinalFiringTransportToken } from '@/main/modules/final-recovery-firing';
-import {
-  OperationalProfileService,
-  directorOperationalPresets,
-  type OperationalSettingTarget,
-} from '@/main/modules/operational-profiles';
+import { OperationalProfileService, directorOperationalPresets } from '@/main/modules/operational-profiles';
 import {
   ApplyQualificationRecoverySettlementTransportToken,
   ApplyQualificationRecoveryTransportToken,
@@ -37,6 +33,7 @@ import { DirectorMqttService } from './application/DirectorMqttService';
 import type { MqttControlSnapshot } from './application/DirectorMqttTypes';
 import { FiringPointNumberResolver } from './application/FiringPointNumberResolver';
 import { FiringWindowDetectionService } from './application/FiringWindowDetectionService';
+import { createOperationalProfileTargets } from './application/operationalProfileTargets';
 import { toCompetitionShotObservation } from './application/toCompetitionShotObservation';
 import { toFiringWindowViolationDto } from './application/toFiringWindowViolationDto';
 import { ClockQualityPolicy, type ClockQualityAssessment } from './domain/ClockQualityPolicy';
@@ -543,111 +540,19 @@ export const mqttModule: ModuleDefinition<
     };
 
     const operationalProfiles = new OperationalProfileService(
-      [
-        ...ctx.operationalSettingTargets.map((target) => ({
-          ...target,
-          write: (competitionId: string, mode: Parameters<typeof target.write>[1]) => {
-            if (
-              target.scope === 'DIRECTOR' &&
-              mqttService
-                .getSnapshot()
-                .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase))
-            )
-              throw new Error('Finish active competitions before changing a shared Director policy');
-            return target.write(competitionId, mode);
-          },
-        })),
-        {
-          id: 'relay',
-          label: 'Relay readiness',
-          scope: 'COMPETITION',
-          read: (competitionId) => {
-            const value = ctx.relayReadinessService.getStartSettings(competitionId);
-            return { mode: value.mode, context: JSON.stringify(value) };
-          },
-          write: (competitionId, mode) => {
-            ctx.relayReadinessService.setStartSettings({
-              ...ctx.relayReadinessService.getStartSettings(competitionId),
-              mode,
-            });
-          },
-        },
-        {
-          id: 'inspection',
-          label: 'EST inspection',
-          scope: 'COMPETITION',
-          read: (competitionId) => {
-            const value = ctx.estInspectionStartService.getSettings(competitionId);
-            return { mode: value.mode, context: JSON.stringify(value) };
-          },
-          write: (competitionId, mode) => {
-            ctx.estInspectionStartService.saveSettings({
-              ...ctx.estInspectionStartService.getSettings(competitionId),
-              mode,
-            });
-          },
-        },
-        {
-          id: 'timing-evidence',
-          label: 'Lane measurement evidence, expiry and installation match',
-          scope: 'DIRECTOR',
-          read: () => ({
-            mode: appConfigService.get('timingEvidence.mode'),
-            context: 'Applies before timed commands on every selected Lane.',
-          }),
-          write: (_competitionId, mode) => {
-            if (
-              mqttService
-                .getSnapshot()
-                .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase))
-            )
-              throw new Error('Finish active competitions before changing shared timing evidence policy');
-            appConfigService.set('timingEvidence.mode', mode);
-          },
-        },
-        {
-          id: 'clock',
-          label: 'Clock quality',
-          scope: 'DIRECTOR',
-          read: () => ({ mode: readClockQualitySettings().mode, context: JSON.stringify(readClockQualitySettings()) }),
-          write: (_competitionId, mode) => {
-            if (
-              mqttService
-                .getSnapshot()
-                .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase))
-            )
-              throw new Error('Finish active competitions before changing the shared clock policy');
-            const settings = { ...readClockQualitySettings(), mode };
-            const policy = new ClockQualityPolicy(settings);
-            appConfigService.set('clockQuality.mode', mode);
-            mqttService.setClockQualityPolicy(policy);
-          },
-        },
-        ...(
-          [
-            ['windowEnforcement', 'Lane firing-window enforcement'],
-            ['boundedShotTiming', 'Lane measured shot timing'],
-            ['physicalSignals', 'Integrated target signals'],
-          ] as const
-        ).map(([key, label]): OperationalSettingTarget => ({
-          id: `timed-target-${key}`,
-          label,
-          scope: 'DIRECTOR',
-          read: () => ({
-            mode: readTimedTargetReadinessSettings()[key],
-            context: 'Applies before timed target firing on every selected Lane.',
-          }),
-          write: (_competitionId, mode) => {
-            if (
-              mqttService
-                .getSnapshot()
-                .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase))
-            )
-              throw new Error('Finish active competitions before changing a shared timed target policy');
-            appConfigService.set(`timedTargetReadiness.${key}`, mode);
-          },
-        })),
-      ],
+      createOperationalProfileTargets({
+        composedTargets: ctx.operationalSettingTargets,
+        relayReadiness: ctx.relayReadinessService,
+        estInspection: ctx.estInspectionStartService,
+        config: appConfigService,
+        readClockQualitySettings,
+        applyClockQualityPolicy: (policy) => mqttService.setClockQualityPolicy(policy),
+        readTimedTargetReadinessSettings,
+        hasActiveCompetition: () =>
+          mqttService
+            .getSnapshot()
+            .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase)),
+      }),
       (competitionId) => {
         const competition = mqttService.getSnapshot().competitions.find((item) => item.competitionId === competitionId);
         if (!competition || competition.phase !== 'NOT_STARTED')
