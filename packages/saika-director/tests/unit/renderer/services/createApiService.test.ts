@@ -32,13 +32,13 @@ const mockMethods = {
     getScoreSheets: vi.fn(),
   },
   championship: {
-    getChampionships: vi.fn(),
-    getChampionshipDetail: vi.fn(),
+    getAll: vi.fn(),
+    getDetail: vi.fn(),
     getParticipants: vi.fn(),
     getFiringPointAssignments: vi.fn(),
-    createChampionship: vi.fn(),
-    updateChampionship: vi.fn(),
-    deleteChampionship: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
     createEvent: vi.fn(),
     updateEvent: vi.fn(),
     deleteEvent: vi.fn(),
@@ -122,10 +122,10 @@ describe('createApiService', () => {
 
     it('should propagate errors from the underlying method', async () => {
       const error = new Error('IPC error');
-      mockMethods.championship.getChampionships.mockRejectedValue(error);
+      mockMethods.championship.getAll.mockRejectedValue(error);
 
       const service = createApiService('championship');
-      await expect(service.getChampionships()).rejects.toThrow('IPC error');
+      await expect(service.getAll()).rejects.toThrow('IPC error');
     });
   });
 
@@ -165,8 +165,8 @@ describe('createApiService', () => {
         method: 'moveLane',
         args: [{ fromLaneId: 'a', toLaneId: 'b' }],
       },
-      { namespace: 'championship', method: 'getChampionships' },
-      { namespace: 'championship', method: 'getChampionshipDetail', args: [{ id: 'c1' }] },
+      { namespace: 'championship', method: 'getAll' },
+      { namespace: 'championship', method: 'getDetail', args: [{ id: 'c1' }] },
       { namespace: 'board', method: 'openRankingBoard' },
       {
         namespace: 'board',

@@ -53,7 +53,7 @@ export function useChampionshipActions() {
   );
 
   const loadChampionships = useCallback(async () => {
-    const response = await championshipService.getChampionships();
+    const response = await championshipService.getAll();
     if (response.success) {
       useChampionshipStore.getState().setChampionships(response.data.championships);
     }
@@ -62,7 +62,7 @@ export function useChampionshipActions() {
 
   const loadChampionshipDetail = useCallback(async (id: string) => {
     const requestId = ++championshipDetailRequestIdRef.current;
-    const response = await championshipService.getChampionshipDetail({ id });
+    const response = await championshipService.getDetail({ id });
     if (response.success && requestId === championshipDetailRequestIdRef.current) {
       useChampionshipStore.getState().setSelectedChampionship(response.data);
     }
@@ -97,7 +97,7 @@ export function useChampionshipActions() {
 
   const createChampionship = useCallback(
     async (payload: CreateChampionshipPayload) => {
-      const result = await championshipService.createChampionship(payload);
+      const result = await championshipService.create(payload);
       if (result.success) {
         await refreshAfterCommand(loadChampionships, 'The championship was created, but refreshing the list failed');
       }
@@ -108,7 +108,7 @@ export function useChampionshipActions() {
 
   const updateChampionship = useCallback(
     async (payload: UpdateChampionshipPayload) => {
-      const result = await championshipService.updateChampionship(payload);
+      const result = await championshipService.update(payload);
       if (result.success) {
         const failure = 'The championship was updated, but refreshing it failed';
         await refreshAfterCommand(loadChampionships, failure);
@@ -123,7 +123,7 @@ export function useChampionshipActions() {
 
   const deleteChampionship = useCallback(
     async (id: string) => {
-      const result = await championshipService.deleteChampionship({ id });
+      const result = await championshipService.delete({ id });
       if (result.success) {
         await refreshAfterCommand(loadChampionships, 'The championship was deleted, but refreshing the list failed');
         if (useChampionshipStore.getState().selectedChampionship?.id === id) {

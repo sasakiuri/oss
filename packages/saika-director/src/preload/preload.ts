@@ -1,131 +1,24 @@
 import { createProcedureBridge } from '@sasakiuri/saika-ipc/preload';
 import { contextBridge, ipcRenderer } from 'electron';
 
-import {
-  championshipContract,
-  laneControlContract,
-  resultsContract,
-  scoringDecisionsContract,
-  resultVerificationContract,
-  resultPublicationContract,
-  publicationReviewPolicyContract,
-  competitionAnnouncementsContract,
-  incidentReportsContract,
-  targetExaminationsContract,
-  evidenceFilesContract,
-  malfunctionScoreApplicationsContract,
-  scoreCorrectionsContract,
-  observationReviewsContract,
-  reserveLaneTransfersContract,
-  finalRecoveryFiringContract,
-  rangeInterruptionsContract,
-  relayReadinessContract,
-  relayAthleteLifecycleContract,
-  teamResultsContract,
-  protestsContract,
-  estBackupVerificationContract,
-  backupCaptureReadinessContract,
-  finalControlContract,
-  finalOperationsContract,
-  finalRecoveriesContract,
-  qualificationMalfunctionsContract,
-  adjudicationCasesContract,
-  irregularShotCasesContract,
-  operationalArchivesContract,
-  estChampionshipInspectionsContract,
-  postCompetitionEquipmentControlContract,
-  eliminationPlanningContract,
-  resultsBooksContract,
-  startListsContract,
-  mixedTeamFinalControlContract,
-  squaddingContract,
-  productionOperationsContract,
-  mixedTeamTimeoutsContract,
-  finalPlacementReviewContract,
-  boardContract,
-  shootoffContract,
-  mqttContract,
-  vistaContract,
-  updaterContract,
-  debugContract,
-  eventsContract,
-  athleteSanctionsContract,
-  estComplaintsContract,
-} from '@/shared/ipc/contracts';
-import { equipmentRegistryContract } from '@/shared/ipc/contracts';
-import { operationalProfilesContract } from '@/shared/ipc/contracts';
-import { operationalTemplatesContract } from '@/shared/ipc/contracts';
-import { operatorAccessContract } from '@/shared/ipc/contracts';
+import { eventsContract } from '@/shared/ipc/contracts';
+import { directorBridgeContracts, type DirectorBridge } from '@/shared/ipc/directorBridgeContracts';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
-import { buildEventBridge, buildAliasedBridge } from './buildPreloadAPI';
+import { buildEventBridge } from './buildPreloadAPI';
 
 declare const __APP_VERSION__: string;
 
+const bridge = Object.fromEntries(
+  Object.entries(directorBridgeContracts).map(([namespace, contract]) => [
+    namespace,
+    createProcedureBridge(ipcRenderer, contract),
+  ]),
+) as unknown as DirectorBridge;
+
 const electronAPI: ElectronAPI = {
-  operatorAccess: createProcedureBridge(ipcRenderer, operatorAccessContract),
-  equipmentRegistry: createProcedureBridge(ipcRenderer, equipmentRegistryContract),
+  ...bridge,
   appVersion: __APP_VERSION__,
-  queries: createProcedureBridge(ipcRenderer, debugContract),
-  mqtt: createProcedureBridge(ipcRenderer, mqttContract),
-  vista: createProcedureBridge(ipcRenderer, vistaContract),
-  updater: createProcedureBridge(ipcRenderer, updaterContract),
-
-  // Championship uses aliased method names for 5 CRUD operations
-  championship: buildAliasedBridge(championshipContract, {
-    createChampionship: 'create',
-    updateChampionship: 'update',
-    deleteChampionship: 'delete',
-    getChampionships: 'getAll',
-    getChampionshipDetail: 'getDetail',
-  }) as unknown as ElectronAPI['championship'],
-
-  operationalProfiles: createProcedureBridge(ipcRenderer, operationalProfilesContract),
-  operationalTemplates: createProcedureBridge(ipcRenderer, operationalTemplatesContract),
-  athleteSanctions: createProcedureBridge(ipcRenderer, athleteSanctionsContract),
-
-  laneControl: createProcedureBridge(ipcRenderer, laneControlContract),
-  results: createProcedureBridge(ipcRenderer, resultsContract),
-  scoringDecisions: createProcedureBridge(ipcRenderer, scoringDecisionsContract),
-  resultVerification: createProcedureBridge(ipcRenderer, resultVerificationContract),
-  resultPublication: createProcedureBridge(ipcRenderer, resultPublicationContract),
-  publicationReviewPolicy: createProcedureBridge(ipcRenderer, publicationReviewPolicyContract),
-  competitionAnnouncements: createProcedureBridge(ipcRenderer, competitionAnnouncementsContract),
-  incidentReports: createProcedureBridge(ipcRenderer, incidentReportsContract),
-  targetExaminations: createProcedureBridge(ipcRenderer, targetExaminationsContract),
-  evidenceFiles: createProcedureBridge(ipcRenderer, evidenceFilesContract),
-  malfunctionScoreApplications: createProcedureBridge(ipcRenderer, malfunctionScoreApplicationsContract),
-  scoreCorrections: createProcedureBridge(ipcRenderer, scoreCorrectionsContract),
-  observationReviews: createProcedureBridge(ipcRenderer, observationReviewsContract),
-  reserveLaneTransfers: createProcedureBridge(ipcRenderer, reserveLaneTransfersContract),
-  finalRecoveryFiring: createProcedureBridge(ipcRenderer, finalRecoveryFiringContract),
-  estComplaints: createProcedureBridge(ipcRenderer, estComplaintsContract),
-  rangeInterruptions: createProcedureBridge(ipcRenderer, rangeInterruptionsContract),
-  relayReadiness: createProcedureBridge(ipcRenderer, relayReadinessContract),
-  relayAthleteLifecycle: createProcedureBridge(ipcRenderer, relayAthleteLifecycleContract),
-  teamResults: createProcedureBridge(ipcRenderer, teamResultsContract),
-  protests: createProcedureBridge(ipcRenderer, protestsContract),
-  estBackupVerification: createProcedureBridge(ipcRenderer, estBackupVerificationContract),
-  backupCaptureReadiness: createProcedureBridge(ipcRenderer, backupCaptureReadinessContract),
-  finalControl: createProcedureBridge(ipcRenderer, finalControlContract),
-  finalOperations: createProcedureBridge(ipcRenderer, finalOperationsContract),
-  finalRecoveries: createProcedureBridge(ipcRenderer, finalRecoveriesContract),
-  qualificationMalfunctions: createProcedureBridge(ipcRenderer, qualificationMalfunctionsContract),
-  adjudicationCases: createProcedureBridge(ipcRenderer, adjudicationCasesContract),
-  irregularShotCases: createProcedureBridge(ipcRenderer, irregularShotCasesContract),
-  operationalArchives: createProcedureBridge(ipcRenderer, operationalArchivesContract),
-  estChampionshipInspections: createProcedureBridge(ipcRenderer, estChampionshipInspectionsContract),
-  postCompetitionEquipmentControl: createProcedureBridge(ipcRenderer, postCompetitionEquipmentControlContract),
-  eliminationPlanning: createProcedureBridge(ipcRenderer, eliminationPlanningContract),
-  resultsBooks: createProcedureBridge(ipcRenderer, resultsBooksContract),
-  startLists: createProcedureBridge(ipcRenderer, startListsContract),
-  mixedTeamFinalControl: createProcedureBridge(ipcRenderer, mixedTeamFinalControlContract),
-  squadding: createProcedureBridge(ipcRenderer, squaddingContract),
-  productionOperations: createProcedureBridge(ipcRenderer, productionOperationsContract),
-  mixedTeamTimeouts: createProcedureBridge(ipcRenderer, mixedTeamTimeoutsContract),
-  finalPlacementReview: createProcedureBridge(ipcRenderer, finalPlacementReviewContract),
-  board: createProcedureBridge(ipcRenderer, boardContract),
-  shootoff: createProcedureBridge(ipcRenderer, shootoffContract),
   on: buildEventBridge(eventsContract),
 };
 

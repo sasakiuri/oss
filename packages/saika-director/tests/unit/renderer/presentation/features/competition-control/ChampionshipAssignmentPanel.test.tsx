@@ -15,8 +15,8 @@ const { getChampionships, getChampionshipDetail, getParticipants, getFiringPoint
 
 vi.mock('@/renderer/services', () => ({
   championshipService: {
-    getChampionships,
-    getChampionshipDetail,
+    getAll: getChampionships,
+    getDetail: getChampionshipDetail,
     getParticipants,
     getFiringPointAssignments,
   },
