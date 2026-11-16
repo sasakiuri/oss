@@ -37,7 +37,8 @@ export class QueryBus {
   register<TInput, TOutput>(token: QueryToken<TInput, TOutput>, handler: QueryHandler<TInput, TOutput>): void {
     const name = token.name;
     if (this.handlers.has(name)) {
-      logger.warn(`Query handler for "${name}" is already registered. Overwriting.`);
+      logger.error(`Duplicate query handler registration: "${name}"`);
+      throw new Error(`QueryBus: duplicate query handler registration: "${name}"`);
     }
     this.handlers.set(name, handler as QueryHandler<unknown, unknown>);
   }
