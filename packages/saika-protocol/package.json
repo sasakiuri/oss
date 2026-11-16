@@ -2,7 +2,7 @@
   "name": "@sasakiuri/saika-protocol",
   "version": "0.2.1",
   "private": true,
-  "description": "Application-neutral MQTT contracts for Saika Lane and Director",
+  "description": "Application-neutral wire contracts for Saika: Lane and Director MQTT messages and Vista transport",
   "license": "MIT",
   "type": "module",
   "exports": {
