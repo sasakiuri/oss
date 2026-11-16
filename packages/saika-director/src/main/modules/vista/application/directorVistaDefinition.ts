@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { createHash } from 'node:crypto';
 import { ISSF_2026_RULE_PACKS, canonicalJson } from '@sasakiuri/saika-rules';
-import { VistaDefinitionSchema, type VistaDefinition } from '@sasakiuri/saika-protocol/Vista';
+import { VISTA_EVENT_CODES, VistaDefinitionSchema, type VistaDefinition } from '@sasakiuri/saika-protocol/Vista';
 import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import type { CompetitionTypeDefinition, CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import { competitionTypeFromRulePack } from '@/shared/competitionTypes/fromRulePack';
@@ -14,9 +14,15 @@ export function vistaDigest(value: unknown): string {
   return createHash('sha256').update(canonicalJson(value)).digest('hex');
 }
 
+const handWrittenDefinitions = [BR60S, BP60, BR60S_FINAL, BP60_FINAL];
+// Only the Vista event codes without a hand-written definition come from Rule Packs, so a later
+// Rule Pack with one of the hand-written codes cannot replace that definition.
+const rulePackEventCodes: readonly string[] = VISTA_EVENT_CODES.filter(
+  (code) => !handWrittenDefinitions.some((definition) => definition.id === code),
+);
 const standardDefinitions = new Map<string, CompetitionTypeDefinition>([
-  ...[BR60S, BP60, BR60S_FINAL, BP60_FINAL].map((definition) => [definition.id, definition] as const),
-  ...ISSF_2026_RULE_PACKS.filter((pack) => ['AR60', 'AP60', 'AR60_FINAL', 'AP60_FINAL'].includes(pack.eventCode)).map(
+  ...handWrittenDefinitions.map((definition) => [definition.id, definition] as const),
+  ...ISSF_2026_RULE_PACKS.filter((pack) => rulePackEventCodes.includes(pack.eventCode)).map(
     (pack) =>
       [pack.eventCode, competitionTypeFromRulePack(pack, { includeTeamResults: pack.round !== 'FINAL' })] as const,
   ),

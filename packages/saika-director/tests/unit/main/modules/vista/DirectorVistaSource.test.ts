@@ -45,6 +45,7 @@ import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfS
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts/resultPublication.contract';
 import { type ReserveLaneTransferBundle } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
+import { VISTA_EVENT_CODES } from '@sasakiuri/saika-protocol/Vista';
 
 import { migratedDatabase, seedChampionship, seedEvent, seedParticipant } from '../../../../helpers/database';
 
@@ -1805,7 +1806,9 @@ describe('Director Vista source', () => {
   });
 
   it('exports the eight exact standard definitions and rejects missing rule identities and custom rules', () => {
-    for (const code of ['BR60S', 'BP60', 'BR60S_FINAL', 'BP60_FINAL', 'AR60', 'AP60', 'AR60_FINAL', 'AP60_FINAL']) {
+    const codes = ['BR60S', 'BP60', 'BR60S_FINAL', 'BP60_FINAL', 'AR60', 'AP60', 'AR60_FINAL', 'AP60_FINAL'];
+    expect([...VISTA_EVENT_CODES].sort()).toEqual([...codes].sort());
+    for (const code of codes) {
       const snapshot = control(registry, code);
       const definition = directorVistaDefinition(snapshot.competitions[0]!, registry);
       expect(definition.eventCode).toBe(code);
