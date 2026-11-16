@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { IncidentReportPrintScreen } from '@/renderer/presentation/features/print/IncidentReportPrintScreen';
 
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
+
 const REPORT_ID = '11111111-1111-4111-8111-111111111111';
 const { getById } = vi.hoisted(() => ({ getById: vi.fn() }));
 
@@ -49,5 +51,19 @@ describe('IncidentReportPrintScreen', () => {
     expect(screen.getByText('IR-42')).toBeInTheDocument();
     expect(screen.getByText('Target stopped responding.')).toBeInTheDocument();
     expect(getById).toHaveBeenCalledWith({ reportId: REPORT_ID });
+  });
+
+  it('shows a failed load as its message and a failure that is not an error as the fallback text', async () => {
+    getById.mockResolvedValueOnce(fail('Report not found', 'NOT_FOUND'));
+    const { unmount } = render(
+      <IncidentReportPrintScreen config={{ type: 'incident-report-print', reportId: REPORT_ID }} />,
+    );
+    expect(await screen.findByText('Report not found')).toBeInTheDocument();
+    unmount();
+
+    getById.mockRejectedValueOnce('offline');
+    render(<IncidentReportPrintScreen config={{ type: 'incident-report-print', reportId: REPORT_ID }} />);
+    expect(await screen.findByText('Failed to load the incident report')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 });
