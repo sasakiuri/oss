@@ -11,7 +11,7 @@ describe('ModuleLoader', () => {
 
   it('injects only declared dependencies and preserves module output order', () => {
     const lifecycle = { name: 'worker', start: vi.fn(), stop: vi.fn() };
-    const rule = { eventType: 'Changed', channel: 'changed', extractPayload: () => ({}) };
+    const rule = { eventType: 'LaneConnected' as const, channel: 'changed', extractPayload: () => ({}) };
     const register = vi.fn(() => ({ lifecycle: [lifecycle], eventForwarding: [rule] }));
     const modules: ModuleDefinition[] = [{ name: 'worker', deps: ['commandBus'], register }];
     const loaded = new ModuleLoader().load(modules, registry);

@@ -41,23 +41,25 @@ export class DomainEventForwarder {
       this.windowManager.broadcast(channel, data);
     };
 
-    for (const rule of this.rules) {
-      if (isTransformerRule(rule)) {
-        // TransformerForwardingRule: custom forwarding such as diff calculation.
-        this.unsubscribers.push(
-          this.eventBus.on(rule.eventType, (event: AnyDomainEvent) => {
-            rule.transformer.forward(event, send);
-          }),
-        );
-      } else {
-        // EventForwardingRule: simple payload extraction and broadcast.
-        this.unsubscribers.push(
-          this.eventBus.on(rule.eventType, (event: AnyDomainEvent) => {
-            send(rule.channel, rule.extractPayload(event));
-          }),
-        );
-      }
+    for (const rule of this.rules) this.unsubscribers.push(this.subscribe(rule, send));
+  }
+
+  /** The bus delivers only events of the subscribed type, which is the type the rule's functions accept. */
+  private subscribe(
+    rule: EventForwardingRule | TransformerForwardingRule,
+    send: (channel: string, data: unknown) => void,
+  ): () => void {
+    if (isTransformerRule(rule)) {
+      // Custom forwarding such as diff calculation.
+      const forward = rule.transformer.forward.bind(rule.transformer) as (
+        event: AnyDomainEvent,
+        send: (channel: string, data: unknown) => void,
+      ) => void;
+      return this.eventBus.on(rule.eventType, (event) => forward(event, send));
     }
+    // Simple payload extraction and broadcast.
+    const extractPayload = rule.extractPayload.bind(rule) as (event: AnyDomainEvent) => unknown;
+    return this.eventBus.on(rule.eventType, (event) => send(rule.channel, extractPayload(event)));
   }
 
   stop(): void {
@@ -67,9 +69,7 @@ export class DomainEventForwarder {
 
     // Run optional transformer cleanup.
     for (const rule of this.rules) {
-      if (isTransformerRule(rule) && 'cleanup' in rule.transformer) {
-        (rule.transformer as { cleanup(): void }).cleanup();
-      }
+      if (isTransformerRule(rule)) rule.transformer.cleanup?.();
     }
   }
 }

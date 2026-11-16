@@ -1,4 +1,3 @@
-import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { competitionAnnouncementsContract, eventsContract } from '@/shared/ipc/contracts';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
@@ -52,17 +51,14 @@ export const competitionAnnouncementsModule = defineModule({
         {
           eventType: 'CompetitionAnnouncementDue',
           channel: eventsContract.channels.competitionAnnouncementDue,
-          extractPayload: (event: AnyDomainEvent) => {
-            const announcement = event as CompetitionAnnouncementDue;
-            return {
-              competitionId: announcement.competitionId,
-              competitionTypeId: announcement.competitionTypeId,
-              ...(announcement.rulePackId ? { rulePackId: announcement.rulePackId } : {}),
-              phase: announcement.phase,
-              remainingSeconds: announcement.remainingSeconds,
-              dueAt: announcement.dueAt,
-            };
-          },
+          extractPayload: (announcement) => ({
+            competitionId: announcement.competitionId,
+            competitionTypeId: announcement.competitionTypeId,
+            ...(announcement.rulePackId ? { rulePackId: announcement.rulePackId } : {}),
+            phase: announcement.phase,
+            remainingSeconds: announcement.remainingSeconds,
+            dueAt: announcement.dueAt,
+          }),
         },
       ],
     };
