@@ -10,14 +10,14 @@ export const EstComplaintIssueSchema = z.enum([
   'OTHER',
 ]);
 
-export const EstComplaintLastShotSchema = z.object({
+const EstComplaintLastShotSchema = z.object({
   shotId: z.string().uuid(),
   shotNumberInSeries: z.number().int().positive(),
   firedAt: z.string().datetime(),
   receivedAt: z.string().datetime(),
 });
 
-export const EstComplaintRuleContextSchema = z.object({
+const EstComplaintRuleContextSchema = z.object({
   round: z.enum(['ELIMINATION', 'QUALIFICATION', 'FINAL']),
   identity: z.object({
     id: z.string().min(1),

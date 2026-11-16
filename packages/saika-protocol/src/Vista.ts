@@ -39,7 +39,7 @@ export const VistaDefinitionSchema = z.object({
 });
 export type VistaDefinition = z.infer<typeof VistaDefinitionSchema>;
 
-export const VistaClockSchema = z.object({
+const VistaClockSchema = z.object({
   generation: Id,
   revision: Count,
   label: Text,
@@ -64,7 +64,7 @@ export const VistaShotSchema = z
   .refine((shot) => (shot.x === null) === (shot.y === null), 'Coordinates must both be present or absent')
   .refine((shot) => (shot.stage === null) === (shot.series === null), 'Stage and series must both be known or unknown');
 
-export const VistaParticipantSchema = z.object({
+const VistaParticipantSchema = z.object({
   id: Id,
   laneId: Id,
   laneName: Text,
@@ -85,7 +85,7 @@ export const VistaParticipantSchema = z.object({
 });
 export type VistaParticipant = z.infer<typeof VistaParticipantSchema>;
 
-export const VistaSubjectSchema = z.object({
+const VistaSubjectSchema = z.object({
   id: Id,
   label: Text,
   eventCode: Text,

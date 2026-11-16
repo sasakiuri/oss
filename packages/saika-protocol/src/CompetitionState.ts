@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { z } from 'zod';
 
-export const CompetitionPhaseSchema = z.enum([
-  'NOT_STARTED',
-  'SIGHTING',
-  'SIGHTING_COMPLETE',
-  'MATCH',
-  'MATCH_COMPLETE',
-]);
+const CompetitionPhaseSchema = z.enum(['NOT_STARTED', 'SIGHTING', 'SIGHTING_COMPLETE', 'MATCH', 'MATCH_COMPLETE']);
 
 export const RulePackIdentitySchema = z.object({
   id: z.string().min(1),
@@ -34,7 +28,7 @@ export const CompetitionDefinitionBindingSchema = z
     }
   });
 
-export const ActiveCompetitionTimerSchema = z.object({
+const ActiveCompetitionTimerSchema = z.object({
   timerScope: z.enum(['STAGE', 'SERIES']),
   timerStartAt: z.string().datetime(),
   timerDurationSeconds: z.number().int().positive(),
@@ -42,7 +36,7 @@ export const ActiveCompetitionTimerSchema = z.object({
   seriesIndex: z.number().int().min(0).nullable(),
 });
 
-export const PendingCompetitionTimerSchema = ActiveCompetitionTimerSchema.extend({
+const PendingCompetitionTimerSchema = ActiveCompetitionTimerSchema.extend({
   action: z.enum(['start-sighting', 'start-match', 'timer-started']),
 });
 
