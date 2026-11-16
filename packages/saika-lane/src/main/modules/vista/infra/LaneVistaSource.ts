@@ -12,6 +12,7 @@ import {
   type VistaIdentity,
   type VistaSnapshot,
 } from '@sasakiuri/saika-protocol/Vista';
+import { canonicalJson } from '@sasakiuri/saika-rules';
 
 import type {
   ICompetitionCatalog,
@@ -24,12 +25,7 @@ import type { ISessionRepository } from '@/main/modules/session/domain/ISessionR
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-import {
-  canonical,
-  laneVistaDefinition,
-  projectLaneVista,
-  type LaneVistaShotContext,
-} from '../application/LaneVistaProjection';
+import { laneVistaDefinition, projectLaneVista, type LaneVistaShotContext } from '../application/LaneVistaProjection';
 import { readVistaLaneAlias } from '../application/readVistaLaneAlias';
 
 interface LaneVistaArchive {
@@ -270,7 +266,7 @@ export class LaneVistaSource {
     // Encode consumed reset boundaries in the existing generation field. New,
     // stage sessions without a reset do not change this prefix or the archive format.
     const epochPrefix = resetMarkers.length
-      ? `reset:${createHash('sha256').update(canonical(resetMarkers)).digest('base64url')}:`
+      ? `reset:${createHash('sha256').update(canonicalJson(resetMarkers)).digest('base64url')}:`
       : null;
     const session = await sessions.findById(competition.sessionId);
     if (!session) {
@@ -323,8 +319,8 @@ export class LaneVistaSource {
     const current = await competitions.findById(id);
     const currentEpochs = await Promise.all(links.map((link) => sessions.readResetEpoch(link.sessionId)));
     if (
-      canonical(current) !== canonical(competition) ||
-      canonical(this.options.shootOffs.getState()) !== canonical(shootOffWindow) ||
+      canonicalJson(current) !== canonicalJson(competition) ||
+      canonicalJson(this.options.shootOffs.getState()) !== canonicalJson(shootOffWindow) ||
       currentEpochs.some((epoch, index) => epoch !== sessionEpochs[index])
     )
       return null;
@@ -417,7 +413,7 @@ export class LaneVistaSource {
       label: completed?.label ?? `${projected.label} · Run ${incarnation + 1}`,
     };
     const semantic = (value: VistaSnapshot): string =>
-      canonical({
+      canonicalJson({
         ...value,
         capturedAt: 0,
         revision: 0,

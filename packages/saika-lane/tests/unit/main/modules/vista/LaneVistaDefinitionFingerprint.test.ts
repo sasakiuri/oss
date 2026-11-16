@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { VISTA_EVENT_CODES } from '@sasakiuri/saika-protocol/Vista';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
@@ -32,6 +32,23 @@ function definitionFor(eventCode: string) {
 describe('Lane Vista definition fingerprints', () => {
   it.each(VISTA_EVENT_CODES)('keeps the released fingerprint of %s', (eventCode) => {
     expect(definitionFor(eventCode)?.fingerprint).toBe(RELEASED_FINGERPRINTS[eventCode]);
+  });
+
+  it.each(VISTA_EVENT_CODES)('keeps the released fingerprint of %s under any locale collation', (eventCode) => {
+    const compare = String.prototype.localeCompare;
+    // A collation that orders every pair the other way round stands in for any locale that reorders keys.
+    const reversed = vi.spyOn(String.prototype, 'localeCompare').mockImplementation(function (
+      this: string,
+      that: string,
+    ) {
+      return -compare.call(this, that);
+    });
+    try {
+      expect('a'.localeCompare('b')).toBeGreaterThan(0);
+      expect(definitionFor(eventCode)?.fingerprint).toBe(RELEASED_FINGERPRINTS[eventCode]);
+    } finally {
+      reversed.mockRestore();
+    }
   });
 
   it('publishes no definition for a standard event outside the supported list', () => {
