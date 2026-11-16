@@ -2,6 +2,12 @@ import eslintConfig from '@sasakiuri/eslint-config';
 import testingLibrary from '@sasakiuri/eslint-config/testing-library';
 import vitest from '@sasakiuri/eslint-config/vitest';
 
+// The IPC main helpers load Electron's app module, so only main-process code may import them.
+const ipcMainHelpers = {
+  name: '@sasakiuri/saika-ipc/main',
+  message: 'Only main-process code may import the IPC main helpers.',
+};
+
 export default [
   ...eslintConfig,
   vitest,
@@ -23,6 +29,7 @@ export default [
       'no-restricted-imports': [
         'error',
         {
+          paths: [ipcMainHelpers],
           patterns: [
             {
               group: ['@/main/*', '@/main/**'],
@@ -64,6 +71,7 @@ export default [
       'no-restricted-imports': [
         'error',
         {
+          paths: [ipcMainHelpers],
           patterns: [
             {
               group: ['@/main/modules/*/*', '@/main/modules/*/**'],
