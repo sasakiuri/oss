@@ -74,6 +74,7 @@ describe('CompetitionStateSubscriber', () => {
       }),
       unsubscribe: vi.fn().mockResolvedValue(undefined),
       setWill: vi.fn(),
+      clearWill: vi.fn(),
       onMessage: vi.fn().mockImplementation((handler: typeof messageHandler) => {
         messageHandler = handler;
         return () => undefined;

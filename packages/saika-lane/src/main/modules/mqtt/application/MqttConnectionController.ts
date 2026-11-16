@@ -128,9 +128,11 @@ export class MqttConnectionController {
         await mqttClient.disconnect();
       }
 
-      // Set Will message on MqttClientService before connecting
+      // Set Will message on MqttClientService before connecting; without a Lane ID there is no topic to leave it on.
       hardwarePublisher.setRuntimeLaneAlias(laneAlias);
-      mqttClient.setWill(hardwarePublisher.getWillTopic(), hardwarePublisher.getWillPayload(), 1, true);
+      const willTopic = hardwarePublisher.getWillTopic();
+      if (willTopic !== null) mqttClient.setWill(willTopic, hardwarePublisher.getWillPayload(), 1, true);
+      else mqttClient.clearWill();
 
       await mqttClient.connect({
         brokerUrl: input.brokerUrl,

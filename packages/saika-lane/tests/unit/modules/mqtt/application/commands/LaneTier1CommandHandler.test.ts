@@ -47,6 +47,7 @@ function createMockMqttClient(): IMqttClientService {
     subscribe: vi.fn().mockResolvedValue(undefined),
     unsubscribe: vi.fn().mockResolvedValue(undefined),
     setWill: vi.fn(),
+    clearWill: vi.fn(),
     onMessage: vi.fn().mockReturnValue(() => {}),
     onConnect: vi.fn(),
     onDisconnect: vi.fn(),

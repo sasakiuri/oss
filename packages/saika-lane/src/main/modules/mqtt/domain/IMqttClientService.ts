@@ -28,6 +28,8 @@ export interface IMqttClientService {
   subscribe(topic: string, qos?: 0 | 1 | 2): Promise<void>;
   unsubscribe(topic: string): Promise<void>;
   setWill(topic: string, payload: string, qos?: 0 | 1 | 2, retain?: boolean): void;
+  /** Forgets the will set for earlier connections, so the next connection leaves none. */
+  clearWill(): void;
   onMessage(handler: (topic: string, payload: Buffer) => void): () => void;
   onConnect(handler: () => void): () => void;
   onDisconnect(handler: () => void): () => void;

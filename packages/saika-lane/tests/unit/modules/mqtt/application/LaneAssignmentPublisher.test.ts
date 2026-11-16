@@ -22,6 +22,7 @@ describe('LaneAssignmentPublisher', () => {
       subscribe: vi.fn(),
       unsubscribe: vi.fn(),
       setWill: vi.fn(),
+      clearWill: vi.fn(),
       onMessage: vi.fn(),
       onConnect: vi.fn(),
       onDisconnect: vi.fn(),

@@ -149,6 +149,10 @@ export class MqttClientService implements IMqttClientService {
     await this.client.unsubscribeAsync(topic);
   }
 
+  clearWill(): void {
+    this.pendingWill = null;
+  }
+
   setWill(topic: string, payload: string, qos: 0 | 1 | 2 = 1, retain: boolean = false): void {
     this.pendingWill = { topic, payload, qos, retain };
   }

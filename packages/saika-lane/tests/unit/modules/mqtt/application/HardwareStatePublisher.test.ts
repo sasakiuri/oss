@@ -22,6 +22,7 @@ function createMockMqttClient(): IMqttClientService {
     subscribe: vi.fn(),
     unsubscribe: vi.fn(),
     setWill: vi.fn(),
+    clearWill: vi.fn(),
     onMessage: vi.fn().mockReturnValue(() => {}),
     onConnect: vi.fn(),
     onDisconnect: vi.fn(),
@@ -315,6 +316,54 @@ describe('HardwareStatePublisher', () => {
       expect.stringContaining('"status":"disconnected"'),
       { qos: 1, retain: true },
     );
+  });
+
+  describe('before the Lane ID is known', () => {
+    const LANE_ID = '550e8400-e29b-41d4-a716-446655440000';
+
+    beforeEach(() => {
+      storage.delete('mqtt.laneId');
+      vi.mocked(storage.get).mockImplementation(<T>(key: string) =>
+        key === 'mqtt.laneId' ? (undefined as T) : ({ laneAlias: 'Lane 1' } as T),
+      );
+    });
+
+    it('publishes no hardware state, heartbeat or offline state', async () => {
+      publisher.publishState();
+      (eventBus as { emit: Function }).emit({
+        type: 'ConnectionLost',
+        timestamp: Date.now(),
+        aggregateId: 'conn-123',
+        reason: 'USB disconnected',
+      } satisfies ConnectionLostEvent);
+      publisher.startHeartbeat(1000);
+      vi.advanceTimersByTime(3000);
+      await publisher.publishOfflineState();
+
+      expect(mqttClient.publish).not.toHaveBeenCalled();
+    });
+
+    it('offers no will topic', () => {
+      expect(publisher.getWillTopic()).toBeNull();
+    });
+
+    it('publishes on the next heartbeat once settings give the Lane its ID', () => {
+      publisher.startHeartbeat(1000);
+      vi.advanceTimersByTime(1000);
+      expect(mqttClient.publish).not.toHaveBeenCalled();
+
+      vi.mocked(storage.get).mockImplementation(<T>(key: string) =>
+        key === 'mqtt.laneId' ? (LANE_ID as T) : ({ laneAlias: 'Lane 1' } as T),
+      );
+      vi.advanceTimersByTime(1000);
+
+      expect(mqttClient.publish).toHaveBeenCalledExactlyOnceWith(
+        `saika/lane/${LANE_ID}/hardware/state`,
+        expect.stringContaining(`"laneId":"${LANE_ID}"`),
+        { qos: 1, retain: true },
+      );
+      expect(publisher.getWillTopic()).toBe(`saika/lane/${LANE_ID}/hardware/state`);
+    });
   });
 
   // ── Error handling ──
