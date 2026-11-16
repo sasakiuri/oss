@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  applyLaneMatchResume,
   applyLanePause,
   applyLaneResume,
   type RangeInterruptionLaneWorkflowPorts,
 } from '@/renderer/presentation/features/range-interruptions/rangeInterruptionLaneWorkflow';
 import type { RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
+
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const LANE_ID = '22222222-2222-4222-8222-222222222222';
@@ -136,5 +139,23 @@ describe('rangeInterruptionLaneWorkflow', () => {
       ),
     ).rejects.toThrow('No matching interruption');
     expect(workflowPorts.ledger.appendEntry).not.toHaveBeenCalled();
+  });
+
+  it('raises a failed command response as its message and a failed ledger append with the audit prefix', async () => {
+    const workflowPorts = ports();
+    const context = {
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      interruptionId: INTERRUPTION_ID,
+      officialName: 'Officer A',
+    };
+    vi.mocked(workflowPorts.lane.resumeLaneMatch).mockResolvedValue(fail('Lane is not connected'));
+    await expect(applyLaneMatchResume(context, workflowPorts)).rejects.toThrow(/^Lane is not connected$/);
+    expect(workflowPorts.ledger.appendEntry).not.toHaveBeenCalled();
+
+    vi.mocked(workflowPorts.ledger.appendEntry).mockResolvedValue(fail('The record is closed'));
+    await expect(applyLanePause(context, workflowPorts)).rejects.toThrow(
+      /^The Lane command succeeded, but its audit entry could not be recorded: The record is closed$/,
+    );
   });
 });
