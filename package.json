@@ -51,7 +51,7 @@
     "fix:text": "node scripts/lint-text.mjs --fix",
     "test:text": "node --test scripts/lint-text.test.mjs",
     "test:release-metadata": "node --test scripts/namespace-update-metadata.test.mjs",
-    "test:pre-release": "node --test scripts/pre-release-check.test.mjs",
+    "test:pre-release": "node --test scripts/pre-release-check.test.mjs scripts/saika-suite.test.mjs",
     "test": "turbo test",
     "test:coverage": "node scripts/run-package-ci.mjs test --all",
     "test:tooling": "node --test scripts/*.test.mjs packages/repo-tooling/tests/*.test.mjs packages/eslint-config/tests/*.test.mjs && npm run test:artifacts --workspace=@sasakiuri/saika-docs",

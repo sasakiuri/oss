@@ -41,7 +41,11 @@ function fixture(t) {
     write(`${dir}/README.md`, `# ${name}\n`);
   }
   mkdirSync(join(root, "scripts"));
-  for (const file of ["pre-release-check.sh", "check-english-only.mjs"]) {
+  for (const file of [
+    "pre-release-check.sh",
+    "check-english-only.mjs",
+    "saika-suite.json",
+  ]) {
     copyFileSync(join(repoRoot, "scripts", file), join(root, "scripts", file));
   }
   write("package.json", JSON.stringify({ private: true, license: "MIT" }));
@@ -414,6 +418,25 @@ test("rejects missing suite packages", (t) => {
   const result = f.run();
   assert.equal(result.status, 1, result.output);
   assert.match(result.output, /FAIL +Versions \/ Suite versions/);
+});
+
+test("fails the suite checks when the suite manifest is missing", (t) => {
+  const release = fixture(t);
+  rmSync(join(release.root, "scripts/saika-suite.json"));
+  const releaseResult = release.run();
+  assert.equal(releaseResult.status, 1, releaseResult.output);
+  assert.match(releaseResult.output, /FAIL +Docs \/ Japanese text/);
+  assert.match(releaseResult.output, /FAIL +Versions \/ Suite versions/);
+
+  const security = securityFixture(t);
+  rmSync(join(security.root, "scripts/saika-suite.json"));
+  const securityResult = security.run();
+  assert.equal(securityResult.status, 1, securityResult.output);
+  assert.match(securityResult.output, /FAIL +Security \/ Electron security/);
+  assert.match(
+    securityResult.output,
+    /Could not read the Electron window files from scripts\/saika-suite\.json/,
+  );
 });
 
 test("rejects malformed suite manifests", (t) => {

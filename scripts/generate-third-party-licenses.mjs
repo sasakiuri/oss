@@ -418,13 +418,13 @@ if (
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+  const { applications } = await readJson(
+    join(repositoryRoot, "scripts", "saika-suite.json"),
+  );
   process.exitCode = await generateLicenseReport({
     repositoryRoot,
     appDirectories: [
-      join(repositoryRoot, "packages", "saika-lane"),
-      join(repositoryRoot, "packages", "saika-director"),
-      join(repositoryRoot, "packages", "saika-vista"),
-      join(repositoryRoot, "packages", "saika-docs"),
+      ...applications.map(({ directory }) => join(repositoryRoot, directory)),
       join(repositoryRoot, "packages", "nilay-knowledge"),
       join(repositoryRoot, "packages", "nilay-about"),
     ],

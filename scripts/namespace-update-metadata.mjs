@@ -5,10 +5,20 @@ import { pathToFileURL } from "node:url";
 
 import yaml from "js-yaml";
 
+const { applications } = JSON.parse(
+  await readFile(new URL("./saika-suite.json", import.meta.url), "utf8"),
+);
+
 export async function namespaceUpdateMetadata(directory, namespace, version) {
-  if (!["director", "vista"].includes(namespace))
-    throw new Error("Unknown application update namespace");
-  const product = `Saika${namespace === "director" ? "Director" : "Vista"}`;
+  const application = applications.find(
+    ({ electron }) =>
+      typeof electron?.updateMetadataNamespace === "string" &&
+      electron.updateMetadataNamespace === namespace,
+  );
+  if (!application) throw new Error("Unknown application update namespace");
+  // Artifact names spell "Saika Director" with a space, hyphen or dot.
+  const productWords = application.electron.product.split(" ");
+  const product = productWords.join("");
   const validate = (info) => {
     if (
       !info ||
@@ -28,9 +38,8 @@ export async function namespaceUpdateMetadata(directory, namespace, version) {
           "Update metadata requires an artifact URL and checksum",
         );
       const name = decodeURIComponent(file.url);
-      const productName = namespace === "director" ? "Director" : "Vista";
       const prefixes = [" ", "-", "."].map(
-        (separator) => `Saika${separator}${productName}-${version}-`,
+        (separator) => `${productWords.join(separator)}-${version}-`,
       );
       if (
         basename(name) !== name ||

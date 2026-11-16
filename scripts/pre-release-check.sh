@@ -129,6 +129,24 @@ run_check() {
   esac
 }
 
+# Print one list from the Saika suite manifest, one entry per line.
+# Fails when scripts/saika-suite.json cannot be read or the list is empty.
+# Usage: suite_list electron-directories|electron-window-files
+suite_list() {
+  node -e "
+    const { applications } = require('./scripts/saika-suite.json');
+    const electron = applications.filter((app) => app.electron);
+    const lists = {
+      'electron-directories': electron.map((app) => app.directory),
+      'electron-window-files': electron.flatMap((app) =>
+        app.electron.windowFiles.map((file) => app.directory + '/' + file)),
+    };
+    const list = lists[process.argv[1]];
+    if (!list || list.length === 0) process.exit(1);
+    for (const entry of list) console.log(entry);
+  " "$1"
+}
+
 # ============================================================================
 # CHECK FUNCTIONS
 # Each function prints diagnostic output to stdout/stderr (captured by run_check)
@@ -363,8 +381,19 @@ check_personal_info() {
 }
 
 check_japanese_text() {
-  if ! node scripts/check-english-only.mjs \
-    packages/saika-lane packages/saika-director packages/saika-vista; then
+  local listing
+  if ! listing=$(suite_list electron-directories); then
+    echo "Could not read the Electron applications from scripts/saika-suite.json"
+    CHECK_STATUS="FAIL"
+    return
+  fi
+  # suite_list prints at least one line, so the array is never empty.
+  local directories=()
+  local directory
+  while IFS= read -r directory; do
+    directories+=("$directory")
+  done <<< "$listing"
+  if ! node scripts/check-english-only.mjs "${directories[@]}"; then
     CHECK_STATUS="FAIL"
   fi
 }
@@ -406,12 +435,18 @@ check_npm_audit() {
 }
 
 check_electron_security() {
-  local option_files=(
-    "packages/saika-lane/src/main/createMainWindowOptions.ts"
-    "packages/saika-lane/src/main/modules/report/infra/PrintWindowService.ts"
-    "packages/saika-director/src/main/main.ts"
-    "packages/saika-director/src/main/infrastructure/window/WindowManager.ts"
-  )
+  local listing
+  if ! listing=$(suite_list electron-window-files); then
+    echo "Could not read the Electron window files from scripts/saika-suite.json"
+    CHECK_STATUS="FAIL"
+    return
+  fi
+  # suite_list prints at least one line, so the array is never empty.
+  local option_files=()
+  local option_file
+  while IFS= read -r option_file; do
+    option_files+=("$option_file")
+  done <<< "$listing"
   local failures=()
 
   for option_file in "${option_files[@]}"; do
@@ -782,7 +817,7 @@ check_suite_versions() {
   result=$(node -e "
     const fs = require('fs');
     const path = require('path');
-    const configs = ['saika-lane', 'saika-director', 'saika-vista', 'saika-docs'];
+    const configs = require('./scripts/saika-suite.json').applications.map((app) => path.basename(app.directory));
     const versions = {};
     for (const c of configs) {
       const pkgPath = path.join('packages', c, 'package.json');
