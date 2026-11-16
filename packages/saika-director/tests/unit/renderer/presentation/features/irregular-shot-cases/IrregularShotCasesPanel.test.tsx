@@ -560,6 +560,11 @@ describe('IrregularShotCasesPanel workspace', () => {
       () => appendEntry.mockResolvedValueOnce({ success: false } as never),
       'Operation failed',
     ],
+    [
+      'a success without the changed case',
+      () => appendEntry.mockResolvedValueOnce({ success: true } as never),
+      'Operation failed',
+    ],
     ['a rejected command', () => appendEntry.mockRejectedValueOnce('bridge closed'), 'bridge closed'],
   ])('shows %s of a case command in the panel error and keeps the draft', async (_name, failCommand, message) => {
     failCommand();
