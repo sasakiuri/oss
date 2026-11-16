@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { ShotData } from '@/main/modules/connection/domain/ShotData';
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { DataConversionService } from '@/main/modules/target/infra/DataConversionService';
@@ -7,7 +8,7 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
 
-import type { SessionContextProvider, ShotData, USBConnectionConfig } from './IUSBConnectionManager';
+import type { SessionContextProvider, USBConnectionConfig } from './IUSBConnectionManager';
 import type { USBEventEmitter } from './USBEventEmitter';
 
 /**

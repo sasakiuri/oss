@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
+import type { ShotData } from '@/main/modules/connection/domain/ShotData';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { AdapterContext } from '@/main/modules/target/adapters/AdapterContext';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
-import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
 /** Synchronously supplies the discipline and mode of the active competition. */
 export type SessionContextProvider = () => Pick<AdapterContext, 'discipline' | 'mode'>;
@@ -63,42 +63,6 @@ export interface USBPortInfo {
   vendorId?: string;
 
   productId?: string;
-}
-
-/** Decoded target coordinates and reception metadata. */
-export interface ShotData {
-  /**
-   * X coordinate (in mm). null for miss shots.
-   */
-  x: number | null;
-
-  /**
-   * Y coordinate (in mm). null for miss shots.
-   */
-  y: number | null;
-
-  /**
-   * Reception timestamp unless timestampSource explicitly identifies another source.
-   */
-  timestamp: Date;
-  timestampSource?: ShotTimestampSource;
-
-  /**
-   * Score reported by the target device (×10 integer)
-   */
-  score?: number;
-
-  /**
-   * Mode notified by the device (SIGHTING=sighting shot, MATCH=match shot).
-   * Set by devices that notify mode, such as MT201.
-   * When omitted, the Session's mode is used.
-   */
-  mode?: 'SIGHTING' | 'MATCH';
-
-  /**
-   * Raw data (for debugging)
-   */
-  raw?: Buffer;
 }
 
 /** Opens and closes target connections and delivers received data through events. */
