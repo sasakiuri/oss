@@ -590,6 +590,24 @@ describe('Lane spectator source', () => {
     await expect(rebooted.handle('POST', '/vista/v1/start')).rejects.toThrow('read-only');
   });
 
+  it('serves the catalog and percent-encoded subjects and rejects other source paths', async () => {
+    const { source, competitions, sessions } = fixture();
+    const session = shot(Session.create(Discipline.airRifle10m()));
+    sessions.set(session.id, session);
+    await competitions.save(CompetitionState.create('lane one/run', session.id, AR60.config));
+
+    await expect(source.handle('GET', '/vista/v1/catalog')).resolves.toMatchObject({
+      subjects: [expect.objectContaining({ id: 'lane one/run' })],
+    });
+    await expect(source.handle('GET', '/vista/v1/snapshot/lane%20one%2Frun')).resolves.toMatchObject({
+      subjectId: 'lane one/run',
+    });
+    await expect(source.handle('GET', '/vista/v1/snapshot/')).rejects.toThrow('Unknown Vista source request');
+    await expect(source.handle('GET', '/vista/v1/snapshot/a/b')).rejects.toThrow('Unknown Vista source request');
+    await expect(source.handle('GET', '/vista/v1/snapshot/%E0')).rejects.toThrow(URIError);
+    await expect(source.handle('GET', '/vista/v1/snapshot/missing')).rejects.toThrow('Vista subject was not found');
+  });
+
   it.each(['alias', 'number'])(
     'retains completed labels after a Lane %s change and restart while refreshing history and scores',
     async (setting) => {
