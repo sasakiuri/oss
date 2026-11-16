@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PublishMqttResultsHandler } from '@/main/modules/results/commands/PublishMqttResultsHandler';
-import type { PublishMqttResultLane } from '@/main/modules/results/commands/PublishMqttResults';
+import { PublishMqttResultsHandler } from '@/main/modules/results/application/commands/PublishMqttResultsHandler';
+import type { PublishMqttResultLane } from '@/main/modules/results/application/commands/PublishMqttResults';
 import type { IResultRepository } from '@/main/modules/results/domain/IResultRepository';
 import { GetEventByIdToken, GetFiringPointAssignmentsByRelayToken } from '@/main/modules/championship';
 import { competitionTypeRegistry } from '@/shared/competitionTypes';

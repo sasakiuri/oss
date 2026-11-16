@@ -1,12 +1,12 @@
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 
 // Command handlers (kept as classes — cross-module orchestration)
-import { PublishResultsHandler } from './commands/PublishResultsHandler';
-import { PublishMqttResultsHandler } from './commands/PublishMqttResultsHandler';
-import { PublishMqttFinalResultsHandler } from './commands/PublishMqttFinalResultsHandler';
-import { PublishMqttMixedTeamFinalResultsHandler } from './commands/PublishMqttMixedTeamFinalResultsHandler';
-import { PublishFinalResultsHandler } from './commands/PublishFinalResultsHandler';
-import { ConfirmResultsHandler } from './commands/ConfirmResultsHandler';
+import { PublishResultsHandler } from './application/commands/PublishResultsHandler';
+import { PublishMqttResultsHandler } from './application/commands/PublishMqttResultsHandler';
+import { PublishMqttFinalResultsHandler } from './application/commands/PublishMqttFinalResultsHandler';
+import { PublishMqttMixedTeamFinalResultsHandler } from './application/commands/PublishMqttMixedTeamFinalResultsHandler';
+import { PublishFinalResultsHandler } from './application/commands/PublishFinalResultsHandler';
+import { ConfirmResultsHandler } from './application/commands/ConfirmResultsHandler';
 
 // IPC Contract & response types
 import { resultsContract } from '@/shared/ipc/contracts';
@@ -24,7 +24,7 @@ import {
   PublishMqttMixedTeamFinalResultsToken,
   PublishFinalResultsToken,
   ConfirmResultsToken,
-} from './tokens';
+} from './application/tokens';
 import { SqliteFinalControlRepository } from '@/main/modules/final-control';
 import { SqliteMixedTeamFinalControlRepository } from '@/main/modules/mixed-team-final-control';
 

@@ -28,7 +28,7 @@ export {
   ResolveLaneShootoffToken,
   GetLaneByIdToken,
   GetAllLanesToken,
-} from './tokens';
+} from './application/tokens';
 
 // Domain events consumed across module boundaries
 export type {

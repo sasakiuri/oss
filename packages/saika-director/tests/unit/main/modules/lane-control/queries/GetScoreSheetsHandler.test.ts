@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GetScoreSheetsHandler } from '@/main/modules/lane-control/queries/GetScoreSheetsHandler';
+import { GetScoreSheetsHandler } from '@/main/modules/lane-control/application/queries/GetScoreSheetsHandler';
 import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/ILaneControlRepository';
 import { LaneControl, Channel, Player } from '@/main/modules/lane-control';
 import { QUALIFICATION_CONFIG, buildFinalConfig } from '../../../../../helpers/testConfigs';

@@ -23,7 +23,7 @@ import {
   qualificationCorrectionBasis,
   finalCorrectionBasis,
 } from '@/main/modules/results';
-import { PublishMqttFinalResultsHandler } from '@/main/modules/results/commands/PublishMqttFinalResultsHandler';
+import { PublishMqttFinalResultsHandler } from '@/main/modules/results/application/commands/PublishMqttFinalResultsHandler';
 import { FinalResult } from '@/main/modules/results/domain/FinalResult';
 import { FinalResultId } from '@/main/modules/results/domain/FinalResultId';
 import { ScoreCorrectionService, SqliteScoreCorrectionRepository } from '@/main/modules/score-corrections';

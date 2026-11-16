@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { PublishResultsHandler } from '@/main/modules/results/commands/PublishResultsHandler';
+import { PublishResultsHandler } from '@/main/modules/results/application/commands/PublishResultsHandler';
 import type { IResultRepository } from '@/main/modules/results/domain/IResultRepository';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
 import { QUALIFICATION_CONFIG } from '../../../../../helpers/testConfigs';
-import type { PublishResultsCommand } from '@/main/modules/results/commands/PublishResults';
+import type { PublishResultsCommand } from '@/main/modules/results/application/commands/PublishResults';
 import { competitionTypeRegistry } from '@/shared/competitionTypes';
 import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
 import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfStandardStrategy';

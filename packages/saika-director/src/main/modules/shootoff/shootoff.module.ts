@@ -3,7 +3,7 @@ import { shootoffContract } from '@/shared/ipc/contracts';
 
 // Domain
 import { InMemoryShootoffRepository } from './infra/InMemoryShootoffRepository';
-import { ShootoffCommandHandler } from './commands/ShootoffCommandHandler';
+import { ShootoffCommandHandler } from './application/commands/ShootoffCommandHandler';
 
 // Tokens
 import {
@@ -12,7 +12,7 @@ import {
   CompleteShootoffRoundToken,
   ResolveShootoffToken,
   GetActiveShootoffToken,
-} from './tokens';
+} from './application/tokens';
 
 export const shootoffModule = defineModule({
   name: 'shootoff',

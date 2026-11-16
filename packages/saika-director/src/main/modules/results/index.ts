@@ -32,5 +32,9 @@ export { SqliteFinalResultRepository } from './infra/SqliteFinalResultRepository
 
 // Module definition
 export { resultsModule } from './results.module';
-export { PublishMqttFinalResultsToken, PublishMqttMixedTeamFinalResultsToken, PublishMqttResultsToken } from './tokens';
-export type { PublishMqttResultsCommand, PublishMqttResultLane } from './commands/PublishMqttResults';
+export {
+  PublishMqttFinalResultsToken,
+  PublishMqttMixedTeamFinalResultsToken,
+  PublishMqttResultsToken,
+} from './application/tokens';
+export type { PublishMqttResultsCommand, PublishMqttResultLane } from './application/commands/PublishMqttResults';

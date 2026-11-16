@@ -5,7 +5,7 @@ import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
 import { QUALIFICATION_CONFIG } from '../../../../../helpers/testConfigs';
-import { EliminatePlayerHandler } from '@/main/modules/lane-control/commands/EliminatePlayerHandler';
+import { EliminatePlayerHandler } from '@/main/modules/lane-control/application/commands/EliminatePlayerHandler';
 
 function createIdleLane(id = 'lane-1', channel = 1): LaneControl {
   return LaneControl.create(id, Channel.create(channel), QUALIFICATION_CONFIG);

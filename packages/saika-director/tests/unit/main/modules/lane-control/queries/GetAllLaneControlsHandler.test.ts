@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { GetAllLaneControlsHandler } from '@/main/modules/lane-control/queries/GetAllLaneControlsHandler';
+import { GetAllLaneControlsHandler } from '@/main/modules/lane-control/application/queries/GetAllLaneControlsHandler';
 import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/ILaneControlRepository';
 import { LaneControl, Channel, Player } from '@/main/modules/lane-control';
 import { QUALIFICATION_CONFIG } from '../../../../../helpers/testConfigs';

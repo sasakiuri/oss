@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/ILaneControlRepository';
-import { ResolveLaneShootoffHandler } from '@/main/modules/lane-control/commands/ResolveLaneShootoffHandler';
+import { ResolveLaneShootoffHandler } from '@/main/modules/lane-control/application/commands/ResolveLaneShootoffHandler';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';

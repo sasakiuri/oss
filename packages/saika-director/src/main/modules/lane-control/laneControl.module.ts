@@ -3,28 +3,28 @@ import type { EventTransformer } from '@/main/shared-infra/ipc/EventForwardingRu
 import type { LaneControlIpcPayload } from '@/shared/types/LaneControlIpcPayload';
 
 // Command handlers
-import { StartPreparationHandler } from './commands/StartPreparationHandler';
-import { AdvanceToNextStageHandler } from './commands/AdvanceToNextStageHandler';
-import { StartSeriesHandler } from './commands/StartSeriesHandler';
-import { FinishHandler } from './commands/FinishHandler';
-import { ClearLanesHandler } from './commands/ClearLanesHandler';
-import { AssignPlayersHandler } from './commands/AssignPlayersHandler';
-import { MoveLaneHandler } from './commands/MoveLaneHandler';
-import { EditShotHandler } from './commands/EditShotHandler';
-import { DeleteShotHandler } from './commands/DeleteShotHandler';
-import { InsertShotHandler } from './commands/InsertShotHandler';
-import { EliminatePlayerHandler } from './commands/EliminatePlayerHandler';
-import { RecordShotHandler } from './commands/RecordShotHandler';
-import { StartLaneShootoffHandler } from './commands/StartLaneShootoffHandler';
-import { AddLaneShootoffShotHandler } from './commands/AddLaneShootoffShotHandler';
-import { ResolveLaneShootoffHandler } from './commands/ResolveLaneShootoffHandler';
+import { StartPreparationHandler } from './application/commands/StartPreparationHandler';
+import { AdvanceToNextStageHandler } from './application/commands/AdvanceToNextStageHandler';
+import { StartSeriesHandler } from './application/commands/StartSeriesHandler';
+import { FinishHandler } from './application/commands/FinishHandler';
+import { ClearLanesHandler } from './application/commands/ClearLanesHandler';
+import { AssignPlayersHandler } from './application/commands/AssignPlayersHandler';
+import { MoveLaneHandler } from './application/commands/MoveLaneHandler';
+import { EditShotHandler } from './application/commands/EditShotHandler';
+import { DeleteShotHandler } from './application/commands/DeleteShotHandler';
+import { InsertShotHandler } from './application/commands/InsertShotHandler';
+import { EliminatePlayerHandler } from './application/commands/EliminatePlayerHandler';
+import { RecordShotHandler } from './application/commands/RecordShotHandler';
+import { StartLaneShootoffHandler } from './application/commands/StartLaneShootoffHandler';
+import { AddLaneShootoffShotHandler } from './application/commands/AddLaneShootoffShotHandler';
+import { ResolveLaneShootoffHandler } from './application/commands/ResolveLaneShootoffHandler';
 
 // Query handlers
-import { GetScoreSheetsHandler } from './queries/GetScoreSheetsHandler';
-import { GetAllLaneControlsHandler } from './queries/GetAllLaneControlsHandler';
-import { GetLaneByIdHandler } from './queries/GetLaneByIdHandler';
-import { GetLaneByChannelHandler } from './queries/GetLaneByChannelHandler';
-import { GetAllLanesHandler } from './queries/GetAllLanesHandler';
+import { GetScoreSheetsHandler } from './application/queries/GetScoreSheetsHandler';
+import { GetAllLaneControlsHandler } from './application/queries/GetAllLaneControlsHandler';
+import { GetLaneByIdHandler } from './application/queries/GetLaneByIdHandler';
+import { GetLaneByChannelHandler } from './application/queries/GetLaneByChannelHandler';
+import { GetAllLanesHandler } from './application/queries/GetAllLanesHandler';
 
 // IPC Contracts
 import { laneControlContract, eventsContract } from '@/shared/ipc/contracts';
@@ -33,7 +33,7 @@ import { laneControlContract, eventsContract } from '@/shared/ipc/contracts';
 import { LaneControl } from './domain/LaneControl';
 import { Channel } from './domain/Channel';
 import type { LaneControlUpdated } from './domain/events';
-import { emitLaneControlUpdated } from './commands/helpers/emitLaneControlUpdated';
+import { emitLaneControlUpdated } from './application/commands/helpers/emitLaneControlUpdated';
 import { DiffCalculator } from './infra/DiffCalculator';
 import { buildRoundConfig } from '@/shared/constants/roundConfig';
 import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
@@ -60,7 +60,7 @@ import {
   GetLaneByIdToken,
   GetLaneByChannelToken,
   GetAllLanesToken,
-} from './tokens';
+} from './application/tokens';
 
 const MAX_SEQ = 0xffffffff;
 
