@@ -1,20 +1,20 @@
 import { create } from 'zustand';
 import type {
   ChampionshipDto,
-  ChampionshipDetailResponse,
+  ChampionshipDetailDto,
   ParticipantDto,
   FiringPointAssignmentDto,
 } from '@/shared/ipc/contracts/championship.contract';
 
 interface ChampionshipState {
   championships: ChampionshipDto[];
-  selectedChampionship: ChampionshipDetailResponse | null;
+  selectedChampionship: ChampionshipDetailDto | null;
   selectedEventId: string | null;
   participants: ParticipantDto[];
   firingPointAssignments: FiringPointAssignmentDto[];
 
   setChampionships: (championships: ChampionshipDto[]) => void;
-  setSelectedChampionship: (championship: ChampionshipDetailResponse | null) => void;
+  setSelectedChampionship: (championship: ChampionshipDetailDto | null) => void;
   setSelectedEventId: (eventId: string | null) => void;
   setParticipants: (participants: ParticipantDto[]) => void;
   setFiringPointAssignments: (assignments: FiringPointAssignmentDto[]) => void;
@@ -23,7 +23,7 @@ interface ChampionshipState {
 
 const initialState = {
   championships: [] as ChampionshipDto[],
-  selectedChampionship: null as ChampionshipDetailResponse | null,
+  selectedChampionship: null as ChampionshipDetailDto | null,
   selectedEventId: null as string | null,
   participants: [] as ParticipantDto[],
   firingPointAssignments: [] as FiringPointAssignmentDto[],

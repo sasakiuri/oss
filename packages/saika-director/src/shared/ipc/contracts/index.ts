@@ -63,7 +63,6 @@ export type {
   ChampionshipDto,
   EventDto,
   ChampionshipDetailDto,
-  ChampionshipDetailResponse,
   ParticipantDto,
   FiringPointAssignmentDto,
   ChampionshipListResponse,
