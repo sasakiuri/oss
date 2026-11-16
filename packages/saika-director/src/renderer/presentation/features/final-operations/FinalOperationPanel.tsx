@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Clock3, ListChecks, RefreshCw } from 'lucide-react';
 
 import { finalOperationsService, mqttService } from '@/renderer/services';
@@ -48,21 +48,34 @@ export function FinalOperationPanel({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const refreshGeneration = useRef(0);
+  const commandRunning = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await finalOperationsService.getByCompetition({ competitionId });
-      if (!response.success) throw new Error(response.error.message);
-      setRun(response.data);
-      if (response.data) setOfficialName((current) => current || response.data!.createdBy);
-    } catch (caught) {
-      setError(messageOf(caught));
-    } finally {
-      setLoading(false);
-    }
-  }, [competitionId]);
+  /** A background refresh keeps the command error and never replaces a newer command result. */
+  const load = useCallback(
+    async ({ background = false }: { background?: boolean } = {}) => {
+      const generation = ++refreshGeneration.current;
+      if (!background) {
+        setLoading(true);
+        setError(null);
+        setRefreshError(null);
+      }
+      try {
+        const response = await finalOperationsService.getByCompetition({ competitionId });
+        if (generation !== refreshGeneration.current) return;
+        if (!response.success) throw new Error(response.error.message);
+        setRun(response.data);
+        setRefreshError(null);
+        if (response.data) setOfficialName((current) => current || response.data!.createdBy);
+      } catch (caught) {
+        if (generation === refreshGeneration.current) setRefreshError(messageOf(caught));
+      } finally {
+        if (!background) setLoading(false);
+      }
+    },
+    [competitionId],
+  );
 
   useEffect(() => {
     void load();
@@ -70,9 +83,29 @@ export function FinalOperationPanel({
 
   useEffect(() => {
     if (run?.status !== 'ACTIVE' || run.currentBranch !== 'SHOOT_OFF') return;
-    const timer = window.setInterval(() => void load(), 1_000);
+    const timer = window.setInterval(() => {
+      if (!commandRunning.current) void load({ background: true });
+    }, 1_000);
     return () => window.clearInterval(timer);
   }, [load, run?.currentBranch, run?.status]);
+
+  const beginCommand = () => {
+    commandRunning.current = true;
+    setSaving(true);
+    setError(null);
+    setRefreshError(null);
+  };
+
+  const endCommand = () => {
+    commandRunning.current = false;
+    setSaving(false);
+  };
+
+  /** Applies a command result; refreshes that started before it can no longer overwrite it. */
+  const applyCommandRun = (next: FinalOperationRunDto) => {
+    refreshGeneration.current += 1;
+    setRun(next);
+  };
 
   useEffect(() => {
     const current = run?.currentStep;
@@ -93,8 +126,7 @@ export function FinalOperationPanel({
   );
 
   const createRun = async () => {
-    setSaving(true);
-    setError(null);
+    beginCommand();
     try {
       const response = await finalOperationsService.create({
         competitionId,
@@ -104,18 +136,17 @@ export function FinalOperationPanel({
         officialName: officialName.trim(),
       });
       if (!response.success) throw new Error(response.error.message);
-      setRun(response.data);
+      applyCommandRun(response.data);
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
-      setSaving(false);
+      endCommand();
     }
   };
 
   const executeCurrentStep = async () => {
     if (!run?.currentStep || !officialName.trim()) return;
-    setSaving(true);
-    setError(null);
+    beginCommand();
     let pendingRun = run;
     try {
       const acknowledgedRequirementIds = await confirmPhaseRequirements(competitionTypeId, phase, run.currentStep.step);
@@ -134,7 +165,7 @@ export function FinalOperationPanel({
         });
         if (!confirmed.success) throw new Error(confirmed.error.message);
         pendingRun = confirmed.data;
-        setRun(pendingRun);
+        applyCommandRun(pendingRun);
       }
 
       const current = pendingRun.currentStep;
@@ -174,7 +205,7 @@ export function FinalOperationPanel({
           officialName: officialName.trim(),
         });
         if (!recorded.success) throw new Error(recorded.error.message);
-        setRun(recorded.data);
+        applyCommandRun(recorded.data);
         throw new Error(execution.error.message);
       }
 
@@ -194,7 +225,7 @@ export function FinalOperationPanel({
         officialName: officialName.trim(),
       });
       if (!recorded.success) throw new Error(recorded.error.message);
-      setRun(recorded.data);
+      applyCommandRun(recorded.data);
       setStatement('');
       if (current.step.effect.type === 'DECLARE_RESULTS') {
         setFinalProtestsResolved(false);
@@ -203,14 +234,13 @@ export function FinalOperationPanel({
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
-      setSaving(false);
+      endCommand();
     }
   };
 
   const skipCurrentStep = async () => {
     if (!run?.currentStep || !statement.trim() || !officialName.trim()) return;
-    setSaving(true);
-    setError(null);
+    beginCommand();
     try {
       const response = await finalOperationsService.skipStep({
         runId: run.id,
@@ -219,12 +249,12 @@ export function FinalOperationPanel({
         officialName: officialName.trim(),
       });
       if (!response.success) throw new Error(response.error.message);
-      setRun(response.data);
+      applyCommandRun(response.data);
       setStatement('');
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
-      setSaving(false);
+      endCommand();
     }
   };
 
@@ -236,8 +266,7 @@ export function FinalOperationPanel({
         'Abort this Final command run and clear its Lane cue? This does not issue STOP. Confirm the range is stopped or otherwise safe first. The command history will be kept.',
       );
     if (!confirmed) return;
-    setSaving(true);
-    setError(null);
+    beginCommand();
     try {
       const response = await finalOperationsService.abort({
         runId: run.id,
@@ -245,7 +274,7 @@ export function FinalOperationPanel({
         officialName: officialName.trim(),
       });
       if (!response.success) throw new Error(response.error.message);
-      setRun(response.data);
+      applyCommandRun(response.data);
       setStatement('');
       const cleared = await mqttService.clearFinalCue({ competitionId });
       if (!cleared.success) {
@@ -256,20 +285,19 @@ export function FinalOperationPanel({
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
-      setSaving(false);
+      endCommand();
     }
   };
 
   const clearRetainedCue = async () => {
-    setSaving(true);
-    setError(null);
+    beginCommand();
     try {
       const response = await mqttService.clearFinalCue({ competitionId });
       if (!response.success) throw new Error(response.error?.message ?? 'Failed to clear the retained Lane cue');
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
-      setSaving(false);
+      endCommand();
     }
   };
 
@@ -284,8 +312,7 @@ export function FinalOperationPanel({
     ) {
       return;
     }
-    setSaving(true);
-    setError(null);
+    beginCommand();
     try {
       const response = await finalOperationsService.startShootOff({
         runId: run.id,
@@ -296,12 +323,12 @@ export function FinalOperationPanel({
         officialName: officialName.trim(),
       });
       if (!response.success) throw new Error(response.error.message);
-      setRun(response.data);
+      applyCommandRun(response.data);
       setStatement('');
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
-      setSaving(false);
+      endCommand();
     }
   };
 
@@ -309,8 +336,7 @@ export function FinalOperationPanel({
     if (!run?.shootOff || run.shootOff.status !== 'AWAITING_RESOLUTION' || !statement.trim() || !officialName.trim()) {
       return;
     }
-    setSaving(true);
-    setError(null);
+    beginCommand();
     try {
       const response = await finalOperationsService.closeShootOffRound({
         runId: run.id,
@@ -318,14 +344,14 @@ export function FinalOperationPanel({
         officialName: officialName.trim(),
       });
       if (!response.success) throw new Error(response.error.message);
-      setRun(response.data);
+      applyCommandRun(response.data);
       setStatement('');
       const outcome = readLatestShootOffOutcome(response.data);
       setSelectedShootOffUnitIds(new Set(outcome?.remainingTiedUnitIds ?? []));
     } catch (caught) {
       setError(messageOf(caught));
     } finally {
-      setSaving(false);
+      endCommand();
     }
   };
 
@@ -382,6 +408,9 @@ export function FinalOperationPanel({
       </header>
 
       {error && <div className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</div>}
+      {refreshError && (
+        <div className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{refreshError}</div>
+      )}
 
       {!run && !loading && (
         <div className="grid gap-3 md:grid-cols-2">
