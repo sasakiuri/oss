@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useChampionshipStore } from '@/renderer/presentation/stores/domain/championship.store';
 import type {
   ChampionshipDto,
-  ChampionshipDetailResponse,
+  ChampionshipDetailDto,
   ParticipantDto,
   FiringPointAssignmentDto,
 } from '@/shared/ipc/contracts/championship.contract';
@@ -18,7 +18,7 @@ function createChampionshipDto(overrides: Partial<ChampionshipDto> = {}): Champi
   };
 }
 
-function createChampionshipDetail(overrides: Partial<ChampionshipDetailResponse> = {}): ChampionshipDetailResponse {
+function createChampionshipDetail(overrides: Partial<ChampionshipDetailDto> = {}): ChampionshipDetailDto {
   return {
     id: 'champ-1',
     name: 'Test Championship',

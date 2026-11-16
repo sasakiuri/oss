@@ -198,8 +198,6 @@ const CompetitionTypeListResponseSchema = z.object({
 export type ChampionshipDto = z.infer<typeof championshipDtoSchema>;
 export type EventDto = z.infer<typeof eventDtoSchema>;
 export type ChampionshipDetailDto = z.infer<typeof championshipDetailDtoSchema>;
-/** @deprecated Use ChampionshipDetailDto */
-export type ChampionshipDetailResponse = ChampionshipDetailDto;
 export type ParticipantDto = z.infer<typeof participantDtoSchema>;
 export type FiringPointAssignmentDto = z.infer<typeof firingPointAssignmentDtoSchema>;
 export type ChampionshipListResponse = z.infer<typeof ChampionshipListResponseSchema>;
