@@ -6,6 +6,7 @@ import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { EstComplaintObservationDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { InlineError } from '../shared/common/InlineError';
 
 interface EstComplaintInboxProps {
   competitionId: string;
@@ -103,7 +104,11 @@ export function EstComplaintInbox({
         />
       </label>
 
-      {error && <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>}
+      {error && (
+        <InlineError as="div" size="13px">
+          {error}
+        </InlineError>
+      )}
       {loading && <p className="text-[13px] text-vscode-text-muted">Loading Lane observations…</p>}
       {!loading && observations.length === 0 && (
         <p className="border-y border-vscode-border py-3 text-[13px] text-vscode-text-muted">

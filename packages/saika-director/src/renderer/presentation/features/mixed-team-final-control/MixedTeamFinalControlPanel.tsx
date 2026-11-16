@@ -10,6 +10,7 @@ import type {
 } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { blockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
 
 interface Props {
   competitionId: string;
@@ -155,7 +156,7 @@ export function MixedTeamFinalControlPanel({
           <RefreshCw size={13} /> Refresh
         </Button>
       </header>
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
       {assessment && (
         <div className="border-l-2 border-vscode-accent pl-3 text-xs leading-5">
           <p className="font-semibold text-vscode-text">

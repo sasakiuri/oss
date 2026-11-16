@@ -6,6 +6,7 @@ import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { RelayAthleteLifecycleAssessmentDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { blockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
 
 interface RelayAthleteLifecyclePanelProps {
   competitionId: string;
@@ -133,7 +134,7 @@ export function RelayAthleteLifecyclePanel({
         ))}
       </div>
 
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
       <div className="grid gap-2 md:grid-cols-2">
         <label className="text-xs text-vscode-text-muted">
           Official name

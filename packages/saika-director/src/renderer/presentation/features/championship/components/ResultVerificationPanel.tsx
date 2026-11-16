@@ -8,6 +8,7 @@ import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
 import { PublicationReviewPolicyPanel } from './PublicationReviewPolicyPanel';
 import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 interface ResultVerificationPanelProps {
   eventId: string;
@@ -254,7 +255,11 @@ export function ResultVerificationPanel({ eventId, eventName, resultScope, onClo
           />
         </section>
 
-        {error && <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>}
+        {error && (
+          <InlineError as="div" size="13px">
+            {error}
+          </InlineError>
+        )}
         {loading && <p className="text-[13px] text-vscode-text-muted">Loading verification status…</p>}
 
         {status && status.issues.length > 0 && (

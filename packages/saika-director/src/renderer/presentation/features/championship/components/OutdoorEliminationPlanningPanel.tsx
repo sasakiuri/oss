@@ -8,6 +8,7 @@ import type { OutdoorEliminationPlanDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
 import { inputClass, stackedLabelClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }) {
   const [plans, setPlans] = useState<OutdoorEliminationPlanDto[]>([]);
@@ -89,7 +90,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
         </Button>
       </header>
 
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
 
       <div className="grid gap-3 rounded-[3px] border border-vscode-border p-3 md:grid-cols-3">
         <label className={stackedLabelClass}>

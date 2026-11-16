@@ -7,6 +7,7 @@ import { unwrap } from '@/renderer/services/serviceError';
 import type { ProductionOperationAssessmentDto, RecordProductionOperationPayload } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { mutedLabelClass, smallBlockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
 
 interface ProductionOperationsPanelProps {
   competitionId: string;
@@ -65,7 +66,7 @@ export function ProductionOperationsPanel(props: ProductionOperationsPanelProps)
           <RefreshCw size={13} aria-hidden="true" /> Refresh
         </Button>
       </header>
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
       <div className="grid gap-2 md:grid-cols-2">
         <label className={mutedLabelClass}>
           Official / sound technician

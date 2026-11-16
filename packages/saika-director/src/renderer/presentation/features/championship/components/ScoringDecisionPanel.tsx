@@ -9,6 +9,7 @@ import { Modal } from '../../shared/common/Modal';
 
 import { ScoreCorrectionPanel } from './ScoreCorrectionPanel';
 import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 interface ScoringDecisionPanelProps {
   result: {
@@ -196,7 +197,11 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
           )}
         </div>
 
-        {error && <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>}
+        {error && (
+          <InlineError as="div" size="13px">
+            {error}
+          </InlineError>
+        )}
 
         <ScoreCorrectionPanel resultId={result.id} resultScope={resultScope} onChanged={onChanged} />
         <form onSubmit={handleSubmit} className="space-y-3" aria-label="Add scoring decision">

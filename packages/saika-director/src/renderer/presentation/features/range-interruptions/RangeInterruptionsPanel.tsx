@@ -13,6 +13,7 @@ import { InterruptionDetail } from './InterruptionDetail';
 import { statusClass, formatEnum } from './interruptionFormatting';
 import { type RangeInterruptionLaneOption, type DetailAction } from './interruptionPresentationTypes';
 import { useRangeInterruptionCases } from './useRangeInterruptionCases';
+import { InlineError } from '../shared/common/InlineError';
 
 export function RangeInterruptionsPanel({
   primaryScope,
@@ -78,7 +79,11 @@ export function RangeInterruptionsPanel({
         </div>
       </header>
 
-      {error && <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>}
+      {error && (
+        <InlineError as="div" size="13px">
+          {error}
+        </InlineError>
+      )}
       {loading && <p className="text-[13px] text-vscode-text-muted">Loading interruption records…</p>}
 
       {showCreate && primaryScope && (
