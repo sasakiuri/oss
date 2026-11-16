@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshCw, ShieldAlert } from 'lucide-react';
 
+import { sentenceCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
+import { type AsyncAction, useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { finalOperationsService, finalRecoveriesService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   DirectorLaneSnapshotDto,
   FinalOperationRunDto,
@@ -13,7 +16,13 @@ import type {
 } from '@/shared/ipc/contracts';
 import type { CompetitionPhase } from '@sasakiuri/saika-protocol/CompetitionState';
 
+import { CaseListItem } from '../shared/cases/CaseListItem';
+import { useEntryTypeSelection } from '../shared/cases/useEntryTypeSelection';
 import { Button } from '../shared/common/Button';
+import { blockInputClass, mutedLabelClass } from '../shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
+import { toggleSetMember } from '../shared/common/toggleSetMember';
+import { laneLabel, laneLabelById } from '../shared/lanes/laneLabels';
 import { FinalRecoveryFiringPanel } from './FinalRecoveryFiringPanel';
 import { getFinalRecoveryDefaults } from './finalRecoveryDefaults';
 
@@ -38,8 +47,7 @@ export function FinalRecoveryPanel({
   const [run, setRun] = useState<FinalOperationRunDto | null>(null);
   const [selectedId, setSelectedId] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, setError, run: runCommand } = useAsyncAction();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,19 +57,17 @@ export function FinalRecoveryPanel({
         finalRecoveriesService.listByCompetition({ competitionId }),
         finalOperationsService.getByCompetition({ competitionId }),
       ]);
-      if (!caseResponse.success) throw new Error(caseResponse.error.message);
-      if (!runResponse.success) throw new Error(runResponse.error.message);
-      setCases(caseResponse.data);
-      setRun(runResponse.data);
-      setSelectedId((current) =>
-        caseResponse.data.some((value) => value.id === current) ? current : (caseResponse.data.at(-1)?.id ?? ''),
-      );
+      const listed = unwrap(caseResponse);
+      const currentRun = unwrap(runResponse);
+      setCases(listed);
+      setRun(currentRun);
+      setSelectedId((current) => (listed.some((value) => value.id === current) ? current : (listed.at(-1)?.id ?? '')));
     } catch (caught) {
-      setError(messageOf(caught));
+      setError(errorMessage(caught));
     } finally {
       setLoading(false);
     }
-  }, [competitionId]);
+  }, [competitionId, setError]);
 
   useEffect(() => {
     void load();
@@ -92,7 +98,7 @@ export function FinalRecoveryPanel({
         </Button>
       </header>
 
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
 
       <CreateRecoveryForm
         competitionId={competitionId}
@@ -102,8 +108,7 @@ export function FinalRecoveryPanel({
         lanes={lanes}
         run={run}
         disabled={disabled || saving}
-        setSaving={setSaving}
-        setError={setError}
+        runCommand={runCommand}
         onCreated={(value) => {
           setCases((current) => [...current, value]);
           setSelectedId(value.id);
@@ -114,21 +119,14 @@ export function FinalRecoveryPanel({
         <div className="overflow-hidden rounded-[3px] border border-vscode-border">
           {cases.length === 0 && !loading && <p className="p-3 text-xs text-vscode-text-muted">No recovery cases.</p>}
           {cases.map((value) => (
-            <button
-              key={value.id}
-              type="button"
-              className={`block w-full border-b border-vscode-border px-3 py-2.5 text-left last:border-b-0 ${
-                value.id === selectedId ? 'bg-vscode-highlight' : 'hover:bg-vscode-bg-hover'
-              }`}
-              onClick={() => setSelectedId(value.id)}
-            >
+            <CaseListItem key={value.id} selected={value.id === selectedId} onSelect={() => setSelectedId(value.id)}>
               <span className="block text-[13px] font-medium text-vscode-text">
-                {humanize(value.incidentType)} · {humanize(value.phase)}
+                {sentenceCaseLabel(value.incidentType)} · {sentenceCaseLabel(value.phase)}
               </span>
               <span className="mt-0.5 block truncate text-xs text-vscode-text-muted">
                 {value.status} · {value.summary}
               </span>
-            </button>
+            </CaseListItem>
           ))}
         </div>
 
@@ -138,8 +136,7 @@ export function FinalRecoveryPanel({
             value={selected}
             lanes={lanes}
             disabled={disabled || saving}
-            setSaving={setSaving}
-            setError={setError}
+            runCommand={runCommand}
             onChanged={replaceCase}
           />
         )}
@@ -156,8 +153,7 @@ function CreateRecoveryForm({
   lanes,
   run,
   disabled,
-  setSaving,
-  setError,
+  runCommand,
   onCreated,
 }: {
   competitionId: string;
@@ -167,8 +163,7 @@ function CreateRecoveryForm({
   lanes: readonly DirectorLaneSnapshotDto[];
   run: FinalOperationRunDto | null;
   disabled: boolean;
-  setSaving: (value: boolean) => void;
-  setError: (value: string | null) => void;
+  runCommand: AsyncAction['run'];
   onCreated: (value: FinalRecoveryCaseDto) => void;
 }) {
   const [affectedLaneIds, setAffectedLaneIds] = useState<Set<string>>(() => new Set());
@@ -197,87 +192,82 @@ function CreateRecoveryForm({
     setRecoveryPhase(next.phase);
   }, [competitionTypeId, phase, purpose, shotsPerParticipant]);
 
-  const submit = async () => {
-    setSaving(true);
-    setError(null);
-    try {
+  const submit = () =>
+    runCommand(async () => {
       const currentStep = run?.currentStep?.step;
-      const response = await finalRecoveriesService.create({
-        competitionId,
-        ...(eventId ? { eventId } : {}),
-        ...(run ? { finalRunId: run.id } : {}),
-        ...(currentStep
-          ? { scriptStepId: currentStep.id, scriptStepSnapshot: `${currentStep.actor}: ${currentStep.text}` }
-          : {}),
-        ...(allowanceIdentity.trim()
-          ? {
-              allowanceSubject: {
-                kind: procedureProfile === 'RIFLE_PISTOL_10M_50M_MIXED_TEAM' ? ('TEAM' as const) : ('ATHLETE' as const),
-                key: allowanceIdentity.trim(),
-                description: `Official reference: ${allowanceIdentity.trim()}`,
-              },
-            }
-          : {}),
-        procedureProfile,
-        incidentType,
-        phase: recoveryPhase,
-        affectedLaneIds: [...affectedLaneIds],
-        summary,
-        openedBy: officialName,
-      });
-      if (!response.success) throw new Error(response.error.message);
-      onCreated(response.data);
+      const created = unwrap(
+        await finalRecoveriesService.create({
+          competitionId,
+          ...(eventId ? { eventId } : {}),
+          ...(run ? { finalRunId: run.id } : {}),
+          ...(currentStep
+            ? { scriptStepId: currentStep.id, scriptStepSnapshot: `${currentStep.actor}: ${currentStep.text}` }
+            : {}),
+          ...(allowanceIdentity.trim()
+            ? {
+                allowanceSubject: {
+                  kind:
+                    procedureProfile === 'RIFLE_PISTOL_10M_50M_MIXED_TEAM' ? ('TEAM' as const) : ('ATHLETE' as const),
+                  key: allowanceIdentity.trim(),
+                  description: `Official reference: ${allowanceIdentity.trim()}`,
+                },
+              }
+            : {}),
+          procedureProfile,
+          incidentType,
+          phase: recoveryPhase,
+          affectedLaneIds: [...affectedLaneIds],
+          summary,
+          openedBy: officialName,
+        }),
+      );
+      onCreated(created);
       setSummary('');
       setAffectedLaneIds(new Set());
-    } catch (caught) {
-      setError(messageOf(caught));
-    } finally {
-      setSaving(false);
-    }
-  };
+    });
 
   return (
     <div className="rounded-[3px] border border-vscode-border p-3">
       <p className="text-xs font-semibold text-vscode-text">Open a recovery record</p>
       <div className="mt-2 grid gap-2 md:grid-cols-3">
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Procedure profile
           <select
             value={procedureProfile}
             onChange={(event) => setProcedureProfile(event.target.value as typeof procedureProfile)}
-            className={inputClass}
+            className={blockInputClass}
           >
             {PROFILES.map((value) => (
               <option key={value} value={value}>
-                {humanize(value)}
+                {sentenceCaseLabel(value)}
               </option>
             ))}
           </select>
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Incident
           <select
             value={incidentType}
             onChange={(event) => setIncidentType(event.target.value as typeof incidentType)}
-            className={inputClass}
+            className={blockInputClass}
           >
             {INCIDENT_TYPES.map((value) => (
               <option key={value} value={value}>
-                {humanize(value)}
+                {sentenceCaseLabel(value)}
               </option>
             ))}
           </select>
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Final phase
           <select
             value={recoveryPhase}
             onChange={(event) => setRecoveryPhase(event.target.value as typeof recoveryPhase)}
-            className={inputClass}
+            className={blockInputClass}
           >
             {RECOVERY_PHASES.map((value) => (
               <option key={value} value={value}>
-                {humanize(value)}
+                {sentenceCaseLabel(value)}
               </option>
             ))}
           </select>
@@ -293,7 +283,7 @@ function CreateRecoveryForm({
                 setAffectedLaneIds((current) =>
                   singleLaneRequired && event.target.checked
                     ? new Set([lane.laneId])
-                    : toggleSet(current, lane.laneId, event.target.checked),
+                    : toggleSetMember(current, lane.laneId, event.target.checked),
                 )
               }
             />
@@ -310,26 +300,26 @@ function CreateRecoveryForm({
         </p>
       )}
       <div className="mt-3 grid gap-2 md:grid-cols-2">
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Observed facts
-          <input value={summary} onChange={(event) => setSummary(event.target.value)} className={inputClass} />
+          <input value={summary} onChange={(event) => setSummary(event.target.value)} className={blockInputClass} />
         </label>
-        <label className={labelClass}>
+        <label className={mutedLabelClass}>
           Opening official
           <input
             value={officialName}
             onChange={(event) => setOfficialName(event.target.value)}
-            className={inputClass}
+            className={blockInputClass}
           />
         </label>
       </div>
       {incidentType === 'MALFUNCTION' && (
-        <label className={`${labelClass} mt-3`}>
+        <label className={`${mutedLabelClass} mt-3`}>
           Athlete or team reference for manual operation
           <input
             value={allowanceIdentity}
             onChange={(event) => setAllowanceIdentity(event.target.value)}
-            className={inputClass}
+            className={blockInputClass}
           />
           <span className="text-[11px] text-vscode-text-muted">
             Assigned athlete/team identity is used when available. Otherwise enter a stable reference; use the same team
@@ -360,19 +350,17 @@ function RecoveryDetail({
   value,
   lanes,
   disabled,
-  setSaving,
-  setError,
+  runCommand,
   onChanged,
 }: {
   value: FinalRecoveryCaseDto;
   lanes: readonly DirectorLaneSnapshotDto[];
   disabled: boolean;
-  setSaving: (value: boolean) => void;
-  setError: (value: string | null) => void;
+  runCommand: AsyncAction['run'];
   onChanged: (value: FinalRecoveryCaseDto) => void;
 }) {
   const options = availableEntryTypes(value.status);
-  const [type, setType] = useState<FinalRecoveryEntryTypeDto>(options[0] ?? 'NOTE');
+  const [type, setType] = useEntryTypeSelection(options, 'NOTE');
   const [statement, setStatement] = useState('');
   const [officialName, setOfficialName] = useState('');
   const [ruleReference, setRuleReference] = useState(value.guidance.ruleReferences[0] ?? '');
@@ -383,69 +371,53 @@ function RecoveryDetail({
   const [shotCount, setShotCount] = useState('');
   const [subjectKey, setSubjectKey] = useState('');
 
-  useEffect(() => {
-    if (!options.includes(type)) setType(options[0] ?? 'NOTE');
-  }, [options, type]);
+  const bindIdentity = () =>
+    runCommand(async () => {
+      const bound = unwrap(
+        await finalRecoveriesService.bindAllowanceSubject({
+          caseId: value.id,
+          subject: {
+            kind: value.procedureProfile === 'RIFLE_PISTOL_10M_50M_MIXED_TEAM' ? 'TEAM' : 'ATHLETE',
+            key: subjectKey,
+            description: `Official reference: ${subjectKey}`,
+          },
+          officialName,
+          statement,
+        }),
+      );
+      onChanged(bound);
+    });
 
-  const bindIdentity = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      const response = await finalRecoveriesService.bindAllowanceSubject({
-        caseId: value.id,
-        subject: {
-          kind: value.procedureProfile === 'RIFLE_PISTOL_10M_50M_MIXED_TEAM' ? 'TEAM' : 'ATHLETE',
-          key: subjectKey,
-          description: `Official reference: ${subjectKey}`,
-        },
-        officialName,
-        statement,
-      });
-      if (!response.success) throw new Error(response.error.message);
-      onChanged(response.data);
-    } catch (caught) {
-      setError(messageOf(caught));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const append = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      const response = await finalRecoveriesService.appendEntry({
-        caseId: value.id,
-        type,
-        statement,
-        officialName,
-        ...(ruleReference.trim() ? { ruleReference } : {}),
-        ...(type === 'JURY_RULING' ? { classification } : {}),
-        ...(type === 'REMEDY_AUTHORIZED' ? { remedy } : {}),
-        ...(remainingTimeSeconds ? { remainingTimeSeconds: Number(remainingTimeSeconds) } : {}),
-        ...(type === 'REMEDY_AUTHORIZED' && grantedTimeSeconds
-          ? { grantedTimeSeconds: Number(grantedTimeSeconds) }
-          : {}),
-        ...(type === 'REMEDY_AUTHORIZED' && shotCount ? { shotCount: Number(shotCount) } : {}),
-      });
-      if (!response.success) throw new Error(response.error.message);
-      onChanged(response.data);
+  const append = () =>
+    runCommand(async () => {
+      const changed = unwrap(
+        await finalRecoveriesService.appendEntry({
+          caseId: value.id,
+          type,
+          statement,
+          officialName,
+          ...(ruleReference.trim() ? { ruleReference } : {}),
+          ...(type === 'JURY_RULING' ? { classification } : {}),
+          ...(type === 'REMEDY_AUTHORIZED' ? { remedy } : {}),
+          ...(remainingTimeSeconds ? { remainingTimeSeconds: Number(remainingTimeSeconds) } : {}),
+          ...(type === 'REMEDY_AUTHORIZED' && grantedTimeSeconds
+            ? { grantedTimeSeconds: Number(grantedTimeSeconds) }
+            : {}),
+          ...(type === 'REMEDY_AUTHORIZED' && shotCount ? { shotCount: Number(shotCount) } : {}),
+        }),
+      );
+      onChanged(changed);
       setStatement('');
       setRemainingTimeSeconds('');
       setGrantedTimeSeconds('');
       setShotCount('');
-    } catch (caught) {
-      setError(messageOf(caught));
-    } finally {
-      setSaving(false);
-    }
-  };
+    });
 
   return (
     <div className="space-y-4 rounded-[3px] border border-vscode-border p-4">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="text-sm font-semibold text-vscode-text">{humanize(value.incidentType)}</h3>
+          <h3 className="text-sm font-semibold text-vscode-text">{sentenceCaseLabel(value.incidentType)}</h3>
           <span className="text-xs font-medium text-vscode-text-muted">{value.status}</span>
         </div>
         <p className="mt-2 text-xs leading-5 text-vscode-text-muted">{value.summary}</p>
@@ -487,9 +459,9 @@ function RecoveryDetail({
               key={entry.id}
               className="border-l-2 border-vscode-border pl-3 text-xs leading-5 text-vscode-text-muted"
             >
-              <span className="font-medium text-vscode-text">{humanize(entry.type)}</span>
-              {entry.classification ? ` · ${humanize(entry.classification)}` : ''}
-              {entry.remedy ? ` · ${humanize(entry.remedy)}` : ''}
+              <span className="font-medium text-vscode-text">{sentenceCaseLabel(entry.type)}</span>
+              {entry.classification ? ` · ${sentenceCaseLabel(entry.classification)}` : ''}
+              {entry.remedy ? ` · ${sentenceCaseLabel(entry.remedy)}` : ''}
               {' · '}
               {entry.statement} · {entry.officialName}
             </div>
@@ -500,70 +472,74 @@ function RecoveryDetail({
       {value.status !== 'VOID' && options.length > 0 && (
         <section className="space-y-2">
           <div className="grid gap-2 md:grid-cols-2">
-            <label className={labelClass}>
+            <label className={mutedLabelClass}>
               Action
               <select
                 value={type}
                 onChange={(event) => setType(event.target.value as typeof type)}
-                className={inputClass}
+                className={blockInputClass}
               >
                 {options.map((entryType) => (
                   <option key={entryType} value={entryType}>
-                    {humanize(entryType)}
+                    {sentenceCaseLabel(entryType)}
                   </option>
                 ))}
               </select>
             </label>
-            <label className={labelClass}>
+            <label className={mutedLabelClass}>
               Official
               <input
                 value={officialName}
                 onChange={(event) => setOfficialName(event.target.value)}
-                className={inputClass}
+                className={blockInputClass}
               />
             </label>
             {type === 'JURY_RULING' && (
-              <label className={labelClass}>
+              <label className={mutedLabelClass}>
                 Classification
                 <select
                   value={classification}
                   onChange={(event) => setClassification(event.target.value as typeof classification)}
-                  className={inputClass}
+                  className={blockInputClass}
                 >
                   {value.guidance.classifications.map((item) => (
                     <option key={item} value={item}>
-                      {humanize(item)}
+                      {sentenceCaseLabel(item)}
                     </option>
                   ))}
                 </select>
               </label>
             )}
             {type === 'REMEDY_AUTHORIZED' && (
-              <label className={labelClass}>
+              <label className={mutedLabelClass}>
                 Authorized remedy
                 <select
                   value={remedy}
                   onChange={(event) => setRemedy(event.target.value as typeof remedy)}
-                  className={inputClass}
+                  className={blockInputClass}
                 >
                   {value.guidance.remedies.map((item) => (
                     <option key={item} value={item}>
-                      {humanize(item)}
+                      {sentenceCaseLabel(item)}
                     </option>
                   ))}
                 </select>
               </label>
             )}
-            <label className={labelClass}>
+            <label className={mutedLabelClass}>
               Statement
-              <input value={statement} onChange={(event) => setStatement(event.target.value)} className={inputClass} />
+              <input
+                value={statement}
+                onChange={(event) => setStatement(event.target.value)}
+                className={blockInputClass}
+              />
             </label>
-            <label className={labelClass}>
+            <label className={mutedLabelClass}>
               Rule reference
               <input
                 value={ruleReference}
                 onChange={(event) => setRuleReference(event.target.value)}
-                className={inputClass}
+                className={blockInputClass}
               />
             </label>
           </div>
@@ -578,12 +554,12 @@ function RecoveryDetail({
           </div>
           {!value.allowanceSubject && value.incidentType === 'MALFUNCTION' && (
             <div className="space-y-2 border-t border-vscode-border pt-3">
-              <label className={labelClass}>
+              <label className={mutedLabelClass}>
                 Original athlete or team reference
                 <input
                   value={subjectKey}
                   onChange={(event) => setSubjectKey(event.target.value)}
-                  className={inputClass}
+                  className={blockInputClass}
                 />
               </label>
               <p className="text-[11px] text-vscode-text-muted">
@@ -616,7 +592,7 @@ function RecoveryDetail({
 
 function NumberField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
   return (
-    <label className={labelClass}>
+    <label className={mutedLabelClass}>
       {label}
       <input
         type="number"
@@ -624,7 +600,7 @@ function NumberField({ label, value, onChange }: { label: string; value: string;
         step="1"
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={inputClass}
+        className={blockInputClass}
       />
     </label>
   );
@@ -656,13 +632,6 @@ function is25mMalfunction(
   return incidentType === 'MALFUNCTION' && (profile === 'PISTOL_25M_RAPID_FIRE' || profile === 'PISTOL_25M_WOMEN');
 }
 
-function toggleSet(current: Set<string>, id: string, included: boolean): Set<string> {
-  const next = new Set(current);
-  if (included) next.add(id);
-  else next.delete(id);
-  return next;
-}
-
 function formatLimits(limits: FinalRecoveryCaseDto['guidance']['limits']): string {
   const values = [
     limits.malfunctionAllowancePerFinal ? `allowance ${limits.malfunctionAllowancePerFinal}/Final` : null,
@@ -673,27 +642,6 @@ function formatLimits(limits: FinalRecoveryCaseDto['guidance']['limits']): strin
     limits.sightingTimeSeconds ? `sighting ${limits.sightingTimeSeconds}s` : null,
   ].filter(Boolean);
   return values.length > 0 ? `Structured limits: ${values.join(' · ')}` : 'No fixed numeric limit in this guidance.';
-}
-
-function laneLabel(lane: DirectorLaneSnapshotDto): string {
-  const point = lane.firingPointNumber ? `FP ${lane.firingPointNumber}` : lane.laneAlias || lane.laneId.slice(0, 8);
-  return lane.assignment?.athlete ? `${point} · ${lane.assignment.athlete.name}` : point;
-}
-
-function laneLabelById(lanes: readonly DirectorLaneSnapshotDto[], laneId: string): string {
-  const lane = lanes.find((candidate) => candidate.laneId === laneId);
-  return lane ? laneLabel(lane) : laneId.slice(0, 8);
-}
-
-function humanize(value: string): string {
-  return value
-    .replaceAll('_', ' ')
-    .toLowerCase()
-    .replace(/^./, (character) => character.toUpperCase());
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 const PROFILES: readonly FinalRecoveryProcedureProfileDto[] = [
@@ -716,6 +664,3 @@ const RECOVERY_PHASES: readonly FinalRecoveryPhaseDto[] = [
   'SHOOT_OFF',
   'OTHER',
 ];
-const labelClass = 'text-xs text-vscode-text-muted';
-const inputClass =
-  'mt-1 block min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';
