@@ -6,7 +6,7 @@ import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefiniti
 import { boardContract } from '@/shared/ipc/contracts';
 import type { LiveRankingDto } from '@/shared/types/LiveRankingDto';
 
-import { GetEventByIdToken } from '../championship/championship.module';
+import { GetEventByIdToken } from '@/main/modules/championship';
 
 // Inline query token
 const GetLiveRankingToken = defineQuery<unknown, { rankings: LiveRankingDto[] }>('GetLiveRanking');
