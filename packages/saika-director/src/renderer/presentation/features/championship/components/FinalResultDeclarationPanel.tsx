@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FileCheck2, TriangleAlert } from 'lucide-react';
 
 import { resultPublicationService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { FinalResultDeclarationStatusDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
@@ -31,10 +32,9 @@ export function FinalResultDeclarationPanel({ eventId, eventName, onClose }: Fin
     setError(null);
     try {
       const response = await resultPublicationService.getFinalDeclarationStatus({ eventId });
-      if (!response.success) throw new Error(response.error.message);
-      setStatus(response.data);
+      setStatus(unwrap(response));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load the Final declaration status');
+      setError(errorMessage(caught, 'Failed to load the Final declaration status'));
     } finally {
       setLoading(false);
     }
@@ -55,10 +55,9 @@ export function FinalResultDeclarationPanel({ eventId, eventName, onClose }: Fin
         statement,
         officialName,
       });
-      if (!response.success) throw new Error(response.error.message);
-      setStatus(response.data);
+      setStatus(unwrap(response));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to declare Final results');
+      setError(errorMessage(caught, 'Failed to declare Final results'));
     } finally {
       setSaving(false);
     }

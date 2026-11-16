@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { finalPlacementReviewService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { FinalPlacementReviewStatusDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
@@ -31,18 +32,17 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
     setLoading(true);
     setError(null);
     try {
-      const response = await finalPlacementReviewService.getStatus({ eventId });
-      if (!response.success) throw new Error(response.error.message);
-      setStatus(response.data);
+      const loaded = unwrap(await finalPlacementReviewService.getStatus({ eventId }));
+      setStatus(loaded);
       setRanks(
         Object.fromEntries(
-          response.data.results
+          loaded.results
             .filter((result) => result.classificationCode === null)
             .map((result) => [result.participantId, String(result.rank || result.sourceRank)]),
         ),
       );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to load Final placement review');
+      setError(errorMessage(caught, 'Failed to load Final placement review'));
     } finally {
       setLoading(false);
     }
@@ -85,11 +85,11 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
           statement,
           officialName,
         });
-        if (!response.success) throw new Error(response.error.message);
+        unwrap(response);
         await loadStatus();
         onChanged();
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : 'Failed to record Final placement review');
+        setError(errorMessage(caught, 'Failed to record Final placement review'));
       } finally {
         setSaving(false);
       }
@@ -108,13 +108,13 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
         reason: revokeReason,
         officialName,
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       setShowRevocation(false);
       setRevokeReason('');
       await loadStatus();
       onChanged();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to revoke Final placement review');
+      setError(errorMessage(caught, 'Failed to revoke Final placement review'));
     } finally {
       setSaving(false);
     }
