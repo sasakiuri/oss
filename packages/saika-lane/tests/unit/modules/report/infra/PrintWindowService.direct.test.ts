@@ -23,6 +23,8 @@ class TestWindow extends EventEmitter {
     id: 42,
     getPrintersAsync: vi.fn().mockResolvedValue([{ name: 'queue-1', displayName: 'Office printer' }]),
     setWindowOpenHandler: vi.fn(),
+    getURL: vi.fn(() => ''),
+    session: { setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn() },
     print: vi.fn((_options: unknown, callback: (success: boolean, reason: string) => void) => callback(true, '')),
   });
   loadFile = vi.fn().mockResolvedValue(undefined);

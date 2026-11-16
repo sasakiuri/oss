@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 
 import { app, BrowserWindow } from 'electron';
 
-import { createMainWindowOptions } from '@/main/createMainWindowOptions';
+import { createMainWindow } from '@/main/createMainWindowOptions';
 import { focusMainWindow } from '@/main/focusStartupWindow';
 import { getLogger } from '@/main/shared-infra/logging';
 
@@ -24,33 +24,16 @@ if (isWsl) {
 }
 
 function createWindow(): BrowserWindow {
-  const window = new BrowserWindow(
-    createMainWindowOptions({
-      isPackaged: app.isPackaged,
-      preloadPath: join(appDir, '../preload/preload.mjs'),
-      useNativeWindowFrame: isWsl,
-    }),
-  );
+  const window = createMainWindow({
+    isPackaged: app.isPackaged,
+    preloadPath: join(appDir, '../preload/preload.mjs'),
+    useNativeWindowFrame: isWsl,
+  });
 
   // Capture renderer console.log and write to file
   window.webContents.on('console-message', (_event, level, message, line, sourceId) => {
     const logMessage = `[renderer:${level}] ${message} (${sourceId}:${line})`;
     getLogger().debug(logMessage, 'renderer');
-  });
-
-  // Security: prevent navigation to external URLs
-  window.webContents.on('will-navigate', (event, url) => {
-    const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-    const isDevUrl = !app.isPackaged && devServerUrl != null && url.startsWith(devServerUrl);
-    const isAllowedUrl = url.startsWith('file://') || isDevUrl;
-    if (!isAllowedUrl) {
-      event.preventDefault();
-    }
-  });
-
-  // Security: block all new window requests
-  window.webContents.setWindowOpenHandler(() => {
-    return { action: 'deny' };
   });
 
   if (!app.isPackaged && process.env.VITE_DEV_SERVER_URL) {

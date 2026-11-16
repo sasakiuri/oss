@@ -15,6 +15,8 @@ const state = vi.hoisted(() => ({
     webContents: {
       on: vi.fn(),
       setWindowOpenHandler: vi.fn(),
+      getURL: vi.fn(() => ''),
+      session: { setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn() },
       openDevTools: vi.fn(),
     },
     loadURL: vi.fn(),
@@ -48,6 +50,7 @@ vi.mock('@/main/composition/createLaneApp', () => ({ createLaneApp: state.create
 beforeEach(() => {
   vi.resetModules();
   state.app.isPackaged = false;
+  state.window.webContents.getURL.mockReturnValue('');
   vi.stubEnv('VITE_DEV_SERVER_URL', undefined);
   vi.stubEnv('OPEN_DEVTOOLS', undefined);
   vi.stubEnv('SAIKA_LANE_NATIVE_WINDOW_FRAME', process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME);
@@ -93,5 +96,46 @@ describe('main window renderer loading', () => {
     expect(state.window.loadFile).toHaveBeenCalledWith(expect.stringMatching(/[\\/]renderer[\\/]index\.html$/));
     expect(state.window.loadURL).not.toHaveBeenCalled();
     expect(state.window.webContents.openDevTools).not.toHaveBeenCalled();
+  });
+});
+
+describe('main window protection', () => {
+  const pageUrl = 'file:///opt/saika-lane/dist/renderer/index.html';
+
+  function navigate(url: string): boolean {
+    const handler = state.window.webContents.on.mock.calls.find(([event]) => event === 'will-navigate')?.[1] as (
+      details: { url: string; preventDefault: () => void },
+      url: string,
+    ) => void;
+    const details = { url, preventDefault: vi.fn() };
+    handler(details, url);
+    return details.preventDefault.mock.calls.length > 0;
+  }
+
+  it.each(['file:///etc/passwd', 'file:///opt/saika-lane/dist/renderer/print.html', 'https://example.test/'])(
+    'keeps the main window from navigating to %s',
+    async (url) => {
+      state.window.webContents.getURL.mockReturnValue(pageUrl);
+      await startApplication();
+
+      expect(navigate(url)).toBe(true);
+    },
+  );
+
+  it('lets the development server reload the page it serves', async () => {
+    vi.stubEnv('VITE_DEV_SERVER_URL', 'http://localhost:5173');
+    state.window.webContents.getURL.mockReturnValue('http://localhost:5173/');
+    await startApplication();
+
+    expect(navigate('http://localhost:5173/')).toBe(false);
+    expect(navigate('http://localhost:5173/print.html')).toBe(true);
+  });
+
+  it('blocks webviews and denies permission requests in the main window', async () => {
+    await startApplication();
+
+    expect(state.window.webContents.on).toHaveBeenCalledWith('will-attach-webview', expect.any(Function));
+    expect(state.window.webContents.session.setPermissionRequestHandler).toHaveBeenCalledOnce();
+    expect(state.window.webContents.session.setPermissionCheckHandler).toHaveBeenCalledOnce();
   });
 });
