@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 import { TargetBoardCard } from './components/TargetBoardCard';
 import { laneControlService } from '@/renderer/services';
-import { mapResponseToLaneControlDto, type LaneControlDto } from '@/renderer/services/mappers/laneControlMapper';
+import { mapResponseToLaneControlDto, type LaneControlDto } from './laneControlMapper';
 import { useBoardLaneData } from '@/renderer/presentation/hooks/useBoardLaneData';
 import { useAuthoritativeRangeClock } from '@/renderer/presentation/hooks/useAuthoritativeRangeClock';
 import { RangeClockDisplay } from './components/RangeClockDisplay';
@@ -18,7 +18,7 @@ export function TargetBoardScreen({ config }: Props) {
   const loadFn = useCallback(async (): Promise<LaneControlDto[]> => {
     const response = await laneControlService.getAll();
     if (response.success && Array.isArray(response.data)) {
-      return (response.data as Array<Record<string, unknown>>).map(mapResponseToLaneControlDto);
+      return response.data.map(mapResponseToLaneControlDto);
     }
     return [];
   }, []);

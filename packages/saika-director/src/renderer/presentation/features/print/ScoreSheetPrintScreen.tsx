@@ -4,32 +4,30 @@ import type { ScoreSheetDto } from '@/shared/ipc/contracts/laneControl.contract'
 import { ScoreSheet } from './components/ScoreSheet';
 import { FinalResultSheet, type FinalResultData } from './components/FinalResultSheet';
 import { laneControlService } from '@/renderer/services';
+import { errorMessage } from '@/renderer/services/serviceError';
+import type { LaneControlStateDto } from '../boards/laneControlMapper';
 import { calculateCurrentRanks } from '../shared/scoring';
 
 interface Props {
   config: BoardWindowConfig;
 }
 
-function toFinalResultData(lanes: Array<Record<string, unknown>>, laneIds: string[]): FinalResultData[] {
-  const filteredLanes = lanes.filter((lane) => laneIds.includes(lane.id as string));
+function toFinalResultData(lanes: LaneControlStateDto[], laneIds: string[]): FinalResultData[] {
+  const filteredLanes = lanes.filter((lane) => laneIds.includes(lane.id));
 
-  const laneData = filteredLanes.map((lane) => {
-    const player = lane.player as { name: string; affiliation: string } | null;
-    const matchShots = (lane.matchShots as number[]) ?? [];
-    return {
-      id: lane.id as string,
-      channel: lane.channel as number,
-      playerName: player?.name ?? 'Unregistered',
-      affiliation: player?.affiliation ?? '-',
-      stage1Shots: matchShots.slice(0, 10),
-      stage2Shots: matchShots.slice(10),
-      stage1Total: (lane.stage1Total as number) ?? 0,
-      stage2Total: (lane.stage2Total as number) ?? 0,
-      totalScore: (lane.totalScore as number) ?? 0,
-      eliminated: (lane.eliminated as boolean) ?? false,
-      eliminationRank: (lane.eliminationRank as number | null) ?? null,
-    };
-  });
+  const laneData = filteredLanes.map((lane) => ({
+    id: lane.id,
+    channel: lane.channel,
+    playerName: lane.player?.name ?? 'Unregistered',
+    affiliation: lane.player?.affiliation ?? '-',
+    stage1Shots: lane.matchShots.slice(0, 10),
+    stage2Shots: lane.matchShots.slice(10),
+    stage1Total: lane.stage1Total,
+    stage2Total: lane.stage2Total,
+    totalScore: lane.totalScore,
+    eliminated: lane.eliminated,
+    eliminationRank: lane.eliminationRank,
+  }));
 
   const ranks = calculateCurrentRanks(laneData);
 
@@ -80,7 +78,7 @@ export function ScoreSheetPrintScreen({ config }: Props) {
 
         const unifiedResponse = await laneControlService.getAll();
         if (unifiedResponse.success && Array.isArray(unifiedResponse.data)) {
-          const results = toFinalResultData(unifiedResponse.data as Array<Record<string, unknown>>, laneIds);
+          const results = toFinalResultData(unifiedResponse.data, laneIds);
           if (results.length > 0) {
             setFinalResults(results);
             setLoading(false);
@@ -90,7 +88,7 @@ export function ScoreSheetPrintScreen({ config }: Props) {
 
         setError('No printable data was found');
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to retrieve score sheets');
+        setError(errorMessage(err, 'Failed to retrieve score sheets'));
       } finally {
         setLoading(false);
       }

@@ -2,12 +2,45 @@ import { describe, it, expect } from 'vitest';
 import {
   mapResponseToLaneControlDto,
   mapResponseToFinalBoardLaneData,
-} from '@/renderer/services/mappers/laneControlMapper';
+  type LaneControlStateDto,
+} from '@/renderer/presentation/features/boards/laneControlMapper';
+
+/** A complete Lane state as main returns it; each case overrides the fields it reads. */
+function lane(overrides: Partial<LaneControlStateDto>): LaneControlStateDto {
+  return {
+    id: 'lane',
+    channel: 1,
+    player: null,
+    phase: 'IDLE',
+    unifiedPhase: 'IDLE',
+    stageIndex: 0,
+    seriesIndex: 0,
+    roundType: 'Qualification',
+    stageName: '',
+    timer: null,
+    preparationShots: [],
+    matchShots: [],
+    shootoffShots: [],
+    eliminated: false,
+    eliminationRank: null,
+    totalScore: 0,
+    stage1Total: 0,
+    stage2Total: 0,
+    seriesScores: [],
+    recentShots: [],
+    shotNumber: 0,
+    lastScore: null,
+    lastShotTime: null,
+    remainingTime: 0,
+    relayNumber: 1,
+    ...overrides,
+  };
+}
 
 describe('laneControlMapper', () => {
   describe('mapResponseToLaneControlDto', () => {
     it('flattens player information into playerName and affiliation', () => {
-      const raw: Record<string, unknown> = {
+      const raw = lane({
         id: 'lane-1',
         channel: 3,
         player: { name: 'Alex Smith', affiliation: 'Tokyo', participantId: 'p-1' },
@@ -29,7 +62,7 @@ describe('laneControlMapper', () => {
         eliminated: false,
         eliminationRank: null,
         relayNumber: 2,
-      };
+      });
 
       const dto = mapResponseToLaneControlDto(raw);
 
@@ -48,7 +81,7 @@ describe('laneControlMapper', () => {
     });
 
     it('uses default values when player is null', () => {
-      const raw: Record<string, unknown> = {
+      const raw = lane({
         id: 'lane-2',
         channel: 1,
         player: null,
@@ -60,7 +93,7 @@ describe('laneControlMapper', () => {
         seriesScores: [],
         totalScore: 0,
         recentShots: [],
-      };
+      });
 
       const dto = mapResponseToLaneControlDto(raw);
 
@@ -77,7 +110,7 @@ describe('laneControlMapper', () => {
   describe('mapResponseToFinalBoardLaneData', () => {
     it('splits matchShots into the first 10 stage1Shots and remaining stage2Shots', () => {
       const matchShots = [10, 10, 9.8, 10.1, 10.2, 9.9, 10, 10.3, 9.7, 10.4, 10.5, 9.6];
-      const raw: Record<string, unknown> = {
+      const raw = lane({
         id: 'lane-f1',
         channel: 2,
         player: { name: 'Jordan Lee', affiliation: 'Osaka' },
@@ -93,7 +126,7 @@ describe('laneControlMapper', () => {
         totalScore: 120.5,
         eliminated: false,
         eliminationRank: null,
-      };
+      });
 
       const data = mapResponseToFinalBoardLaneData(raw);
 
@@ -107,12 +140,12 @@ describe('laneControlMapper', () => {
     });
 
     it('uses Unregistered when player is null', () => {
-      const raw: Record<string, unknown> = {
+      const raw = lane({
         id: 'lane-f2',
         channel: 5,
         player: null,
         matchShots: [],
-      };
+      });
 
       const data = mapResponseToFinalBoardLaneData(raw);
 
@@ -124,12 +157,12 @@ describe('laneControlMapper', () => {
     });
 
     it('leaves stage2Shots empty when matchShots has fewer than 10 entries', () => {
-      const raw: Record<string, unknown> = {
+      const raw = lane({
         id: 'lane-f3',
         channel: 1,
         player: { name: 'Test Athlete', affiliation: 'Test Affiliation' },
         matchShots: [10, 10, 10],
-      };
+      });
 
       const data = mapResponseToFinalBoardLaneData(raw);
 
