@@ -1,8 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PostCompetitionEquipmentControlPanel } from '@/renderer/presentation/features/championship/components/PostCompetitionEquipmentControlPanel';
+import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import type { PostCompetitionEquipmentCheckDto } from '@/shared/ipc/contracts';
+
+import { fail, ok } from '../../../../../../helpers/renderer/serviceResponses';
 
 const { list, select, issueNotice, recordTest, confirmFailure, voidCheck } = vi.hoisted(() => ({
   list: vi.fn(),
@@ -164,5 +167,81 @@ describe('PostCompetitionEquipmentControlPanel', () => {
     expect(await screen.findByText('Separate disqualification action required')).toBeInTheDocument();
     expect(screen.getByText(`EQUIPMENT-CONTROL:${CHECK_ID}`)).toBeInTheDocument();
     expect(recordTest).not.toHaveBeenCalled();
+  });
+
+  it('shows a failed load and a failed selection as their messages', async () => {
+    list.mockResolvedValueOnce(fail('Championship not found'));
+    const { unmount } = render(
+      <PostCompetitionEquipmentControlPanel championshipId={CHAMPIONSHIP_ID} eventId={EVENT_ID} participants={[]} />,
+    );
+    expect(await screen.findByText('Championship not found')).toBeVisible();
+    unmount();
+
+    select.mockResolvedValue(fail('The athlete is already selected'));
+    render(
+      <PostCompetitionEquipmentControlPanel
+        championshipId={CHAMPIONSHIP_ID}
+        eventId={EVENT_ID}
+        participants={[
+          {
+            id: PARTICIPANT_ID,
+            playerName: 'Alex Athlete',
+            affiliation: 'JPN',
+            logoPath: null,
+            sortOrder: 0,
+            startNumber: '42',
+            gender: 'F',
+          },
+        ]}
+      />,
+    );
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole('checkbox', { name: /Alex Athlete/ }));
+    fireEvent.change(screen.getByLabelText('Selecting official'), { target: { value: 'Jury A' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record selection (1)' }));
+    expect(await screen.findByText('The athlete is already selected')).toBeVisible();
+  });
+
+  it('shows failed notice, test and void commands as their messages', async () => {
+    list.mockResolvedValue(ok([checkFixture()]));
+    issueNotice.mockResolvedValue(fail('The notice reference is already used'));
+    recordTest.mockResolvedValue(fail('The check changed; reload it'));
+    voidCheck.mockResolvedValue(fail('The check is already void'));
+    render(
+      <PostCompetitionEquipmentControlPanel championshipId={CHAMPIONSHIP_ID} eventId={EVENT_ID} participants={[]} />,
+    );
+    await screen.findByText(/Alex Athlete · Start 42/);
+
+    fireEvent.change(screen.getByLabelText('Notice reference'), { target: { value: 'N-1' } });
+    fireEvent.change(screen.getByLabelText('Issuing official'), { target: { value: 'Officer A' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record written notice' }));
+    expect(await screen.findByText('The notice reference is already used')).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Tested items (comma or line separated)'), { target: { value: 'Trigger' } });
+    fireEvent.change(screen.getByLabelText('Test operator'), { target: { value: 'Officer A' } });
+    fireEvent.change(screen.getByLabelText('Equipment Control Jury supervisor'), { target: { value: 'Jury B' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Record test result' }));
+    expect(await screen.findByText('The check changed; reload it')).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Voiding official'), { target: { value: 'Jury Chair' } });
+    fireEvent.change(screen.getByLabelText('Reason for voiding'), { target: { value: 'Selected in error' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Void check' }));
+    await waitFor(() => expect(useConfirmDialogStore.getState().isOpen).toBe(true));
+    act(() => useConfirmDialogStore.getState().handleConfirm());
+    expect(await screen.findByText('The check is already void')).toBeInTheDocument();
+    expect(screen.queryByText('The check changed; reload it')).toBeNull();
+  });
+
+  it('shows a failed confirmation as its message', async () => {
+    list.mockResolvedValue(ok([checkFixture({ status: 'FAILED_PENDING_CONFIRMATION' })]));
+    confirmFailure.mockResolvedValue(fail('The calibration reference is not active'));
+    render(
+      <PostCompetitionEquipmentControlPanel championshipId={CHAMPIONSHIP_ID} eventId={EVENT_ID} participants={[]} />,
+    );
+    await screen.findByText('FAILED PENDING CONFIRMATION');
+    fireEvent.change(screen.getByLabelText('Calibration reference'), { target: { value: 'CAL-2026-09-07' } });
+    fireEvent.change(screen.getByLabelText('Confirming Jury member'), { target: { value: 'Jury Chair' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm test and procedure' }));
+    expect(await screen.findByText('The calibration reference is not active')).toBeVisible();
   });
 });
