@@ -34,11 +34,7 @@ import {
 import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import { MalfunctionFiringEvidenceSchema } from '@sasakiuri/saika-protocol/MalfunctionFiring';
-import {
-  ReserveLaneTransferActionSchema,
-  ReserveLaneTransferBundleSchema,
-  type ReserveLaneTransferAction,
-} from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
+import type { ReserveLaneTransferAction } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 import { Logger } from '@/shared/utils/Logger';
 
 import {
@@ -82,6 +78,7 @@ import { MqttCommandDispatcher, type PublishCommandOptions } from './MqttCommand
 import { QualificationRecoveryCommands } from './QualificationRecoveryCommands';
 import { RangeInterruptionCommands } from './RangeInterruptionCommands';
 import { RangeSafetyCommands } from './RangeSafetyCommands';
+import { ReserveLaneTransferCommands } from './ReserveLaneTransferCommands';
 
 const logger = Logger.create('DirectorMqttService');
 
@@ -128,6 +125,7 @@ export class DirectorMqttService {
   private readonly qualificationRecovery: QualificationRecoveryCommands;
   private readonly safety: RangeSafetyCommands;
   private readonly interruptions: RangeInterruptionCommands;
+  private readonly reserveTransfers: ReserveLaneTransferCommands;
 
   constructor(
     options: DirectorMqttOptions,
@@ -212,6 +210,13 @@ export class DirectorMqttService {
       },
       this.startDelayMs,
     );
+    this.reserveTransfers = new ReserveLaneTransferCommands(commands, {
+      requireCompetitionPhase: (competitionId, phase, operation) =>
+        this.requireCompetitionPhase(competitionId, phase, operation),
+      requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
+      getLane: (laneId) => this.state.getLane(laneId),
+      retainCompetitionState: (state, patch) => this.publishCompetitionState(this.updateCompetitionState(state, patch)),
+    });
     this.receiver = new DirectorMqttReceiver({
       onHardwareState: (state) => {
         const wasConnected = this.state.getLane(state.laneId)?.hardware?.connection.status === 'connected';
@@ -794,57 +799,7 @@ export class DirectorMqttService {
   }
 
   async transferReserveLane(input: { competitionId: string; laneId: string; transfer: ReserveLaneTransferAction }) {
-    return this.runCompetitionOperation(input.competitionId, async () => {
-      const competition = this.requireCompetitionPhase(input.competitionId, 'MATCH', 'transfer to a reserve Lane');
-      if (competition.roundName === 'Final')
-        throw new Error('Final state transfer requires a separate recovery protocol');
-      this.requireCompetitionLane(input.competitionId, input.laneId);
-      if (
-        !['CANCEL_SOURCE', 'CANCEL_TARGET'].includes(input.transfer.operation) &&
-        this.state.getLane(input.laneId)?.safetyState?.status !== 'STOPPED'
-      )
-        throw new Error('Apply and retain the Lane safety STOP during transfer');
-      const transfer = ReserveLaneTransferActionSchema.parse(input.transfer);
-      const command = this.commandBase({ transfer });
-      const result = await this.publishCommand({
-        action: 'reserve-lane-transfer',
-        payload: command,
-        topic: mqttTopics.laneCompetitionCommand(input.competitionId, input.laneId, 'reserve-lane-transfer'),
-        acknowledgementTopic: () =>
-          mqttTopics.laneCompetitionCommandAcknowledgement(input.competitionId, input.laneId, 'reserve-lane-transfer'),
-        expectedLaneIds: [input.laneId],
-      });
-      const response = result.lanes.find((lane) => lane.laneId === input.laneId);
-      if (!result.success || response?.status !== 'done')
-        throw new Error(response?.error?.message ?? 'Reserve transfer was not acknowledged; retry the same transfer');
-      const bundle = ReserveLaneTransferBundleSchema.parse(response.data?.bundle);
-      const expectedId =
-        transfer.operation === 'PREPARE_SOURCE'
-          ? transfer.request.id
-          : 'bundle' in transfer
-            ? transfer.bundle.request.id
-            : transfer.id;
-      if (bundle.request.id !== expectedId || bundle.request.competitionId !== input.competitionId)
-        throw new Error('Lane acknowledged a different transfer');
-      if (
-        transfer.operation === 'PREPARE_SOURCE' &&
-        JSON.stringify(bundle.request) !== JSON.stringify(transfer.request)
-      )
-        throw new Error('Lane returned different transfer instructions');
-      if (
-        transfer.operation !== 'PREPARE_SOURCE' &&
-        bundle.digest !== ('bundle' in transfer ? transfer.bundle.digest : transfer.digest)
-      )
-        throw new Error('Lane acknowledged another transfer snapshot');
-      if (transfer.operation === 'RETIRE_SOURCE') {
-        await this.publishCompetitionState(
-          this.updateCompetitionState(competition, {
-            transferredSourceLaneIds: [...new Set([...(competition.transferredSourceLaneIds ?? []), input.laneId])],
-          }),
-        );
-      }
-      return bundle;
-    });
+    return this.runCompetitionOperation(input.competitionId, () => this.reserveTransfers.transferReserveLane(input));
   }
 
   async resumeLaneTimer(
