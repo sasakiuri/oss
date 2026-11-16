@@ -60,8 +60,6 @@ describe('useShot', () => {
       const { result } = renderHook(() => useShot());
 
       expect(result.current.shots).toEqual([]);
-      expect(result.current.latestShot).toBeNull();
-      expect(result.current.isLoading).toBe(false);
     });
   });
 
@@ -116,38 +114,10 @@ describe('useShot', () => {
       });
 
       expect(result.current.shots).toEqual(mockShots);
-      expect(result.current.latestShot).toEqual(mockShots[1]);
-      expect(result.current.isLoading).toBe(false);
 
       // Verify scores have been calculated
       const storeState = useSessionStore.getState();
       expect(storeState.totalScore).toBeCloseTo(20.0, 5); // 10.2 + 9.8
-    });
-
-    it('sets isLoading to true while fetching', async () => {
-      type ShotHistoryDto = { sessionId: string; shots: ShotDto[]; nullifiedExtras: [] };
-
-      let resolveGetShotHistory: (value: ShotHistoryDto) => void;
-      const getShotHistoryPromise = new Promise<ShotHistoryDto>((resolve) => {
-        resolveGetShotHistory = resolve;
-      });
-
-      mockGetShotHistory.mockReturnValue(getShotHistoryPromise);
-
-      const { result } = renderHook(() => useShot());
-
-      act(() => {
-        result.current.refreshShotHistory();
-      });
-
-      expect(result.current.isLoading).toBe(true);
-
-      await act(async () => {
-        resolveGetShotHistory!({ sessionId: 'session-123', nullifiedExtras: [], shots: [] });
-        await getShotHistoryPromise;
-      });
-
-      expect(result.current.isLoading).toBe(false);
     });
 
     it('does nothing when session ID is null', async () => {
@@ -165,7 +135,7 @@ describe('useShot', () => {
       expect(result.current.shots).toEqual([]);
     });
 
-    it('silently handles fetch error and resets loading state (ServiceError)', async () => {
+    it('silently handles fetch error (ServiceError)', async () => {
       // Service throws ServiceError on failure
       mockGetShotHistory.mockRejectedValue(
         new ServiceError('Failed to retrieve shot history', 'GET_SHOT_HISTORY_FAILED'),
@@ -177,11 +147,11 @@ describe('useShot', () => {
         await result.current.refreshShotHistory();
       });
 
-      // Verify error does not propagate and loading state is reset
-      expect(result.current.isLoading).toBe(false);
+      // Verify the error does not propagate and the shots stay as they were
+      expect(result.current.shots).toEqual([]);
     });
 
-    it('silently handles unexpected error and resets loading state', async () => {
+    it('silently handles unexpected error', async () => {
       mockGetShotHistory.mockRejectedValue(new Error('Unexpected error'));
 
       const { result } = renderHook(() => useShot());
@@ -190,88 +160,8 @@ describe('useShot', () => {
         await result.current.refreshShotHistory();
       });
 
-      // Verify error does not propagate and loading state is reset
-      expect(result.current.isLoading).toBe(false);
-    });
-  });
-
-  describe('latestShot', () => {
-    it('returns the first shot when there is only one shot', () => {
-      const { setShots } = useSessionStore.getState();
-      const mockShots: ShotDto[] = [
-        {
-          id: 'shot-1',
-          shotNumber: 1,
-          x: 10.5,
-          y: 20.3,
-          score: 10.2,
-          timestamp: '2026-01-15T10:00:00Z',
-          mode: 'MATCH',
-          isRecorded: true,
-          innerTen: false,
-        },
-      ];
-
-      act(() => {
-        setShots(mockShots);
-      });
-
-      const { result } = renderHook(() => useShot());
-
-      expect(result.current.latestShot).toEqual(mockShots[0]);
-    });
-
-    it('returns the last shot when there are multiple shots', () => {
-      const { setShots } = useSessionStore.getState();
-      const mockShots: ShotDto[] = [
-        {
-          id: 'shot-1',
-          shotNumber: 1,
-          x: 10.5,
-          y: 20.3,
-          score: 10.2,
-          timestamp: '2026-01-15T10:00:00Z',
-          mode: 'MATCH',
-          isRecorded: true,
-          innerTen: false,
-        },
-        {
-          id: 'shot-2',
-          shotNumber: 2,
-          x: 15.2,
-          y: 18.7,
-          score: 9.8,
-          timestamp: '2026-01-15T10:01:00Z',
-          mode: 'MATCH',
-          isRecorded: true,
-          innerTen: false,
-        },
-        {
-          id: 'shot-3',
-          shotNumber: 3,
-          x: 12.1,
-          y: 19.5,
-          score: 10.0,
-          timestamp: '2026-01-15T10:02:00Z',
-          mode: 'MATCH',
-          isRecorded: true,
-          innerTen: false,
-        },
-      ];
-
-      act(() => {
-        setShots(mockShots);
-      });
-
-      const { result } = renderHook(() => useShot());
-
-      expect(result.current.latestShot).toEqual(mockShots[2]);
-    });
-
-    it('returns null when there are no shots', () => {
-      const { result } = renderHook(() => useShot());
-
-      expect(result.current.latestShot).toBeNull();
+      // Verify the error does not propagate and the shots stay as they were
+      expect(result.current.shots).toEqual([]);
     });
   });
 
@@ -500,7 +390,7 @@ describe('useShot', () => {
       });
 
       expect(result.current.shots).toEqual(initialShots);
-      expect(result.current.latestShot).toEqual(initialShots[0]);
+      expect(result.current.shots.at(-1)).toEqual(initialShots[0]);
 
       let storeState = useSessionStore.getState();
       expect(storeState.totalScore).toBe(10.0);
@@ -526,7 +416,7 @@ describe('useShot', () => {
       expect(storeState.shots).toHaveLength(2);
       expect(storeState.totalScore).toBeCloseTo(19.8, 5);
 
-      expect(result.current.latestShot).toEqual(newShot);
+      expect(result.current.shots.at(-1)).toEqual(newShot);
     });
   });
 });
