@@ -23,41 +23,46 @@ export interface CommandPreparation {
 }
 
 interface CommandRequest<Action extends string> {
+  /** Log prefix naming the handler that received the command. */
+  logContext: string;
   action: string;
   payload: Buffer;
   acknowledgementTopic: string;
   schemas: LaneCommandSchemas<Action>;
+  /** Whether the action is rejected until Lane startup is READY. */
+  requiresReady: (action: Action) => boolean;
   prepare?: (action: Action, command: CommandEnvelope) => CommandPreparation;
   execute: (action: Action, command: CommandEnvelope, receivedAt: Date) => Promise<Record<string, unknown> | void>;
 }
 
+export interface LaneCommandProcessorDeps {
+  mqttClient: Pick<IMqttClientService, 'publish'>;
+  idempotencyGuard: Pick<CommandIdempotencyGuard, 'check'>;
+  commandAuthorization: ICommandAuthorizationPolicy;
+  getLaneId: () => string;
+  isReady: () => boolean;
+}
+
 /** Shared receive boundary for validation, authorization, deduplication and two-phase acknowledgements. */
 export class LaneCommandProcessor {
-  constructor(
-    private readonly mqttClient: Pick<IMqttClientService, 'publish'>,
-    private readonly idempotencyGuard: Pick<CommandIdempotencyGuard, 'check'>,
-    private readonly commandAuthorization: ICommandAuthorizationPolicy,
-    private readonly getLaneId: () => string,
-    private readonly logContext: string,
-    private readonly canExecute: (action: string) => boolean = () => true,
-  ) {}
+  constructor(private readonly deps: LaneCommandProcessorDeps) {}
 
   async handle<Action extends string>(request: CommandRequest<Action>): Promise<void> {
     const receivedAt = new Date();
-    const { action, payload, acknowledgementTopic: topic } = request;
+    const { logContext, action, payload, acknowledgementTopic: topic } = request;
     const logger = getLogger();
     let rawData: unknown;
     try {
       rawData = JSON.parse(payload.toString());
     } catch {
-      logger.error(`[${this.logContext}] Failed to parse JSON`, 'mqtt', { action });
+      logger.error(`[${logContext}] Failed to parse JSON`, 'mqtt', { action });
       return;
     }
 
     // Incoming actions must be own registry entries, never Object prototype members.
     if (!Object.hasOwn(request.schemas, action)) {
       const error = ErrorCatalog.createError('MQTT_UNKNOWN_COMMAND_ACTION', { action });
-      await this.publishAck(topic, { commandId: '', status: 'error', error });
+      await this.publishAck(logContext, topic, { commandId: '', status: 'error', error });
       return;
     }
     const knownAction = action as Action;
@@ -68,34 +73,34 @@ export class LaneCommandProcessor {
         detail: parsed.error.message,
       });
       const commandId = stringProperty(rawData, 'commandId') ?? '';
-      await this.publishAck(topic, { commandId, status: 'error', error });
+      await this.publishAck(logContext, topic, { commandId, status: 'error', error });
       return;
     }
 
     const command = parsed.data;
     const { commandId } = command;
-    const authorization = this.commandAuthorization.assess({
+    const authorization = this.deps.commandAuthorization.assess({
       issuedBy: command.issuedBy,
       ...(command.issuerId !== undefined ? { issuerId: command.issuerId } : {}),
     });
     if (!authorization.allowed) {
       const error = ErrorCatalog.createError('MQTT_COMMAND_UNAUTHORIZED', { detail: authorization.reason });
-      await this.publishAck(topic, { commandId, status: 'error', error });
+      await this.publishAck(logContext, topic, { commandId, status: 'error', error });
       return;
     }
     try {
       const preparation = request.prepare?.(knownAction, command);
       if (preparation?.skip) return;
-      if (!this.canExecute(action))
+      if (request.requiresReady(knownAction) && !this.deps.isReady())
         throw new Error('Lane startup is not READY. Recover the saved run before issuing competition commands.');
-      if (this.idempotencyGuard.check(commandId)) {
-        logger.info(`[${this.logContext}] Duplicate command skipped: ${commandId}`, 'mqtt');
+      if (this.deps.idempotencyGuard.check(commandId)) {
+        logger.info(`[${logContext}] Duplicate command skipped: ${commandId}`, 'mqtt');
         return;
       }
       const warning = [authorization.warning, preparation?.warning].filter(Boolean).join('; ') || undefined;
-      await this.publishAck(topic, { commandId, status: 'executing' });
+      await this.publishAck(logContext, topic, { commandId, status: 'executing' });
       const data = await request.execute(knownAction, command, receivedAt);
-      await this.publishAck(topic, {
+      await this.publishAck(logContext, topic, {
         commandId,
         status: 'done',
         ...(data ? { data } : {}),
@@ -104,12 +109,13 @@ export class LaneCommandProcessor {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const code = stringProperty(error, 'code') ?? 'MQTT_COMMAND_EXECUTION_FAILED';
-      logger.error(`[${this.logContext}] Command failed: ${action}`, 'mqtt', { error: message, commandId });
-      await this.publishAck(topic, { commandId, status: 'error', error: { code, message } });
+      logger.error(`[${logContext}] Command failed: ${action}`, 'mqtt', { error: message, commandId });
+      await this.publishAck(logContext, topic, { commandId, status: 'error', error: { code, message } });
     }
   }
 
   private async publishAck(
+    logContext: string,
     topic: string,
     result: Omit<CommandAcknowledgement, 'laneId' | 'acknowledgedAt'>,
   ): Promise<void> {
@@ -117,13 +123,13 @@ export class LaneCommandProcessor {
       ...result,
       // DomainError contains internal metadata; only the wire error fields belong in an ACK.
       ...(result.error ? { error: { code: result.error.code, message: result.error.message } } : {}),
-      laneId: this.getLaneId(),
+      laneId: this.deps.getLaneId(),
       acknowledgedAt: new Date().toISOString(),
     };
     try {
-      await this.mqttClient.publish(topic, JSON.stringify(ack), { qos: 1, retain: false });
+      await this.deps.mqttClient.publish(topic, JSON.stringify(ack), { qos: 1, retain: false });
     } catch (error) {
-      getLogger().error(`[${this.logContext}] Failed to publish ACK`, 'mqtt', {
+      getLogger().error(`[${logContext}] Failed to publish ACK`, 'mqtt', {
         error: error instanceof Error ? error.message : String(error),
       });
     }

@@ -23,6 +23,7 @@ vi.mock('@/shared/errors/ErrorCatalog', () => ({
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { BroadcastCommandHandler } from '@/main/modules/mqtt/application/commands/BroadcastCommandHandler';
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
+import { LaneCommandProcessor } from '@/main/modules/mqtt/application/commands/LaneCommandProcessor';
 import { LaneTier1CommandHandler } from '@/main/modules/mqtt/application/commands/LaneTier1CommandHandler';
 import type { PerLaneCommandHandler } from '@/main/modules/mqtt/application/commands/PerLaneCommandHandler';
 import type { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
@@ -30,6 +31,7 @@ import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMemb
 import type { LaneSafetyStatePublisher } from '@/main/modules/mqtt/application/LaneSafetyStatePublisher';
 import type { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
+import { CommandAuthorizationPolicy } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { LaneSafetyStopState, type ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
@@ -162,24 +164,31 @@ describe('LaneTier1CommandHandler', () => {
     onChange = vi.fn();
     eventBus.on('DirectorMembershipChanged', onChange);
     membership = new DirectorMembership(storage, eventBus);
-    handler = new LaneTier1CommandHandler(
+    handler = new LaneTier1CommandHandler({
       mqttClient,
-      guard,
+      processor: new LaneCommandProcessor({
+        mqttClient,
+        idempotencyGuard: guard,
+        commandAuthorization: new CommandAuthorizationPolicy(),
+        getLaneId: () => LANE_ID,
+        isReady: () => startupReady,
+      }),
       broadcastHandler,
       perLaneHandler,
       rpcHandler,
       competitionStateSubscriber,
+      competitionCueSubscriber: {
+        subscribe: vi.fn().mockResolvedValue(undefined),
+        unsubscribe: vi.fn().mockResolvedValue(undefined),
+      },
       retainPublisher,
       membership,
-      () => LANE_ID,
+      getLaneId: () => LANE_ID,
       safetyStopControl,
       safetyStatePublisher,
-      undefined,
-      shootOffControl,
-      undefined,
+      competitionShootOffControl: shootOffControl,
       timedTargetControl,
-      () => startupReady,
-    );
+    });
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
       (h: (topic: string, payload: Buffer) => void) => {

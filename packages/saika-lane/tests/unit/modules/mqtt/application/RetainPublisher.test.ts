@@ -7,7 +7,7 @@ import type { HardwareStatePublisher } from '@/main/modules/mqtt/application/Har
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
-import { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
+import { RetainPublisher, type RetainPublisherDeps } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -94,6 +94,10 @@ function createMockSession(shots: Shot[]) {
   };
 }
 
+function createIdleStatePublisher(): { publishCurrentState: () => Promise<void> } {
+  return { publishCurrentState: vi.fn().mockResolvedValue(undefined) };
+}
+
 describe('RetainPublisher', () => {
   let mqttClient: IMqttClientService & { _triggerConnect: () => void; _triggerDisconnect: () => void };
   let storage: ILocalStorage;
@@ -104,6 +108,28 @@ describe('RetainPublisher', () => {
   let scorePublisher: LaneScorePublisher;
   let assignmentPublisher: LaneAssignmentPublisher;
   let retainPublisher: RetainPublisher;
+
+  function createRetainPublisher(overrides: Partial<RetainPublisherDeps> = {}): RetainPublisher {
+    return new RetainPublisher({
+      mqttClient,
+      storage,
+      competitionRepository,
+      sessionRepository,
+      hardwarePublisher,
+      competitionStatePublisher,
+      scorePublisher,
+      assignmentPublisher,
+      safetyStatePublisher: createIdleStatePublisher(),
+      rangeOfficerRequestPublisher: createIdleStatePublisher(),
+      qualificationMalfunctionSignalPublisher: createIdleStatePublisher(),
+      estComplaintSignalPublisher: createIdleStatePublisher(),
+      timedTargetStatePublisher: createIdleStatePublisher(),
+      qualificationRecoveryStatePublisher: createIdleStatePublisher(),
+      excludeCompetitionShotReplay: () => false,
+      canPublishCompetition: () => true,
+      ...overrides,
+    });
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -143,16 +169,7 @@ describe('RetainPublisher', () => {
       clearStoredAssignment: vi.fn(),
     } as unknown as LaneAssignmentPublisher;
 
-    retainPublisher = new RetainPublisher(
-      mqttClient,
-      storage,
-      competitionRepository,
-      sessionRepository,
-      hardwarePublisher,
-      competitionStatePublisher,
-      scorePublisher,
-      assignmentPublisher,
-    );
+    retainPublisher = createRetainPublisher();
     retainPublisher.registerCallbacks();
   });
 
@@ -281,21 +298,9 @@ describe('RetainPublisher', () => {
         Awaited<ReturnType<ISessionRepository['findById']>>
       >,
     );
-    const publisher = new RetainPublisher(
-      mqttClient,
-      storage,
-      competitionRepository,
-      sessionRepository,
-      hardwarePublisher,
-      competitionStatePublisher,
-      scorePublisher,
-      assignmentPublisher,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      (shotId) => shotId === recoveryShot.id,
-    );
+    const publisher = createRetainPublisher({
+      excludeCompetitionShotReplay: (shotId) => shotId === recoveryShot.id,
+    });
     (publisher as unknown as { disconnectedAt: Date }).disconnectedAt = disconnectTime;
 
     await publisher.republish();

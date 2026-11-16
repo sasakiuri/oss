@@ -5,7 +5,6 @@ import { commandSchemasForScope, type MqttCommandActionOf } from '@sasakiuri/sai
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
-import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import type { CompetitionCueSubscriber } from '@/main/modules/mqtt/application/CompetitionCueSubscriber';
 import type { CompetitionStateSubscriber } from '@/main/modules/mqtt/application/CompetitionStateSubscriber';
 import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
@@ -13,10 +12,6 @@ import type { LaneSafetyStatePublisher } from '@/main/modules/mqtt/application/L
 import type { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
 import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
-import {
-  CommandAuthorizationPolicy,
-  type ICommandAuthorizationPolicy,
-} from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
@@ -25,7 +20,7 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type { BroadcastCommandHandler } from './BroadcastCommandHandler';
-import { LaneCommandProcessor, type LaneCommandSchemas } from './LaneCommandProcessor';
+import type { LaneCommandProcessor, LaneCommandSchemas } from './LaneCommandProcessor';
 import type { PerLaneCommandHandler } from './PerLaneCommandHandler';
 
 type Tier1Action = MqttCommandActionOf<'lane'>;
@@ -34,37 +29,31 @@ const ACTION_SCHEMAS: LaneCommandSchemas<Tier1Action> = commandSchemasForScope(l
 
 type Tier1Topic = ParsedMqttTopicOf<'laneCommand'>;
 
+export interface LaneTier1CommandHandlerDeps {
+  mqttClient: IMqttClientService;
+  processor: LaneCommandProcessor;
+  broadcastHandler: Pick<BroadcastCommandHandler, 'subscribeToCompetition' | 'unsubscribeFromCompetition'>;
+  perLaneHandler: Pick<PerLaneCommandHandler, 'subscribeToCompetition' | 'unsubscribeFromCompetition'>;
+  rpcHandler: Pick<RpcRequestHandler, 'subscribe' | 'unsubscribe'>;
+  competitionStateSubscriber: Pick<CompetitionStateSubscriber, 'subscribe' | 'unsubscribe'>;
+  competitionCueSubscriber: Pick<CompetitionCueSubscriber, 'subscribe' | 'unsubscribe'>;
+  retainPublisher: Pick<RetainPublisher, 'clearCompetitionTopics'>;
+  membership: DirectorMembership;
+  getLaneId: () => string;
+  safetyStopControl: ILaneSafetyStopControl;
+  safetyStatePublisher: Pick<LaneSafetyStatePublisher, 'publishCurrentState'>;
+  competitionShootOffControl: ICompetitionShootOffControl;
+  timedTargetControl: ITimedTargetControl;
+}
+
 export class LaneTier1CommandHandler {
-  private readonly processor: LaneCommandProcessor;
   private readonly subscription: TopicSubscription;
 
-  constructor(
-    mqttClient: IMqttClientService,
-    idempotencyGuard: CommandIdempotencyGuard,
-    private readonly broadcastHandler: BroadcastCommandHandler,
-    private readonly perLaneHandler: PerLaneCommandHandler,
-    private readonly rpcHandler: RpcRequestHandler,
-    private readonly competitionStateSubscriber: CompetitionStateSubscriber,
-    private readonly retainPublisher: RetainPublisher,
-    private readonly membership: DirectorMembership,
-    private readonly getLaneId: () => string,
-    private readonly safetyStopControl?: ILaneSafetyStopControl,
-    private readonly safetyStatePublisher?: LaneSafetyStatePublisher,
-    private readonly competitionCueSubscriber?: CompetitionCueSubscriber,
-    private readonly competitionShootOffControl?: ICompetitionShootOffControl,
-    commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
-    private readonly timedTargetControl?: ITimedTargetControl,
-    isReady: () => boolean = () => true,
-  ) {
-    this.processor = new LaneCommandProcessor(
-      mqttClient,
-      idempotencyGuard,
-      commandAuthorization,
-      getLaneId,
-      'LaneTier1CommandHandler',
-      (action) => action !== 'join-competition' || isReady(),
-    );
-    this.subscription = new TopicSubscription(mqttClient, { listenBeforeSubscribe: true, unsubscribeErrors: 'ignore' });
+  constructor(private readonly deps: LaneTier1CommandHandlerDeps) {
+    this.subscription = new TopicSubscription(deps.mqttClient, {
+      listenBeforeSubscribe: true,
+      unsubscribeErrors: 'ignore',
+    });
   }
 
   /**
@@ -73,10 +62,10 @@ export class LaneTier1CommandHandler {
   async subscribe(): Promise<void> {
     await this.unsubscribeTier1Topic();
 
-    await this.subscription.open(mqttTopicFilters.laneCommands(this.getLaneId()), (msgTopic, payload) => {
+    await this.subscription.open(mqttTopicFilters.laneCommands(this.deps.getLaneId()), (msgTopic, payload) => {
       const parsed = parseMqttTopic(msgTopic);
       if (parsed?.kind !== 'laneCommand') return;
-      if (parsed.laneId !== this.getLaneId()) return;
+      if (parsed.laneId !== this.deps.getLaneId()) return;
 
       void this.handleCommand(parsed, payload);
     });
@@ -87,7 +76,7 @@ export class LaneTier1CommandHandler {
         await this.activateCompetitionSubscriptions(savedCompetitionId);
       } catch (error) {
         await this.deactivateCompetitionSubscriptions();
-        this.membership.setCompetitionId(null);
+        this.deps.membership.setCompetitionId(null);
         getLogger().warn('[LaneTier1CommandHandler] Failed to restore competition membership', 'mqtt', {
           competitionId: savedCompetitionId,
           error: error instanceof Error ? error.message : String(error),
@@ -114,18 +103,20 @@ export class LaneTier1CommandHandler {
    * Returns the competition ID currently joined
    */
   get competitionId(): string | null {
-    return this.membership.snapshot.competitionId;
+    return this.deps.membership.snapshot.competitionId;
   }
 
   /**
    * Processes a command
    */
   private handleCommand(parsed: Tier1Topic, payload: Buffer): Promise<void> {
-    return this.processor.handle<Tier1Action>({
+    return this.deps.processor.handle<Tier1Action>({
+      logContext: 'LaneTier1CommandHandler',
       action: parsed.action,
       payload,
       schemas: ACTION_SCHEMAS,
-      acknowledgementTopic: mqttTopics.laneCommandAcknowledgement(this.getLaneId(), parsed.action),
+      requiresReady: (action) => action === 'join-competition',
+      acknowledgementTopic: mqttTopics.laneCommandAcknowledgement(this.deps.getLaneId(), parsed.action),
       execute: (action, command, receivedAt) => this.executeAction(action, command, receivedAt),
     });
   }
@@ -159,7 +150,7 @@ export class LaneTier1CommandHandler {
           throw error;
         }
 
-        this.membership.setCompetitionId(competitionId);
+        this.deps.membership.setCompetitionId(competitionId);
 
         getLogger().info(`[LaneTier1CommandHandler] Joined competition: ${competitionId}`, 'mqtt');
         return undefined;
@@ -178,17 +169,17 @@ export class LaneTier1CommandHandler {
         }
 
         this.cancelTimedTarget(competitionId, 'Lane left the competition');
-        const shootOff = this.competitionShootOffControl?.getState();
+        const shootOff = this.deps.competitionShootOffControl.getState();
         if (shootOff?.competitionId === competitionId) {
-          this.competitionShootOffControl?.close(competitionId, shootOff.runId, shootOff.iteration);
+          this.deps.competitionShootOffControl.close(competitionId, shootOff.runId, shootOff.iteration);
         }
-        await this.retainPublisher.clearCompetitionTopics(competitionId, this.getLaneId());
+        await this.deps.retainPublisher.clearCompetitionTopics(competitionId, this.deps.getLaneId());
         const cleanup = await this.deactivateCompetitionSubscriptions();
         for (const result of cleanup) {
           if (result.status === 'rejected') throw result.reason;
         }
 
-        this.membership.setCompetitionId(null);
+        this.deps.membership.setCompetitionId(null);
 
         getLogger().info(`[LaneTier1CommandHandler] Left competition: ${competitionId}`, 'mqtt');
         return undefined;
@@ -203,66 +194,59 @@ export class LaneTier1CommandHandler {
       }
 
       case 'activate-safety-stop': {
-        const safetyStopControl = this.requireSafetyStopControl();
-        const state = await safetyStopControl.activate({
+        const state = await this.deps.safetyStopControl.activate({
           safetyStopId: command.safetyStopId as string,
           reason: command.reason as string,
           issuedBy: command.issuedBy as string,
           issuedAt: new Date(command.issuedAt as string),
         });
-        const shootOff = this.competitionShootOffControl?.getState();
+        const shootOff = this.deps.competitionShootOffControl.getState();
         if (shootOff) {
-          this.competitionShootOffControl?.close(shootOff.competitionId, shootOff.runId, shootOff.iteration);
+          this.deps.competitionShootOffControl.close(shootOff.competitionId, shootOff.runId, shootOff.iteration);
         }
         this.cancelTimedTarget(undefined, `Safety stop activated: ${state.reason}`);
         // A completed ACK means the retained state has also reached the broker.
-        await this.safetyStatePublisher?.publishCurrentState();
+        await this.deps.safetyStatePublisher.publishCurrentState();
         return toSafetyCommandData(state);
       }
 
       case 'clear-safety-stop': {
-        const safetyStopControl = this.requireSafetyStopControl();
-        const state = await safetyStopControl.clear({
+        const state = await this.deps.safetyStopControl.clear({
           safetyStopId: command.safetyStopId as string,
           clearanceReason: command.clearanceReason as string,
           confirmedSafe: command.confirmedSafe as true,
           clearedBy: command.issuedBy as string,
           clearedAt: new Date(command.issuedAt as string),
         });
-        await this.safetyStatePublisher?.publishCurrentState();
+        await this.deps.safetyStatePublisher.publishCurrentState();
         return toSafetyCommandData(state);
       }
     }
   }
 
   private cancelTimedTarget(competitionId: string | undefined, reason: string): void {
-    const timedState = this.timedTargetControl?.getState(competitionId);
+    const timedState = this.deps.timedTargetControl.getState(competitionId);
     if (!timedState || timedState.phase === 'COMPLETE' || timedState.phase === 'CANCELLED') return;
-    this.timedTargetControl?.cancel({ sequenceId: timedState.sequenceId, reason });
+    this.deps.timedTargetControl.cancel({ sequenceId: timedState.sequenceId, reason });
   }
 
   private async activateCompetitionSubscriptions(competitionId: string): Promise<void> {
     // The state subscriber is first so the retained Director state can create
     // the matching local competition before any broadcast command is accepted.
-    await this.competitionStateSubscriber.subscribe(competitionId);
-    await this.competitionCueSubscriber?.subscribe(competitionId);
-    await this.broadcastHandler.subscribeToCompetition(competitionId);
-    await this.perLaneHandler.subscribeToCompetition(competitionId);
-    await this.rpcHandler.subscribe(competitionId);
-  }
-
-  private requireSafetyStopControl(): ILaneSafetyStopControl {
-    if (!this.safetyStopControl) throw new Error('Lane safety stop control is unavailable');
-    return this.safetyStopControl;
+    await this.deps.competitionStateSubscriber.subscribe(competitionId);
+    await this.deps.competitionCueSubscriber.subscribe(competitionId);
+    await this.deps.broadcastHandler.subscribeToCompetition(competitionId);
+    await this.deps.perLaneHandler.subscribeToCompetition(competitionId);
+    await this.deps.rpcHandler.subscribe(competitionId);
   }
 
   private deactivateCompetitionSubscriptions() {
     return Promise.allSettled([
-      this.broadcastHandler.unsubscribeFromCompetition(),
-      this.perLaneHandler.unsubscribeFromCompetition(),
-      this.rpcHandler.unsubscribe(),
-      this.competitionStateSubscriber.unsubscribe(),
-      this.competitionCueSubscriber?.unsubscribe(),
+      this.deps.broadcastHandler.unsubscribeFromCompetition(),
+      this.deps.perLaneHandler.unsubscribeFromCompetition(),
+      this.deps.rpcHandler.unsubscribe(),
+      this.deps.competitionStateSubscriber.unsubscribe(),
+      this.deps.competitionCueSubscriber.unsubscribe(),
     ]);
   }
 }

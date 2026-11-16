@@ -23,45 +23,32 @@ import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
 import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
 import type { TimedTargetStatePublisher } from './TimedTargetStatePublisher';
 
+export interface RetainPublisherDeps {
+  mqttClient: IMqttClientService;
+  storage: ILocalStorage;
+  competitionRepository: ICompetitionRepository;
+  sessionRepository: ISessionRepository;
+  hardwarePublisher: Pick<HardwareStatePublisher, 'publishState'>;
+  competitionStatePublisher: Pick<LaneCompetitionStatePublisher, 'publishCurrentState'>;
+  scorePublisher: Pick<LaneScorePublisher, 'publishCurrentScore'>;
+  assignmentPublisher: Pick<LaneAssignmentPublisher, 'publishCurrentAssignment' | 'clearStoredAssignment'>;
+  safetyStatePublisher: Pick<LaneSafetyStatePublisher, 'publishCurrentState'>;
+  rangeOfficerRequestPublisher: Pick<RangeOfficerRequestPublisher, 'publishCurrentState'>;
+  qualificationMalfunctionSignalPublisher: Pick<QualificationMalfunctionSignalPublisher, 'publishCurrentState'>;
+  estComplaintSignalPublisher: Pick<EstComplaintSignalPublisher, 'publishCurrentState'>;
+  timedTargetStatePublisher: Pick<TimedTargetStatePublisher, 'publishCurrentState'>;
+  qualificationRecoveryStatePublisher: Pick<QualificationRecoveryStatePublisher, 'publishCurrentState'>;
+  /** Shots owned by another outbox are not replayed as competition shots. */
+  excludeCompetitionShotReplay: (shotId: string) => boolean;
+  /** Competition-owned topics wait until Lane startup is READY. */
+  canPublishCompetition: () => boolean;
+}
+
 export class RetainPublisher {
-  private readonly mqttClient: IMqttClientService;
-  private readonly storage: ILocalStorage;
-  private readonly competitionRepository: ICompetitionRepository;
-  private readonly sessionRepository: ISessionRepository;
-  private readonly hardwarePublisher: HardwareStatePublisher;
-  private readonly assignmentPublisher: LaneAssignmentPublisher;
-  private readonly competitionStatePublisher: LaneCompetitionStatePublisher;
-  private readonly scorePublisher: LaneScorePublisher;
   private disconnectedAt: Date | null = new Date(0);
   private isInitialConnect = true;
 
-  constructor(
-    mqttClient: IMqttClientService,
-    storage: ILocalStorage,
-    competitionRepository: ICompetitionRepository,
-    sessionRepository: ISessionRepository,
-    hardwarePublisher: HardwareStatePublisher,
-    competitionStatePublisher: LaneCompetitionStatePublisher,
-    scorePublisher: LaneScorePublisher,
-    assignmentPublisher: LaneAssignmentPublisher,
-    private readonly safetyStatePublisher?: LaneSafetyStatePublisher,
-    private readonly rangeOfficerRequestPublisher?: RangeOfficerRequestPublisher,
-    private readonly timedTargetStatePublisher?: TimedTargetStatePublisher,
-    private readonly qualificationRecoveryStatePublisher?: QualificationRecoveryStatePublisher,
-    private readonly excludeCompetitionShotReplay: (shotId: string) => boolean = () => false,
-    private readonly qualificationMalfunctionSignalPublisher?: QualificationMalfunctionSignalPublisher,
-    private readonly estComplaintSignalPublisher?: EstComplaintSignalPublisher,
-    private readonly canPublishCompetition: () => boolean = () => true,
-  ) {
-    this.mqttClient = mqttClient;
-    this.storage = storage;
-    this.competitionRepository = competitionRepository;
-    this.sessionRepository = sessionRepository;
-    this.hardwarePublisher = hardwarePublisher;
-    this.competitionStatePublisher = competitionStatePublisher;
-    this.scorePublisher = scorePublisher;
-    this.assignmentPublisher = assignmentPublisher;
-  }
+  constructor(private readonly deps: RetainPublisherDeps) {}
 
   /**
    * Registers with MqttClientService's onConnect/onDisconnect.
@@ -69,11 +56,11 @@ export class RetainPublisher {
    */
   registerCallbacks(initialConnectionAlreadyOccurred: boolean = false): void {
     this.isInitialConnect = !initialConnectionAlreadyOccurred;
-    this.mqttClient.onDisconnect(() => {
+    this.deps.mqttClient.onDisconnect(() => {
       this.disconnectedAt ??= new Date();
     });
 
-    this.mqttClient.onConnect(() => {
+    this.deps.mqttClient.onConnect(() => {
       if (this.isInitialConnect) {
         this.isInitialConnect = false;
         return;
@@ -95,17 +82,17 @@ export class RetainPublisher {
     logger.info('[RetainPublisher] Republishing retained topics on reconnect', 'mqtt');
 
     // 1. Re-publish hardware state
-    this.hardwarePublisher.publishState();
+    this.deps.hardwarePublisher.publishState();
 
     // Safety state is Lane-owned and must survive without competition membership.
-    await this.safetyStatePublisher?.publishCurrentState();
-    if (!this.canPublishCompetition()) return;
-    await this.rangeOfficerRequestPublisher?.publishCurrentState();
-    await this.qualificationMalfunctionSignalPublisher?.publishCurrentState();
-    await this.estComplaintSignalPublisher?.publishCurrentState();
+    await this.deps.safetyStatePublisher.publishCurrentState();
+    if (!this.deps.canPublishCompetition()) return;
+    await this.deps.rangeOfficerRequestPublisher.publishCurrentState();
+    await this.deps.qualificationMalfunctionSignalPublisher.publishCurrentState();
+    await this.deps.estComplaintSignalPublisher.publishCurrentState();
 
     // 2. Re-publish competition-related Retain topics
-    const competition = await this.competitionRepository.findActive();
+    const competition = await this.deps.competitionRepository.findActive();
     if (!competition) {
       this.disconnectedAt = null;
       return;
@@ -113,12 +100,12 @@ export class RetainPublisher {
 
     // 3. Re-publish LaneCompetitionState and LaneScore
     await Promise.all([
-      this.competitionStatePublisher.publishCurrentState(),
-      this.scorePublisher.publishCurrentScore(),
-      this.timedTargetStatePublisher?.publishCurrentState(competition.id),
-      this.qualificationRecoveryStatePublisher?.publishCurrentState(competition.id),
+      this.deps.competitionStatePublisher.publishCurrentState(),
+      this.deps.scorePublisher.publishCurrentScore(),
+      this.deps.timedTargetStatePublisher.publishCurrentState(competition.id),
+      this.deps.qualificationRecoveryStatePublisher.publishCurrentState(competition.id),
     ]);
-    await this.assignmentPublisher.publishCurrentAssignment(competition.id);
+    await this.deps.assignmentPublisher.publishCurrentAssignment(competition.id);
 
     // 4. Replay shot backlog recorded during disconnection (isReplay=true)
     if (this.disconnectedAt) {
@@ -127,7 +114,7 @@ export class RetainPublisher {
 
     // 5. Re-publish LaneCompetitionState as replay completion notification
     // (MQTT_DESIGN.md 7.4: means for the director to detect replay completion)
-    await this.competitionStatePublisher.publishCurrentState();
+    await this.deps.competitionStatePublisher.publishCurrentState();
 
     this.disconnectedAt = null;
   }
@@ -142,26 +129,28 @@ export class RetainPublisher {
       mqttTopics.qualificationRecoveryState(competitionId, laneId),
     ];
     try {
-      await Promise.all(retainedTopics.map((topic) => this.mqttClient.publish(topic, '', { qos: 1, retain: true })));
+      await Promise.all(
+        retainedTopics.map((topic) => this.deps.mqttClient.publish(topic, '', { qos: 1, retain: true })),
+      );
     } finally {
-      this.assignmentPublisher.clearStoredAssignment(competitionId);
+      this.deps.assignmentPublisher.clearStoredAssignment(competitionId);
     }
   }
 
   async replayTransferredSession(competitionId: string): Promise<void> {
-    const competition = await this.competitionRepository.findById(competitionId);
+    const competition = await this.deps.competitionRepository.findById(competitionId);
     if (!competition) throw new Error('Transferred competition not found');
     await this.replayBacklog(competitionId, competition.sessionId, new Date(0));
   }
 
   private async replayBacklog(competitionId: string, sessionId: string, since: Date): Promise<void> {
     const logger = getLogger();
-    const session = await this.sessionRepository.findById(sessionId);
+    const session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) return;
 
     // Filter shots recorded after disconnection (sorted by timestamp ascending)
     const backlogShots = session.allShots
-      .filter((shot: Shot) => shot.timestamp >= since && !this.excludeCompetitionShotReplay(shot.id))
+      .filter((shot: Shot) => shot.timestamp >= since && !this.deps.excludeCompetitionShotReplay(shot.id))
       .sort((a: Shot, b: Shot) => a.timestamp.getTime() - b.timestamp.getTime());
 
     if (backlogShots.length === 0) return;
@@ -172,8 +161,8 @@ export class RetainPublisher {
       since: since.toISOString(),
     });
 
-    const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
-    const competition = await this.competitionRepository.findActive();
+    const laneId = this.deps.storage.get<string>('mqtt.laneId') ?? '';
+    const competition = await this.deps.competitionRepository.findActive();
     if (!competition) return;
 
     const topic = mqttTopics.competitionShot(competitionId, laneId);
@@ -203,7 +192,7 @@ export class RetainPublisher {
         publishedAt: new Date().toISOString(),
       });
 
-      await this.mqttClient.publish(topic, payload, { qos: 1, retain: false });
+      await this.deps.mqttClient.publish(topic, payload, { qos: 1, retain: false });
     }
   }
 }
