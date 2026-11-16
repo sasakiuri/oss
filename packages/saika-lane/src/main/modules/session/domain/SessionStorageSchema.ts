@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** Validates session data loaded from electron-store. */
+/** Validates stored session data, such as a reserve-lane transfer bundle, before SessionFactory rebuilds it. */
 
 import { z } from 'zod';
 
