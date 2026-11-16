@@ -10,7 +10,8 @@
         "windowFiles": [
           "src/main/createMainWindowOptions.ts",
           "src/main/modules/report/infra/PrintWindowService.ts"
-        ]
+        ],
+        "windowGuard": null
       }
     },
     {
@@ -22,7 +23,8 @@
         "windowFiles": [
           "src/main/main.ts",
           "src/main/infrastructure/window/WindowManager.ts"
-        ]
+        ],
+        "windowGuard": null
       }
     },
     {
@@ -31,7 +33,8 @@
       "electron": {
         "product": "Saika Vista",
         "updateMetadataNamespace": "vista",
-        "windowFiles": []
+        "windowFiles": ["src/main/main.ts", "src/main/OutputWindows.ts"],
+        "windowGuard": "src/main/protectWindow.ts"
       }
     },
     {

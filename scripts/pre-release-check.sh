@@ -474,6 +474,49 @@ check_electron_security() {
     fi
   done
 
+  # An application with a window guard must deny new windows, navigation,
+  # webviews and permissions there, and pass every window to it. The guard
+  # function has the guard file's name.
+  local guard_listing
+  if ! guard_listing=$(node -e "
+    const fs = require('fs');
+    const path = require('path');
+    const requirements = [
+      [/setWindowOpenHandler\(.*'deny'/, 'new windows are not denied'],
+      [/'will-navigate'.*preventDefault\(\)/, 'navigation is not prevented'],
+      [/'will-attach-webview'.*preventDefault\(\)/, 'webview attachment is not prevented'],
+      [/setPermissionRequestHandler\(.*callback\(false\)/, 'permission requests are not denied'],
+      [/setPermissionCheckHandler\(\(\) => false\)/, 'permission checks are not denied'],
+    ];
+    for (const app of require('./scripts/saika-suite.json').applications) {
+      const guard = app.electron?.windowGuard;
+      if (!guard) continue;
+      const guardFile = app.directory + '/' + guard;
+      if (!fs.existsSync(guardFile)) {
+        console.log(guardFile + ': window guard file not found');
+        continue;
+      }
+      const source = fs.readFileSync(guardFile, 'utf8');
+      for (const [pattern, problem] of requirements) {
+        if (!pattern.test(source)) console.log(guardFile + ': ' + problem);
+      }
+      const guardFunction = path.basename(guard, '.ts');
+      for (const file of app.electron.windowFiles) {
+        const windowFile = app.directory + '/' + file;
+        if (fs.existsSync(windowFile) && !fs.readFileSync(windowFile, 'utf8').includes(guardFunction + '(')) {
+          console.log(windowFile + ': windows are not passed to ' + guardFunction);
+        }
+      }
+    }
+  "); then
+    failures+=("scripts/saika-suite.json: window guards could not be checked")
+  elif [[ -n "$guard_listing" ]]; then
+    local guard_failure
+    while IFS= read -r guard_failure; do
+      failures+=("$guard_failure")
+    done <<< "$guard_listing"
+  fi
+
   if [[ ${#failures[@]} -gt 0 ]]; then
     echo "Electron security settings issues:"
     for f in "${failures[@]}"; do

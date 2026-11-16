@@ -157,6 +157,20 @@ test("requires Nilay About to retain its MIT license", (t) => {
   );
 });
 
+const windowOptions =
+  "const options = { nodeIntegration: false, contextIsolation: true, sandbox: true };\n";
+const vistaGuard = "packages/saika-vista/src/main/protectWindow.ts";
+const vistaGuardSource = [
+  "export function protectWindow(window: BrowserWindow): void {",
+  "  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));",
+  "  window.webContents.on('will-navigate', (event) => event.preventDefault());",
+  "  window.webContents.on('will-attach-webview', (event) => event.preventDefault());",
+  "  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));",
+  "  window.webContents.session.setPermissionCheckHandler(() => false);",
+  "}",
+  "",
+];
+
 function securityFixture(t) {
   const f = fixture(t);
   f.write(".gitignore", ".local/\n.next/\nout/\n");
@@ -166,11 +180,15 @@ function securityFixture(t) {
     "packages/saika-director/src/main/main.ts",
     "packages/saika-director/src/main/infrastructure/window/WindowManager.ts",
   ]) {
-    f.write(
-      file,
-      "const options = { nodeIntegration: false, contextIsolation: true, sandbox: true };\n",
-    );
+    f.write(file, windowOptions);
   }
+  for (const file of [
+    "packages/saika-vista/src/main/main.ts",
+    "packages/saika-vista/src/main/OutputWindows.ts",
+  ]) {
+    f.write(file, `${windowOptions}protectWindow(window);\n`);
+  }
+  f.write(vistaGuard, vistaGuardSource.join("\n"));
   const bin = join(f.root, ".local/bin");
   // Isolate network/dependency scanners; the source-security functions are real.
   for (const [name, output] of [
@@ -187,6 +205,86 @@ function securityFixture(t) {
       f.run({ security: true, env: { PATH: `${bin}:${process.env.PATH}` } }),
   };
 }
+
+test("accepts guarded Vista windows with secure options", (t) => {
+  const result = securityFixture(t).run();
+  assert.equal(result.status, 0, result.output);
+});
+
+for (const [setting, insecure, message] of [
+  [
+    "nodeIntegration",
+    "nodeIntegration: true",
+    "nodeIntegration is set to true (must be false)",
+  ],
+  [
+    "contextIsolation",
+    "contextIsolation: false",
+    "contextIsolation is set to false (must be true)",
+  ],
+  ["sandbox", "sandbox: false", "sandbox is set to false (must be true)"],
+]) {
+  for (const file of ["main.ts", "OutputWindows.ts"]) {
+    test(`rejects Vista ${file} windows with ${setting} weakened`, (t) => {
+      const f = securityFixture(t);
+      const path = `packages/saika-vista/src/main/${file}`;
+      f.write(
+        path,
+        `${windowOptions.replace(new RegExp(`${setting}: (true|false)`), insecure)}protectWindow(window);\n`,
+      );
+      const result = f.run();
+      assert.equal(result.status, 1, result.output);
+      assert.match(result.output, /FAIL +Security \/ Electron security/);
+      assert.ok(result.output.includes(`${path}: ${message}`), result.output);
+    });
+  }
+}
+
+test("rejects Vista windows that are not passed to the window guard", (t) => {
+  const f = securityFixture(t);
+  f.write("packages/saika-vista/src/main/OutputWindows.ts", windowOptions);
+  const result = f.run();
+  assert.equal(result.status, 1, result.output);
+  assert.ok(
+    result.output.includes(
+      "packages/saika-vista/src/main/OutputWindows.ts: windows are not passed to protectWindow",
+    ),
+    result.output,
+  );
+});
+
+for (const [line, problem] of [
+  [1, "new windows are not denied"],
+  [2, "navigation is not prevented"],
+  [3, "webview attachment is not prevented"],
+  [4, "permission requests are not denied"],
+  [5, "permission checks are not denied"],
+]) {
+  test(`rejects a Vista window guard when ${problem}`, (t) => {
+    const f = securityFixture(t);
+    f.write(
+      vistaGuard,
+      vistaGuardSource.filter((_, index) => index !== line).join("\n"),
+    );
+    const result = f.run();
+    assert.equal(result.status, 1, result.output);
+    assert.ok(
+      result.output.includes(`${vistaGuard}: ${problem}`),
+      result.output,
+    );
+  });
+}
+
+test("rejects a missing Vista window guard", (t) => {
+  const f = securityFixture(t);
+  rmSync(join(f.root, vistaGuard));
+  const result = f.run();
+  assert.equal(result.status, 1, result.output);
+  assert.ok(
+    result.output.includes(`${vistaGuard}: window guard file not found`),
+    result.output,
+  );
+});
 
 test("security scans ignore local/build data but inspect nonignored new sources", (t) => {
   const f = securityFixture(t);
