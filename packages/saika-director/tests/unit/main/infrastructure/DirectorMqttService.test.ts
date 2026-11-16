@@ -3724,3 +3724,300 @@ describe('DirectorMqttService', () => {
     expect(transport.publications.some((entry) => entry.topic.endsWith('/command/start-sighting'))).toBe(false);
   });
 });
+
+const SAFETY_STOP_ID = '77777777-7777-4777-8777-777777777777';
+
+async function startMatchCompetition(
+  service: DirectorMqttService,
+  transport: FakeMqttTransport,
+  roundName: 'Qualification' | 'Final' = 'Qualification',
+  extra: Record<string, unknown> = {},
+) {
+  await service.connect('mqtt://localhost:1883');
+  const created = await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID, SECOND_LANE_ID]);
+  transport.emitMessage(`saika/competition/${COMPETITION_ID}/state`, {
+    ...created,
+    phase: 'MATCH',
+    roundName,
+    ...extra,
+    publishedAt: new Date(Date.parse(created.publishedAt) + 1).toISOString(),
+  });
+  return created;
+}
+
+function stopLane(transport: FakeMqttTransport, laneId: string): void {
+  transport.emitMessage(`saika/lane/${laneId}/safety/state`, {
+    laneId,
+    status: 'STOPPED',
+    safetyStopId: SAFETY_STOP_ID,
+    reason: 'Target failure',
+    stoppedBy: 'CRO One',
+    stoppedAt: new Date().toISOString(),
+    timerSnapshot: null,
+    clearedBy: null,
+    clearanceReason: null,
+    clearedAt: null,
+    publishedAt: new Date().toISOString(),
+  });
+}
+
+function laneCompetitionCommandTopic(laneId: string, action: string): string {
+  return `saika/competition/${COMPETITION_ID}/lane/${laneId}/command/${action}`;
+}
+
+async function waitForPublication(transport: FakeMqttTransport, topic: string, count = 1) {
+  await vi.waitFor(() => expect(transport.publications.filter((entry) => entry.topic === topic)).toHaveLength(count), {
+    interval: 1,
+  });
+  const publication = transport.publications.filter((entry) => entry.topic === topic).at(-1)!;
+  return { publication, command: JSON.parse(publication.payload) as Record<string, unknown> & { commandId: string } };
+}
+
+function acknowledgeLaneCompetitionCommand(
+  transport: FakeMqttTransport,
+  laneId: string,
+  action: string,
+  acknowledgement: Record<string, unknown> & { commandId: string },
+): void {
+  transport.emitMessage(`${laneCompetitionCommandTopic(laneId, action)}/acknowledgement`, {
+    laneId,
+    status: 'done',
+    acknowledgedAt: new Date().toISOString(),
+    ...acknowledgement,
+  });
+}
+
+describe('DirectorMqttService reserve Lane transfer', () => {
+  const TRANSFER_ID = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+  const request = {
+    id: TRANSFER_ID,
+    competitionId: COMPETITION_ID,
+    sourceLaneId: LANE_ID,
+    destinationLaneId: SECOND_LANE_ID,
+    officialName: 'RTS Official',
+    statement: 'Target failure on the source Lane',
+  };
+  const bundle = (overrides: Record<string, unknown> = {}) => ({
+    version: 1 as const,
+    request,
+    sourceSafetyStopId: SAFETY_STOP_ID,
+    capturedAt: '2026-09-03T00:00:00.000Z',
+    summary: {
+      athleteId: PARTICIPANT_ID,
+      athleteName: 'Athlete',
+      matchShots: 12,
+      totalScoreX10: 1234,
+      remainingSeconds: 600,
+      rulePackFingerprint: 'a'.repeat(64),
+    },
+    competitionJson: '{}',
+    sessionJson: '{}',
+    assignmentJson: '{}',
+    digest: 'b'.repeat(64),
+    ...overrides,
+  });
+  let transport: FakeMqttTransport;
+
+  beforeEach(() => {
+    transport = new FakeMqttTransport();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it('checks the competition round, phase, membership and safety STOP before publishing', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport, 'Final');
+    const prepare = { operation: 'PREPARE_SOURCE' as const, request };
+    await expect(
+      service.transferReserveLane({ competitionId: COMPETITION_ID, laneId: LANE_ID, transfer: prepare }),
+    ).rejects.toThrow(new Error('Final state transfer requires a separate recovery protocol'));
+
+    const other = new FakeMqttTransport();
+    const qualification = createService(other);
+    await startMatchCompetition(qualification, other);
+    await expect(
+      qualification.transferReserveLane({ competitionId: COMPETITION_ID, laneId: THIRD_LANE_ID, transfer: prepare }),
+    ).rejects.toThrow(new Error(`Lane ${THIRD_LANE_ID} is not joined to competition ${COMPETITION_ID}`));
+    await expect(
+      qualification.transferReserveLane({ competitionId: COMPETITION_ID, laneId: LANE_ID, transfer: prepare }),
+    ).rejects.toThrow(new Error('Apply and retain the Lane safety STOP during transfer'));
+    await expect(
+      qualification.transferReserveLane({ competitionId: SECOND_COMPETITION_ID, laneId: LANE_ID, transfer: prepare }),
+    ).rejects.toThrow(new Error(`MQTT competition not found: ${SECOND_COMPETITION_ID}`));
+    expect(other.publications.some((entry) => entry.topic.endsWith('/reserve-lane-transfer'))).toBe(false);
+    await service.disconnect();
+    await qualification.disconnect();
+  });
+
+  it('rejects a transfer outside MATCH', async () => {
+    const service = createService(transport);
+    await service.connect('mqtt://localhost:1883');
+    await createCompetitionGroup(service, COMPETITION_ID, 'BR60S', [LANE_ID]);
+
+    await expect(
+      service.transferReserveLane({
+        competitionId: COMPETITION_ID,
+        laneId: LANE_ID,
+        transfer: { operation: 'PREPARE_SOURCE', request },
+      }),
+    ).rejects.toThrow(
+      new Error(`Cannot transfer to a reserve Lane while competition ${COMPETITION_ID} is in phase NOT_STARTED`),
+    );
+    await service.disconnect();
+  });
+
+  it('prepares a source Lane and returns the bundle the Lane captured', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    stopLane(transport, LANE_ID);
+
+    const preparing = service.transferReserveLane({
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      transfer: { operation: 'PREPARE_SOURCE', request },
+    });
+    const { command } = await waitForPublication(
+      transport,
+      laneCompetitionCommandTopic(LANE_ID, 'reserve-lane-transfer'),
+    );
+    expect(command).toEqual({
+      commandId: expect.any(String),
+      issuedBy: 'director-test',
+      issuerId: 'director-test',
+      issuedAt: expect.any(String),
+      transfer: { operation: 'PREPARE_SOURCE', request },
+    });
+    acknowledgeLaneCompetitionCommand(transport, LANE_ID, 'reserve-lane-transfer', {
+      commandId: command.commandId,
+      data: { bundle: bundle() },
+    });
+
+    await expect(preparing).resolves.toEqual(bundle());
+    await service.disconnect();
+  });
+
+  it('refuses a Lane answer for another transfer, other instructions or another snapshot', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    stopLane(transport, LANE_ID);
+    const topic = laneCompetitionCommandTopic(LANE_ID, 'reserve-lane-transfer');
+    const cases = [
+      {
+        transfer: { operation: 'PREPARE_SOURCE' as const, request },
+        answer: bundle({ request: { ...request, id: 'ffffffff-ffff-4fff-8fff-ffffffffffff' } }),
+        message: 'Lane acknowledged a different transfer',
+      },
+      {
+        transfer: { operation: 'PREPARE_SOURCE' as const, request },
+        answer: bundle({ request: { ...request, statement: 'Changed statement' } }),
+        message: 'Lane returned different transfer instructions',
+      },
+      {
+        transfer: { operation: 'CANCEL_SOURCE' as const, id: TRANSFER_ID, digest: 'c'.repeat(64) },
+        answer: bundle(),
+        message: 'Lane acknowledged another transfer snapshot',
+      },
+    ];
+
+    for (const [index, { transfer, answer, message }] of cases.entries()) {
+      const pending = service.transferReserveLane({ competitionId: COMPETITION_ID, laneId: LANE_ID, transfer });
+      const { command } = await waitForPublication(transport, topic, index + 1);
+      acknowledgeLaneCompetitionCommand(transport, LANE_ID, 'reserve-lane-transfer', {
+        commandId: command.commandId,
+        data: { bundle: answer },
+      });
+      await expect(pending).rejects.toThrow(new Error(message));
+    }
+    await service.disconnect();
+  });
+
+  it('reports the Lane error, or asks for a retry when the Lane does not finish the transfer', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    stopLane(transport, LANE_ID);
+    const topic = laneCompetitionCommandTopic(LANE_ID, 'reserve-lane-transfer');
+    const transfer = { operation: 'RETIRE_SOURCE' as const, id: TRANSFER_ID, digest: 'b'.repeat(64) };
+
+    const rejected = service.transferReserveLane({ competitionId: COMPETITION_ID, laneId: LANE_ID, transfer });
+    const first = await waitForPublication(transport, topic);
+    acknowledgeLaneCompetitionCommand(transport, LANE_ID, 'reserve-lane-transfer', {
+      commandId: first.command.commandId,
+      status: 'error',
+      error: { code: 'TRANSFER_REJECTED', message: 'Source Lane is not prepared' },
+    });
+    await expect(rejected).rejects.toThrow(new Error('Source Lane is not prepared'));
+
+    const timedOut = service.transferReserveLane({ competitionId: COMPETITION_ID, laneId: LANE_ID, transfer });
+    await expect(timedOut).rejects.toThrow(new Error('Reserve transfer was not acknowledged; retry the same transfer'));
+    expect(transport.publications.filter((entry) => entry.topic === topic)).toHaveLength(2);
+    await service.disconnect();
+  });
+
+  it('records the retired source Lane in the retained competition state', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    stopLane(transport, LANE_ID);
+    const stateTopic = `saika/competition/${COMPETITION_ID}/state`;
+    const statesBefore = transport.publications.filter((entry) => entry.topic === stateTopic).length;
+
+    const retiring = service.transferReserveLane({
+      competitionId: COMPETITION_ID,
+      laneId: LANE_ID,
+      transfer: { operation: 'RETIRE_SOURCE', id: TRANSFER_ID, digest: 'b'.repeat(64) },
+    });
+    const { command } = await waitForPublication(
+      transport,
+      laneCompetitionCommandTopic(LANE_ID, 'reserve-lane-transfer'),
+    );
+    acknowledgeLaneCompetitionCommand(transport, LANE_ID, 'reserve-lane-transfer', {
+      commandId: command.commandId,
+      data: { bundle: bundle() },
+    });
+
+    await expect(retiring).resolves.toEqual(bundle());
+    const states = transport.publications.filter((entry) => entry.topic === stateTopic);
+    expect(states).toHaveLength(statesBefore + 1);
+    expect(states.at(-1)).toMatchObject({ options: { qos: 1, retain: true } });
+    expect(JSON.parse(states.at(-1)!.payload)).toMatchObject({
+      phase: 'MATCH',
+      laneIds: [LANE_ID, SECOND_LANE_ID],
+      transferredSourceLaneIds: [LANE_ID],
+    });
+    expect(service.getSnapshot().competitions[0]?.transferredSourceLaneIds).toEqual([LANE_ID]);
+    await service.disconnect();
+  });
+
+  it('cancels a target without a safety STOP and waits behind other operations on the competition', async () => {
+    const service = createService(transport);
+    await startMatchCompetition(service, transport);
+    const unloadTopic = `saika/competition/${COMPETITION_ID}/command/cancel-timed-target`;
+    const first = service.cancelTimedTarget({
+      competitionId: COMPETITION_ID,
+      sequenceId: '99999999-9999-4999-8999-999999999991',
+      reason: 'Hold',
+      targetLaneIds: [LANE_ID],
+    });
+    await waitForPublication(transport, unloadTopic);
+
+    const cancelling = service.transferReserveLane({
+      competitionId: COMPETITION_ID,
+      laneId: SECOND_LANE_ID,
+      transfer: { operation: 'CANCEL_TARGET', bundle: bundle() },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const topic = laneCompetitionCommandTopic(SECOND_LANE_ID, 'reserve-lane-transfer');
+    expect(transport.publications.some((entry) => entry.topic === topic)).toBe(false);
+    await first;
+
+    const { command } = await waitForPublication(transport, topic);
+    acknowledgeLaneCompetitionCommand(transport, SECOND_LANE_ID, 'reserve-lane-transfer', {
+      commandId: command.commandId,
+      data: { bundle: bundle() },
+    });
+    await expect(cancelling).resolves.toEqual(bundle());
+    await service.disconnect();
+  });
+});
