@@ -1,10 +1,15 @@
 import { Plus, Printer, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { boardService, protestsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ProtestCaseDto, RecordProtestEntryPayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { toDateTimeLocalValue } from '../shared/common/dateUtils';
+import { inputClass, stackedLabelClass } from '../shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
 
 export function ProtestsPanel({ scopeId }: { scopeId: string }) {
   const [cases, setCases] = useState<ProtestCaseDto[]>([]);
@@ -18,14 +23,13 @@ export function ProtestsPanel({ scopeId }: { scopeId: string }) {
     try {
       const response = await protestsService.list({ scopeType: 'EVENT', scopeId });
       if (requestId !== loadId.current) return;
-      if (!response.success) throw new Error(response.error.message);
-      setCases(response.data);
+      const listed = unwrap(response);
+      setCases(listed);
       setSelectedId((current) =>
-        current && response.data.some((item) => item.id === current) ? current : (response.data.at(-1)?.id ?? null),
+        current && listed.some((item) => item.id === current) ? current : (listed.at(-1)?.id ?? null),
       );
     } catch (caught) {
-      if (requestId === loadId.current)
-        setError(caught instanceof Error ? caught.message : 'Failed to load protest records');
+      if (requestId === loadId.current) setError(errorMessage(caught, 'Failed to load protest records'));
     }
   }, [scopeId]);
   useEffect(() => {
@@ -41,10 +45,9 @@ export function ProtestsPanel({ scopeId }: { scopeId: string }) {
   const print = async (protestId: string) => {
     setError(null);
     try {
-      const response = await boardService.openProtestPrint({ protestId });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(await boardService.openProtestPrint({ protestId }));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Failed to open the protest print preview');
+      setError(errorMessage(caught, 'Failed to open the protest print preview'));
     }
   };
 
@@ -66,11 +69,7 @@ export function ProtestsPanel({ scopeId }: { scopeId: string }) {
           </Button>
         </div>
       </header>
-      {error && (
-        <p role="alert" className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">
-          {error}
-        </p>
-      )}
+      {error && <InlineError role="alert">{error}</InlineError>}
       {creating && (
         <CreateProtestForm
           key={scopeId}
@@ -126,11 +125,10 @@ function CreateProtestForm({
   const [triggeredAt, setTriggeredAt] = useState('');
   const [formReference, setFormReference] = useState('');
   const [parentId, setParentId] = useState('');
-  const [lodgedAt, setLodgedAt] = useState(localDate(new Date()));
+  const [lodgedAt, setLodgedAt] = useState(toDateTimeLocalValue(new Date(), 'seconds'));
   const [feePaid, setFeePaid] = useState('');
   const [lateAcceptanceReason, setLateAcceptanceReason] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, run } = useAsyncAction();
   const formal = kind === 'WRITTEN' || kind === 'APPEAL';
   return (
     <form
@@ -138,11 +136,9 @@ function CreateProtestForm({
       onSubmit={(event) => {
         event.preventDefault();
         if (saving) return;
-        setSaving(true);
-        setError(null);
-        void (async () => {
-          try {
-            const response = await protestsService.create({
+        void run(async () => {
+          const created = unwrap(
+            await protestsService.create({
               scopeType: 'EVENT',
               scopeId,
               kind,
@@ -160,15 +156,10 @@ function CreateProtestForm({
                 : {}),
               feePaidEuro: feePaid === '' ? null : Number(feePaid),
               openedBy: official,
-            });
-            if (!response.success) throw new Error(response.error.message);
-            await onSaved(response.data);
-          } catch (caught) {
-            setError(caught instanceof Error ? caught.message : 'Failed to record the protest');
-          } finally {
-            setSaving(false);
-          }
-        })();
+            }),
+          );
+          await onSaved(created);
+        }, 'Failed to record the protest');
       }}
     >
       <h3 className="text-[13px] font-semibold text-vscode-text">Lodge protest or appeal</h3>
@@ -293,10 +284,9 @@ function ProtestDetail({
   const [type, setType] = useState<RecordProtestEntryPayload['type']>('NOTE');
   const [statement, setStatement] = useState('');
   const [official, setOfficial] = useState('');
-  const [occurredAt, setOccurredAt] = useState(localDate(new Date()));
+  const [occurredAt, setOccurredAt] = useState(toDateTimeLocalValue(new Date(), 'seconds'));
   const [ruleReference, setRuleReference] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, run } = useAsyncAction();
   return (
     <section className="space-y-3">
       <div className="border border-vscode-border p-3 text-xs">
@@ -320,28 +310,21 @@ function ProtestDetail({
           onSubmit={(event) => {
             event.preventDefault();
             if (saving) return;
-            setSaving(true);
-            setError(null);
-            void (async () => {
-              try {
-                const response = await protestsService.recordEntry({
+            void run(async () => {
+              unwrap(
+                await protestsService.recordEntry({
                   caseId: protest.id,
                   type,
                   statement,
                   officialName: official,
                   occurredAt: new Date(occurredAt).toISOString(),
                   ruleReference: ruleReference.trim() || null,
-                });
-                if (!response.success) throw new Error(response.error.message);
-                setStatement('');
-                setOccurredAt(localDate(new Date()));
-                await onChanged();
-              } catch (caught) {
-                setError(caught instanceof Error ? caught.message : 'Failed to record the action');
-              } finally {
-                setSaving(false);
-              }
-            })();
+                }),
+              );
+              setStatement('');
+              setOccurredAt(toDateTimeLocalValue(new Date(), 'seconds'));
+              await onChanged();
+            }, 'Failed to record the action');
           }}
         >
           {error && (
@@ -419,15 +402,10 @@ function ProtestDetail({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs text-vscode-text-muted">
+    <label className={stackedLabelClass}>
       {label}
       {children}
     </label>
   );
 }
-function localDate(date: Date) {
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 19);
-}
-const inputClass =
-  'min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1 text-[13px] text-vscode-text';
 const formClass = 'space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3';
