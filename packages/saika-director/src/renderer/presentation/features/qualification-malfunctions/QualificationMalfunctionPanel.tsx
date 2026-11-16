@@ -481,7 +481,7 @@ function MalfunctionDetail({
         <Fact label="Treatment" value={stageRule ? humanize(stageRule.allowableTreatment.type) : 'Sighting policy'} />
       </div>
       <p className="text-xs leading-5 text-vscode-text">{value.summary}</p>
-      <div className="rounded-[3px] bg-vscode-bg-secondary p-2.5 text-[11px] leading-4 text-vscode-text-muted">
+      <div className="rounded-[3px] bg-vscode-bg-light p-2.5 text-[11px] leading-4 text-vscode-text-muted">
         <p>Rule source: {value.rulePackIdentity?.id ?? 'Local policy snapshot'}</p>
         <p>References: {value.policySnapshot.ruleReferences.join(', ')}</p>
         <p>Required records: {value.policySnapshot.documentation.incidentRecords.join(' / ')}</p>
