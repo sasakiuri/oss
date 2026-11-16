@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 import { vistaService } from '@/renderer/services';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { VistaSettingsDto } from '@/shared/ipc/contracts/vista.contract';
 import { Button } from '../shared/common/Button';
 
 export function VistaSettingsPanel() {
   const [settings, setSettings] = useState<VistaSettingsDto | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
   const [reveal, setReveal] = useState(false);
   useEffect(() => {
     let disposed = false;
     void vistaService
       .getSettings()
       .then((response) => {
-        if (!response.success) throw new Error(response.error.message);
-        if (!disposed) setSettings(response.data);
+        const loaded = unwrap(response);
+        if (!disposed) setSettings(loaded);
       })
       .catch((caught: unknown) => {
-        if (!disposed) setError(caught instanceof Error ? caught.message : String(caught));
+        if (!disposed) setError(errorMessage(caught));
       });
     return () => {
       disposed = true;
@@ -26,17 +27,10 @@ export function VistaSettingsPanel() {
   }, []);
   const save = async () => {
     if (!settings) return;
-    setBusy(true);
-    setError(null);
-    try {
+    await run(async () => {
       const response = await vistaService.setSettings({ enabled: settings.enabled, port: settings.port });
-      if (!response.success) throw new Error(response.error.message);
-      setSettings(response.data);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
+      setSettings(unwrap(response));
+    });
   };
   return (
     <section aria-label="Saika Vista" className="mt-6 space-y-3 border-t border-vscode-border py-4">

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 
 import { resultPublicationService } from '@/renderer/services';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts/resultPublication.contract';
 
 import { Button } from '../shared/common/Button';
 
 export function ResultPublicationSettingsPanel() {
   const [settings, setSettings] = useState<ResultPublicationReviewSettingsDto | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     let disposed = false;
@@ -16,8 +17,7 @@ export function ResultPublicationSettingsPanel() {
       .getReviewSettings()
       .then((response) => {
         if (disposed) return;
-        if (!response.success) throw new Error(response.error.message);
-        setSettings(response.data);
+        setSettings(unwrap(response));
       })
       .catch((caught: unknown) => {
         if (!disposed) setError(String(caught));
@@ -28,19 +28,12 @@ export function ResultPublicationSettingsPanel() {
   }, []);
   const save = async () => {
     if (!settings) return;
-    setBusy(true);
-    setError(null);
-    setSaved(false);
-    try {
+    await run(async () => {
+      setSaved(false);
       const response = await resultPublicationService.setReviewSettings(settings);
-      if (!response.success) throw new Error(response.error.message);
-      setSettings(response.data);
+      setSettings(unwrap(response));
       setSaved(true);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
   return (
     <section aria-label="Official result checks" className="mt-6 space-y-3 border-t border-vscode-border py-4">
