@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
+import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
@@ -62,4 +64,16 @@ export function buildSession(
   }>,
 ): Session {
   return Session.create(overrides?.discipline ?? Discipline.airRifle10m());
+}
+
+// ---------------------------------------------------------------------------
+// Aggregates
+// ---------------------------------------------------------------------------
+
+type CompetitionStateProps = Parameters<typeof CompetitionState.reconstruct>[0];
+
+/** A new (IDLE) BR60S competition `comp-1` on `session-1`; overrides replace stored fields. */
+export function buildCompetitionState(overrides?: Partial<CompetitionStateProps>): CompetitionState {
+  const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+  return overrides ? CompetitionState.reconstruct({ ...state, ...overrides }) : state;
 }

@@ -5,9 +5,10 @@ import { createAdvanceStageHandler } from '@/main/modules/competition/applicatio
 import { SessionLifecycleService } from '@/main/modules/competition/application/SessionLifecycleService';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { RoundConfig } from '@/main/modules/competition/domain/CompetitionTypeDefinition';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+
+import { buildCompetitionState } from '../../../../../helpers/factories';
 
 describe('createAdvanceStageHandler', () => {
   let mockCompetitionRepo: ICompetitionRepository;
@@ -32,7 +33,7 @@ describe('createAdvanceStageHandler', () => {
   });
 
   it('should advance from SERIES_COMPLETE to the next stage', async () => {
-    let state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    let state = buildCompetitionState();
     state = state.startStage().expireTimer(); // SERIES_COMPLETE
 
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
@@ -46,7 +47,7 @@ describe('createAdvanceStageHandler', () => {
   });
 
   it('should emit StageAdvanced event when stage changes', async () => {
-    let state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    let state = buildCompetitionState();
     state = state.startStage().expireTimer();
 
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
@@ -60,7 +61,7 @@ describe('createAdvanceStageHandler', () => {
 
   describe('stage transition where next stage has requiresNewSession: true', () => {
     it('should call SessionLifecycleService.rotateSession', async () => {
-      let state = CompetitionState.create('comp-1', 'old-session-id', BR60S.config);
+      let state = buildCompetitionState({ sessionId: 'old-session-id' });
       state = state.startStage().expireTimer();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
@@ -71,7 +72,7 @@ describe('createAdvanceStageHandler', () => {
     });
 
     it('should update sessionId of CompetitionState to the new session', async () => {
-      let state = CompetitionState.create('comp-1', 'old-session-id', BR60S.config);
+      let state = buildCompetitionState({ sessionId: 'old-session-id' });
       state = state.startStage().expireTimer();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
@@ -84,7 +85,7 @@ describe('createAdvanceStageHandler', () => {
     });
 
     it('should emit PhaseChanged event', async () => {
-      let state = CompetitionState.create('comp-1', 'old-session-id', BR60S.config);
+      let state = buildCompetitionState({ sessionId: 'old-session-id' });
       state = state.startStage().expireTimer();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
@@ -138,7 +139,7 @@ describe('createAdvanceStageHandler', () => {
   describe('series progression (within the same stage)', () => {
     it('should not call rotateSession', async () => {
       // Progressing within BR60S match stage (6 series)
-      let state = CompetitionState.create('comp-1', 'old-session-id', BR60S.config);
+      let state = buildCompetitionState({ sessionId: 'old-session-id' });
       // Advance from stage 0 (sighting) to stage 1 (match)
       state = state.startStage().expireTimer(); // SERIES_COMPLETE (stage 0)
 
@@ -167,7 +168,7 @@ describe('createAdvanceStageHandler', () => {
     });
 
     it('should not emit StageAdvanced event', async () => {
-      let state = CompetitionState.create('comp-1', 'old-session-id', BR60S.config);
+      let state = buildCompetitionState({ sessionId: 'old-session-id' });
       state = state.startStage().expireTimer();
       state = state.advanceToNextStage();
       state = state.startNextSeries();

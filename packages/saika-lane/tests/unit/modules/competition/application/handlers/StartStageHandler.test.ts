@@ -3,10 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStartStageHandler } from '@/main/modules/competition/application/handlers/StartStageHandler';
 import { SessionLifecycleService } from '@/main/modules/competition/application/SessionLifecycleService';
-import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+
+import { buildCompetitionState } from '../../../../../helpers/factories';
 
 describe('createStartStageHandler', () => {
   let mockCompetitionRepo: ICompetitionRepository;
@@ -31,7 +31,7 @@ describe('createStartStageHandler', () => {
   });
 
   it('transitions from IDLE to ACTIVE and saves', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    const state = buildCompetitionState();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
     const handler = createStartStageHandler(mockCompetitionRepo, mockSessionLifecycle, mockEventBus);
@@ -44,7 +44,7 @@ describe('createStartStageHandler', () => {
   });
 
   it('PhaseChanged event is emitted', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    const state = buildCompetitionState();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
     const handler = createStartStageHandler(mockCompetitionRepo, mockSessionLifecycle, mockEventBus);
@@ -68,7 +68,7 @@ describe('createStartStageHandler', () => {
 
   describe('ACTIVE (unscored) → resetToIdle', () => {
     it('SessionLifecycleService.rotateSession is called', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       const activeState = idleState.startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(activeState);
 
@@ -79,7 +79,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('resets to IDLE state with new sessionId', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       const activeState = idleState.startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(activeState);
 
@@ -93,7 +93,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('resetToIdle resets seriesShotCount, stageIndex, and seriesIndex', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       const activeState = idleState.startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(activeState);
 
@@ -108,7 +108,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('PhaseChanged event is emitted (ACTIVE → IDLE)', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       const activeState = idleState.startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(activeState);
 
@@ -125,7 +125,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('rotateSession is not called in IDLE state', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+      const state = buildCompetitionState();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
       const handler = createStartStageHandler(mockCompetitionRepo, mockSessionLifecycle, mockEventBus);
@@ -137,7 +137,7 @@ describe('createStartStageHandler', () => {
 
   describe('ACTIVE (scored) → resetToIdle', () => {
     it('calls rotateSession + resetToIdle from ACTIVE[scored] and saves as IDLE', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       const matchActiveState = idleState.startStage().endStage().advanceToNextStage().startNextSeries();
       expect(matchActiveState.phase).toBe('ACTIVE');
       expect(matchActiveState.currentStageConfig.scored).toBe(true);
@@ -157,7 +157,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('PhaseChanged event is emitted (ACTIVE → IDLE)', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       const matchActiveState = idleState.startStage().endStage().advanceToNextStage().startNextSeries();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(matchActiveState);
 
@@ -176,7 +176,7 @@ describe('createStartStageHandler', () => {
 
   describe('SERIES_COMPLETE / SERIES_ENTERED / STAGE_ENTERED → rewindToStage', () => {
     it('calls rewindToStage from SERIES_COMPLETE and rotates session', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       // IDLE → ACTIVE → endStage → SERIES_COMPLETE
       const seriesCompleteState = idleState.startStage().endStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(seriesCompleteState);
@@ -192,7 +192,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('calls rewindToStage from STAGE_ENTERED and rotates session', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       // IDLE → ACTIVE → endStage → SERIES_COMPLETE → advanceToNextStage → STAGE_ENTERED
       const stageEnteredState = idleState.startStage().endStage().advanceToNextStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(stageEnteredState);
@@ -208,7 +208,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('calls rewindToStage from SERIES_ENTERED and rotates session', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       // IDLE → ACTIVE → expireTimer → SERIES_COMPLETE → advanceToNextStage → STAGE_ENTERED
       // → startNextSeries → ACTIVE → 10 shots → SERIES_COMPLETE → advanceToNextStage → SERIES_ENTERED
       let state = idleState.startStage().expireTimer().advanceToNextStage().startNextSeries();
@@ -229,7 +229,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('returns new sessionId', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       const seriesCompleteState = idleState.startStage().endStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(seriesCompleteState);
 
@@ -240,7 +240,7 @@ describe('createStartStageHandler', () => {
     });
 
     it('PhaseChanged event is emitted with correct data', async () => {
-      const idleState = CompetitionState.create('comp-1', 'old-session', BR60S.config);
+      const idleState = buildCompetitionState({ sessionId: 'old-session' });
       const seriesCompleteState = idleState.startStage().endStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(seriesCompleteState);
 

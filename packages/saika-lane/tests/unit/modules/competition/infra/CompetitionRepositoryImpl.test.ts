@@ -7,6 +7,7 @@ import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/Comp
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
+import { buildCompetitionState } from '../../../../helpers/factories';
 
 function createMockStorage(): ILocalStorage {
   const store = new Map<string, unknown>();
@@ -58,7 +59,7 @@ describe('CompetitionRepositoryImpl', () => {
       expect((await repo.findActive())?.id).toBe(active.id);
     });
     it('can save a CompetitionState', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+      const state = buildCompetitionState();
       await repo.save(state);
 
       // CREATED state (non-FINISHED) → batch write with setMany
@@ -66,7 +67,7 @@ describe('CompetitionRepositoryImpl', () => {
     });
 
     it('ACTIVE state sets data and active key together via setMany', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       await repo.save(state);
 
       // one write with setMany (data + active key)
@@ -77,7 +78,7 @@ describe('CompetitionRepositoryImpl', () => {
     });
 
     it('FINISHED state retains its session link and deletes the active key', async () => {
-      const created = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+      const created = buildCompetitionState();
       await repo.save(created);
       const state = created.finish();
       await repo.save(state);
@@ -88,7 +89,7 @@ describe('CompetitionRepositoryImpl', () => {
     });
 
     it('does not migrate the preceding run when its first update starts a new session at the same stage', async () => {
-      const previous = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage().endStage();
+      const previous = buildCompetitionState().startStage().endStage();
       await repo.save(previous);
       storage.delete('vista-session-links:comp-1');
 
@@ -100,7 +101,7 @@ describe('CompetitionRepositoryImpl', () => {
 
   describe('findById()', () => {
     it('can restore a saved CompetitionState', async () => {
-      const original = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const original = buildCompetitionState().startStage();
       await repo.save(original);
 
       const found = await repo.findById('comp-1');
@@ -119,7 +120,7 @@ describe('CompetitionRepositoryImpl', () => {
 
   describe('findBySessionId()', () => {
     it('can search by session ID', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+      const state = buildCompetitionState();
       await repo.save(state);
 
       const found = await repo.findBySessionId('session-1');
@@ -135,7 +136,7 @@ describe('CompetitionRepositoryImpl', () => {
 
   describe('findActive()', () => {
     it('can retrieve the active competition', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       await repo.save(state);
 
       const found = await repo.findActive();
@@ -151,7 +152,7 @@ describe('CompetitionRepositoryImpl', () => {
 
   describe('delete()', () => {
     it('can delete a competition', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       await repo.save(state);
 
       await repo.delete('comp-1');
@@ -161,7 +162,7 @@ describe('CompetitionRepositoryImpl', () => {
     });
 
     it('active key is also deleted', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       await repo.save(state);
 
       await repo.delete('comp-1');
@@ -173,7 +174,7 @@ describe('CompetitionRepositoryImpl', () => {
 
   describe('serialize / deserialize', () => {
     it('timer state is correctly saved and restored', async () => {
-      let state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      let state = buildCompetitionState().startStage();
       state = state.tickTimerBy(120); // 2 minutes elapsed
       await repo.save(state);
 
@@ -183,7 +184,7 @@ describe('CompetitionRepositoryImpl', () => {
     });
 
     it('stage and series information is correctly saved and restored', async () => {
-      let state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+      let state = buildCompetitionState();
       state = state.startStage().expireTimer();
       state = state.advanceToNextStage(); // match stage
       state = state.startNextSeries();

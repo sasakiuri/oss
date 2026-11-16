@@ -2,11 +2,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createFinishCompetitionHandler } from '@/main/modules/competition/application/handlers/FinishCompetitionHandler';
-import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+
+import { buildCompetitionState } from '../../../../../helpers/factories';
 
 describe('createFinishCompetitionHandler', () => {
   let mockCompetitionRepo: ICompetitionRepository;
@@ -40,7 +40,7 @@ describe('createFinishCompetitionHandler', () => {
   });
 
   it('transitions from ACTIVE to FINISHED and saves', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
     vi.mocked(mockSessionRepo.findById).mockResolvedValue(null);
 
@@ -53,7 +53,7 @@ describe('createFinishCompetitionHandler', () => {
   });
 
   it('CompetitionFinished and PhaseChanged events are emitted', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
     vi.mocked(mockSessionRepo.findById).mockResolvedValue(null);
 
@@ -76,7 +76,7 @@ describe('createFinishCompetitionHandler', () => {
   });
 
   it('also finishes the associated Session', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
     const mockSession = {
@@ -93,7 +93,7 @@ describe('createFinishCompetitionHandler', () => {
   });
 
   it('does not call Session.finish when Session is already FINISHED', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
     const mockSession = {

@@ -27,6 +27,8 @@ import { Mode } from '@/main/modules/session/domain/Mode';
 import type { PhaseChangedEvent, ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
+import { buildCompetitionState } from '../../../../helpers/factories';
+
 describe('createShotRecordedHandler', () => {
   let mockRepo: ICompetitionRepository;
   let mockEventBus: IEventBus;
@@ -58,7 +60,7 @@ describe('createShotRecordedHandler', () => {
 
   it('should do nothing when shot cannot be accepted', async () => {
     // SERIES_COMPLETE phase → canAcceptShot() returns false
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage().expireTimer();
+    const state = buildCompetitionState().startStage().expireTimer();
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
@@ -68,7 +70,7 @@ describe('createShotRecordedHandler', () => {
   });
 
   it('should accept shot in IDLE (training mode) but skip series recording', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    const state = buildCompetitionState();
     expect(state.phase).toBe('IDLE');
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
@@ -81,7 +83,7 @@ describe('createShotRecordedHandler', () => {
   });
 
   it('should record and save shot in ACTIVE state', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
@@ -94,11 +96,7 @@ describe('createShotRecordedHandler', () => {
 
   it('should emit SeriesCompleted event when series is complete', async () => {
     // Advance to match stage (maxShots=10)
-    let state = CompetitionState.create('comp-1', 'session-1', BR60S.config)
-      .startStage()
-      .expireTimer()
-      .advanceToNextStage()
-      .startNextSeries();
+    let state = buildCompetitionState().startStage().expireTimer().advanceToNextStage().startNextSeries();
 
     const maxShots = state.currentSeriesConfig.maxShots;
 
@@ -120,11 +118,7 @@ describe('createShotRecordedHandler', () => {
   });
 
   it('does not count authorized sighting shots in a scored stage', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config)
-      .startStage()
-      .expireTimer()
-      .advanceToNextStage()
-      .startNextSeries();
+    const state = buildCompetitionState().startStage().expireTimer().advanceToNextStage().startNextSeries();
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
     const event = {
       type: 'ShotRecorded',
@@ -164,7 +158,7 @@ describe('createShotRecordedHandler', () => {
   });
 
   it('announces persisted progress without completing an open series', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
@@ -181,7 +175,7 @@ describe('createShotRecordedHandler', () => {
   });
 
   it('does not announce progress if saving the counter fails', async () => {
-    const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+    const state = buildCompetitionState().startStage();
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
     vi.mocked(mockRepo.save).mockRejectedValue(new Error('DB failure'));
 

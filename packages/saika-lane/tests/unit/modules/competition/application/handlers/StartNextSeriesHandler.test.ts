@@ -2,10 +2,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStartNextSeriesHandler } from '@/main/modules/competition/application/handlers/StartNextSeriesHandler';
-import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+
+import { buildCompetitionState } from '../../../../../helpers/factories';
 
 describe('createStartNextSeriesHandler', () => {
   let mockCompetitionRepo: ICompetitionRepository;
@@ -26,7 +26,7 @@ describe('createStartNextSeriesHandler', () => {
   });
 
   it('transitions from SERIES_COMPLETE to ACTIVE and saves', async () => {
-    let state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    let state = buildCompetitionState();
     state = state.startStage().expireTimer(); // SERIES_COMPLETE
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
@@ -39,7 +39,7 @@ describe('createStartNextSeriesHandler', () => {
   });
 
   it('transitions from SERIES_ENTERED to ACTIVE', async () => {
-    let state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    let state = buildCompetitionState();
     state = state.startStage().expireTimer();
     state = state.advanceToNextStage(); // STAGE_ENTERED (scored stage)
     state = state.startNextSeries(); // ACTIVE (series 0)
@@ -58,7 +58,7 @@ describe('createStartNextSeriesHandler', () => {
   });
 
   it('transitions from STAGE_ENTERED to ACTIVE', async () => {
-    let state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    let state = buildCompetitionState();
     state = state.startStage().expireTimer();
     state = state.advanceToNextStage(); // STAGE_ENTERED (scored stage)
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
@@ -71,7 +71,7 @@ describe('createStartNextSeriesHandler', () => {
   });
 
   it('PhaseChanged event is emitted', async () => {
-    let state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+    let state = buildCompetitionState();
     state = state.startStage().expireTimer();
     vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 

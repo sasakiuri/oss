@@ -7,6 +7,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
+import { buildCompetitionState } from '../../../../helpers/factories';
 import { createMockStorage } from '../../../../helpers/mockDependencies';
 
 // createLogger mock
@@ -141,7 +142,7 @@ describe('LaneTimerService', () => {
 
   describe('startAt()', () => {
     it('expires immediately if loading the competition crosses the original deadline', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockImplementation(async () => {
         vi.setSystemTime(Date.now() + 2_000);
         return state;
@@ -154,7 +155,7 @@ describe('LaneTimerService', () => {
     });
 
     it('keeps the absolute deadline when a command arrives between whole seconds', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       const receivedAt = Date.now();
       await timerService.startAt('comp-1', new Date(receivedAt - 1_500).toISOString(), 60);
@@ -169,7 +170,7 @@ describe('LaneTimerService', () => {
     });
 
     it('recent past time: timer starts with remaining time', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
       // started 10 seconds ago, total duration 60 seconds
@@ -183,7 +184,7 @@ describe('LaneTimerService', () => {
     });
 
     it('far past time: expiry is processed immediately', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
       // started 120 seconds ago, total duration 60 seconds → already expired
@@ -208,7 +209,7 @@ describe('LaneTimerService', () => {
     });
 
     it('future time: timer waits until the absolute start time', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
       // starts 5 seconds in the future
@@ -255,7 +256,7 @@ describe('LaneTimerService', () => {
     });
 
     it('does nothing for non-ACTIVE phase', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+      const state = buildCompetitionState();
       // IDLE phase
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
@@ -304,7 +305,7 @@ describe('LaneTimerService', () => {
     });
 
     it('does not expire early when callbacks occur within the same second', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       timerService.start('comp-1', 2, 600);
       for (let tick = 0; tick < 3; tick += 1) {
@@ -363,7 +364,7 @@ describe('LaneTimerService', () => {
     });
 
     it('persists to repository on timer expiry', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
       // start with 1 second remaining
@@ -377,7 +378,7 @@ describe('LaneTimerService', () => {
     });
 
     it('TimerExpired and PhaseChanged events are emitted on timer expiry', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
       // start with 1 second remaining
@@ -396,7 +397,7 @@ describe('LaneTimerService', () => {
     });
 
     it('timer stops when non-ACTIVE phase on expiry', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config);
+      const state = buildCompetitionState();
       // IDLE phase
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
@@ -468,7 +469,7 @@ describe('LaneTimerService', () => {
 
   describe('expire()', () => {
     it('forces an ACTIVE competition to SERIES_COMPLETE', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
 
       timerService.start('comp-1', 600, 600);
@@ -487,7 +488,7 @@ describe('LaneTimerService', () => {
       const firstSave = new Promise<void>((resolve) => {
         releaseFirstSave = resolve;
       });
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(async () => firstSave);
       timerService = new LaneTimerService(mockCompetitionRepo, mockEventBus, createMockStorage(), () => permitted);
@@ -510,7 +511,7 @@ describe('LaneTimerService', () => {
       { clockChangeMs: -60_000, remainingMs: 590_000 },
       { clockChangeMs: 250, remainingMs: 589_750 },
     ])('samples the stopped time after a $clockChangeMs ms clock change', async ({ clockChangeMs, remainingMs }) => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       timerService.start('comp-1', 600, 600);
       vi.setSystemTime(Date.now() + 10_000);
@@ -526,7 +527,7 @@ describe('LaneTimerService', () => {
     });
 
     it('does not stop a replacement timer while loading the interrupted competition', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       let releaseRead!: (value: CompetitionState) => void;
       vi.mocked(mockCompetitionRepo.findById).mockImplementationOnce(
         () =>
@@ -548,7 +549,7 @@ describe('LaneTimerService', () => {
     });
 
     it('does not stop or report a stale pause over a replacement timer during persistence', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       let releaseSave!: () => void;
       vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(
@@ -573,7 +574,7 @@ describe('LaneTimerService', () => {
     });
 
     it('keeps the countdown frozen while saving the interrupted time', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       let releaseSave!: () => void;
       vi.mocked(mockCompetitionRepo.save).mockImplementationOnce(
@@ -597,7 +598,7 @@ describe('LaneTimerService', () => {
     });
 
     it('remains stopped when persisting the interrupted time fails', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       vi.mocked(mockCompetitionRepo.save).mockRejectedValueOnce(new Error('storage unavailable'));
       timerService.start('comp-1', 600, 600);
@@ -612,7 +613,7 @@ describe('LaneTimerService', () => {
     });
 
     it('freezes and persists the exact in-memory remaining time', async () => {
-      const state = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const state = buildCompetitionState().startStage();
       vi.mocked(mockCompetitionRepo.findById).mockResolvedValue(state);
       timerService.start('comp-1', 600, 600);
       vi.setSystemTime(Date.now() + 10_000);
@@ -627,7 +628,7 @@ describe('LaneTimerService', () => {
     });
 
     it('persists the authorized duration before starting the resumed timer', async () => {
-      const original = CompetitionState.create('comp-1', 'session-1', BR60S.config).startStage();
+      const original = buildCompetitionState().startStage();
       let current = original;
       vi.mocked(mockCompetitionRepo.findById).mockImplementation(async () => current);
       vi.mocked(mockCompetitionRepo.save).mockImplementation(async (state) => {
