@@ -6,6 +6,7 @@ import {
   copyFileSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -160,6 +161,8 @@ test("requires Nilay About to retain its MIT license", (t) => {
 const windowOptions =
   "const options = { nodeIntegration: false, contextIsolation: true, sandbox: true };\n";
 const vistaGuard = "packages/saika-vista/src/main/protectWindow.ts";
+const laneGuard =
+  "packages/saika-lane/src/main/shared-infra/window/protectWindow.ts";
 const vistaGuardSource = [
   "export function protectWindow(window: BrowserWindow): void {",
   "  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));",
@@ -167,6 +170,18 @@ const vistaGuardSource = [
   "  window.webContents.on('will-attach-webview', (event) => event.preventDefault());",
   "  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));",
   "  window.webContents.session.setPermissionCheckHandler(() => false);",
+  "}",
+  "",
+];
+// Lane's guard is conditional: a window may reload the page it already shows.
+const laneGuardSource = [
+  "export function protectWindow(window: BrowserWindow): void {",
+  "  const { webContents } = window;",
+  "  webContents.setWindowOpenHandler(() => ({ action: 'deny' }));",
+  "  webContents.on('will-navigate', (details) => details.url === webContents.getURL() || details.preventDefault());",
+  "  webContents.on('will-attach-webview', (event) => event.preventDefault());",
+  "  webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));",
+  "  webContents.session.setPermissionCheckHandler(() => false);",
   "}",
   "",
 ];
@@ -185,20 +200,21 @@ function securityFixture(t) {
   const f = fixture(t);
   f.write(".gitignore", ".local/\n.next/\nout/\n");
   for (const file of [
-    "packages/saika-lane/src/main/createMainWindowOptions.ts",
-    "packages/saika-lane/src/main/modules/report/infra/PrintWindowService.ts",
     "packages/saika-director/src/main/main.ts",
     "packages/saika-director/src/main/infrastructure/window/WindowManager.ts",
   ]) {
     f.write(file, windowOptions);
   }
   for (const file of [
+    "packages/saika-lane/src/main/createMainWindowOptions.ts",
+    "packages/saika-lane/src/main/modules/report/infra/PrintWindowService.ts",
     "packages/saika-vista/src/main/main.ts",
     "packages/saika-vista/src/main/OutputWindows.ts",
   ]) {
     f.write(file, `${windowOptions}protectWindow(window);\n`);
   }
   f.write(vistaGuard, vistaGuardSource.join("\n"));
+  f.write(laneGuard, laneGuardSource.join("\n"));
   f.write(directorDocumentWindow, directorDocumentWindowSource.join("\n"));
   const bin = join(f.root, ".local/bin");
   // Isolate network/dependency scanners; the source-security functions are real.
@@ -260,6 +276,50 @@ test("rejects Vista windows that are not passed to the window guard", (t) => {
     result.output.includes(
       "packages/saika-vista/src/main/OutputWindows.ts: windows are not passed to protectWindow",
     ),
+    result.output,
+  );
+});
+
+test("accepts Lane's guard, which allows a window to reload its own page", (t) => {
+  const f = securityFixture(t);
+  assert.match(
+    readFileSync(join(f.root, laneGuard), "utf8"),
+    /details\.url === webContents\.getURL\(\) \|\| details\.preventDefault\(\)/,
+  );
+  const result = f.run();
+  assert.equal(result.status, 0, result.output);
+});
+
+for (const file of [
+  "packages/saika-lane/src/main/createMainWindowOptions.ts",
+  "packages/saika-lane/src/main/modules/report/infra/PrintWindowService.ts",
+]) {
+  test(`rejects the Lane window in ${file.split("/").at(-1)} when it is not passed to the window guard`, (t) => {
+    const f = securityFixture(t);
+    f.write(file, windowOptions);
+    const result = f.run();
+    assert.equal(result.status, 1, result.output);
+    assert.ok(
+      result.output.includes(
+        `${file}: windows are not passed to protectWindow`,
+      ),
+      result.output,
+    );
+  });
+}
+
+test("rejects a Lane window guard that does not prevent navigation", (t) => {
+  const f = securityFixture(t);
+  f.write(
+    laneGuard,
+    laneGuardSource
+      .filter((line) => !line.includes("will-navigate"))
+      .join("\n"),
+  );
+  const result = f.run();
+  assert.equal(result.status, 1, result.output);
+  assert.ok(
+    result.output.includes(`${laneGuard}: navigation is not prevented`),
     result.output,
   );
 });

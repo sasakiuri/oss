@@ -12,7 +12,7 @@
           "src/main/modules/report/infra/PrintWindowService.ts"
         ],
         "documentWindowFiles": [],
-        "windowGuard": null
+        "windowGuard": "src/main/shared-infra/window/protectWindow.ts"
       }
     },
     {
