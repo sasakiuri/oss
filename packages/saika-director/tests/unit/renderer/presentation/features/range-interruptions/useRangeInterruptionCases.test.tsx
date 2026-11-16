@@ -6,7 +6,7 @@ import { useRangeInterruptionCases } from '@/renderer/presentation/features/rang
 import { rangeInterruptionsService } from '@/renderer/services';
 import type { RangeInterruptionCaseDto, RangeInterruptionScopePayload } from '@/shared/ipc/contracts';
 
-import { ok } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 import { fixture } from './fixtures';
 
 vi.mock('@/renderer/services', async () =>
@@ -184,6 +184,53 @@ describe('useRangeInterruptionCases', () => {
       mutation.resolve(fixture());
       await pending;
     });
+  });
+
+  it('selects the newest record that is neither closed nor void by default', async () => {
+    listAll.mockResolvedValue(
+      response(
+        fixture({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', summary: 'Older ended', status: 'ENDED' }),
+        fixture({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', summary: 'Newer granted', status: 'GRANTED' }),
+        fixture({ id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', summary: 'Closed', status: 'CLOSED' }),
+        fixture({ id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', summary: 'Void', status: 'VOID' }),
+      ),
+    );
+    const { result } = renderHook(() => useRangeInterruptionCases());
+    await waitFor(() => expect(result.current.selectedCase?.summary).toBe('Newer granted'));
+  });
+
+  it('selects the newest record by default when every record is closed or void', async () => {
+    listAll.mockResolvedValue(
+      response(
+        fixture({ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', summary: 'Closed', status: 'CLOSED' }),
+        fixture({ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', summary: 'Void', status: 'VOID' }),
+      ),
+    );
+    const { result } = renderHook(() => useRangeInterruptionCases());
+    await waitFor(() => expect(result.current.selectedCase?.summary).toBe('Void'));
+  });
+
+  it('shows the message of a failed load response', async () => {
+    listAll.mockResolvedValueOnce(fail('Ledger unavailable'));
+    const { result } = renderHook(() => useRangeInterruptionCases());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe('Ledger unavailable');
+  });
+
+  it('shows the load fallback text when the query rejects with a non-error value', async () => {
+    listAll.mockRejectedValueOnce('bridge closed');
+    const { result } = renderHook(() => useRangeInterruptionCases());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe('Failed to load range interruptions');
+  });
+
+  it('shows the command fallback text when a command rejects with a non-error value', async () => {
+    const { result } = renderHook(() => useRangeInterruptionCases());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      expect(await result.current.runMutation(() => Promise.reject('bridge closed'))).toBe(false);
+    });
+    expect(result.current.error).toBe('Failed to update the interruption record');
   });
 
   it('ignores requests from a discarded Strict Mode effect', async () => {
