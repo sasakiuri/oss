@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
+
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import {
   AdvanceStageToken,
@@ -12,7 +14,6 @@ import {
   StartStageToken,
 } from '@/main/composition/tokens';
 import { competitionContract } from '@/shared/ipc/contracts';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 import {
   createPhaseChangedHandler,

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
 import { settingsModule } from '@/main/modules/settings/settings.module';
 import { PrintSettingsSchema, type AppSettingsDto } from '@/shared/ipc/contracts';
 import { settingsContract } from '@/shared/ipc/contracts';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 // ---------------------------------------------------------------------------
 // Types

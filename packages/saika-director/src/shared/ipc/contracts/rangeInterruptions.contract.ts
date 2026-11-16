@@ -6,7 +6,7 @@ import {
   QualificationRecoveryStatePayloadSchema,
 } from '@/shared/mqtt';
 
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const uuidSchema = z.string().uuid();
 const scopeTypeSchema = z.enum(['COMPETITION', 'EVENT']);

@@ -1,4 +1,4 @@
-import type { IpcErrorDto } from '@/shared/ipc/contracts';
+import type { IpcErrorDto } from '@sasakiuri/saika-ipc';
 
 /** A successful IPC response. */
 export function ok<T>(data: T): { success: true; data: T } {

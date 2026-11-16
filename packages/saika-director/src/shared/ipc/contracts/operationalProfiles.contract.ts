@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { OperationalModeSchema as mode, OperationalModesSchema as modes } from './operationalSettings.schema';
 
 const selection = z.object({

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MalfunctionFiringEvidenceSchema, MalfunctionFiringRequestSchema } from '@/shared/mqtt/MalfunctionFiring';
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const intent = z.object({
   readinessConfirmed: z.literal(true),

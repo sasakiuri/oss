@@ -1,13 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
-import {
-  command,
-  commandDataResponseSchema,
-  defineContract,
-  query,
-  queryResponseSchema,
-} from '@/shared/ipc/defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 

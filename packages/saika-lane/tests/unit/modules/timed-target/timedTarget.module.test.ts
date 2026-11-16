@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { timedTargetModule } from '@/main/modules/timed-target/timedTarget.module';
 import { TimingProfileService, StoredTimingProfiles } from '@/main/modules/timing-profiles';
 import type { timedTargetContract } from '@/shared/ipc/contracts/timedTarget.contract';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 import {

@@ -6,7 +6,7 @@ import {
   CommandResponseSchema,
   commandDataResponseSchema,
   queryResponseSchema,
-} from '../defineContract';
+} from '@sasakiuri/saika-ipc';
 
 // ---------------------------------------------------------------------------
 // Shared sub-schemas

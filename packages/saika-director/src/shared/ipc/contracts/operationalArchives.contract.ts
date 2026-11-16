@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const cancelled = z.object({ status: z.literal('CANCELLED') });

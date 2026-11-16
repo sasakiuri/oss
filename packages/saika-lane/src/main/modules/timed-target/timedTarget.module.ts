@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
+
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { timedTargetContract } from '@/shared/ipc/contracts/timedTarget.contract';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 import { toTimedTargetStateDto } from './toTimedTargetStateDto';
 

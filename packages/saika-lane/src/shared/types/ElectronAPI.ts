@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Renderer bridge types inferred from the shared IPC contracts. */
 
+import type { InferBridge, InferEventBridge, InferOutput } from '@sasakiuri/saika-ipc';
+
 import type {
   startupContract,
   competitionContract,
@@ -19,7 +21,6 @@ import type {
   windowContract,
   vistaContract,
 } from '@/shared/ipc/contracts';
-import type { InferBridge, InferEventBridge, InferOutput } from '@/shared/ipc/defineContract';
 
 // ---------------------------------------------------------------------------
 // Bridge types inferred from contracts

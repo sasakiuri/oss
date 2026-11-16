@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { z } from 'zod';
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const settings = z.object({
   enabled: z.boolean(),

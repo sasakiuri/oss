@@ -3,7 +3,7 @@ THIRD-PARTY SOFTWARE NOTICES
 This file is generated from the installed production dependency closure of
 @sasakiuri/saika-lane. Do not edit it manually.
 
-Package/version entries: 138
+Package/version entries: 139
 
 The following npm package may be included in this product:
 
@@ -105,6 +105,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 The following npm packages may be included in this product:
 
+ - @sasakiuri/saika-ipc@0.1.0
  - @sasakiuri/saika-protocol@0.2.1
  - @sasakiuri/saika-rules@0.2.0
  - @sasakiuri/saika-updater@0.2.1

@@ -4,7 +4,7 @@ import { SAFETY_STOP_CLEARANCE_RULE_REFERENCES, SafetyStopClearancePolicy } from
 import type { DirectorMqttService } from './DirectorMqttService';
 import type { CommandBatchResult } from './DirectorMqttTypes';
 
-import type { InferHandlers } from '@/shared/ipc/defineContract';
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import type { ISafetyStopAuditJournal } from '../domain/ISafetyStopAuditJournal';
 
 interface Dependencies {

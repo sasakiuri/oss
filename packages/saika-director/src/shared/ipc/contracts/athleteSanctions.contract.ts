@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const uuid = z.string().uuid();
 const linkBasis = z.enum(['ISSF_ID', 'MANUAL']);

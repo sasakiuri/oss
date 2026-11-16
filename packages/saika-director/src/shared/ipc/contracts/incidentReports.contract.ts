@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 import { ScoringDecisionTypeSchema } from './scoringDecisions.contract';
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const uuidSchema = z.string().uuid();
 const officialRoleSchema = z.enum([

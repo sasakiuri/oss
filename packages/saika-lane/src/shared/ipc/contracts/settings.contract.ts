@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
+import { command, CommandResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { z } from 'zod';
 
-import { command, CommandResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
 import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';
 
 // ============================================================

@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: MIT
-import { z } from 'zod';
-
-import { PHASE_VALUES } from '@/shared/types/Phase';
-
 import {
   CommandResponseSchema,
   command,
@@ -10,7 +6,10 @@ import {
   defineContract,
   query,
   queryResponseSchema,
-} from '../defineContract';
+} from '@sasakiuri/saika-ipc';
+import { z } from 'zod';
+
+import { PHASE_VALUES } from '@/shared/types/Phase';
 
 // ============================================================
 // Command input schemas

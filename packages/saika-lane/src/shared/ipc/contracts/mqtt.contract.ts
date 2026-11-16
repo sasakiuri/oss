@@ -1,4 +1,12 @@
 // SPDX-License-Identifier: MIT
+import {
+  command,
+  commandDataResponseSchema,
+  CommandResponseSchema,
+  defineContract,
+  query,
+  queryResponseSchema,
+} from '@sasakiuri/saika-ipc';
 import { z } from 'zod';
 
 import {
@@ -8,15 +16,6 @@ import {
 } from '@/shared/mqtt/EstComplaintSignal';
 import { QualificationMalfunctionSignalPayloadSchema } from '@/shared/mqtt/QualificationMalfunctionSignal';
 import { RangeOfficerRequestPayloadSchema } from '@/shared/mqtt/RangeOfficerRequest';
-
-import {
-  command,
-  commandDataResponseSchema,
-  CommandResponseSchema,
-  defineContract,
-  query,
-  queryResponseSchema,
-} from '../defineContract';
 
 // ============================================================
 // Shared schemas

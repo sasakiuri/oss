@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { z } from 'zod';
-
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
 
 export const LaneVistaStatusSchema = z.object({
   enabled: z.boolean(),

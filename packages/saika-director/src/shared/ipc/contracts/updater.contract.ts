@@ -8,7 +8,7 @@ import {
   defineContract,
   query,
   queryResponseSchema,
-} from '../defineContract';
+} from '@sasakiuri/saika-ipc';
 
 export const updaterContract = defineContract('updater', {
   getUpdateState: query(z.void(), queryResponseSchema(AppUpdateStateSchema)),

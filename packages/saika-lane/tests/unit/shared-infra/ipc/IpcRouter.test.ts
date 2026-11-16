@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: MIT
+import { command, CommandResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { app } from 'electron';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { DomainError } from '@/shared/errors/DomainError';
-import {
-  command,
-  CommandResponseSchema,
-  defineContract,
-  query,
-  queryResponseSchema,
-} from '@/shared/ipc/defineContract';
+import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 // ---------- hoisted mocks (vi.mock factories are hoisted, so use vi.hoisted) ----------
 
@@ -331,6 +327,46 @@ describe('IpcRouter', () => {
           }),
         }),
       );
+    });
+
+    it('keeps the code, message and metadata of a DomainError and adds the operation name', async () => {
+      const domainErr = ErrorCatalog.createError('SESSION_NOT_FOUND', { sessionId: 'session-1' });
+      router.register(testCommandContract, {
+        doSomething: vi.fn().mockRejectedValue(domainErr),
+        doVoid: vi.fn().mockResolvedValue(undefined),
+      });
+
+      const result = await getRegisteredHandler('test:doSomething')({}, { name: 'test' });
+
+      expect(result).toEqual({
+        success: false,
+        error: {
+          code: 'SESSION_NOT_FOUND',
+          message: 'Session not found',
+          stack: domainErr.stack,
+          metadata: { sessionId: 'session-1', operation: 'doSomething' },
+        },
+      });
+    });
+
+    it('omits the stack trace when the app is packaged', async () => {
+      const electronApp = app as { isPackaged: boolean };
+      electronApp.isPackaged = true;
+      try {
+        router.register(testCommandContract, {
+          doSomething: vi.fn().mockRejectedValue(new Error('fail')),
+          doVoid: vi.fn().mockResolvedValue(undefined),
+        });
+
+        const result = await getRegisteredHandler('test:doSomething')({}, { name: 'test' });
+
+        expect(result).toEqual({
+          success: false,
+          error: { code: 'UNKNOWN_ERROR', message: 'fail', metadata: { operation: 'doSomething' } },
+        });
+      } finally {
+        electronApp.isPackaged = false;
+      }
     });
 
     it('outputs an error log on handler error', async () => {

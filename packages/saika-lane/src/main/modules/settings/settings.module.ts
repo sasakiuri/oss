@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 /** Registers settings handlers using the AppSettingsStore supplied by ServiceRegistry. */
 
+import type { InferHandlers } from '@sasakiuri/saika-ipc';
+
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { settingsContract } from '@/shared/ipc/contracts';
-import type { InferHandlers } from '@/shared/ipc/defineContract';
 
 type SettingsDeps = 'ipcRouter' | 'settingsStore';
 

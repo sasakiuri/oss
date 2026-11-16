@@ -1,10 +1,10 @@
 import { ipcMain } from 'electron';
 import { z } from 'zod';
-import type { Contract, ProcedureMap, InferHandlers } from '@/shared/ipc/defineContract';
-import { toIpcError } from './toIpcError';
+import type { CommandResponseDto, Contract, ProcedureMap, InferHandlers, IpcErrorDto } from '@sasakiuri/saika-ipc';
+import { toIpcError } from '@sasakiuri/saika-ipc/main';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { Logger } from '@/shared/utils/Logger';
-import type { CommandResponseDto, IpcErrorDto } from '@/shared/ipc/contracts';
+import { isDomainError } from '@/shared/utils/typeGuards';
 import type { IpcInvocationMiddleware } from './IpcInvocationMiddleware';
 
 const logger = Logger.create('IpcRouter');
@@ -128,7 +128,7 @@ export class IpcRouter {
       return this.validateOutput(
         {
           success: false,
-          error: toIpcError(err, { operation: operationName }),
+          error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
         },
         outputSchema,
         operationName,
@@ -156,7 +156,7 @@ export class IpcRouter {
         {
           success: false,
           data: null,
-          error: toIpcError(err, { operation: operationName }),
+          error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
         },
         outputSchema,
         operationName,

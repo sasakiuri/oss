@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '../defineContract';
+import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 const action = z.enum([
   'MUSIC_PROGRAM_APPROVED',
