@@ -9,6 +9,8 @@ import type {
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 
+import { emitPhaseChanged } from './emitPhaseChanged';
+
 /**
  * Awaited shot-progress hook factory
  *
@@ -137,20 +139,7 @@ export function createTimedTargetSequenceChangedHandler(deps: {
         }
         const completed = state.completeTimedTargetSeries(event.state.programId);
         await competitionRepository.save(completed);
-        eventBus.emit({
-          type: 'PhaseChanged',
-          timestamp: Date.now(),
-          aggregateId: completed.id,
-          previousPhase: state.phase,
-          newPhase: completed.phase,
-          stageIndex: completed.currentStageIndex,
-          seriesIndex: completed.currentSeriesIndex,
-          stageName: completed.currentStageConfig.name,
-          scored: completed.currentStageConfig.scored,
-          targetProfileId: completed.currentStageConfig.targetProfileId ?? completed.config.targetProfileId,
-          scoringGaugeProfileId:
-            completed.currentStageConfig.scoringGaugeProfileId ?? completed.config.scoringGaugeProfileId,
-        });
+        emitPhaseChanged(eventBus, completed, state.phase);
         eventBus.emit({
           type: 'SeriesCompleted',
           timestamp: Date.now(),

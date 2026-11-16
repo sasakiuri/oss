@@ -261,7 +261,7 @@ export class QualificationRecoveryAdjudicationService implements IQualificationR
   private async reconcileCompetition(adjudication: QualificationRecoveryAdjudicationRecord): Promise<void> {
     const state = await this.competitionRepository.findById(adjudication.competitionId);
     if (!state) throw new Error(`Competition not found: ${adjudication.competitionId}`);
-    const comparison = comparePosition(state, adjudication.stageIndex, adjudication.seriesIndex);
+    const comparison = state.comparePosition(adjudication.stageIndex, adjudication.seriesIndex);
     if (state.phase !== 'FINISHED' && comparison < 0) {
       throw new Error(`Competition ${state.id} is behind the adjudicated recovery position`);
     }
@@ -341,9 +341,7 @@ function resolveSessionPlacement(competition: CompetitionState): { priorShots: n
 }
 
 function resolveScoringGaugeProfileId(competition: CompetitionState): ScoringGaugeProfileId | undefined {
-  return parseScoringGaugeProfileId(
-    competition.currentStageConfig.scoringGaugeProfileId ?? competition.config.scoringGaugeProfileId,
-  );
+  return parseScoringGaugeProfileId(competition.effectiveScoringGaugeProfileId);
 }
 
 function parseTargetProfileId(value: string): TargetScoringProfileId {
@@ -366,11 +364,6 @@ function authorizedShotCount(run: QualificationRecoveryRunRecord): number {
 function compareShots(left: Shot, right: Shot): number {
   const number = left.shotNumber - right.shotNumber;
   return number === 0 ? left.timestamp.getTime() - right.timestamp.getTime() : number;
-}
-
-function comparePosition(state: CompetitionState, stageIndex: number, seriesIndex: number): number {
-  if (state.currentStageIndex !== stageIndex) return state.currentStageIndex - stageIndex;
-  return state.currentSeriesIndex - seriesIndex;
 }
 
 function requiredText(value: string, name: string): string {

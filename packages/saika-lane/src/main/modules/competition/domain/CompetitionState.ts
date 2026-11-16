@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import type { TimedTargetProgram } from '@sasakiuri/saika-rules';
+
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
@@ -82,6 +84,30 @@ export class CompetitionState {
 
   get currentSeriesConfig(): SeriesDefinition {
     return this.currentStageConfig.series[this.currentSeriesIndex]!;
+  }
+
+  /** The current stage's target face, else the round default. */
+  get effectiveTargetProfileId(): string | undefined {
+    return this.currentStageConfig.targetProfileId ?? this.config.targetProfileId;
+  }
+
+  /** The current stage's scoring gauge, else the round default. */
+  get effectiveScoringGaugeProfileId(): string | undefined {
+    return this.currentStageConfig.scoringGaugeProfileId ?? this.config.scoringGaugeProfileId;
+  }
+
+  /** The persisted timed-target program with this id, if the round has one. */
+  timedTargetProgram(programId: string | undefined): TimedTargetProgram | undefined {
+    return this.config.timedTarget?.programs.find((program) => program.id === programId);
+  }
+
+  /**
+   * Orders the current position against `stageIndex:seriesIndex`: negative when
+   * the competition is before it, zero at it and positive after it.
+   */
+  comparePosition(stageIndex: number, seriesIndex: number): number {
+    if (this.currentStageIndex !== stageIndex) return this.currentStageIndex - stageIndex;
+    return this.currentSeriesIndex - seriesIndex;
   }
 
   /** A stage clock spans the series whose own timers do not override it. */

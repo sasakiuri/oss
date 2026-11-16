@@ -42,8 +42,8 @@ export function toCompetitionStateDto(
     currentStageName: stage.name,
     scored: stage.scored,
     shotsPerSeries: state.config.shotsPerSeries,
-    targetProfileId: stage.targetProfileId ?? state.config.targetProfileId,
-    scoringGaugeProfileId: stage.scoringGaugeProfileId ?? state.config.scoringGaugeProfileId,
+    targetProfileId: state.effectiveTargetProfileId,
+    scoringGaugeProfileId: state.effectiveScoringGaugeProfileId,
     athleteTargetControl: resolveCompetitionTargetMode(state, shots, interruption).athleteTargetControl,
   };
 }

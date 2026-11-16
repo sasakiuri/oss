@@ -126,7 +126,7 @@ export class QualificationRecoverySettlementService implements IQualificationRec
   private async reconcileCompetition(settlement: QualificationRecoverySettlementRecord): Promise<void> {
     const state = await this.competitionRepository.findById(settlement.competitionId);
     if (!state) throw new Error(`Competition not found: ${settlement.competitionId}`);
-    const comparison = comparePosition(state, settlement.stageIndex, settlement.seriesIndex);
+    const comparison = state.comparePosition(settlement.stageIndex, settlement.seriesIndex);
     if (state.phase !== 'FINISHED' && comparison < 0) {
       throw new Error(`Competition ${state.id} is behind the settled recovery position`);
     }
@@ -220,11 +220,6 @@ function resolveSessionPlacement(competition: CompetitionState): { priorShots: n
 
 function compareShots(left: Shot, right: Shot): number {
   return left.shotNumber - right.shotNumber || left.timestamp.getTime() - right.timestamp.getTime();
-}
-
-function comparePosition(state: CompetitionState, stageIndex: number, seriesIndex: number): number {
-  if (state.currentStageIndex !== stageIndex) return state.currentStageIndex - stageIndex;
-  return state.currentSeriesIndex - seriesIndex;
 }
 
 function requiredText(value: string, name: string): string {

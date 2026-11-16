@@ -47,6 +47,94 @@ describe('CompetitionState aggregate root', () => {
     });
   });
 
+  describe('effective profiles', () => {
+    const PROFILE_CONFIG: RoundConfig = {
+      ...TEST_CONFIG,
+      targetProfileId: 'ROUND_FACE',
+      scoringGaugeProfileId: 'ROUND_GAUGE',
+      stages: [
+        { ...TEST_CONFIG.stages[0]!, targetProfileId: 'STAGE_FACE', scoringGaugeProfileId: 'STAGE_GAUGE' },
+        TEST_CONFIG.stages[1]!,
+      ],
+    };
+
+    it('prefer the current stage profiles', () => {
+      const state = createIdleState(PROFILE_CONFIG);
+      expect(state.effectiveTargetProfileId).toBe('STAGE_FACE');
+      expect(state.effectiveScoringGaugeProfileId).toBe('STAGE_GAUGE');
+    });
+
+    it('fall back to the round profiles', () => {
+      const state = CompetitionState.reconstruct({
+        id: 'comp-1',
+        sessionId: 'session-1',
+        config: PROFILE_CONFIG,
+        phase: 'ACTIVE',
+        currentStageIndex: 1,
+        currentSeriesIndex: 0,
+        seriesShotCount: 0,
+        timer: Timer.create(0),
+        startedAt: null,
+        finishedAt: null,
+      });
+      expect(state.effectiveTargetProfileId).toBe('ROUND_FACE');
+      expect(state.effectiveScoringGaugeProfileId).toBe('ROUND_GAUGE');
+    });
+
+    it('are undefined when neither the stage nor the round defines one', () => {
+      const state = createIdleState({ ...TEST_CONFIG, targetProfileId: undefined, scoringGaugeProfileId: undefined });
+      expect(state.effectiveTargetProfileId).toBeUndefined();
+      expect(state.effectiveScoringGaugeProfileId).toBeUndefined();
+    });
+  });
+
+  describe('timedTargetProgram()', () => {
+    it('finds a persisted program by id', () => {
+      const state = createIdleState(P25.config);
+      expect(state.timedTargetProgram('P25_MATCH_RAPID_3_7')).toMatchObject({
+        id: 'P25_MATCH_RAPID_3_7',
+        purpose: 'MATCH',
+      });
+    });
+
+    it('returns undefined for an unknown or missing id, or without a timed-target capability', () => {
+      const state = createIdleState(P25.config);
+      expect(state.timedTargetProgram('UNKNOWN')).toBeUndefined();
+      expect(state.timedTargetProgram(undefined)).toBeUndefined();
+      expect(createIdleState().timedTargetProgram('P25_MATCH_RAPID_3_7')).toBeUndefined();
+    });
+  });
+
+  describe('comparePosition()', () => {
+    const at = (stageIndex: number, seriesIndex: number): CompetitionState =>
+      CompetitionState.reconstruct({
+        id: 'comp-1',
+        sessionId: 'session-1',
+        config: P25.config,
+        phase: 'ACTIVE',
+        currentStageIndex: stageIndex,
+        currentSeriesIndex: seriesIndex,
+        seriesShotCount: 0,
+        timer: Timer.create(0),
+        startedAt: null,
+        finishedAt: null,
+      });
+
+    it('is zero at the same position', () => {
+      expect(at(1, 2).comparePosition(1, 2)).toBe(0);
+    });
+
+    it('orders by series within the same stage', () => {
+      expect(at(1, 2).comparePosition(1, 4)).toBe(-2);
+      expect(at(1, 4).comparePosition(1, 2)).toBe(2);
+    });
+
+    it('orders by stage before series', () => {
+      expect(at(1, 5).comparePosition(2, 0)).toBe(-1);
+      expect(at(2, 0).comparePosition(1, 5)).toBe(1);
+    });
+  });
+
   describe('startStage()', () => {
     it('transitions IDLE → ACTIVE', () => {
       const state = createIdleState();
