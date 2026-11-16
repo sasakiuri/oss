@@ -7,8 +7,10 @@ Electron update service for Lane, Director, and Vista.
 - Import `UpdaterService` and its configuration types from `@sasakiuri/saika-updater/main` in the main process.
 - Each application supplies its update metadata namespace and the checks required before installation.
 
-Run the service and state tests from the repository root:
+Run the service and state tests, and the dependency check that keeps the root export free of Electron,
+electron-updater and Node modules, from the repository root:
 
 ```sh
 npm test -w @sasakiuri/saika-updater
+npm run depcruise -w @sasakiuri/saika-updater
 ```
