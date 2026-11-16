@@ -94,10 +94,6 @@ const config: KnipConfig = {
         "src/renderer/board.tsx",
       ],
       project: ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}"],
-      // Compatibility exports and screens outside the current entry points.
-      ignoreFiles: [
-        "src/main/modules/lane-control/domain/{CompetitionInfo,StageTransitions}.ts",
-      ],
     },
     "packages/saika-rules": {
       entry: ["vitest.mutation.config.ts"],
@@ -125,17 +121,8 @@ const config: KnipConfig = {
     // Public module exports and test entry points.
     "packages/saika-director/src/**/index.ts": ["exports"],
     "packages/saika-lane/src/**/index.ts": ["exports"],
-    "packages/saika-director/src/main/infrastructure/logging/Logger.ts": [
-      "exports",
-    ],
-    "packages/saika-director/src/main/composition/createContainer.ts": [
-      "exports",
-    ],
     "packages/saika-director/src/main/modules/lane-control/infra/InMemoryLaneControlRepository.ts":
       ["exports"],
-    "packages/saika-director/src/shared/constants/protocol.ts": ["exports"],
-    "packages/saika-director/src/shared/constants/roundConfig.ts": ["exports"],
-    "packages/saika-director/src/shared/logging/LoggerFactory.ts": ["exports"],
   },
   ignoreBinaries: [
     "playwright",

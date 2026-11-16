@@ -15,8 +15,5 @@ export { formatLogMessage } from './LogFormatter';
 export { Logger } from './Logger';
 export type { LogMetadata, LoggerConfig } from './Logger';
 
-// Factory (advanced usage)
-export { LoggerFactory } from './LoggerFactory';
-
 // Utilities
 export { safeStringify } from './safeStringify';
