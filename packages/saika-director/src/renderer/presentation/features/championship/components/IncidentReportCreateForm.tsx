@@ -6,6 +6,8 @@ import type {
   ParticipantDto,
 } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
+import { toDateTimeLocalValue } from '../../shared/common/dateUtils';
+import { fullWidthInputClass } from '../../shared/common/formClasses';
 
 interface IncidentReportCreateFormProps {
   eventId: string;
@@ -15,9 +17,6 @@ interface IncidentReportCreateFormProps {
   onCancel: () => void;
 }
 
-const inputClass =
-  'w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2 py-1.5 text-[13px] text-vscode-text focus:border-vscode-focus focus:outline-none';
-
 export function IncidentReportCreateForm({
   eventId,
   participants,
@@ -26,7 +25,7 @@ export function IncidentReportCreateForm({
   onCancel,
 }: IncidentReportCreateFormProps) {
   const [serialNumber, setSerialNumber] = useState('');
-  const [occurredAt, setOccurredAt] = useState(() => toLocalDateTimeInput(new Date()));
+  const [occurredAt, setOccurredAt] = useState(() => toDateTimeLocalValue(new Date(), 'minutes'));
   const [relayNumber, setRelayNumber] = useState('');
   const [firingPointNumber, setFiringPointNumber] = useState('');
   const [athleteName, setAthleteName] = useState('');
@@ -82,7 +81,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           IR serial number
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             required
             value={serialNumber}
             onChange={(event) => setSerialNumber(event.target.value)}
@@ -91,7 +90,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Incident date and time
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             type="datetime-local"
             required
             value={occurredAt}
@@ -101,7 +100,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Relay
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             type="number"
             min="1"
             value={relayNumber}
@@ -111,7 +110,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Firing point
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             type="number"
             min="1"
             value={firingPointNumber}
@@ -124,7 +123,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted sm:col-span-2">
           Athlete name
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             list={`incident-athletes-${eventId}`}
             value={athleteName}
             onChange={(event) => setAthleteName(event.target.value)}
@@ -140,7 +139,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Bib number
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             value={bibNumber}
             onChange={(event) => setBibNumber(event.target.value)}
           />
@@ -148,25 +147,33 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Nationality
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             value={nationality}
             onChange={(event) => setNationality(event.target.value)}
           />
         </label>
         <label className="text-xs text-vscode-text-muted">
           Stage
-          <input className={`${inputClass} mt-1`} value={stage} onChange={(event) => setStage(event.target.value)} />
+          <input
+            className={`${fullWidthInputClass} mt-1`}
+            value={stage}
+            onChange={(event) => setStage(event.target.value)}
+          />
         </label>
       </div>
 
       <label className="block text-xs text-vscode-text-muted">
         Series
-        <input className={`${inputClass} mt-1`} value={series} onChange={(event) => setSeries(event.target.value)} />
+        <input
+          className={`${fullWidthInputClass} mt-1`}
+          value={series}
+          onChange={(event) => setSeries(event.target.value)}
+        />
       </label>
       <label className="block text-xs text-vscode-text-muted">
         Brief details of incident
         <textarea
-          className={`${inputClass} mt-1 min-h-24 resize-y`}
+          className={`${fullWidthInputClass} mt-1 min-h-24 resize-y`}
           required
           value={details}
           onChange={(event) => setDetails(event.target.value)}
@@ -177,7 +184,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Applicable ISSF rules
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             required
             value={ruleReferences}
             onChange={(event) => setRuleReferences(event.target.value)}
@@ -186,7 +193,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Penalty / action imposed
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             value={penalty}
             onChange={(event) => setPenalty(event.target.value)}
           />
@@ -195,7 +202,7 @@ export function IncidentReportCreateForm({
       <label className="block text-xs text-vscode-text-muted">
         Score amendment reference
         <input
-          className={`${inputClass} mt-1`}
+          className={`${fullWidthInputClass} mt-1`}
           value={scoreAmendmentReference}
           onChange={(event) => setScoreAmendmentReference(event.target.value)}
         />
@@ -205,7 +212,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Initiating official role
           <select
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             value={initiatorRole}
             onChange={(event) => setInitiatorRole(event.target.value as IncidentReportOfficialRoleDto)}
           >
@@ -215,7 +222,7 @@ export function IncidentReportCreateForm({
         <label className="text-xs text-vscode-text-muted">
           Initiating official printed name
           <input
-            className={`${inputClass} mt-1`}
+            className={`${fullWidthInputClass} mt-1`}
             required
             value={initiatorName}
             onChange={(event) => setInitiatorName(event.target.value)}
@@ -250,9 +257,4 @@ export function RoleOptions() {
 
 function optionalPositiveInteger(value: string): number | undefined {
   return value.trim() ? Number.parseInt(value, 10) : undefined;
-}
-
-function toLocalDateTimeInput(date: Date): string {
-  const localTime = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
-  return localTime.toISOString().slice(0, 16);
 }
