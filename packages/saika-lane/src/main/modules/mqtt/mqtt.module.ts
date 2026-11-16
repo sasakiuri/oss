@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { AthleteSchema } from '@sasakiuri/saika-protocol/LaneAssignment';
 import { app } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
@@ -54,7 +55,6 @@ import { RpcRequestHandler } from './application/RpcRequestHandler';
 import { ShotObservationEvidencePublisher } from './application/ShotObservationEvidencePublisher';
 import { TimedTargetStatePublisher } from './application/TimedTargetStatePublisher';
 import { commandAuthorizationPolicyFromEnvironment } from './domain/CommandAuthorizationPolicy';
-import { AthleteSchema } from './domain/MqttAssignmentSchemas';
 import { MqttClientService, sanitizeBrokerUrl } from './infra/MqttClientService';
 
 type MqttDeps =

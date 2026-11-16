@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: MIT
+import { CompetitionCuePayloadSchema, type CompetitionCuePayload } from '@sasakiuri/saika-protocol/CompetitionCue';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import {
-  CompetitionCuePayloadSchema,
-  type CompetitionCuePayload,
-} from '@/main/modules/mqtt/domain/MqttCompetitionCueSchemas';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 

@@ -2,6 +2,7 @@
 /** Handles commands addressed to one Lane within a competition. */
 
 import { commandSchemasForScope, type MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
+import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
 import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
@@ -18,7 +19,6 @@ import {
   type ICommandAuthorizationPolicy,
 } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import type { Athlete } from '@/main/modules/mqtt/domain/MqttAssignmentSchemas';
 import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type {
   IQualificationRecoveryAdjudicationControl,
