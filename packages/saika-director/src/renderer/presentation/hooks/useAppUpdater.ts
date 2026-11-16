@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 import type { AppUpdateStateDto } from '@sasakiuri/saika-updater';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { updaterService } from '@/renderer/services';
-import { useEvent } from './useEvent';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
+import { useLiveSnapshot } from './useLiveSnapshot';
 
 export function useAppUpdater() {
   const [state, setState] = useState<AppUpdateStateDto | null>(null);
@@ -10,40 +11,27 @@ export function useAppUpdater() {
   const [busy, setBusy] = useState(false);
   const revision = useRef(0);
 
-  useEvent('appUpdateStateChanged', (next) => {
-    revision.current += 1;
-    setState(next);
-    setError(null);
+  useLiveSnapshot('appUpdateStateChanged', () => updaterService.getUpdateState(), {
+    apply: (next, source) => {
+      if (source === 'event') {
+        // A pushed state outdates a check in flight and replaces the last error.
+        revision.current += 1;
+        setError(null);
+      }
+      setState(next);
+    },
+    onError: setError,
   });
-
-  useEffect(() => {
-    let disposed = false;
-    const requestedRevision = revision.current;
-    void updaterService.getUpdateState().then(
-      (response) => {
-        if (disposed || revision.current !== requestedRevision) return;
-        if (response.success) setState(response.data);
-        else setError(response.error.message);
-      },
-      (caught: unknown) => {
-        if (!disposed) setError(caught instanceof Error ? caught.message : String(caught));
-      },
-    );
-    return () => {
-      disposed = true;
-    };
-  }, []);
 
   const checkForUpdates = async () => {
     setBusy(true);
     setError(null);
     const requestedRevision = revision.current;
     try {
-      const response = await updaterService.checkForUpdates();
-      if (!response.success) throw new Error(response.error.message);
-      if (revision.current === requestedRevision) setState(response.data);
+      const checked = unwrap(await updaterService.checkForUpdates());
+      if (revision.current === requestedRevision) setState(checked);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setBusy(false);
     }
@@ -53,10 +41,9 @@ export function useAppUpdater() {
     setBusy(true);
     setError(null);
     try {
-      const response = await updaterService.quitAndInstall();
-      if (!response.success) throw new Error(response.error?.message ?? 'Failed to install the update');
+      unwrap(await updaterService.quitAndInstall(), 'Failed to install the update');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorMessage(caught));
     } finally {
       setBusy(false);
     }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
 import { useEvent } from './useEvent';
+import { useLiveSnapshot } from './useLiveSnapshot';
 import { mqttService } from '@/renderer/services';
 import { useConnectionStore } from '@/renderer/presentation/stores/system/connection.store';
 import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
@@ -15,35 +15,31 @@ export function useSystemEvents(): void {
   const setDisconnected = useConnectionStore((s) => s.setDisconnected);
   const addDebugEntry = useDebugStore((s) => s.addEntry);
   const addNotification = useNotificationStore((s) => s.addNotification);
-  const hasReceivedLiveMqttState = useRef(false);
 
-  const applyMqttSnapshot = useCallback(
-    (snapshot: MqttControlSnapshotDto) => {
-      if (!snapshot.connected) {
-        setDisconnected();
-        return;
+  const applyMqttSnapshot = (snapshot: MqttControlSnapshotDto) => {
+    if (!snapshot.connected) {
+      setDisconnected();
+      return;
+    }
+
+    const connectedChannels = snapshot.lanes.reduce<number[]>((channels, lane) => {
+      if (lane.hardware?.connection.status === 'connected' && lane.firingPointNumber !== null) {
+        channels.push(lane.firingPointNumber);
       }
+      return channels;
+    }, []);
 
-      const connectedChannels = snapshot.lanes.reduce<number[]>((channels, lane) => {
-        if (lane.hardware?.connection.status === 'connected' && lane.firingPointNumber !== null) {
-          channels.push(lane.firingPointNumber);
-        }
-        return channels;
-      }, []);
+    setConnected([...new Set(connectedChannels)].sort((a, b) => a - b));
+  };
 
-      setConnected([...new Set(connectedChannels)].sort((a, b) => a - b));
-    },
-    [setConnected, setDisconnected],
-  );
-
-  useEvent('laneConnected', (data) => {
-    hasReceivedLiveMqttState.current = true;
-    addChannel(data.channel);
+  // A Lane connection or broker error is newer than the initial MQTT state query.
+  const { markLive } = useLiveSnapshot('mqttControlStateChanged', () => mqttService.getControlState(), {
+    apply: applyMqttSnapshot,
   });
 
-  useEvent('mqttControlStateChanged', (snapshot) => {
-    hasReceivedLiveMqttState.current = true;
-    applyMqttSnapshot(snapshot);
+  useEvent('laneConnected', (data) => {
+    markLive();
+    addChannel(data.channel);
   });
 
   useEvent('competitionAnnouncementDue', (announcement) => {
@@ -54,29 +50,12 @@ export function useSystemEvents(): void {
     addNotification('warning', formatFiringWindowViolationReminder(violation));
   });
 
-  useEffect(() => {
-    let cancelled = false;
-
-    void mqttService.getControlState().then(
-      (response) => {
-        if (!cancelled && response.success && !hasReceivedLiveMqttState.current) {
-          applyMqttSnapshot(response.data);
-        }
-      },
-      () => undefined,
-    );
-
-    return () => {
-      cancelled = true;
-    };
-  }, [applyMqttSnapshot]);
-
   useEvent('debugLog', (data) => {
     addDebugEntry(data);
   });
 
   useEvent('mqttConnectionError', (data) => {
-    hasReceivedLiveMqttState.current = true;
+    markLive();
     addNotification('error', data.message);
     setDisconnected();
   });
