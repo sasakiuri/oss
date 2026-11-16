@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { ElectronEventBus } from '@/renderer/events/ElectronEventBus';
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
 import { boardService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
 
 import { FinalBoardScreen } from './features/boards/FinalBoardScreen';
@@ -25,12 +26,11 @@ function BoardAppContent() {
     boardService
       .getConfig()
       .then((response) => {
-        if (!response.success) throw new Error(response.error.message);
-        setConfig(response.data as BoardWindowConfig | null);
+        setConfig(unwrap(response) as BoardWindowConfig | null);
         setLoading(false);
       })
       .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : 'Failed to load configuration');
+        setError(errorMessage(err, 'Failed to load configuration'));
         setLoading(false);
       });
   }, []);
