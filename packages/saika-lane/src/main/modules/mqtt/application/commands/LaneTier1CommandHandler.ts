@@ -12,6 +12,7 @@ import type { DirectorMembership } from '@/main/modules/mqtt/application/Directo
 import type { LaneSafetyStatePublisher } from '@/main/modules/mqtt/application/LaneSafetyStatePublisher';
 import type { RetainPublisher } from '@/main/modules/mqtt/application/RetainPublisher';
 import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcRequestHandler';
+import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import {
   CommandAuthorizationPolicy,
   type ICommandAuthorizationPolicy,
@@ -35,11 +36,10 @@ type Tier1Topic = ParsedMqttTopicOf<'laneCommand'>;
 
 export class LaneTier1CommandHandler {
   private readonly processor: LaneCommandProcessor;
-  private subscribedTopic: string | null = null;
-  private messageUnsubscribe: (() => void) | null = null;
+  private readonly subscription: TopicSubscription;
 
   constructor(
-    private readonly mqttClient: IMqttClientService,
+    mqttClient: IMqttClientService,
     idempotencyGuard: CommandIdempotencyGuard,
     private readonly broadcastHandler: BroadcastCommandHandler,
     private readonly perLaneHandler: PerLaneCommandHandler,
@@ -64,6 +64,7 @@ export class LaneTier1CommandHandler {
       'LaneTier1CommandHandler',
       (action) => action !== 'join-competition' || isReady(),
     );
+    this.subscription = new TopicSubscription(mqttClient, { listenBeforeSubscribe: true, unsubscribeErrors: 'ignore' });
   }
 
   /**
@@ -72,18 +73,13 @@ export class LaneTier1CommandHandler {
   async subscribe(): Promise<void> {
     await this.unsubscribeTier1Topic();
 
-    const topic = mqttTopicFilters.laneCommands(this.getLaneId());
-    this.subscribedTopic = topic;
-
-    this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
+    await this.subscription.open(mqttTopicFilters.laneCommands(this.getLaneId()), (msgTopic, payload) => {
       const parsed = parseMqttTopic(msgTopic);
       if (parsed?.kind !== 'laneCommand') return;
       if (parsed.laneId !== this.getLaneId()) return;
 
       void this.handleCommand(parsed, payload);
     });
-
-    await this.mqttClient.subscribe(topic, 1);
 
     const savedCompetitionId = this.competitionId;
     if (savedCompetitionId) {
@@ -111,17 +107,7 @@ export class LaneTier1CommandHandler {
   }
 
   private async unsubscribeTier1Topic(): Promise<void> {
-    this.messageUnsubscribe?.();
-    this.messageUnsubscribe = null;
-
-    if (this.subscribedTopic) {
-      try {
-        await this.mqttClient.unsubscribe(this.subscribedTopic);
-      } catch {
-        // Ignore if already disconnected
-      }
-      this.subscribedTopic = null;
-    }
+    await this.subscription.close();
   }
 
   /**

@@ -19,6 +19,7 @@ import type { ICompetitionShootOffControl } from '@/main/modules/competition-sho
 import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
+import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import {
   CommandAuthorizationPolicy,
   type ICommandAuthorizationPolicy,
@@ -53,11 +54,10 @@ type BroadcastTopic = ParsedMqttTopicOf<'competitionCommand'>;
 
 export class BroadcastCommandHandler {
   private readonly processor: LaneCommandProcessor;
-  private subscribedTopic: string | null = null;
-  private messageUnsubscribe: (() => void) | null = null;
+  private readonly subscription: TopicSubscription;
 
   constructor(
-    private readonly mqttClient: IMqttClientService,
+    mqttClient: IMqttClientService,
     private readonly commandBus: CommandBus,
     private readonly timerService: LaneTimerService,
     private readonly competitionRepository: ICompetitionRepository,
@@ -81,6 +81,10 @@ export class BroadcastCommandHandler {
       'BroadcastCommandHandler',
       isReady,
     );
+    this.subscription = new TopicSubscription(mqttClient, {
+      listenBeforeSubscribe: false,
+      unsubscribeErrors: 'rethrow-while-connected',
+    });
   }
 
   /**
@@ -89,12 +93,7 @@ export class BroadcastCommandHandler {
   async subscribeToCompetition(competitionId: string): Promise<void> {
     await this.unsubscribeFromCompetition();
 
-    const topic = mqttTopicFilters.competitionCommands(competitionId);
-    this.subscribedTopic = topic;
-
-    await this.mqttClient.subscribe(topic, 1);
-
-    this.messageUnsubscribe = this.mqttClient.onMessage((msgTopic: string, payload: Buffer) => {
+    await this.subscription.open(mqttTopicFilters.competitionCommands(competitionId), (msgTopic, payload) => {
       const parsed = parseMqttTopic(msgTopic);
       if (parsed?.kind !== 'competitionCommand') return;
 
@@ -106,18 +105,7 @@ export class BroadcastCommandHandler {
    * Unsubscribes from the competition
    */
   async unsubscribeFromCompetition(): Promise<void> {
-    this.messageUnsubscribe?.();
-    this.messageUnsubscribe = null;
-
-    if (this.subscribedTopic) {
-      try {
-        await this.mqttClient.unsubscribe(this.subscribedTopic);
-      } catch (error) {
-        if (this.mqttClient.isConnected()) throw error;
-        // Ignore if already disconnected
-      }
-      this.subscribedTopic = null;
-    }
+    await this.subscription.close();
   }
 
   /**

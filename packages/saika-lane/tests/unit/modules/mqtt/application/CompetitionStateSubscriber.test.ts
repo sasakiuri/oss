@@ -97,6 +97,13 @@ describe('CompetitionStateSubscriber', () => {
     subscriber = new CompetitionStateSubscriber(mqttClient, commandBus, competitionRepository, 10);
   });
 
+  it('registers the state listener before it subscribes', async () => {
+    await subscriber.subscribe(COMPETITION_ID);
+    const [subscribedAt] = vi.mocked(mqttClient.subscribe).mock.invocationCallOrder;
+    const [listenedAt] = vi.mocked(mqttClient.onMessage).mock.invocationCallOrder;
+    expect(listenedAt).toBeLessThan(subscribedAt!);
+  });
+
   it('subscribes before bootstrapping a matching local competition ID', async () => {
     await subscriber.subscribe(COMPETITION_ID);
 

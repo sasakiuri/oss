@@ -91,6 +91,13 @@ describe('RpcRequestHandler', () => {
       expect(mockMqttClient.onMessage).toHaveBeenCalled();
     });
 
+    it('subscribes before it registers the request listener', async () => {
+      await handler.subscribe(COMPETITION_ID);
+      const [subscribedAt] = vi.mocked(mockMqttClient.subscribe).mock.invocationCallOrder;
+      const [listenedAt] = vi.mocked(mockMqttClient.onMessage).mock.invocationCallOrder;
+      expect(subscribedAt).toBeLessThan(listenedAt!);
+    });
+
     it('unsubscribes from previous topic when resubscribing', async () => {
       await handler.subscribe(COMPETITION_ID);
       await handler.subscribe(COMPETITION_ID);
