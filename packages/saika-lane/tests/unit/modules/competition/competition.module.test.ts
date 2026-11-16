@@ -60,10 +60,13 @@ describe('competition.module', () => {
     timerService = createMockTimerService();
   });
 
-  function registerModule(startup = createMockStartup()) {
+  function registerModule(
+    startup = createMockStartup(),
+    membership = new DirectorMembership(createMockStorage(), eventBus),
+  ) {
     competitionModule.register({
       startup,
-      membership: new DirectorMembership(createMockStorage(), eventBus),
+      membership,
       safetyStopControl: { isStopped: () => false } as import('@/main/modules/safety-stop').ILaneSafetyStopControl,
       commandBus,
       queryBus,
@@ -186,6 +189,43 @@ describe('competition.module', () => {
       };
       await handlers.startCompetition({ competitionTypeId: 'AR60' });
       expect(commandBus.execute).toHaveBeenCalledWith(StartCompetitionToken, { competitionTypeId: 'AR60' });
+    });
+
+    describe('local progress while joined to Director', () => {
+      type ProgressHandlers = Record<
+        'startCompetition' | 'startStage' | 'startNextSeries' | 'advanceStage' | 'endStage',
+        (input: Record<string, string>) => Promise<unknown>
+      >;
+      const progress: Array<[keyof ProgressHandlers, Record<string, string>]> = [
+        ['startCompetition', { competitionTypeId: 'AR60' }],
+        ['startStage', { competitionId: 'comp-1' }],
+        ['startNextSeries', { competitionId: 'comp-1' }],
+        ['advanceStage', { competitionId: 'comp-1' }],
+        ['endStage', { competitionId: 'comp-1' }],
+      ];
+
+      function registerJoined(competitionId: string | null): ProgressHandlers {
+        const membership = new DirectorMembership(createMockStorage(), eventBus);
+        membership.setCompetitionId(competitionId);
+        registerModule(createMockStartup(), membership);
+        vi.mocked(commandBus.execute).mockResolvedValue({ competitionId: 'comp-1', sessionId: 'session-1' });
+        return vi.mocked(ipcRouter.register).mock.calls[0]![1] as unknown as ProgressHandlers;
+      }
+
+      it.each(progress)('rejects %s with the reason the Lane screen shows', async (name, input) => {
+        const handlers = registerJoined('director-competition');
+
+        await expect(handlers[name](input)).rejects.toThrow('Competition progress is controlled by Director');
+        expect(commandBus.execute).not.toHaveBeenCalled();
+      });
+
+      it.each(progress)('runs %s when the Lane is not joined', async (name, input) => {
+        const handlers = registerJoined(null);
+
+        await handlers[name](input);
+
+        expect(commandBus.execute).toHaveBeenCalledOnce();
+      });
     });
 
     it('routes the athlete IPC command through its dedicated CQRS handler', async () => {
