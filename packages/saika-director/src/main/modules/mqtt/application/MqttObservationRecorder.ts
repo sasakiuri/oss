@@ -4,7 +4,7 @@ import type { ILaneControlRepository } from '@/main/modules/lane-control';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { CompetitionTypeRegistry, FiringWindowDetectionPolicy } from '@/shared/competitionTypes';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 import type { ICompetitionShotJournal } from '../domain/ICompetitionShotJournal';
 import type { IFiringWindowJournal } from '../domain/IFiringWindowJournal';

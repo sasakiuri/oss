@@ -4,7 +4,7 @@ import { BrowserWindow, dialog } from 'electron';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { updaterContract } from '@/shared/ipc/contracts';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('Updater');
 

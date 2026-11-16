@@ -2,7 +2,7 @@ import type { ILaneControlRepository } from '../domain/ILaneControlRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { FinishCommand } from './LaneCommands';
 import { DomainError, ErrorCatalog } from '@/shared/errors';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 import { emitLaneControlUpdated } from './helpers/emitLaneControlUpdated';
 
 const logger = Logger.create('FinishHandler');

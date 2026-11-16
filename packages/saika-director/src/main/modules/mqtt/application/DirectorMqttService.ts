@@ -30,7 +30,7 @@ import {
 import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import type { ReserveLaneTransferAction } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 import {
   ClockQualityPolicy,

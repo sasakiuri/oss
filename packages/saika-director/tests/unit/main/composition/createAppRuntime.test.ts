@@ -6,7 +6,7 @@ import type { LaneTimerTick } from '@/main/modules/lane-control';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { eventsContract } from '@/shared/ipc/contracts';
 
-vi.mock('@/shared/utils/Logger', () => ({
+vi.mock('@/shared/logging', () => ({
   Logger: { create: () => ({ info: vi.fn(), warn: vi.fn(), logError: vi.fn() }) },
 }));
 

@@ -4,7 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { FileTransport } from '@/shared/logging/FileTransport';
+import { FileTransport } from '@/main/infrastructure/logging/FileTransport';
 
 describe('FileTransport', () => {
   const temporaryDirectories: string[] = [];

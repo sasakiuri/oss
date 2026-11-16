@@ -2,7 +2,7 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import type { EventForwardingRule, TransformerForwardingRule } from './EventForwardingRule';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('DomainEventForwarder');
 

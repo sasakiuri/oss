@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ModuleDefinition, ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
 import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
 
-vi.mock('@/shared/utils/Logger', () => ({ Logger: { create: () => ({ info: vi.fn() }) } }));
+vi.mock('@/shared/logging', () => ({ Logger: { create: () => ({ info: vi.fn() }) } }));
 
 describe('ModuleLoader', () => {
   const registry = { commandBus: {}, queryBus: {} } as ServiceRegistry;

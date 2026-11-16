@@ -1,4 +1,4 @@
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 const logger = Logger.create('AppLifecycle');
 

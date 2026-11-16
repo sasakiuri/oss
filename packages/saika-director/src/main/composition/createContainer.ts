@@ -30,7 +30,7 @@ import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
 import { competitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { registerBuiltinCompetitionTypes } from '@/shared/competitionTypes/registerBuiltinCompetitionTypes';
 import { backupCaptureReadinessContract } from '@/shared/ipc/contracts';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 import { createBackupServices } from './createBackupServices';
 import { createCompetitionServices } from './createCompetitionServices';

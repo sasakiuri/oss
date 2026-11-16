@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock Logger
-vi.mock('@/shared/utils/Logger', () => ({
+vi.mock('@/shared/logging', () => ({
   Logger: {
     create: vi.fn(() => ({
       info: vi.fn(),

@@ -34,14 +34,14 @@ vi.mock('electron', () => ({
   },
   dialog: { showMessageBoxSync: mocks.confirm, showErrorBox: mocks.showErrorBox },
 }));
-vi.mock('@/shared/utils/Logger', () => ({
+vi.mock('@/shared/logging', () => ({
   Logger: {
     configure: vi.fn(),
     flush: mocks.flush,
     create: () => ({ info: vi.fn(), error: vi.fn(), logError: vi.fn() }),
   },
 }));
-vi.mock('@/shared/logging/FileTransport', () => ({ FileTransport: class {} }));
+vi.mock('@/main/infrastructure/logging/FileTransport', () => ({ FileTransport: class {} }));
 vi.mock('@/main/infrastructure/window/hardenBrowserWindow', () => ({ hardenBrowserWindow: vi.fn() }));
 vi.mock('@/main/infrastructure/window/resolveDevServerUrl', () => ({ resolveDevServerUrl: () => null }));
 vi.mock('@/main/modules/operational-archives', () => ({ applyPendingDatabaseRestoreSync: () => ({ applied: false }) }));

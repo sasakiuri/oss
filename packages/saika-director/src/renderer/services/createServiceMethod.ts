@@ -1,4 +1,4 @@
-import type { Logger } from '@/shared/utils/Logger';
+import type { Logger } from '@/shared/logging';
 
 export function createServiceMethod<TArgs extends unknown[], TResult>(
   logger: Logger,

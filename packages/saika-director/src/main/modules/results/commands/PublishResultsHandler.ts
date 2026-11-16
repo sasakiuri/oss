@@ -9,7 +9,7 @@ import type { PublishResultsCommand } from './PublishResults';
 import type { PublishResultsResponse } from '@/shared/ipc/contracts';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { GetEventByIdResponse } from '@/main/modules/championship';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 export type { PublishResultsResponse };
 

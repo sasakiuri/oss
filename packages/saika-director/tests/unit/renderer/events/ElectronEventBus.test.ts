@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ElectronEventBus } from '@/renderer/events/ElectronEventBus';
 
 // Suppress Logger output in tests
-vi.mock('@/shared/utils/Logger', () => ({
+vi.mock('@/shared/logging', () => ({
   Logger: {
     create: () => ({
       debug: vi.fn(),

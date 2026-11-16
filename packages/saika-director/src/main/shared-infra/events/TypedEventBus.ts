@@ -1,7 +1,7 @@
 /** Infers event payload types from EventRegistry. */
 
 import type { AnyDomainEvent, EventMap, EventName } from '@/main/domain/events';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 export interface IEventBus {
   emit(event: AnyDomainEvent): void;

@@ -8,7 +8,7 @@ import { EventId, ParticipantId } from '@/main/modules/championship';
 import type { PublishFinalResultsCommand } from './PublishFinalResults';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { GetEventByIdResponse } from '@/main/modules/championship';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 export interface PublishFinalResultsResponse {
   savedCount: number;

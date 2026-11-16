@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 // Logger configuration must be done before any Logger.create() calls
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 
 Logger.configure({
   minLevel: import.meta.env.PROD ? 'INFO' : 'DEBUG',

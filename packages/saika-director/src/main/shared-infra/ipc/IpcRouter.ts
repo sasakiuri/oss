@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { CommandResponseDto, Contract, ProcedureMap, InferHandlers, IpcErrorDto } from '@sasakiuri/saika-ipc';
 import { toIpcError } from '@sasakiuri/saika-ipc/main';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
-import { Logger } from '@/shared/utils/Logger';
+import { Logger } from '@/shared/logging';
 import { isDomainError } from '@/shared/utils/typeGuards';
 import type { IpcInvocationMiddleware } from './IpcInvocationMiddleware';
 
