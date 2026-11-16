@@ -8,17 +8,21 @@ interface UseResultsState {
   results: RankedResultDto[];
   loading: boolean;
   error: string | null;
+  confirmError: string | null;
 }
 
 /**
  * Qualification results of an event or relay and their confirmation. Queries and the confirmation share one request
- * counter, loading flag and error: the latest request wins, and an older one changes nothing and resolves null.
+ * counter and loading flag: the latest request wins, and an older one changes nothing and resolves null.
+ * A failed query replaces the results with `error`; a failed confirmation keeps them and sets `confirmError`,
+ * which the next request clears.
  */
 export function useResults() {
   const [state, setState] = useState<UseResultsState>({
     results: [],
     loading: false,
     error: null,
+    confirmError: null,
   });
   const latestResultsRequestIdRef = useRef(0);
 
@@ -31,7 +35,7 @@ export function useResults() {
 
   const getEventResults = useCallback(async (eventId: string) => {
     const requestId = ++latestResultsRequestIdRef.current;
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    setState((prev) => ({ ...prev, loading: true, error: null, confirmError: null }));
 
     try {
       const response = await resultsService.getByEvent({ eventId });
@@ -41,6 +45,7 @@ export function useResults() {
           results: data.results,
           loading: false,
           error: null,
+          confirmError: null,
         });
       }
       return response;
@@ -58,7 +63,7 @@ export function useResults() {
 
   const getRelayResults = useCallback(async (eventId: string, relayNumber: number) => {
     const requestId = ++latestResultsRequestIdRef.current;
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    setState((prev) => ({ ...prev, loading: true, error: null, confirmError: null }));
 
     try {
       const response = await resultsService.getByRelay({ eventId, relayNumber });
@@ -68,6 +73,7 @@ export function useResults() {
           results: data.results,
           loading: false,
           error: null,
+          confirmError: null,
         });
       }
       return response;
@@ -85,7 +91,7 @@ export function useResults() {
 
   const confirmResults = useCallback(async (eventId: string, resultIds: string[]) => {
     const requestId = ++latestResultsRequestIdRef.current;
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    setState((prev) => ({ ...prev, loading: true, error: null, confirmError: null }));
 
     try {
       const response = await resultsService.confirm({
@@ -105,7 +111,7 @@ export function useResults() {
         setState((prev) => ({
           ...prev,
           loading: false,
-          error: errorMessage(err, 'Failed to confirm results'),
+          confirmError: errorMessage(err, 'Failed to confirm results'),
         }));
       }
       return null;
@@ -118,6 +124,7 @@ export function useResults() {
       results: [],
       loading: false,
       error: null,
+      confirmError: null,
     });
   }, []);
 
@@ -125,6 +132,7 @@ export function useResults() {
     results: state.results,
     loading: state.loading,
     error: state.error,
+    confirmError: state.confirmError,
     getEventResults,
     getRelayResults,
     confirmResults,
