@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { setImmediate } from 'node:timers/promises';
 
 import {
-  VISTA_CATALOG_PATH,
+  parseVistaSourcePath,
   VistaSnapshotSchema,
   type VistaCatalog,
   type VistaIdentity,
@@ -157,10 +157,10 @@ export class LaneVistaSource {
   async handle(method: string, path: string): Promise<unknown> {
     if (method !== 'GET') throw new Error('Vista source is read-only');
     await this.refresh();
-    if (path === VISTA_CATALOG_PATH) return this.catalog();
-    const match = /^\/vista\/v1\/snapshot\/([^/]+)$/.exec(path);
-    if (!match?.[1]) throw new Error('Unknown Vista source request');
-    const id = decodeURIComponent(match[1]);
+    const request = parseVistaSourcePath(path);
+    if (request?.kind === 'catalog') return this.catalog();
+    if (!request) throw new Error('Unknown Vista source request');
+    const id = request.subjectId;
     if (this.unsupported.has(id)) throw new Error(this.unsupported.get(id)?.reason ?? 'Unsupported competition');
     const snapshot = this.snapshots.get(id);
     if (!snapshot) throw new Error('Vista subject was not found');

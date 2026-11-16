@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 
 import {
+  VISTA_PROTOCOL_VERSION,
   VistaDefinitionSchema,
   VistaSnapshotSchema,
   type VistaDefinition,
@@ -119,7 +120,7 @@ export function projectLaneVista(input: {
     seriesTotals.set(key, entry);
   }
   return VistaSnapshotSchema.parse({
-    protocolVersion: 1,
+    protocolVersion: VISTA_PROTOCOL_VERSION,
     sourceId: input.sourceId,
     subjectId: competition.id,
     generation: input.generation,

@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
-import type { VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
+import { VISTA_PROTOCOL_VERSION, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
 import {
   createVistaDiscovery,
   createVistaServer,
@@ -69,7 +69,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
     try {
       credentials = loadVistaCredentials(join(userDataPath, 'vista', 'credentials.json'));
       identity = {
-        protocolVersion: 1,
+        protocolVersion: VISTA_PROTOCOL_VERSION,
         sourceId: credentials.sourceId,
         bootId: randomUUID(),
         kind: 'lane',
