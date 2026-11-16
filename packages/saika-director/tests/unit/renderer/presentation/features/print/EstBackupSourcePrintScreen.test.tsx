@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { EstBackupSourcePrintScreen } from '@/renderer/presentation/features/print/EstBackupSourcePrintScreen';
 
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
+
 const { getSource } = vi.hoisted(() => ({ getSource: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ estBackupVerificationService: { getSource } }));
 describe('EST source printing', () => {
@@ -40,5 +42,24 @@ describe('EST source printing', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Integrity check failed');
     expect(screen.getByRole('button', { name: 'Print' })).toBeDisabled();
     expect(screen.queryByText('001')).toBeNull();
+  });
+
+  it('shows each load failure as its message, and a failure that is not an error as text', async () => {
+    const config = { type: 'est-backup-source-print' as const, sourceId: 'source' };
+    const { rerender } = render(<EstBackupSourcePrintScreen config={{ type: 'est-backup-source-print' }} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^No retained backup source was selected$/);
+
+    getSource.mockResolvedValueOnce(fail('Source file is missing', 'NOT_FOUND'));
+    rerender(<EstBackupSourcePrintScreen config={config} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Source file is missing$/);
+
+    getSource.mockResolvedValueOnce(ok({ id: 'another' }));
+    rerender(<EstBackupSourcePrintScreen config={{ ...config, sourceId: 'second' }} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^The returned backup source does not match$/);
+
+    getSource.mockRejectedValueOnce('offline');
+    rerender(<EstBackupSourcePrintScreen config={{ ...config, sourceId: 'third' }} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^offline$/);
+    expect(screen.getByRole('button', { name: 'Print' })).toBeDisabled();
   });
 });

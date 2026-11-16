@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProtestPrintScreen } from '@/renderer/presentation/features/print/ProtestPrintScreen';
 
 import { APPEAL_ID, PROTEST_ID, protestFixture } from '../../../../../helpers/protestFixture';
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
 
 const { getById } = vi.hoisted(() => ({ getById: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ protestsService: { getById } }));
@@ -94,5 +95,27 @@ describe('ProtestPrintScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('does not match');
     expect(screen.queryByText('Transfer values to a protest or appeal form')).not.toBeInTheDocument();
+  });
+
+  it('shows exact texts for failed record and original-protest loads and for failures that are not errors', async () => {
+    getById.mockResolvedValueOnce(fail('Protest record not found', 'NOT_FOUND'));
+    const { rerender } = render(<ProtestPrintScreen config={{ type: 'protest-print', protestId: PROTEST_ID }} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Protest record not found$/);
+
+    getById
+      .mockResolvedValueOnce({
+        success: true,
+        data: protestFixture({ id: APPEAL_ID, kind: 'APPEAL', parentProtestId: PROTEST_ID }),
+      })
+      .mockResolvedValueOnce(fail('Record unavailable'));
+    rerender(<ProtestPrintScreen config={{ type: 'protest-print', protestId: APPEAL_ID }} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Cannot load the original protest: Record unavailable$/,
+    );
+
+    getById.mockRejectedValueOnce('offline');
+    rerender(<ProtestPrintScreen config={{ type: 'protest-print', protestId: PROTEST_ID }} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Failed to load the protest record$/);
+    expect(screen.getByRole('button', { name: 'Print' })).toBeDisabled();
   });
 });
