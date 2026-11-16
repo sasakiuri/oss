@@ -4,9 +4,9 @@ import { migration079ObservationReviews } from '@/main/infrastructure/database/m
 import {
   ObservationReviewService,
   type ReviewSubject,
-} from '@/main/modules/observation-reviews/ObservationReviewService';
-import { SqliteObservationReviewRepository } from '@/main/modules/observation-reviews/SqliteObservationReviewRepository';
-import { ObservationReviewPublicationBlocker } from '@/main/modules/observation-reviews/ObservationReviewPublicationBlocker';
+} from '@/main/modules/observation-reviews/application/ObservationReviewService';
+import { SqliteObservationReviewRepository } from '@/main/modules/observation-reviews/infra/SqliteObservationReviewRepository';
+import { ObservationReviewPublicationBlocker } from '@/main/modules/observation-reviews/application/ObservationReviewPublicationBlocker';
 import { OptionalResultPublicationBlocker } from '@/main/modules/result-publication';
 
 const databases: Database.Database[] = [];

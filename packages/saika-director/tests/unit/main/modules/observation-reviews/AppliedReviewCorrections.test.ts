@@ -4,8 +4,8 @@ import type {
   IScoreCorrectionRepository,
   ScoreCorrectionApplication,
 } from '@/main/modules/score-corrections/domain/ScoreCorrection';
-import { AppliedReviewCorrections } from '@/main/modules/observation-reviews/AppliedReviewCorrections';
-import type { ReviewSubject } from '@/main/modules/observation-reviews/ObservationReviewService';
+import { AppliedReviewCorrections } from '@/main/modules/observation-reviews/application/AppliedReviewCorrections';
+import type { ReviewSubject } from '@/main/modules/observation-reviews/application/ObservationReviewService';
 
 it('requires exact evidence and current projection; withdrawal and changed decisions invalidate a review', () => {
   const subject = { competitionId: 'competition', evidenceReference: 'observation:e1' } as ReviewSubject;

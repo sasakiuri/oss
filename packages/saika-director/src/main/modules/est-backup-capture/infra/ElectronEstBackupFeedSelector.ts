@@ -2,8 +2,8 @@ import { basename, isAbsolute } from 'node:path';
 
 import { chooseEstBackupSourcePath, readEstBackupRecordFile } from '@/main/modules/est-backup-verification';
 
-import type { EstBackupAdapterReference } from './EstBackupCapturePersistence';
-import type { IEstBackupFeedSelector } from './EstBackupCaptureService';
+import type { EstBackupAdapterReference } from '../application/EstBackupCapturePersistence';
+import type { IEstBackupFeedSelector } from '../application/EstBackupCaptureService';
 
 export class ElectronEstBackupFeedSelector implements IEstBackupFeedSelector {
   async choose(extensions: readonly string[]) {

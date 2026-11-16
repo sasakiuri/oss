@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 
 import { OperationalTemplateSchema, type OperationalTemplateDto } from '@/shared/ipc/contracts';
 
-import type { IOperationalTemplateRepository } from './OperationalTemplateService';
+import type { IOperationalTemplateRepository } from '../application/OperationalTemplateService';
 
 export class SqliteOperationalTemplateRepository implements IOperationalTemplateRepository {
   constructor(private readonly db: Database.Database) {}

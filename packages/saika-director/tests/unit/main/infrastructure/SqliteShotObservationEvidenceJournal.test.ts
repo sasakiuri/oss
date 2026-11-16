@@ -7,10 +7,10 @@ import { migration048TimedTargetObservationOutcome } from '@/main/infrastructure
 import { migration078ShotTimingReviewOutcome } from '@/main/infrastructure/database/migrations/078_shot_timing_review_outcome';
 import { migration079ObservationReviews } from '@/main/infrastructure/database/migrations/079_observation_reviews';
 import { migration090NullifiedPositionExtra } from '@/main/infrastructure/database/migrations/090_nullified_position_extra';
-import { StoredReviewSubjects } from '@/main/modules/observation-reviews/StoredReviewSubjects';
-import { ObservationReviewService } from '@/main/modules/observation-reviews/ObservationReviewService';
-import { ObservationReviewPublicationBlocker } from '@/main/modules/observation-reviews/ObservationReviewPublicationBlocker';
-import { SqliteObservationReviewRepository } from '@/main/modules/observation-reviews/SqliteObservationReviewRepository';
+import { StoredReviewSubjects } from '@/main/modules/observation-reviews/application/StoredReviewSubjects';
+import { ObservationReviewService } from '@/main/modules/observation-reviews/application/ObservationReviewService';
+import { ObservationReviewPublicationBlocker } from '@/main/modules/observation-reviews/application/ObservationReviewPublicationBlocker';
+import { SqliteObservationReviewRepository } from '@/main/modules/observation-reviews/infra/SqliteObservationReviewRepository';
 import type { IFiringWindowJournal } from '@/main/modules/mqtt';
 import { SqliteShotObservationEvidenceJournal } from '@/main/modules/mqtt/infra/SqliteShotObservationEvidenceJournal';
 import {

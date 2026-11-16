@@ -1,8 +1,8 @@
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { equipmentRegistryContract, type EquipmentAthlete } from '@/shared/ipc/contracts';
 
-import { EquipmentRegistryService } from './EquipmentRegistryService';
-import { SqliteEquipmentRegistryRepository } from './SqliteEquipmentRegistryRepository';
+import { EquipmentRegistryService } from './application/EquipmentRegistryService';
+import { SqliteEquipmentRegistryRepository } from './infra/SqliteEquipmentRegistryRepository';
 
 export const equipmentRegistryModule = defineModule({
   name: 'equipmentRegistry',

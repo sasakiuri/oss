@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { z } from 'zod';
 
-import type { EstBackupCapturePlan, IEstBackupCapturePlanRepository } from './EstBackupCapturePersistence';
+import type { EstBackupCapturePlan, IEstBackupCapturePlanRepository } from '../application/EstBackupCapturePersistence';
 
 const reference = z.object({ adapter: z.string().min(1), options: z.record(z.string(), z.unknown()) });
 const planSchema = z.object({

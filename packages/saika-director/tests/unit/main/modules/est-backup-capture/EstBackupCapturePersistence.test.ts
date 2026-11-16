@@ -10,9 +10,9 @@ import {
   EstBackupCaptureService,
   type IEstBackupFeed,
   type IEstBackupSnapshotCapture,
-} from '@/main/modules/est-backup-capture/EstBackupCaptureService';
-import { EstBackupParserReferences } from '@/main/modules/est-backup-capture/EstBackupParserReferences';
-import { SqliteEstBackupCapturePlanRepository } from '@/main/modules/est-backup-capture/SqliteEstBackupCapturePlanRepository';
+} from '@/main/modules/est-backup-capture/application/EstBackupCaptureService';
+import { EstBackupParserReferences } from '@/main/modules/est-backup-capture/application/EstBackupParserReferences';
+import { SqliteEstBackupCapturePlanRepository } from '@/main/modules/est-backup-capture/infra/SqliteEstBackupCapturePlanRepository';
 import { ColumnMappedEstBackupRecordParser } from '@/main/modules/est-backup-verification/domain/ColumnMappedEstBackupRecordParser';
 
 const eventId = '11111111-1111-4111-8111-111111111111';

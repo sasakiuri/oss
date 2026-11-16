@@ -2,7 +2,7 @@ import type Database from 'better-sqlite3';
 
 import { equipmentRegistryEntrySchema, type EquipmentRegistryEntry } from '@/shared/ipc/contracts';
 
-import type { IEquipmentRegistryRepository } from './EquipmentRegistryService';
+import type { IEquipmentRegistryRepository } from '../application/EquipmentRegistryService';
 
 export class SqliteEquipmentRegistryRepository implements IEquipmentRegistryRepository {
   constructor(private readonly database: Database.Database) {}

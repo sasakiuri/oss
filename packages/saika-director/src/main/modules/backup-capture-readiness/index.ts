@@ -1,10 +1,10 @@
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { backupCaptureReadinessContract } from '@/shared/ipc/contracts';
 
-import type { BackupCaptureReadinessService } from './BackupCaptureReadinessService';
+import type { BackupCaptureReadinessService } from './application/BackupCaptureReadinessService';
 
-export { BackupCaptureReadinessService } from './BackupCaptureReadinessService';
-export { SqliteBackupCaptureReadinessSettingsRepository } from './SqliteBackupCaptureReadinessSettingsRepository';
+export { BackupCaptureReadinessService } from './application/BackupCaptureReadinessService';
+export { SqliteBackupCaptureReadinessSettingsRepository } from './infra/SqliteBackupCaptureReadinessSettingsRepository';
 
 /** The capture plans and their events, from which the selectable backup sources are listed. */
 export interface BackupCaptureSourceReaders {

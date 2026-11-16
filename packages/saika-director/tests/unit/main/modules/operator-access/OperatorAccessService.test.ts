@@ -7,10 +7,10 @@ import {
   OperatorAccessService,
   type IOperatorAccessStore,
   type StoredOperatorAccount,
-} from '@/main/modules/operator-access/OperatorAccessService';
-import { directorOperatorPermission } from '@/main/modules/operator-access/DirectorOperatorPermissions';
-import { SessionSanctionAuthorizationResolver } from '@/main/modules/operator-access/SessionSanctionAuthorizationResolver';
-import { SqliteOperatorAccessStore } from '@/main/modules/operator-access/SqliteOperatorAccessStore';
+} from '@/main/modules/operator-access/application/OperatorAccessService';
+import { directorOperatorPermission } from '@/main/modules/operator-access/application/DirectorOperatorPermissions';
+import { SessionSanctionAuthorizationResolver } from '@/main/modules/operator-access/application/SessionSanctionAuthorizationResolver';
+import { SqliteOperatorAccessStore } from '@/main/modules/operator-access/infra/SqliteOperatorAccessStore';
 import { ManualAttestationSanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
 import type { OperatorAuditEntry } from '@/shared/ipc/contracts';
 

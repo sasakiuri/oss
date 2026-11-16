@@ -1,1 +1,1 @@
-export * from './OfficialSigningPolicy';
+export * from './domain/OfficialSigningPolicy';

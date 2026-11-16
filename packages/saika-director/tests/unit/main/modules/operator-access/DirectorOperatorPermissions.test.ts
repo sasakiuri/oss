@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Contract, ProcedureMap } from '@sasakiuri/saika-ipc';
 
-import { directorOperatorPermission } from '@/main/modules/operator-access/DirectorOperatorPermissions';
+import { directorOperatorPermission } from '@/main/modules/operator-access/application/DirectorOperatorPermissions';
 import type { OperatorPermission } from '@/shared/ipc/contracts';
 
 const contracts = Object.values(

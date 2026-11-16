@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EstBackupCaptureService,
   type IEstBackupFeed,
-} from '@/main/modules/est-backup-capture/EstBackupCaptureService';
+} from '@/main/modules/est-backup-capture/application/EstBackupCaptureService';
 import type { SelectedEstBackupRecordFile } from '@/main/modules/est-backup-verification/application/EstBackupRecordFileGateway';
 
 function snapshot(content = '[{"key":"101","totalScore":600}]'): SelectedEstBackupRecordFile {

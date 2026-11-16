@@ -10,7 +10,7 @@ import { ISSF_2026_ARMIX_FINAL, ISSF_2026_RFPM, assessQualificationMalfunctionCl
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { sha256Json } from '@/main/domain/sha256Json';
-import { BackupCaptureReadinessService } from '@/main/modules/backup-capture-readiness/BackupCaptureReadinessService';
+import { BackupCaptureReadinessService } from '@/main/modules/backup-capture-readiness/application/BackupCaptureReadinessService';
 import { EventId, Participant, ParticipantId } from '@/main/modules/championship';
 import { SqliteEliminationPlanningSource } from '@/main/modules/elimination-planning';
 import { backupRecordsDigest } from '@/main/modules/est-backup-sources';
@@ -23,7 +23,7 @@ import {
 import { estComplaintSnapshotHash } from '@/main/modules/est-complaints/domain/EstComplaintSnapshot';
 import type { EstComplaintSignalSnapshot } from '@/main/modules/est-complaints/domain/IEstComplaintSignalSource';
 import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review/domain/IFinalPlacementReviewRepository';
-import { OperationalProfileService } from '@/main/modules/operational-profiles/OperationalProfileService';
+import { OperationalProfileService } from '@/main/modules/operational-profiles/application/OperationalProfileService';
 import {
   PolicyBoundVerificationSource,
   PublicationReviewPolicyService,

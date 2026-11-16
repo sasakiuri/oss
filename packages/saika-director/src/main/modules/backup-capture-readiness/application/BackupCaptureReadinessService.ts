@@ -13,7 +13,7 @@ import {
   BackupCaptureHealthPolicy,
   type BackupCaptureHealthFacts,
   type IBackupCaptureHealthPolicy,
-} from './BackupCaptureHealthPolicy';
+} from '../domain/BackupCaptureHealthPolicy';
 import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface IBackupCaptureReadinessSettingsRepository {
