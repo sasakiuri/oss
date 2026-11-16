@@ -82,7 +82,7 @@ module.exports = {
       comment: 'Focused MQTT components use consumer-owned ports, not the competition coordinator.',
       severity: 'error',
       from: {
-        path: '^src/main/modules/mqtt/application/(DirectorMqttConnection|DirectorLaneReadiness|CompetitionExpiryScheduler|LaneHardwareMonitor|DirectorMqttReceiver|DirectorMqttState|MqttCommandDispatcher|DirectorCommandPort|QualificationRecoveryCommands|RangeInterruptionCommands|RangeSafetyCommands|ReserveLaneTransferCommands|createLaneCommandFailure|operationalProfileTargets|MqttObservationRecorder|mqttEventForwarding)\\.ts$',
+        path: '^src/main/modules/mqtt/application/(DirectorMqttConnection|DirectorLaneReadiness|CompetitionExpiryScheduler|LaneHardwareMonitor|DirectorMqttReceiver|DirectorMqttState|MqttCommandDispatcher|DirectorCommandPort|QualificationRecoveryCommands|RangeInterruptionCommands|RangeSafetyCommands|ReserveLaneTransferCommands|TimedTargetCommands|createLaneCommandFailure|operationalProfileTargets|MqttObservationRecorder|mqttEventForwarding)\\.ts$',
       },
       to: { path: '^src/main/modules/mqtt/application/DirectorMqttService\\.ts$' },
     },
@@ -91,7 +91,7 @@ module.exports = {
       comment: 'Command workflows use their ports; the coordinator owns queues, connection, state and dispatch.',
       severity: 'error',
       from: {
-        path: '^src/main/modules/mqtt/application/(QualificationRecoveryCommands|RangeInterruptionCommands|RangeSafetyCommands|ReserveLaneTransferCommands)\\.ts$',
+        path: '^src/main/modules/mqtt/application/(QualificationRecoveryCommands|RangeInterruptionCommands|RangeSafetyCommands|ReserveLaneTransferCommands|TimedTargetCommands)\\.ts$',
       },
       to: {
         path: '^src/main/shared-infra/operations/|^src/main/modules/mqtt/(domain/IMqttTransport|application/(DirectorMqttConnection|DirectorMqttState|DirectorLaneReadiness|MqttCommandDispatcher|CompetitionExpiryScheduler|LaneHardwareMonitor))\\.ts$',

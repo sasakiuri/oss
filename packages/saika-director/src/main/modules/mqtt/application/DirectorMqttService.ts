@@ -8,7 +8,6 @@ import {
   JoinCompetitionCommandSchema,
   LeaveCompetitionCommandSchema,
   ProbeClockCommandSchema,
-  RecordTimedTargetUnloadCommandSchema,
   ResetSessionCommandSchema,
   RetireFinalistCommandSchema,
   StartMatchCommandSchema,
@@ -79,6 +78,12 @@ import { QualificationRecoveryCommands } from './QualificationRecoveryCommands';
 import { RangeInterruptionCommands } from './RangeInterruptionCommands';
 import { RangeSafetyCommands } from './RangeSafetyCommands';
 import { ReserveLaneTransferCommands } from './ReserveLaneTransferCommands';
+import {
+  TimedTargetCommands,
+  type CancelTimedTargetInput,
+  type RecordTimedTargetUnloadInput,
+  type StartTimedTargetInput,
+} from './TimedTargetCommands';
 
 const logger = Logger.create('DirectorMqttService');
 
@@ -126,6 +131,7 @@ export class DirectorMqttService {
   private readonly safety: RangeSafetyCommands;
   private readonly interruptions: RangeInterruptionCommands;
   private readonly reserveTransfers: ReserveLaneTransferCommands;
+  private readonly timedTargets: TimedTargetCommands;
 
   constructor(
     options: DirectorMqttOptions,
@@ -217,6 +223,23 @@ export class DirectorMqttService {
       getLane: (laneId) => this.state.getLane(laneId),
       retainCompetitionState: (state, patch) => this.publishCompetitionState(this.updateCompetitionState(state, patch)),
     });
+    this.timedTargets = new TimedTargetCommands(
+      commands,
+      {
+        requireCompetition: (competitionId) => this.requireCompetition(competitionId),
+        requireCompetitionPhase: (competitionId, phase, operation) =>
+          this.requireCompetitionPhase(competitionId, phase, operation),
+        requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
+        getLane: (laneId) => this.state.getLane(laneId),
+        waitForTimedTargetLaneReadiness: (competitionId, laneIds, stageIndex, seriesIndex) =>
+          this.state.waitForTimedTargetLaneReadiness(competitionId, laneIds, stageIndex, seriesIndex),
+        assertPhaseStartAllowed: (scope) => this.callbacks.assertPhaseStartAllowed?.(scope),
+        assertSafetyCleared: (laneIds, operation) => this.assertSafetyCleared(laneIds, operation),
+        assertTimedCommandReadiness: (laneIds) => this.readiness.assertTimedCommandReadiness(laneIds),
+        assertTimedTargetReadiness: (laneIds) => this.readiness.assertTimedTargetReadiness(laneIds),
+      },
+      this.startDelayMs,
+    );
     this.receiver = new DirectorMqttReceiver({
       onHardwareState: (state) => {
         const wasConnected = this.state.getLane(state.laneId)?.hardware?.connection.status === 'connected';
@@ -1100,150 +1123,16 @@ export class DirectorMqttService {
     return result;
   }
 
-  async startTimedTarget(input: {
-    competitionId: string;
-    programId: string;
-    purpose: 'SIGHTING' | 'MATCH';
-    stageIndex: number;
-    seriesIndex: number;
-    targetLaneIds?: readonly string[];
-  }): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(input.competitionId, () => this.startTimedTargetNow(input));
+  async startTimedTarget(input: StartTimedTargetInput): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(input.competitionId, () => this.timedTargets.startTimedTarget(input));
   }
 
-  private async startTimedTargetNow(input: {
-    competitionId: string;
-    programId: string;
-    purpose: 'SIGHTING' | 'MATCH';
-    stageIndex: number;
-    seriesIndex: number;
-    targetLaneIds?: readonly string[];
-  }): Promise<CommandExecutionResult> {
-    const competition = this.requireCompetitionPhase(input.competitionId, 'MATCH', 'start a timed target sequence');
-    const targetLaneIds = [...new Set(input.targetLaneIds ?? competition.laneIds)];
-    if (targetLaneIds.length === 0) throw new Error('A timed target sequence requires at least one Lane');
-    targetLaneIds.forEach((laneId) => this.requireCompetitionLane(input.competitionId, laneId));
-    this.assertSafetyCleared(targetLaneIds, 'start a timed target sequence');
-    this.readiness.assertTimedCommandReadiness(targetLaneIds);
-    this.readiness.assertTimedTargetReadiness(targetLaneIds);
-
-    const notReady = await this.state.waitForTimedTargetLaneReadiness(
-      input.competitionId,
-      targetLaneIds,
-      input.stageIndex,
-      input.seriesIndex,
-    );
-    if (notReady.length > 0) {
-      throw new Error(
-        `Timed target Lanes are not ready at ${input.stageIndex}:${input.seriesIndex}: ${notReady.join(', ')}`,
-      );
-    }
-
-    const stillActive = targetLaneIds.filter((laneId) => {
-      const state = this.state.getLane(laneId)?.timedTargetState;
-      return state && state.phase !== 'COMPLETE' && state.phase !== 'CANCELLED';
-    });
-    if (stillActive.length > 0) {
-      throw new Error(`A timed target sequence is already active on Lane(s): ${stillActive.join(', ')}`);
-    }
-
-    const awaitingUnload = targetLaneIds.filter((laneId) => {
-      const pause = this.state.getLane(laneId)?.timedTargetState?.commandPause;
-      return pause?.mode === 'REQUIRED' && !pause.unloadAt;
-    });
-    if (awaitingUnload.length) throw new Error(`Record UNLOAD before LOAD on Lane(s): ${awaitingUnload.join(', ')}`);
-    this.callbacks.assertPhaseStartAllowed?.({
-      competitionId: input.competitionId,
-      phase: input.purpose,
-      laneIds: targetLaneIds,
-    });
-    this.assertSafetyCleared(targetLaneIds, 'start a timed target sequence');
-    this.readiness.assertTimedCommandReadiness(targetLaneIds);
-    this.readiness.assertTimedTargetReadiness(targetLaneIds);
-    const earliestLoadMs = targetLaneIds.reduce((latest, laneId) => {
-      const nextLoad = this.state.getLane(laneId)?.timedTargetState?.nextLoadAllowedAt;
-      return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
-    }, Date.now() + this.startDelayMs);
-    const command = StartTimedTargetCommandSchema.parse(
-      this.commandBase({
-        programId: input.programId,
-        purpose: input.purpose,
-        stageIndex: input.stageIndex,
-        seriesIndex: input.seriesIndex,
-        loadAt: new Date(earliestLoadMs).toISOString(),
-        targetLaneIds,
-      }),
-    );
-    return this.publishCommand({
-      action: 'start-timed-target',
-      topic: mqttTopics.competitionCommand(input.competitionId, 'start-timed-target'),
-      acknowledgementTopic: (laneId) =>
-        mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'start-timed-target', laneId),
-      payload: command,
-      expectedLaneIds: targetLaneIds,
-    });
+  async recordTimedTargetUnload(input: RecordTimedTargetUnloadInput): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(input.competitionId, () => this.timedTargets.recordTimedTargetUnload(input));
   }
 
-  async recordTimedTargetUnload(input: {
-    competitionId: string;
-    sequenceId: string;
-    observedAt: string;
-    officialName: string;
-    targetLaneIds: readonly string[];
-  }): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(input.competitionId, async () => {
-      this.requireCompetition(input.competitionId);
-      const targetLaneIds = [...new Set(input.targetLaneIds)];
-      if (!targetLaneIds.length) throw new Error('UNLOAD requires at least one Lane');
-      for (const laneId of targetLaneIds) {
-        this.requireCompetitionLane(input.competitionId, laneId);
-        const state = this.state.getLane(laneId)?.timedTargetState;
-        if (!state || state.sequenceId !== input.sequenceId || !['COMPLETE', 'CANCELLED'].includes(state.phase)) {
-          throw new Error(`UNLOAD sequence is not completed or cancelled on Lane ${laneId}`);
-        }
-      }
-      const command = RecordTimedTargetUnloadCommandSchema.parse(
-        this.commandBase({
-          sequenceId: input.sequenceId,
-          observedAt: input.observedAt,
-          officialName: input.officialName,
-          targetLaneIds,
-        }),
-      );
-      return this.publishCommand({
-        action: 'record-timed-target-unload',
-        topic: mqttTopics.competitionCommand(input.competitionId, 'record-timed-target-unload'),
-        acknowledgementTopic: (laneId) =>
-          mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'record-timed-target-unload', laneId),
-        payload: command,
-        expectedLaneIds: targetLaneIds,
-      });
-    });
-  }
-
-  async cancelTimedTarget(input: {
-    competitionId: string;
-    sequenceId: string;
-    reason: string;
-    targetLaneIds?: readonly string[];
-  }): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(input.competitionId, async () => {
-      const competition = this.requireCompetition(input.competitionId);
-      const targetLaneIds = [...new Set(input.targetLaneIds ?? competition.laneIds)];
-      if (targetLaneIds.length === 0) throw new Error('Timed target cancellation requires at least one Lane');
-      targetLaneIds.forEach((laneId) => this.requireCompetitionLane(input.competitionId, laneId));
-      const command = CancelTimedTargetCommandSchema.parse(
-        this.commandBase({ sequenceId: input.sequenceId, reason: input.reason, targetLaneIds }),
-      );
-      return this.publishCommand({
-        action: 'cancel-timed-target',
-        topic: mqttTopics.competitionCommand(input.competitionId, 'cancel-timed-target'),
-        acknowledgementTopic: (laneId) =>
-          mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'cancel-timed-target', laneId),
-        payload: command,
-        expectedLaneIds: targetLaneIds,
-      });
-    });
+  async cancelTimedTarget(input: CancelTimedTargetInput): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(input.competitionId, () => this.timedTargets.cancelTimedTarget(input));
   }
 
   async restartTimer(
