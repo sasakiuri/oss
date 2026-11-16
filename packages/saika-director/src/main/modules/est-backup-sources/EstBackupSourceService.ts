@@ -6,6 +6,7 @@ import {
   type EstBackupSourceSummaryDto,
   type EstBackupRecordImportReceiptDto,
 } from '@/shared/ipc/contracts/estBackupVerification.contract';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface IEstBackupSourceRepository {
   append(source: EstBackupSourceDto): void;
@@ -61,19 +62,15 @@ export class EstBackupSourceService implements IEstBackupSourceReader, IEstBacku
 }
 
 export function backupRecordsDigest(records: EstBackupSourceDto['records']): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify(
-        records.map((record) => ({
-          key: record.key,
-          rank: record.rank ?? null,
-          totalScore: record.totalScore,
-          ...(record.shotScores !== undefined ? { shotScores: record.shotScores } : {}),
-          ...(record.seriesScores !== undefined ? { seriesScores: record.seriesScores } : {}),
-        })),
-      ),
-    )
-    .digest('hex');
+  return sha256Json(
+    records.map((record) => ({
+      key: record.key,
+      rank: record.rank ?? null,
+      totalScore: record.totalScore,
+      ...(record.shotScores !== undefined ? { shotScores: record.shotScores } : {}),
+      ...(record.seriesScores !== undefined ? { seriesScores: record.seriesScores } : {}),
+    })),
+  );
 }
 function assertIntegrity(source: EstBackupSourceDto) {
   if (

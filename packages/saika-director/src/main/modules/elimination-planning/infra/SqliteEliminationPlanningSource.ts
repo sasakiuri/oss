@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
 import type Database from 'better-sqlite3';
 
 import type {
   EliminationPlanningSourceSnapshot,
   IEliminationPlanningSource,
 } from '../domain/IEliminationPlanningSource';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 interface EventRow {
   event_type: string;
@@ -63,7 +63,7 @@ export class SqliteEliminationPlanningSource implements IEliminationPlanningSour
       competitionTypeId: event.event_type,
       entryCount: participants.length,
       ...(relayStartCounts ? { relayStartCounts } : {}),
-      sourceHash: createHash('sha256').update(JSON.stringify(source)).digest('hex'),
+      sourceHash: sha256Json(source),
     };
   }
 }

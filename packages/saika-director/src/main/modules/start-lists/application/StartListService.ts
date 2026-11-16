@@ -25,6 +25,7 @@ import {
   type IParticipantEligibilityReader,
 } from '@/main/shared-infra/operations/ParticipantEligibility';
 import { requiredText } from '@/main/domain/guards';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 type StartListStatus = StartListVersionDto['status'];
 
@@ -53,7 +54,7 @@ export class StartListService {
     }
     const snapshot = this.buildSnapshot(input.eventId);
     if (snapshot.rows.length === 0) throw new Error('A Start List cannot be created without participants');
-    const sourceSnapshotJson = canonicalJson(snapshot);
+    const sourceSnapshotJson = JSON.stringify(snapshot);
     const createdAt = validIso(input.createdAt ?? new Date().toISOString(), 'createdAt');
     let id = '';
     this.database.transaction(() => {
@@ -242,7 +243,7 @@ export class StartListService {
   }
 
   private liveSourceHash(eventId: string): string {
-    return sha256(canonicalJson(this.buildSnapshot(eventId)));
+    return sha256Json(this.buildSnapshot(eventId));
   }
 
   private buildSnapshot(eventId: string): StartListSnapshot {
@@ -300,7 +301,7 @@ function findEntry(value: StartListVersionRecord, type: StartListEntryType): Sta
 
 function integrityValid(value: StartListVersionRecord): boolean {
   return (
-    sha256(value.sourceSnapshotJson) === value.sourceHash && canonicalJson(value.snapshot) === value.sourceSnapshotJson
+    sha256(value.sourceSnapshotJson) === value.sourceHash && JSON.stringify(value.snapshot) === value.sourceSnapshotJson
   );
 }
 
@@ -318,10 +319,6 @@ function compareRows(left: StartListSnapshot['rows'][number], right: StartListSn
     (left.firingPointNumber ?? Number.MAX_SAFE_INTEGER) - (right.firingPointNumber ?? Number.MAX_SAFE_INTEGER) ||
     left.participantId.localeCompare(right.participantId)
   );
-}
-
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(value);
 }
 
 function sha256(value: string): string {

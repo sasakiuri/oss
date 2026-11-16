@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   calculateMalfunctionScoreSheet,
   QualificationMalfunctionEntry,
@@ -14,6 +13,7 @@ import type {
   MalfunctionScoreApplicationRequest,
   MalfunctionScoreWithdrawal,
 } from '../domain/MalfunctionScoreApplication';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export class MalfunctionScoreApplicationService {
   constructor(
@@ -42,8 +42,8 @@ export class MalfunctionScoreApplicationService {
       throw new Error('Score application requires an executed case with unsettled scoring');
     if (this.sheets.list(value.id).at(-1)?.id !== sheet.id) throw new Error('Use the latest confirmed calculation');
     if (
-      hash({ input: sheet.input, calculation: sheet.calculation, context: sheet.context }) !== sheet.digest ||
-      hash(calculateMalfunctionScoreSheet(value, entries, sheet.input)) !== hash(sheet.calculation)
+      sha256Json({ input: sheet.input, calculation: sheet.calculation, context: sheet.context }) !== sheet.digest ||
+      sha256Json(calculateMalfunctionScoreSheet(value, entries, sheet.input)) !== sha256Json(sheet.calculation)
     )
       throw new Error('The confirmed calculation no longer matches the case evidence');
     const target = this.targets.resolve(value, sheet);
@@ -81,7 +81,7 @@ export class MalfunctionScoreApplicationService {
       sheetDigest: sheet.digest,
       replacement,
     };
-    return { ...content, digest: hash(content) };
+    return { ...content, digest: sha256Json(content) };
   }
 
   apply(input: {
@@ -94,7 +94,7 @@ export class MalfunctionScoreApplicationService {
     return this.cases.executeInTransaction(() => {
       const previous = this.applications.find(input.id);
       if (previous) {
-        if (previous.digest !== input.expectedDigest || hash(previous.request) !== hash(input.request))
+        if (previous.digest !== input.expectedDigest || sha256Json(previous.request) !== sha256Json(input.request))
           throw new Error('This application ID is already bound to different evidence');
         return previous;
       }
@@ -126,7 +126,8 @@ export class MalfunctionScoreApplicationService {
       const previous = this.applications.withdrawal(application.id);
       if (previous) {
         const { recordedAt: _time, ...saved } = previous;
-        if (hash(saved) !== hash(input)) throw new Error('The score application has already been withdrawn');
+        if (sha256Json(saved) !== sha256Json(input))
+          throw new Error('The score application has already been withdrawn');
         return previous;
       }
       const withdrawal = { ...input, recordedAt: this.now().toISOString() };
@@ -155,7 +156,4 @@ function assertOfficial(input: { officialName: string; officialRole: string; sta
     !input.statement.trim()
   )
     throw new Error('RTS or Jury identity and a confirmation statement are required');
-}
-export function hash(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }

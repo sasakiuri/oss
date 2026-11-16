@@ -18,6 +18,7 @@ import type {
   SquaddingDrawRecord,
 } from '../domain/ISquaddingRepository';
 import { IssfSquaddingPolicy, SQUADDING_ALGORITHM_VERSION } from '../domain/SquaddingPolicy';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export class SquaddingService {
   private readonly participants;
@@ -59,8 +60,8 @@ export class SquaddingService {
             : 'Qualification',
       ...(definition.teamFormat === 'MIXED_PAIR' ? { teamFormat: 'MIXED_PAIR' as const } : {}),
     });
-    const participantSnapshotJson = canonicalJson(snapshot);
-    const assignmentsJson = canonicalJson(result.assignments);
+    const participantSnapshotJson = JSON.stringify(snapshot);
+    const assignmentsJson = JSON.stringify(result.assignments);
     const draw = {
       id: crypto.randomUUID(),
       eventId: input.eventId,
@@ -101,7 +102,7 @@ export class SquaddingService {
     if (this.requireEventType(draw.eventId) !== draw.competitionTypeId) {
       throw new Error('The event competition type changed after this draw was created');
     }
-    if (sha256(canonicalJson(draw.assignments)) !== draw.outputHash) {
+    if (sha256Json(draw.assignments) !== draw.outputHash) {
       throw new Error('The stored squadding output failed its integrity check');
     }
 
@@ -198,7 +199,7 @@ export class SquaddingService {
 
   private isStale(draw: SquaddingDrawRecord): boolean {
     try {
-      return sha256(canonicalJson(this.participantSnapshot(draw.eventId))) !== draw.participantSnapshotHash;
+      return sha256Json(this.participantSnapshot(draw.eventId)) !== draw.participantSnapshotHash;
     } catch {
       return true;
     }
@@ -217,10 +218,6 @@ function toLedgerEntry(value: SquaddingDrawEntryRecord | null) {
     statement: value.statement,
     recordedAt: value.recordedAt,
   };
-}
-
-function canonicalJson(value: unknown): string {
-  return JSON.stringify(value);
 }
 
 function sha256(value: string): string {

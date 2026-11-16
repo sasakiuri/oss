@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type {
   AddVerificationCheckPayload,
   ApplyEstBackupChecksPayload,
@@ -8,6 +7,7 @@ import type {
   ResultVerificationStatusDto,
 } from '@/shared/ipc/contracts';
 import type { IEstBackupVerificationRepository } from '../domain/IEstBackupVerificationRepository';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 /** The bridge can record checks, but has no score mutation or result-list approval capability. */
 export interface IBackupResultCheckTarget {
@@ -131,16 +131,12 @@ export class EstBackupResultCheckService {
         issue,
       };
     });
-    const digest = createHash('sha256')
-      .update(
-        JSON.stringify({
-          run,
-          snapshot: status.snapshotRevision,
-          items,
-          checks: status.results.map((result) => [result.resultId, result.revision, result.currentCheck?.id ?? null]),
-        }),
-      )
-      .digest('hex');
+    const digest = sha256Json({
+      run,
+      snapshot: status.snapshotRevision,
+      items,
+      checks: status.results.map((result) => [result.resultId, result.revision, result.currentCheck?.id ?? null]),
+    });
     return { run, status, preview: { eventId, runId, digest, items } };
   }
 }

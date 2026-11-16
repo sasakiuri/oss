@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
 import type { IFinalResultsReader } from '@/main/modules/results';
 import type { IMixedTeamFinalResultRepository, MixedTeamFinalResultRecord } from '@/main/modules/team-results';
@@ -12,6 +10,7 @@ import type {
   ResultVerificationSourceSnapshot,
   VerifiableResult,
 } from '../application/ResultVerificationSource';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 /** Individual and Mixed Team Final results adapted to the common verification workflow. */
 export class FinalResultVerificationSource implements IResultVerificationSource {
@@ -121,31 +120,23 @@ function emptyEvidence(expectedShots: number) {
 }
 
 function calculateMixedResultRevision(result: MixedTeamFinalResultRecord): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        id: result.id,
-        teamId: result.teamId,
-        teamName: result.teamName,
-        nationCode: result.nationCode,
-        members: result.members,
-        totalScore: result.totalScore,
-        finalRank: result.finalRank,
-        eliminatedAtShot: result.eliminatedAtShot,
-        shootoffId: result.shootoffId,
-        remarks: result.remarks,
-      }),
-    )
-    .digest('hex');
+  return sha256Json({
+    id: result.id,
+    teamId: result.teamId,
+    teamName: result.teamName,
+    nationCode: result.nationCode,
+    members: result.members,
+    totalScore: result.totalScore,
+    finalRank: result.finalRank,
+    eliminatedAtShot: result.eliminatedAtShot,
+    shootoffId: result.shootoffId,
+    remarks: result.remarks,
+  });
 }
 
 function calculateMixedRevision(eventId: string, results: readonly MixedTeamFinalResultRecord[]): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        eventId,
-        results: results.map((result) => ({ id: result.id, revision: calculateMixedResultRevision(result) })),
-      }),
-    )
-    .digest('hex');
+  return sha256Json({
+    eventId,
+    results: results.map((result) => ({ id: result.id, revision: calculateMixedResultRevision(result) })),
+  });
 }

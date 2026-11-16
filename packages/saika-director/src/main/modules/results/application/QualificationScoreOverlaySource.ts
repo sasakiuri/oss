@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import type { RankingShotEvidence } from '@/shared/competitionTypes';
 import type { Result } from '../domain/Result';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 /** Consumer-owned port. The result reader does not know which official workflow produced a replacement. */
 export interface QualificationScoreOverlay {
@@ -25,21 +25,17 @@ export const noQualificationScoreOverlays: IQualificationScoreOverlaySource = {
 
 /** Binding includes identities and source evidence; confirmation status alone does not change the score. */
 export function qualificationScoreSourceDigest(result: Result): string {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        id: result.id.value,
-        eventId: result.eventId.value,
-        participantId: result.participantId.value,
-        relayNumber: result.relayNumber,
-        competitionId: result.sourceCompetitionId,
-        total: result.totalScore,
-        series: result.seriesScores,
-        shots: result.shots,
-        evidence: result.rankingShots,
-      }),
-    )
-    .digest('hex');
+  return sha256Json({
+    id: result.id.value,
+    eventId: result.eventId.value,
+    participantId: result.participantId.value,
+    relayNumber: result.relayNumber,
+    competitionId: result.sourceCompetitionId,
+    total: result.totalScore,
+    series: result.seriesScores,
+    shots: result.shots,
+    evidence: result.rankingShots,
+  });
 }
 
 export function applyQualificationScoreOverlays(result: Result, history: QualificationScoreOverlayHistory) {

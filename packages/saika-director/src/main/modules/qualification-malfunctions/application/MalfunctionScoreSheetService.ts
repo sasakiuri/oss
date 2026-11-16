@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import type { IQualificationMalfunctionRepository } from '../domain/IQualificationMalfunctionRepository';
 import { QualificationMalfunctionEntry, qualificationMalfunctionStatus } from '../domain/QualificationMalfunctionCase';
 import {
@@ -8,6 +6,7 @@ import {
   type MalfunctionScoreSheetInput,
 } from '../domain/MalfunctionScoreSheet';
 import type { IMalfunctionScoreSheetExporter, IMalfunctionScoreSheetRepository } from './MalfunctionScoreSheetPorts';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export class MalfunctionScoreSheetService {
   constructor(
@@ -35,14 +34,14 @@ export class MalfunctionScoreSheetService {
       rulePackIdentity: value.rulePackIdentity,
     };
     const content = { input: structuredClone(input), calculation, context };
-    return { ...content, digest: digest(content) };
+    return { ...content, digest: sha256Json(content) };
   }
 
   save(input: MalfunctionScoreSheetInput, id: string, expectedDigest: string): MalfunctionScoreSheet {
     return this.cases.executeInTransaction(() => {
       const existing = this.sheets.find(id);
       if (existing) {
-        if (existing.digest !== expectedDigest || digest(existing.input) !== digest(input)) {
+        if (existing.digest !== expectedDigest || sha256Json(existing.input) !== sha256Json(input)) {
           throw new Error('This score-sheet ID is already bound to different evidence');
         }
         return existing;
@@ -86,11 +85,8 @@ export class MalfunctionScoreSheetService {
     const sheet = this.sheets.find(id);
     if (!sheet) throw new Error('Malfunction score sheet not found');
     const { input, calculation, context } = sheet;
-    if (digest({ input, calculation, context }) !== sheet.digest) throw new Error('Stored score-sheet digest mismatch');
+    if (sha256Json({ input, calculation, context }) !== sheet.digest)
+      throw new Error('Stored score-sheet digest mismatch');
     return this.exporter.export(sheet);
   }
-}
-
-function digest(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }

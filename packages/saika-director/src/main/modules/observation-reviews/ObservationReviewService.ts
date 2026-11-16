@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface ReviewSubject {
   readonly id: string;
@@ -68,7 +68,7 @@ export class ObservationReviewService {
       const existing = this.repository.list(input.competitionId).find((review) => review.id === input.id);
       if (existing) {
         const { recordedAt: _time, ...saved } = existing;
-        if (reviewDigest(saved) !== reviewDigest(input)) throw new Error('Review ID is bound to different evidence');
+        if (sha256Json(saved) !== sha256Json(input)) throw new Error('Review ID is bound to different evidence');
         return this.list(input.competitionId);
       }
       const item = this.list(input.competitionId).find((value) => value.subject.id === input.subjectId);
@@ -87,7 +87,4 @@ export class ObservationReviewService {
       return this.list(input.competitionId);
     });
   }
-}
-export function reviewDigest(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }

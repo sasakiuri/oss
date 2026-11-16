@@ -4,7 +4,7 @@ import {
   type IQualificationMalfunctionRepository,
 } from '@/main/modules/qualification-malfunctions';
 import type { IMalfunctionScoreApplicationRepository } from '../domain/MalfunctionScoreApplication';
-import { hash } from '../application/MalfunctionScoreApplicationService';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 export class MalfunctionQualificationScoreOverlaySource implements IQualificationScoreOverlaySource {
   constructor(
@@ -25,13 +25,13 @@ export class MalfunctionQualificationScoreOverlaySource implements IQualificatio
       ),
     }));
     return {
-      revision: history.length ? hash(history) : '',
+      revision: history.length ? sha256Json(history) : '',
       active: history
         .filter((item) => !item.withdrawal)
         .map(({ application, status }) => {
           const { id, recordedAt: _time, digest, ...content } = application;
           const issues: string[] = [];
-          if (hash(content) !== digest) issues.push('Stored score application digest mismatch');
+          if (sha256Json(content) !== digest) issues.push('Stored score application digest mismatch');
           if (status !== 'SETTLED' && status !== 'COMPLETED') issues.push(`Malfunction case is ${status}`);
           return { ...application.replacement, id, issues };
         }),

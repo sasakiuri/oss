@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto';
 import type { IResultVerificationSource } from '@/main/modules/result-verification';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 /** Adds optional policy identity to list approval without changing per-result scoring/check revisions. */
 export class PolicyBoundVerificationSource implements IResultVerificationSource {
@@ -16,14 +16,10 @@ export class PolicyBoundVerificationSource implements IResultVerificationSource 
     if (policy === null) return snapshot;
     return {
       ...snapshot,
-      sourceRevision: createHash('sha256')
-        .update(
-          JSON.stringify({
-            scoring: snapshot.sourceRevision,
-            publicationReviewPolicy: policy,
-          }),
-        )
-        .digest('hex'),
+      sourceRevision: sha256Json({
+        scoring: snapshot.sourceRevision,
+        publicationReviewPolicy: policy,
+      }),
     };
   }
 }

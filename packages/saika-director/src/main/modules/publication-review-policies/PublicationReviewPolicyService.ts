@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { OfficialSigningPolicy, type IOfficialSigningPolicy } from '@/main/modules/official-signing';
 import {
   publicationReviewPolicyEntrySchema,
@@ -7,6 +6,7 @@ import {
   type SavePublicationReviewPolicy,
 } from '@/shared/ipc/contracts/publicationReviewPolicy.contract';
 import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 type Scope = 'QUALIFICATION' | 'FINAL';
 export interface IPublicationReviewPolicyRepository {
@@ -35,7 +35,7 @@ export class PublicationReviewPolicyService {
       mode: entry?.mode ?? 'INHERIT',
       defaults,
       effectiveSettings,
-      revision: digest({
+      revision: sha256Json({
         eventId,
         resultScope,
         entryId: entry?.id ?? null,
@@ -53,7 +53,7 @@ export class PublicationReviewPolicyService {
     const entry = this.repository.find(eventId, scope).at(-1);
     // Following shared defaults preserves their existing live-readiness semantics.
     // Only a deliberate event-policy edit invalidates list approval.
-    return entry ? digest({ eventId, scope, entryId: entry.id, settings: ordered(entry.settings) }) : null;
+    return entry ? sha256Json({ eventId, scope, entryId: entry.id, settings: ordered(entry.settings) }) : null;
   }
 
   save(input: SavePublicationReviewPolicy): PublicationReviewPolicyStatus {
@@ -66,7 +66,7 @@ export class PublicationReviewPolicyService {
     if (
       current.history.length &&
       current.mode === input.mode &&
-      digest(ordered(settings)) === digest(ordered(current.effectiveSettings))
+      sha256Json(ordered(settings)) === sha256Json(ordered(current.effectiveSettings))
     )
       throw new Error('The event policy has no changes');
     const signingEvidence = this.signing.authorize({ officialName: input.officialName, requiredRole: 'RTS_JURY' });
@@ -87,7 +87,4 @@ export class PublicationReviewPolicyService {
 
 function ordered(value: ResultPublicationReviewSettingsDto) {
   return Object.entries(value).sort(([a], [b]) => a.localeCompare(b));
-}
-function digest(value: unknown) {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }

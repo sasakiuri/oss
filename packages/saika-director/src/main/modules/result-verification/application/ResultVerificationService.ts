@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { OfficialSigningPolicy, type IOfficialSigningPolicy } from '@/main/modules/official-signing';
 
 import type {
@@ -19,6 +18,7 @@ import {
 } from '../domain/ResultListApprovalEntry';
 import { ResultVerificationCheck } from '../domain/ResultVerificationCheck';
 import type { IResultVerificationSourceResolver, ResultVerificationSourceSnapshot } from './ResultVerificationSource';
+import { sha256Json } from '@/main/domain/sha256Json';
 
 /** Scope-neutral workflow that validates checks and approvals against live result revisions. */
 export class ResultVerificationService {
@@ -217,7 +217,7 @@ function calculateSnapshotRevision(snapshot: ResultVerificationSourceSnapshot): 
       classificationCode: result.classificationCode,
     })),
   };
-  return createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+  return sha256Json(canonical);
 }
 
 function buildReadinessIssues(input: {
