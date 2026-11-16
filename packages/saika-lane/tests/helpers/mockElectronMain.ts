@@ -32,6 +32,8 @@ export function mockElectronMain(electron: ElectronMainMock): void {
           }
         }),
         setWindowOpenHandler: vi.fn(),
+        getURL: vi.fn(() => ''),
+        session: { setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn() },
         openDevTools: vi.fn(),
         send: vi.fn(),
       };

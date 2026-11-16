@@ -12,6 +12,8 @@ const mockIsDestroyed = vi.fn().mockReturnValue(false);
 const mockOn = vi.fn();
 const mockWebContentsOn = vi.fn();
 const mockSetWindowOpenHandler = vi.fn();
+const mockGetURL = vi.fn().mockReturnValue('');
+const mockSession = { setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn() };
 
 vi.mock('electron', () => ({
   app: { isPackaged: false },
@@ -25,6 +27,8 @@ vi.mock('electron', () => ({
       webContents: {
         on: mockWebContentsOn,
         setWindowOpenHandler: mockSetWindowOpenHandler,
+        getURL: mockGetURL,
+        session: mockSession,
       },
     };
   }),
@@ -85,6 +89,31 @@ describe('PrintWindowService', () => {
     await service.open('session with spaces');
 
     expect(mockLoadURL).toHaveBeenCalledWith(expect.stringContaining('sessionId=session+with+spaces'));
+  });
+
+  it('keeps the print window on its score sheet page while it can still reload that page', async () => {
+    const pageUrl = 'file:///path/to/renderer/print.html?sessionId=session-001';
+    mockGetURL.mockReturnValue(pageUrl);
+    const service = new PrintWindowService(preloadPath, rendererDir);
+
+    await service.open('session-001');
+
+    const handler = mockWebContentsOn.mock.calls.find(([event]) => event === 'will-navigate')?.[1] as (details: {
+      url: string;
+      preventDefault: () => void;
+    }) => void;
+    const navigate = (url: string) => {
+      const details = { url, preventDefault: vi.fn() };
+      handler(details);
+      return details.preventDefault.mock.calls.length > 0;
+    };
+    expect(navigate('file:///path/to/renderer/index.html')).toBe(true);
+    expect(navigate('file:///etc/passwd')).toBe(true);
+    expect(navigate(pageUrl)).toBe(false);
+    expect(mockWebContentsOn).toHaveBeenCalledWith('will-attach-webview', expect.any(Function));
+    expect(mockSession.setPermissionRequestHandler).toHaveBeenCalledOnce();
+    expect(mockSession.setPermissionCheckHandler).toHaveBeenCalledOnce();
+    expect(mockSetWindowOpenHandler).toHaveBeenCalledOnce();
   });
 
   it('should register a closed event handler', async () => {

@@ -13,7 +13,13 @@ const state = vi.hoisted(() => ({
     focus: vi.fn(),
   },
   window: {
-    webContents: { on: vi.fn(), setWindowOpenHandler: vi.fn(), openDevTools: vi.fn() },
+    webContents: {
+      on: vi.fn(),
+      setWindowOpenHandler: vi.fn(),
+      getURL: vi.fn(() => ''),
+      session: { setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn() },
+      openDevTools: vi.fn(),
+    },
     loadURL: vi.fn(),
     loadFile: vi.fn(),
     isDestroyed: vi.fn(() => false),

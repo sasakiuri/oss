@@ -4,6 +4,7 @@ import { join } from 'path';
 import { app, BrowserWindow } from 'electron';
 
 import type { IPrintWindowOpener } from '@/main/modules/report/domain/IPrintWindowOpener';
+import { protectWindow } from '@/main/shared-infra/window/protectWindow';
 import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { PrintSettingsSchema, type PrinterDto, type PrintSettingsDto } from '@/shared/ipc/contracts';
@@ -153,12 +154,7 @@ export class PrintWindowService implements IPrintWindowOpener {
         backgroundThrottling: false,
       },
     });
-    window.webContents.on('will-navigate', (event, url) => {
-      const devServerUrl = process.env.VITE_DEV_SERVER_URL;
-      const isDevUrl = !app.isPackaged && devServerUrl != null && new URL(url).origin === new URL(devServerUrl).origin;
-      if (!url.startsWith('file://') && !isDevUrl) event.preventDefault();
-    });
-    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    protectWindow(window);
     return window;
   }
 
