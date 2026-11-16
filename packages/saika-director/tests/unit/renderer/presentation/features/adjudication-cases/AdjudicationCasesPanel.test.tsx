@@ -356,6 +356,11 @@ describe('AdjudicationCasesPanel', () => {
       () => cases.appendEntry.mockResolvedValueOnce({ success: false } as never),
       'Case operation failed',
     ],
+    [
+      'a success without the changed case',
+      () => cases.appendEntry.mockResolvedValueOnce({ success: true } as never),
+      'Case operation failed',
+    ],
     ['a rejected command', () => cases.appendEntry.mockRejectedValueOnce('bridge closed'), 'bridge closed'],
   ])('shows %s of a case command in the panel error and keeps the draft', async (_name, failCommand, message) => {
     failCommand();
