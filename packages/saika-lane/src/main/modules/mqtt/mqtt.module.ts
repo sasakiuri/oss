@@ -6,16 +6,9 @@ import { app } from 'electron';
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
-import { EstComplaintSignalService, SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal';
 import { MalfunctionFiringService, SqliteMalfunctionFiringRepository } from '@/main/modules/malfunction-firing';
-import {
-  QualificationMalfunctionSignalService,
-  SqliteQualificationMalfunctionSignalRepository,
-} from '@/main/modules/qualification-malfunction-signal';
 import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery';
-import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
 import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
-import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
 import { StoredReserveLaneTransferState } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
 import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target';
@@ -49,7 +42,7 @@ import {
 } from './application/QualificationMalfunctionSignalPublisher';
 import { QualificationRecoveryShotPublisher } from './application/QualificationRecoveryShotPublisher';
 import { QualificationRecoveryStatePublisher } from './application/QualificationRecoveryStatePublisher';
-import { RangeOfficerRequestPublisher } from './application/RangeOfficerRequestPublisher';
+import { RangeOfficerRequestPublisher, toRangeOfficerRequestPayload } from './application/RangeOfficerRequestPublisher';
 import { RawShotPublisher } from './application/RawShotPublisher';
 import { RetainPublisher } from './application/RetainPublisher';
 import { RpcRequestHandler } from './application/RpcRequestHandler';
@@ -75,6 +68,10 @@ type MqttDeps =
   | 'qualificationRecoveryAdjudicationControl'
   | 'qualificationRecoverySettlementControl'
   | 'safetyStopControl'
+  | 'reserveTransferJournal'
+  | 'rangeOfficerRequestService'
+  | 'qualificationMalfunctionSignalService'
+  | 'estComplaintSignalService'
   | 'timingProfileService'
   | 'timedTargetControl'
   | 'sessionRepository'
@@ -111,6 +108,10 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'qualificationRecoveryAdjudicationControl',
     'qualificationRecoverySettlementControl',
     'safetyStopControl',
+    'reserveTransferJournal',
+    'rangeOfficerRequestService',
+    'qualificationMalfunctionSignalService',
+    'estComplaintSignalService',
     'timedTargetControl',
     'timingProfileService',
     'sessionRepository',
@@ -133,6 +134,10 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     qualificationRecoveryAdjudicationControl,
     qualificationRecoverySettlementControl,
     safetyStopControl,
+    reserveTransferJournal,
+    rangeOfficerRequestService,
+    qualificationMalfunctionSignalService,
+    estComplaintSignalService,
     timedTargetControl,
     timingProfileService,
     sessionRepository,
@@ -147,13 +152,6 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     );
     const commandAuthorization = commandAuthorizationPolicyFromEnvironment(process.env);
     const mqttCredentials = mqttCredentialsFromEnvironment(process.env);
-    const rangeOfficerRequestService = new RangeOfficerRequestService(
-      new SqliteRangeOfficerRequestRepository(database),
-    );
-    const qualificationMalfunctionSignalService = new QualificationMalfunctionSignalService(
-      new SqliteQualificationMalfunctionSignalRepository(database),
-    );
-    const estComplaintSignalService = new EstComplaintSignalService(new SqliteEstComplaintSignalRepository(database));
 
     // Initialize publishers (they subscribe to EventBus events)
     const hardwarePublisher = new HardwareStatePublisher(mqttClient, eventBus, storage, appVersion, () => ({
@@ -223,7 +221,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     );
     const assignmentPublisher = new LaneAssignmentPublisher(mqttClient, storage, getLaneId);
     const reserveTransferControl = new ReserveLaneTransferService(
-      new SqliteReserveLaneTransferJournal(database),
+      reserveTransferJournal,
       new StoredReserveLaneTransferState(
         competitionRepository,
         sessionRepository,
@@ -242,29 +240,30 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       ),
       getLaneId,
     );
+    const mayFire = () => !safetyStopControl.isStopped();
+    const finalRecoveryFiringContext = new AssignedFinalRecoveryFiringContextSource(
+      competitionRepository,
+      assignmentPublisher,
+      mayFire,
+    );
+    const malfunctionFiringContext = new AssignedMalfunctionFiringContextSource(
+      competitionRepository,
+      assignmentPublisher,
+      mayFire,
+    );
+    const timedTargetSequences = new SqliteTimedTargetSequenceRepository(database);
     const malfunctionFiringControl = new MalfunctionFiringService(
       new SqliteMalfunctionFiringRepository(database),
       {
         prepare: (request) =>
           request.workflow === 'FINAL_RECOVERY'
-            ? new AssignedFinalRecoveryFiringContextSource(
-                competitionRepository,
-                assignmentPublisher,
-                () => !safetyStopControl.isStopped(),
-              ).prepare(request)
-            : new AssignedMalfunctionFiringContextSource(
-                competitionRepository,
-                assignmentPublisher,
-                () => !safetyStopControl.isStopped(),
-              ).prepare(request),
+            ? finalRecoveryFiringContext.prepare(request)
+            : malfunctionFiringContext.prepare(request),
       },
       timedTargetControl,
       eventBus,
       undefined,
-      (runId) =>
-        new SqliteTimedTargetSequenceRepository(database)
-          .findBySequenceId(runId)
-          ?.acceptedShots.map((shot) => shot.observationId) ?? [],
+      (runId) => timedTargetSequences.findBySequenceId(runId)?.acceptedShots.map((shot) => shot.observationId) ?? [],
     );
     eventBus.on('MqttConnected', (event) => {
       if (startup.isReady() && !event.error) malfunctionFiringControl.restore();
@@ -555,26 +554,25 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
 
       getSafetyState: async () => toSafetyStateDto(safetyStopControl.getState()),
 
-      getRangeOfficerRequest: async () => toRangeOfficerRequestDto(getLaneId(), rangeOfficerRequestService.getState()),
+      getRangeOfficerRequest: async () =>
+        toRangeOfficerRequestPayload(getLaneId(), rangeOfficerRequestService.getState()),
 
       requestRangeOfficer: async (input) => {
         const state = rangeOfficerRequestService.request(input);
-        await rangeOfficerRequestPublisher.publishCurrentState().catch((error: unknown) => {
-          getLogger().warn('[MQTT Module] Range Officer request retained locally for retry', 'mqtt', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        });
-        return toRangeOfficerRequestDto(getLaneId(), state);
+        await publishRetainedOrWarn(
+          rangeOfficerRequestPublisher,
+          '[MQTT Module] Range Officer request retained locally for retry',
+        );
+        return toRangeOfficerRequestPayload(getLaneId(), state);
       },
 
       clearRangeOfficerRequest: async (input) => {
         const state = rangeOfficerRequestService.clear({ ...input, clearedBy: 'Lane user' });
-        await rangeOfficerRequestPublisher.publishCurrentState().catch((error: unknown) => {
-          getLogger().warn('[MQTT Module] Cleared Range Officer request retained locally for retry', 'mqtt', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        });
-        return toRangeOfficerRequestDto(getLaneId(), state);
+        await publishRetainedOrWarn(
+          rangeOfficerRequestPublisher,
+          '[MQTT Module] Cleared Range Officer request retained locally for retry',
+        );
+        return toRangeOfficerRequestPayload(getLaneId(), state);
       },
 
       getQualificationMalfunctionSignal: async () =>
@@ -583,23 +581,19 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       declareQualificationMalfunction: async (input) => {
         const context = await qualificationMalfunctionContextSource.capture();
         const state = qualificationMalfunctionSignalService.signal({ context, message: input.message });
-        await qualificationMalfunctionSignalPublisher.publishCurrentState().catch((error: unknown) => {
-          getLogger().warn('[MQTT Module] Qualification malfunction signal retained locally for retry', 'mqtt', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        });
+        await publishRetainedOrWarn(
+          qualificationMalfunctionSignalPublisher,
+          '[MQTT Module] Qualification malfunction signal retained locally for retry',
+        );
         return toQualificationMalfunctionSignalPayload(getLaneId(), state);
       },
 
       clearQualificationMalfunctionSignal: async (input) => {
         const state = qualificationMalfunctionSignalService.clear({ ...input, clearedBy: 'Lane user' });
-        await qualificationMalfunctionSignalPublisher.publishCurrentState().catch((error: unknown) => {
-          getLogger().warn(
-            '[MQTT Module] Cleared qualification malfunction signal retained locally for retry',
-            'mqtt',
-            { error: error instanceof Error ? error.message : String(error) },
-          );
-        });
+        await publishRetainedOrWarn(
+          qualificationMalfunctionSignalPublisher,
+          '[MQTT Module] Cleared qualification malfunction signal retained locally for retry',
+        );
         return toQualificationMalfunctionSignalPayload(getLaneId(), state);
       },
 
@@ -613,21 +607,19 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
           context,
           message: input.message,
         });
-        await estComplaintSignalPublisher.publishCurrentState().catch((error: unknown) => {
-          getLogger().warn('[MQTT Module] EST complaint signal retained locally for retry', 'mqtt', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        });
+        await publishRetainedOrWarn(
+          estComplaintSignalPublisher,
+          '[MQTT Module] EST complaint signal retained locally for retry',
+        );
         return toEstComplaintSignalPayload(getLaneId(), state);
       },
 
       clearEstComplaintSignal: async (input) => {
         const state = estComplaintSignalService.clear({ ...input, clearedBy: 'Lane user' });
-        await estComplaintSignalPublisher.publishCurrentState().catch((error: unknown) => {
-          getLogger().warn('[MQTT Module] Cleared EST complaint signal retained locally for retry', 'mqtt', {
-            error: error instanceof Error ? error.message : String(error),
-          });
-        });
+        await publishRetainedOrWarn(
+          estComplaintSignalPublisher,
+          '[MQTT Module] Cleared EST complaint signal retained locally for retry',
+        );
         return toEstComplaintSignalPayload(getLaneId(), state);
       },
 
@@ -643,6 +635,13 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     ipcRouter.register(mqttContract, handlers);
   },
 };
+
+/** Keeps a Lane-owned signal locally when its retained publication fails; the reconnect republish retries it. */
+function publishRetainedOrWarn(publisher: { publishCurrentState(): Promise<void> }, message: string): Promise<void> {
+  return publisher.publishCurrentState().catch((error: unknown) => {
+    getLogger().warn(message, 'mqtt', { error: error instanceof Error ? error.message : String(error) });
+  });
+}
 
 function toSafetyStateDto(state: ReturnType<import('@/main/modules/safety-stop').ILaneSafetyStopControl['getState']>) {
   return {
@@ -662,23 +661,5 @@ function toSafetyStateDto(state: ReturnType<import('@/main/modules/safety-stop')
     clearedBy: state?.clearedBy ?? null,
     clearanceReason: state?.clearanceReason ?? null,
     clearedAt: state?.clearedAt?.toISOString() ?? null,
-  };
-}
-
-function toRangeOfficerRequestDto(
-  laneId: string,
-  state: ReturnType<import('@/main/modules/range-officer-request').RangeOfficerRequestService['getState']>,
-) {
-  return {
-    schemaVersion: 1 as const,
-    laneId,
-    status: state?.status ?? ('CLEARED' as const),
-    requestId: state?.requestId ?? null,
-    category: state?.category ?? null,
-    message: state?.message ?? null,
-    requestedAt: state?.requestedAt.toISOString() ?? null,
-    clearedAt: state?.clearedAt?.toISOString() ?? null,
-    clearedBy: state?.clearedBy ?? null,
-    publishedAt: new Date().toISOString(),
   };
 }

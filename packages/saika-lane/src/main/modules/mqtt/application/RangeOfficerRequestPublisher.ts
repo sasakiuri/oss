@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
-import { RangeOfficerRequestPayloadSchema } from '@sasakiuri/saika-protocol/RangeOfficerRequest';
+import {
+  RangeOfficerRequestPayloadSchema,
+  type RangeOfficerRequestPayload,
+} from '@sasakiuri/saika-protocol/RangeOfficerRequest';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
-import type { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
+import type { RangeOfficerRequestService, RangeOfficerRequestState } from '@/main/modules/range-officer-request';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
@@ -26,22 +29,32 @@ export class RangeOfficerRequestPublisher {
   private async publishCurrentStateNow(): Promise<void> {
     if (!this.mqttClient.isConnected()) return;
     const laneId = this.storage.get<string>('mqtt.laneId') ?? '';
-    const state = this.service.getState();
-    const payload = RangeOfficerRequestPayloadSchema.parse({
-      schemaVersion: 1,
-      laneId,
-      status: state?.status ?? 'CLEARED',
-      requestId: state?.requestId ?? null,
-      category: state?.category ?? null,
-      message: state?.message ?? null,
-      requestedAt: state?.requestedAt.toISOString() ?? null,
-      clearedAt: state?.clearedAt?.toISOString() ?? null,
-      clearedBy: state?.clearedBy ?? null,
-      publishedAt: new Date().toISOString(),
-    });
+    const payload = RangeOfficerRequestPayloadSchema.parse(
+      toRangeOfficerRequestPayload(laneId, this.service.getState()),
+    );
     await this.mqttClient.publish(mqttTopics.laneRangeOfficerRequest(laneId), JSON.stringify(payload), {
       qos: 1,
       retain: true,
     });
   }
+}
+
+/** The retained payload and the IPC view of the current request; IPC returns it without schema parsing. */
+export function toRangeOfficerRequestPayload(
+  laneId: string,
+  state: RangeOfficerRequestState | null,
+  publishedAt = new Date(),
+): RangeOfficerRequestPayload {
+  return {
+    schemaVersion: 1,
+    laneId,
+    status: state?.status ?? 'CLEARED',
+    requestId: state?.requestId ?? null,
+    category: state?.category ?? null,
+    message: state?.message ?? null,
+    requestedAt: state?.requestedAt.toISOString() ?? null,
+    clearedAt: state?.clearedAt?.toISOString() ?? null,
+    clearedBy: state?.clearedBy ?? null,
+    publishedAt: publishedAt.toISOString(),
+  };
 }

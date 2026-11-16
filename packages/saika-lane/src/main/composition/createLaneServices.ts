@@ -18,7 +18,12 @@ import { LocalCompetitionShootOffControl } from '@/main/modules/competition-shoo
 import { ConnectionRepositoryImpl } from '@/main/modules/connection/infra/ConnectionRepositoryImpl';
 import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
+import { EstComplaintSignalService, SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
+import {
+  QualificationMalfunctionSignalService,
+  SqliteQualificationMalfunctionSignalRepository,
+} from '@/main/modules/qualification-malfunction-signal';
 import {
   QualificationRecoveryAdjudicationService,
   QualificationRecoveryService,
@@ -28,6 +33,7 @@ import {
   SqliteQualificationRecoverySettlementRepository,
   SqliteQualificationRecoveryShotOutbox,
 } from '@/main/modules/qualification-recovery';
+import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
 import { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import { ReserveTransferCommandGuard } from '@/main/modules/reserve-lane-transfer/infra/ReserveTransferCommandGuard';
 import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
@@ -183,6 +189,13 @@ export function createLaneServices(
     eventBus,
   );
 
+  // Lane-owned signals keep their state in SQLite; the MQTT module publishes them and serves their IPC.
+  const rangeOfficerRequestService = new RangeOfficerRequestService(new SqliteRangeOfficerRequestRepository(db));
+  const qualificationMalfunctionSignalService = new QualificationMalfunctionSignalService(
+    new SqliteQualificationMalfunctionSignalRepository(db),
+  );
+  const estComplaintSignalService = new EstComplaintSignalService(new SqliteEstComplaintSignalRepository(db));
+
   startup = new ActiveRunStartup({
     setAsideActiveRun: () => competitionRepository.clearActivePointer(),
     competitions: competitionRepository,
@@ -228,6 +241,10 @@ export function createLaneServices(
     qualificationRecoveryAdjudicationControl,
     qualificationRecoverySettlementControl,
     safetyStopControl,
+    reserveTransferJournal,
+    rangeOfficerRequestService,
+    qualificationMalfunctionSignalService,
+    estComplaintSignalService,
     timedTargetControl,
     timingProfileService,
     mainWindow,
