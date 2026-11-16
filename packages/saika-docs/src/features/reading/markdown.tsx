@@ -65,7 +65,8 @@ export function DocumentMarkdown({ document }: { document: DocumentRecord }) {
           rehypeKatex,
           [rehypeHighlight, { detect: false, ignoreMissing: true, plainText: ['mermaid', 'dot', 'graphviz'] }],
         ]}
-        remarkRehypeOptions={{ footnoteLabel: '脚注', footnoteBackLabel: '本文へ戻る' }}
+        // rehype-sanitize prefixes every id once, so footnote ids are created without a prefix.
+        remarkRehypeOptions={{ clobberPrefix: '', footnoteLabel: '脚注', footnoteBackLabel: '本文へ戻る' }}
         components={{
           img({ src, alt, width, height }) {
             const image = typeof src === 'string' ? src : '';
@@ -77,18 +78,21 @@ export function DocumentMarkdown({ document }: { document: DocumentRecord }) {
             // eslint-disable-next-line @next/next/no-img-element
             return <img src={image} alt={alt ?? ''} loading="lazy" decoding="async" />;
           },
-          a({ node: _node, href, children, ...props }) {
+          a({ node, href, children, ...props }) {
             if (href?.startsWith('/'))
               return (
                 <Link prefetch={false} href={href} {...props}>
                   {children}
                 </Link>
               );
+            const footnote =
+              node?.properties.dataFootnoteRef !== undefined || node?.properties.dataFootnoteBackref !== undefined;
             const external = /^https?:\/\//.test(href ?? '');
             return (
               <a
                 {...props}
-                href={href}
+                // Footnote links point at the ids that rehype-sanitize prefixed.
+                href={footnote && href?.startsWith('#') ? `#${defaultSchema.clobberPrefix}${href.slice(1)}` : href}
                 target={external ? '_blank' : undefined}
                 rel={external ? 'noreferrer' : undefined}
               >
