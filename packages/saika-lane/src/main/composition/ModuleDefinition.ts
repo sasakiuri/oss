@@ -26,7 +26,8 @@ import type {
 } from '@/main/modules/qualification-recovery';
 import type { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
-import type { IReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
+import type { IReserveLaneTransferControl } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
+import type { ITransferAssignmentPort } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
@@ -69,7 +70,8 @@ export interface ServiceRegistry {
   qualificationRecoveryAdjudicationControl: IQualificationRecoveryAdjudicationControl;
   qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
   safetyStopControl: ILaneSafetyStopControl;
-  reserveTransferJournal: IReserveLaneTransferJournal;
+  /** Builds the reserve-lane transfer control over the Lane assignment, which the MQTT module owns. */
+  createReserveTransferControl: (assignments: ITransferAssignmentPort) => IReserveLaneTransferControl;
   rangeOfficerRequestService: RangeOfficerRequestService;
   qualificationMalfunctionSignalService: QualificationMalfunctionSignalService;
   estComplaintSignalService: EstComplaintSignalService;

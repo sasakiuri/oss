@@ -26,7 +26,12 @@ import {
   type IQualificationRecoverySettlementControl,
 } from '@/main/modules/qualification-recovery';
 import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
+import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
 import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
+import {
+  StoredReserveLaneTransferState,
+  type ITransferAssignmentPort,
+} from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
@@ -260,7 +265,19 @@ describe('mqtt.module', () => {
       qualificationRecoveryAdjudicationControl,
       qualificationRecoverySettlementControl,
       safetyStopControl,
-      reserveTransferJournal: new SqliteReserveLaneTransferJournal(database),
+      createReserveTransferControl: (assignments: ITransferAssignmentPort) =>
+        new ReserveLaneTransferService(
+          new SqliteReserveLaneTransferJournal(database),
+          new StoredReserveLaneTransferState(
+            competitionRepository,
+            sessionRepository,
+            assignments,
+            safetyStopControl,
+            competitionInterruptionControl,
+            eventBus,
+          ),
+          () => settingsStore.getLaneId(),
+        ),
       rangeOfficerRequestService: new RangeOfficerRequestService(new SqliteRangeOfficerRequestRepository(database)),
       qualificationMalfunctionSignalService: new QualificationMalfunctionSignalService(
         new SqliteQualificationMalfunctionSignalRepository(database),
@@ -302,7 +319,7 @@ describe('mqtt.module', () => {
       'qualificationRecoveryAdjudicationControl',
       'qualificationRecoverySettlementControl',
       'safetyStopControl',
-      'reserveTransferJournal',
+      'createReserveTransferControl',
       'rangeOfficerRequestService',
       'qualificationMalfunctionSignalService',
       'estComplaintSignalService',
