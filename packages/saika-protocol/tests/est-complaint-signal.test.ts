@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-
-import { EstComplaintSignalPayloadSchema } from '@sasakiuri/saika-protocol/EstComplaintSignal';
 import { describe, expect, it } from 'vitest';
+
+import { EstComplaintSignalPayloadSchema } from '../src/EstComplaintSignal';
 
 describe('EstComplaintSignalPayloadSchema', () => {
   it('accepts an empty retained cleared state', () => {
