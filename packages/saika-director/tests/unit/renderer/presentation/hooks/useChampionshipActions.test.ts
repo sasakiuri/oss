@@ -86,12 +86,98 @@ vi.mock('@/renderer/services', () => ({
 }));
 
 import { useChampionshipActions } from '@/renderer/presentation/hooks/useChampionshipActions';
+import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 
 describe('useChampionshipActions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStoreState.selectedChampionship = null;
     mockStoreState.selectedEventId = null;
+    useNotificationStore.setState({ notifications: [] });
+  });
+
+  const notificationMessages = () =>
+    useNotificationStore.getState().notifications.map(({ type, message }) => ({ type, message }));
+
+  describe('refresh after a successful command', () => {
+    it('returns the created championship when reloading the list is rejected', async () => {
+      const created = { success: true, data: 'c-new' };
+      mockCreateChampionship.mockResolvedValue(created);
+      mockGetChampionships.mockRejectedValue(new Error('Director database is busy'));
+      const { result } = renderHook(() => useChampionshipActions());
+
+      let response: unknown;
+      await act(async () => {
+        response = await result.current.createChampionship({ name: 'Cup', venue: 'Tokyo', date: '2026-03-01' });
+      });
+
+      expect(response).toBe(created);
+      expect(notificationMessages()).toEqual([
+        {
+          type: 'error',
+          message: 'The championship was created, but refreshing the list failed: Director database is busy',
+        },
+      ]);
+    });
+
+    it('reports an unsuccessful reload of the updated championship', async () => {
+      mockStoreState.selectedChampionship = { id: 'c-1' };
+      mockUpdateChampionship.mockResolvedValue({ success: true });
+      mockGetChampionships.mockResolvedValue({ success: true, data: { championships: [] } });
+      mockGetChampionshipDetail.mockResolvedValue({
+        success: false,
+        data: null,
+        error: { code: 'E', message: 'Gone' },
+      });
+      const { result } = renderHook(() => useChampionshipActions());
+
+      let response: unknown;
+      await act(async () => {
+        response = await result.current.updateChampionship({
+          id: 'c-1',
+          name: 'Cup',
+          venue: 'Tokyo',
+          date: '2026-03-01',
+        });
+      });
+
+      expect(response).toEqual({ success: true });
+      expect(notificationMessages()).toEqual([
+        { type: 'error', message: 'The championship was updated, but refreshing it failed: Gone' },
+      ]);
+    });
+
+    it('returns the deleted event when reloading the championship is rejected', async () => {
+      mockStoreState.selectedChampionship = { id: 'c-1' };
+      mockDeleteEvent.mockResolvedValue({ success: true });
+      mockGetChampionshipDetail.mockRejectedValue(new Error('Director database is busy'));
+      const { result } = renderHook(() => useChampionshipActions());
+
+      let response: unknown;
+      await act(async () => {
+        response = await result.current.deleteEvent('event-1');
+      });
+
+      expect(response).toEqual({ success: true });
+      expect(notificationMessages()).toEqual([
+        {
+          type: 'error',
+          message: 'The event was deleted, but refreshing the championship failed: Director database is busy',
+        },
+      ]);
+    });
+
+    it('reports nothing extra when the reload succeeds', async () => {
+      mockCreateChampionship.mockResolvedValue({ success: true, data: 'c-new' });
+      mockGetChampionships.mockResolvedValue({ success: true, data: { championships: [] } });
+      const { result } = renderHook(() => useChampionshipActions());
+
+      await act(async () => {
+        await result.current.createChampionship({ name: 'Cup', venue: 'Tokyo', date: '2026-03-01' });
+      });
+
+      expect(notificationMessages()).toEqual([]);
+    });
   });
 
   describe('loadChampionships', () => {

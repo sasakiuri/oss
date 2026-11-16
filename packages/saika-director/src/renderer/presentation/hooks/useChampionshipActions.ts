@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useChampionshipStore } from '../stores/domain/championship.store';
+import { useNotificationStore } from '../stores/ui/notifications.store';
 import { championshipService } from '@/renderer/services';
 import type {
   CreateChampionshipPayload,
@@ -9,6 +10,20 @@ import type {
   SaveParticipantsPayload,
   SaveFiringPointAssignmentsPayload,
 } from '@/shared/ipc/contracts/championship.contract';
+
+type RefreshResponse = { success: true } | { success: false; error: { message: string } };
+
+/** A reload after a successful command never turns it into a failure; a failed reload is reported on its own. */
+async function refreshAfterCommand(refresh: () => Promise<RefreshResponse>, failure: string): Promise<void> {
+  let message: string | null;
+  try {
+    const response = await refresh();
+    message = response.success ? null : response.error.message;
+  } catch (error) {
+    message = error instanceof Error ? error.message : String(error);
+  }
+  if (message !== null) useNotificationStore.getState().addNotification('error', `${failure}: ${message}`);
+}
 
 export function useChampionshipActions() {
   const setSelectedChampionshipInStore = useChampionshipStore((state) => state.setSelectedChampionship);
@@ -84,7 +99,7 @@ export function useChampionshipActions() {
     async (payload: CreateChampionshipPayload) => {
       const result = await championshipService.createChampionship(payload);
       if (result.success) {
-        await loadChampionships();
+        await refreshAfterCommand(loadChampionships, 'The championship was created, but refreshing the list failed');
       }
       return result;
     },
@@ -95,9 +110,10 @@ export function useChampionshipActions() {
     async (payload: UpdateChampionshipPayload) => {
       const result = await championshipService.updateChampionship(payload);
       if (result.success) {
-        await loadChampionships();
+        const failure = 'The championship was updated, but refreshing it failed';
+        await refreshAfterCommand(loadChampionships, failure);
         if (useChampionshipStore.getState().selectedChampionship?.id === payload.id) {
-          await loadChampionshipDetail(payload.id);
+          await refreshAfterCommand(() => loadChampionshipDetail(payload.id), failure);
         }
       }
       return result;
@@ -109,7 +125,7 @@ export function useChampionshipActions() {
     async (id: string) => {
       const result = await championshipService.deleteChampionship({ id });
       if (result.success) {
-        await loadChampionships();
+        await refreshAfterCommand(loadChampionships, 'The championship was deleted, but refreshing the list failed');
         if (useChampionshipStore.getState().selectedChampionship?.id === id) {
           setSelectedChampionship(null);
         }
@@ -123,7 +139,10 @@ export function useChampionshipActions() {
     async (payload: CreateEventPayload) => {
       const result = await championshipService.createEvent(payload);
       if (result.success) {
-        await loadChampionshipDetail(payload.championshipId);
+        await refreshAfterCommand(
+          () => loadChampionshipDetail(payload.championshipId),
+          'The event was added, but refreshing the championship failed',
+        );
       }
       return result;
     },
@@ -136,7 +155,10 @@ export function useChampionshipActions() {
       if (result.success) {
         const currentChampionship = useChampionshipStore.getState().selectedChampionship;
         if (currentChampionship) {
-          await loadChampionshipDetail(currentChampionship.id);
+          await refreshAfterCommand(
+            () => loadChampionshipDetail(currentChampionship.id),
+            'The event was deleted, but refreshing the championship failed',
+          );
         }
       }
       return result;
@@ -150,7 +172,10 @@ export function useChampionshipActions() {
       if (result.success) {
         const currentId = useChampionshipStore.getState().selectedChampionship?.id;
         if (currentId) {
-          await loadChampionshipDetail(currentId);
+          await refreshAfterCommand(
+            () => loadChampionshipDetail(currentId),
+            'The event was updated, but refreshing the championship failed',
+          );
         }
       }
       return result;
