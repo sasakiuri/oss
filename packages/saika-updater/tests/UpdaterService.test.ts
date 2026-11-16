@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { AppUpdateStateSchema } from '../src/state';
 import { UpdaterService, type AutoUpdaterLike, type UpdaterServiceOptions } from '../src/UpdaterService';
 
 class FakeAutoUpdater extends EventEmitter {
@@ -413,6 +414,17 @@ describe('update state transitions and metadata', () => {
     autoUpdater.emit('update-available', { version: '0.4.0', releaseDate });
     expect(service.getState().releaseDate).toBe(releaseDate === '2026-01-01' ? releaseDate : null);
     expect(service.getState().releaseName).toBeNull();
+  });
+
+  it.each([
+    [120, 100],
+    [-5, 0],
+  ])('keeps a reported download percentage of %d within the published range', async (percent, expected) => {
+    const { service, autoUpdater } = setup();
+    await service.checkForUpdates();
+    autoUpdater.emit('download-progress', { percent, transferred: 5, total: 4, bytesPerSecond: 1 });
+    expect(service.getState().downloadPercent).toBe(expected);
+    expect(AppUpdateStateSchema.safeParse(service.getState()).success).toBe(true);
   });
 
   it('uses downloaded metadata when supplied and preserves transferred bytes without a total', async () => {
