@@ -2,7 +2,7 @@
 import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
-import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { USBConnectionConfig } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { USBConnectionLifecycle } from '@/main/modules/connection/infra/usb/USBConnectionLifecycle';
 import { USBEventEmitter } from '@/main/modules/connection/infra/usb/USBEventEmitter';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';

@@ -3,7 +3,7 @@ import { SerialPort } from 'serialport';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
-import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { USBConnectionConfig } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import {
   RED_DOT_ACK,
   RED_DOT_ENQ,

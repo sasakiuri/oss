@@ -4,7 +4,7 @@ import { vi } from 'vitest';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
-import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';

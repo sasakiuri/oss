@@ -3,11 +3,11 @@ import { SerialPort } from 'serialport';
 
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionStatus';
+import type { USBConnectionConfig, USBPortInfo } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
 
-import type { USBConnectionConfig, USBPortInfo } from './IUSBConnectionManager';
 import { USBDeviceDetector } from './USBDeviceDetector';
 import type { USBEventEmitter } from './USBEventEmitter';
 

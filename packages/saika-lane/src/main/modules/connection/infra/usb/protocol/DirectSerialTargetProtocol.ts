@@ -2,10 +2,12 @@
 import { app } from 'electron';
 import type { SerialPort } from 'serialport';
 
+import type {
+  SessionContextProvider,
+  USBConnectionConfig,
+} from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
-
-import type { SessionContextProvider, USBConnectionConfig } from '../IUSBConnectionManager';
 
 import { writeModeCommand } from './ModeCommandWriter';
 import type { TargetProtocol, TargetProtocolHandlers, TargetProtocolSession } from './TargetProtocol';

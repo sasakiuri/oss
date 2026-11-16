@@ -12,8 +12,8 @@ import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompe
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl, ICompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
+import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
-import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import type { EstComplaintSignalService } from '@/main/modules/est-complaint-signal';
 import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';

@@ -2,7 +2,7 @@
 import type { InferHandlers } from '@sasakiuri/saika-ipc';
 
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
-import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { ITargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
 import { TargetDevice } from '@/main/modules/target/domain/TargetDevice';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';

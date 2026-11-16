@@ -2,8 +2,8 @@
 import type { SerialPort } from 'serialport';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { USBConnectionConfig } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { BPT216TargetProtocol } from '@/main/modules/connection/infra/usb/bpt216/BPT216TargetProtocol';
-import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';

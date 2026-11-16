@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { USBConnectionEvents } from './IUSBConnectionManager';
+import type { USBConnectionEvents } from '@/main/modules/connection/domain/IUSBConnectionManager';
 
 /**
  * USBEventEmitter

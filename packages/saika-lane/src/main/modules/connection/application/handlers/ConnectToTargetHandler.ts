@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { ConnectToTargetInput } from '@/main/composition/tokens';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
-import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';

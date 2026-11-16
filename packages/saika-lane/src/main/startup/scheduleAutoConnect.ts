@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { ConnectToTargetToken } from '@/main/composition/tokens';
-import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
 import { findTargetDeviceDefinition } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';

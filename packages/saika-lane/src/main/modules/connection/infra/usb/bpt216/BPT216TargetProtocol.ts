@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 import type { SerialPort } from 'serialport';
 
+import type {
+  SessionContextProvider,
+  USBConnectionConfig,
+} from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import { isBpt216DeviceId } from '@/main/modules/target/domain/targetDeviceDefinitions';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { toError } from '@/shared/errors/toError';
 
-import type { SessionContextProvider, USBConnectionConfig } from '../IUSBConnectionManager';
 import { writeModeCommand } from '../protocol/ModeCommandWriter';
 import type { TargetProtocol, TargetProtocolHandlers, TargetProtocolSession } from '../protocol/TargetProtocol';
 

@@ -2,7 +2,7 @@
 import type { SerialPort } from 'serialport';
 import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { USBConnectionConfig } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { USBConnectionConfig } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { DirectSerialTargetProtocolSession } from '@/main/modules/connection/infra/usb/protocol/DirectSerialTargetProtocol';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
