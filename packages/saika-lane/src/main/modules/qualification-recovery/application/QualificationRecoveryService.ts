@@ -115,10 +115,10 @@ export class QualificationRecoveryService implements IQualificationRecoveryContr
     if (timedTarget?.recovery.procedure !== 'QUALIFICATION') {
       throw new Error('The Lane Rule Pack has no Qualification timed-target recovery capability');
     }
-    const matchProgram = timedTarget.programs.find((program) => program.id === input.expectedMatchProgramId);
+    const matchProgram = competition.timedTargetProgram(input.expectedMatchProgramId);
     if (!matchProgram) throw new Error(`MATCH timed-target program not found: ${input.expectedMatchProgramId}`);
     const sightingProgram = stage.sightingTimedTargetProgramId
-      ? timedTarget.programs.find((program) => program.id === stage.sightingTimedTargetProgramId)
+      ? competition.timedTargetProgram(stage.sightingTimedTargetProgramId)
       : undefined;
     this.validateAuthorizedShotCount(input, series.maxShots, competition.seriesShotCount);
     const executionProgram = buildQualificationRecoveryProgram({
@@ -126,7 +126,7 @@ export class QualificationRecoveryService implements IQualificationRecoveryContr
       matchProgram,
       ...(sightingProgram ? { sightingProgram } : {}),
     });
-    const targetProfileId = stage.targetProfileId ?? competition.config.targetProfileId;
+    const targetProfileId = competition.effectiveTargetProfileId;
     if (!targetProfileId) throw new Error('Qualification recovery stage has no target scoring profile');
     if (input.decidedAt.getTime() > input.loadAt.getTime()) {
       throw new Error('Qualification recovery LOAD cannot precede the official decision');

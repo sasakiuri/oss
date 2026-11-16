@@ -343,7 +343,7 @@ export function createShotIngestionHandler(deps: ShotIngestionDeps): (shotData: 
 function resolveScoringGaugeProfileId(
   competition: Awaited<ReturnType<ICompetitionRepository['findActive']>>,
 ): ScoringGaugeProfileId | undefined {
-  const value = competition?.currentStageConfig.scoringGaugeProfileId ?? competition?.config.scoringGaugeProfileId;
+  const value = competition?.effectiveScoringGaugeProfileId;
   if (value === undefined) return undefined;
   if (!isScoringGaugeProfileId(value)) throw new Error(`Unknown scoring gauge profile: ${value}`);
   return value;
@@ -359,7 +359,7 @@ function assessTimedTargetShot(
 ): TimedTargetShotDecision | null {
   const expectedMatchProgramId = competition.currentSeriesConfig.timedTargetProgramId;
   if (!expectedMatchProgramId && !expectedShootOffProgramId) return null;
-  const targetProfileId = competition.currentStageConfig.targetProfileId ?? competition.config.targetProfileId;
+  const targetProfileId = competition.effectiveTargetProfileId;
   if (!targetProfileId) throw new Error('Timed target stage has no target scoring profile');
   if (!reader) throw new Error('Timed target enforcement service is unavailable');
   return reader.tryAcceptShot({
@@ -382,10 +382,7 @@ function resolveTargetProfileId(
   competition: Awaited<ReturnType<ICompetitionRepository['findActive']>>,
   timedTargetDecision: TimedTargetShotDecision | null,
 ): TargetScoringProfileId | undefined {
-  const value =
-    timedTargetDecision?.targetProfileId ??
-    competition?.currentStageConfig.targetProfileId ??
-    competition?.config.targetProfileId;
+  const value = timedTargetDecision?.targetProfileId ?? competition?.effectiveTargetProfileId;
   if (value === undefined) return undefined;
   if (!isTargetScoringProfileId(value)) throw new Error(`Unknown target scoring profile: ${value}`);
   return value;
