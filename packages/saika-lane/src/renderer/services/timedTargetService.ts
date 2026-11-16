@@ -1,44 +1,14 @@
 // SPDX-License-Identifier: MIT
-import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
-
-import type { TimedTargetStateDto } from '@/shared/ipc/contracts';
-import type {
-  TimingMeasurementRequest,
-  TimingMeasurementAnalysis,
-} from '@/shared/ipc/contracts/timingMeasurements.schema';
-import type {
-  TimingProfileStatus,
-  SaveTimingProfile,
-  ApplyTimingProfile,
-  RecordTimingInstallation,
-} from '@/shared/ipc/contracts/timingProfiles.schema';
-
-import { createServiceMethod, createVoidServiceMethod } from './createServiceMethod';
+import { createServiceMethod } from './createServiceMethod';
 
 export const timedTargetService = {
-  recordTimingInstallation: createServiceMethod<RecordTimingInstallation, TimingProfileStatus>((input) =>
-    window.electronAPI.timedTarget.recordTimingInstallation(input),
-  ),
-  analyzeMeasurements: createServiceMethod<TimingMeasurementRequest, TimingMeasurementAnalysis>((input) =>
-    window.electronAPI.timedTarget.analyzeMeasurements(input),
-  ),
-  getTimingProfiles: createVoidServiceMethod<TimingProfileStatus>(() =>
-    window.electronAPI.timedTarget.getTimingProfiles(),
-  ),
-  saveTimingProfile: createServiceMethod<SaveTimingProfile, TimingProfileStatus>((input) =>
-    window.electronAPI.timedTarget.saveTimingProfile(input),
-  ),
-  applyTimingProfile: createServiceMethod<ApplyTimingProfile, TimingProfileStatus>((input) =>
-    window.electronAPI.timedTarget.applyTimingProfile(input),
-  ),
-  getTimingSettings: createVoidServiceMethod<TimedTargetTimingSettings>(() =>
-    window.electronAPI.timedTarget.getTimingSettings(),
-  ),
-  setTimingSettings: createServiceMethod<TimedTargetTimingSettings, TimedTargetTimingSettings>((input) =>
-    window.electronAPI.timedTarget.setTimingSettings(input),
-  ),
-  getState: createVoidServiceMethod<TimedTargetStateDto | null>(() => window.electronAPI.timedTarget.getState()),
-  cancel: createServiceMethod<{ sequenceId: string; reason: string }, TimedTargetStateDto>((input) =>
-    window.electronAPI.timedTarget.cancel(input),
-  ),
+  recordTimingInstallation: createServiceMethod((api) => api.timedTarget.recordTimingInstallation),
+  analyzeMeasurements: createServiceMethod((api) => api.timedTarget.analyzeMeasurements),
+  getTimingProfiles: createServiceMethod((api) => api.timedTarget.getTimingProfiles),
+  saveTimingProfile: createServiceMethod((api) => api.timedTarget.saveTimingProfile),
+  applyTimingProfile: createServiceMethod((api) => api.timedTarget.applyTimingProfile),
+  getTimingSettings: createServiceMethod((api) => api.timedTarget.getTimingSettings),
+  setTimingSettings: createServiceMethod((api) => api.timedTarget.setTimingSettings),
+  getState: createServiceMethod((api) => api.timedTarget.getState),
+  cancel: createServiceMethod((api) => api.timedTarget.cancel),
 };

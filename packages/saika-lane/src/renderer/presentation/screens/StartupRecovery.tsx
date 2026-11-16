@@ -6,8 +6,8 @@ import { ModeSwitchConfirmation } from '@/renderer/presentation/components/ModeS
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { competitionService } from '@/renderer/services/competitionService';
-import { createVoidServiceMethod } from '@/renderer/services/createServiceMethod';
 import { settingsService } from '@/renderer/services/settingsService';
+import { startupService } from '@/renderer/services/startupService';
 import type { StartupStateDto } from '@/shared/ipc/contracts';
 
 export function StartupRecovery({ state, onRetry }: { state: StartupStateDto; onRetry: () => Promise<void> }) {
@@ -39,7 +39,7 @@ export function StartupRecovery({ state, onRetry }: { state: StartupStateDto; on
     setSetAsideConfirmation(false);
     setBusy(true);
     try {
-      await createVoidServiceMethod(() => window.electronAPI.startup.setAsideSavedRun())();
+      await startupService.setAsideSavedRun();
       await onRetry();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

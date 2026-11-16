@@ -146,7 +146,7 @@ describe('connectionService', () => {
       expect(mockListPorts).toHaveBeenCalled();
     });
 
-    it('calls without arguments (createVoidServiceMethod)', async () => {
+    it('calls the void-input bridge method without arguments', async () => {
       mockListPorts.mockResolvedValue({ success: true, data: { ports: [] } });
 
       await connectionService.listPorts();

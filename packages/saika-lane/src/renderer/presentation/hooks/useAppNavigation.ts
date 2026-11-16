@@ -5,14 +5,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { mergeShots, useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { competitionService } from '@/renderer/services/competitionService';
-import { createVoidServiceMethod } from '@/renderer/services/createServiceMethod';
 import { sessionService } from '@/renderer/services/sessionService';
+import { startupService } from '@/renderer/services/startupService';
 import type { StartupStateDto } from '@/shared/ipc/contracts';
 import { DisciplineSchema } from '@/shared/ipc/schemas/common';
 import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/target';
-
-const getStartup = createVoidServiceMethod(() => window.electronAPI.startup.getStartupState());
-const retryStartup = createVoidServiceMethod(() => window.electronAPI.startup.retryStartup());
 
 export function useAppNavigation() {
   const [screen, setScreen] = useState<'splash' | 'main' | 'recovery'>('splash');
@@ -106,11 +103,11 @@ export function useAppNavigation() {
     void (async () => {
       let state: StartupStateDto;
       try {
-        state = await (attempt === 0 ? getStartup() : retryStartup());
+        state = await (attempt === 0 ? startupService.getStartupState() : startupService.retryStartup());
         await hydrate(state);
         if (dirty) {
           dirty = false;
-          state = await getStartup();
+          state = await startupService.getStartupState();
           await hydrate(state, true);
         }
       } catch (error) {

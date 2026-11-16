@@ -1,120 +1,141 @@
 // SPDX-License-Identifier: MIT
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  createCommandMethod,
-  createServiceMethod,
-  createVoidServiceMethod,
-  ServiceError,
-} from '@/renderer/services/createServiceMethod';
+import { createServiceMethod, ServiceError, unwrap } from '@/renderer/services/createServiceMethod';
 
 // ---------------------------------------------------------------------------
-// createServiceMethod
+// unwrap
 // ---------------------------------------------------------------------------
 
-describe('createServiceMethod', () => {
+describe('unwrap', () => {
   it('success -> returns data', async () => {
-    const apiCall = vi.fn().mockResolvedValue({ success: true, data: { id: '1', name: 'test' } });
-    const method = createServiceMethod(apiCall);
+    const call = vi.fn().mockResolvedValue({ success: true, data: { id: '1', name: 'test' } });
 
-    const result = await method({ id: '1' });
+    await expect(unwrap(call)).resolves.toEqual({ id: '1', name: 'test' });
+  });
 
-    expect(result).toEqual({ id: '1', name: 'test' });
-    expect(apiCall).toHaveBeenCalledWith({ id: '1' });
+  it('success=true & data=undefined -> returns undefined', async () => {
+    await expect(unwrap(vi.fn().mockResolvedValue({ success: true }))).resolves.toBeUndefined();
+  });
+
+  it('success=true & data=null -> returns null', async () => {
+    await expect(unwrap(vi.fn().mockResolvedValue({ success: true, data: null }))).resolves.toBeNull();
   });
 
   it('failure → ServiceError (code + message)', async () => {
-    const apiCall = vi.fn().mockResolvedValue({
+    const call = vi.fn().mockResolvedValue({
       success: false,
       data: null,
       error: { code: 'NOT_FOUND', message: 'Resource not found' },
     });
-    const method = createServiceMethod(apiCall);
 
-    await expect(method({})).rejects.toThrow(ServiceError);
-    await expect(method({})).rejects.toMatchObject({
+    await expect(unwrap(call)).rejects.toThrow(ServiceError);
+    await expect(unwrap(call)).rejects.toMatchObject({
       code: 'NOT_FOUND',
       message: 'Resource not found',
     });
   });
 
   it('failure with undefined error -> UNKNOWN', async () => {
-    const apiCall = vi.fn().mockResolvedValue({ success: false });
-    const method = createServiceMethod(apiCall);
+    const call = vi.fn().mockResolvedValue({ success: false });
 
-    await expect(method({})).rejects.toThrow(ServiceError);
-    await expect(method({})).rejects.toMatchObject({
+    await expect(unwrap(call)).rejects.toThrow(ServiceError);
+    await expect(unwrap(call)).rejects.toMatchObject({
       code: 'UNKNOWN',
       message: 'Unknown error',
     });
   });
 
-  it('IPC communication error -> IPC_ERROR', async () => {
-    const apiCall = vi.fn().mockRejectedValue(new Error('Network failure'));
-    const method = createServiceMethod(apiCall);
+  it('failure with metadata -> ServiceError includes metadata', async () => {
+    const call = vi.fn().mockResolvedValue({
+      success: false,
+      error: { code: 'VALIDATION', message: 'Invalid', metadata: { field: 'name' } },
+    });
 
-    await expect(method({})).rejects.toThrow(ServiceError);
-    await expect(method({})).rejects.toMatchObject({
+    await expect(unwrap(call)).rejects.toMatchObject({
+      code: 'VALIDATION',
+      metadata: { field: 'name' },
+    });
+  });
+
+  it('IPC communication error -> IPC_ERROR', async () => {
+    const call = vi.fn().mockRejectedValue(new Error('Network failure'));
+
+    await expect(unwrap(call)).rejects.toThrow(ServiceError);
+    await expect(unwrap(call)).rejects.toMatchObject({
       code: 'IPC_ERROR',
       message: 'Network failure',
     });
   });
 
   it('non-Error IPC rejection -> IPC_ERROR with string message', async () => {
-    const apiCall = vi.fn().mockRejectedValue('string error');
-    const method = createServiceMethod(apiCall);
+    const call = vi.fn().mockRejectedValue('string error');
 
-    await expect(method({})).rejects.toThrow(ServiceError);
-    await expect(method({})).rejects.toMatchObject({
+    await expect(unwrap(call)).rejects.toThrow(ServiceError);
+    await expect(unwrap(call)).rejects.toMatchObject({
       code: 'IPC_ERROR',
       message: 'string error',
     });
   });
 
-  it('success=true & data=undefined -> returns undefined', async () => {
-    const apiCall = vi.fn().mockResolvedValue({ success: true });
-    const method = createServiceMethod(apiCall);
+  it('a call that throws synchronously -> IPC_ERROR', async () => {
+    const call = () => {
+      throw new TypeError('bridge missing');
+    };
 
-    const result = await method({});
-
-    expect(result).toBeUndefined();
-  });
-
-  it('failure with metadata -> ServiceError includes metadata', async () => {
-    const apiCall = vi.fn().mockResolvedValue({
-      success: false,
-      error: { code: 'VALIDATION', message: 'Invalid', metadata: { field: 'name' } },
-    });
-    const method = createServiceMethod(apiCall);
-
-    await expect(method({})).rejects.toMatchObject({
-      code: 'VALIDATION',
-      metadata: { field: 'name' },
+    await expect(unwrap(call)).rejects.toMatchObject({
+      code: 'IPC_ERROR',
+      message: 'bridge missing',
     });
   });
 });
 
 // ---------------------------------------------------------------------------
-// createVoidServiceMethod
+// createServiceMethod
 // ---------------------------------------------------------------------------
 
-describe('createVoidServiceMethod', () => {
-  it('success -> returns data', async () => {
-    const apiCall = vi.fn().mockResolvedValue({ success: true, data: [1, 2, 3] });
-    const method = createVoidServiceMethod(apiCall);
+describe('createServiceMethod', () => {
+  const originalGetScoreSheet = window.electronAPI.report.getScoreSheet;
+  const originalListPrinters = window.electronAPI.report.listPrinters;
 
-    const result = await method();
+  afterEach(() => {
+    window.electronAPI.report.getScoreSheet = originalGetScoreSheet;
+    window.electronAPI.report.listPrinters = originalListPrinters;
+  });
 
-    expect(result).toEqual([1, 2, 3]);
-    expect(apiCall).toHaveBeenCalledWith();
+  it('passes the input to the bridge method and returns the data', async () => {
+    const sheet = { sessionId: 'session-1' };
+    vi.mocked(window.electronAPI.report.getScoreSheet).mockResolvedValue({ success: true, data: sheet } as never);
+    const method = createServiceMethod((api) => api.report.getScoreSheet);
+
+    await expect(method({ sessionId: 'session-1' })).resolves.toBe(sheet);
+    expect(window.electronAPI.report.getScoreSheet).toHaveBeenCalledWith({ sessionId: 'session-1' });
+  });
+
+  it('calls a void-input bridge method without arguments', async () => {
+    vi.mocked(window.electronAPI.report.listPrinters).mockResolvedValue({ success: true, data: [] });
+    const method = createServiceMethod((api) => api.report.listPrinters);
+
+    await expect(method()).resolves.toEqual([]);
+    expect(window.electronAPI.report.listPrinters).toHaveBeenCalledWith();
+  });
+
+  it('looks the bridge method up on each call', async () => {
+    const method = createServiceMethod((api) => api.report.listPrinters);
+    const replacement = vi.fn().mockResolvedValue({ success: true, data: [{ name: 'Printer' }] });
+    window.electronAPI.report.listPrinters = replacement;
+
+    await expect(method()).resolves.toEqual([{ name: 'Printer' }]);
+    expect(replacement).toHaveBeenCalledOnce();
   });
 
   it('failure → ServiceError', async () => {
-    const apiCall = vi.fn().mockResolvedValue({
+    vi.mocked(window.electronAPI.report.listPrinters).mockResolvedValue({
       success: false,
+      data: null,
       error: { code: 'FORBIDDEN', message: 'Access denied' },
     });
-    const method = createVoidServiceMethod(apiCall);
+    const method = createServiceMethod((api) => api.report.listPrinters);
 
     await expect(method()).rejects.toThrow(ServiceError);
     await expect(method()).rejects.toMatchObject({
@@ -123,81 +144,11 @@ describe('createVoidServiceMethod', () => {
     });
   });
 
-  it('failure with undefined error -> UNKNOWN', async () => {
-    const apiCall = vi.fn().mockResolvedValue({ success: false });
-    const method = createVoidServiceMethod(apiCall);
+  it('a missing bridge method -> IPC_ERROR', async () => {
+    window.electronAPI.report.listPrinters = undefined as never;
+    const method = createServiceMethod((api) => api.report.listPrinters);
 
-    await expect(method()).rejects.toMatchObject({
-      code: 'UNKNOWN',
-    });
-  });
-
-  it('IPC communication error -> IPC_ERROR', async () => {
-    const apiCall = vi.fn().mockRejectedValue(new Error('Timeout'));
-    const method = createVoidServiceMethod(apiCall);
-
-    await expect(method()).rejects.toMatchObject({
-      code: 'IPC_ERROR',
-      message: 'Timeout',
-    });
-  });
-
-  it('success=true & data=null -> returns null', async () => {
-    const apiCall = vi.fn().mockResolvedValue({ success: true, data: null });
-    const method = createVoidServiceMethod(apiCall);
-
-    const result = await method();
-
-    expect(result).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// createCommandMethod
-// ---------------------------------------------------------------------------
-
-describe('createCommandMethod', () => {
-  it('success -> returns void (undefined)', async () => {
-    const apiCall = vi.fn().mockResolvedValue({ success: true });
-    const method = createCommandMethod(apiCall);
-
-    const result = await method({ action: 'delete' });
-
-    expect(result).toBeUndefined();
-    expect(apiCall).toHaveBeenCalledWith({ action: 'delete' });
-  });
-
-  it('failure → ServiceError', async () => {
-    const apiCall = vi.fn().mockResolvedValue({
-      success: false,
-      error: { code: 'CONFLICT', message: 'Already exists' },
-    });
-    const method = createCommandMethod(apiCall);
-
-    await expect(method({})).rejects.toThrow(ServiceError);
-    await expect(method({})).rejects.toMatchObject({
-      code: 'CONFLICT',
-      message: 'Already exists',
-    });
-  });
-
-  it('failure with undefined error -> UNKNOWN', async () => {
-    const apiCall = vi.fn().mockResolvedValue({ success: false });
-    const method = createCommandMethod(apiCall);
-
-    await expect(method({})).rejects.toMatchObject({
-      code: 'UNKNOWN',
-    });
-  });
-
-  it('IPC communication error -> IPC_ERROR', async () => {
-    const apiCall = vi.fn().mockRejectedValue(new Error('Connection lost'));
-    const method = createCommandMethod(apiCall);
-
-    await expect(method({})).rejects.toMatchObject({
-      code: 'IPC_ERROR',
-      message: 'Connection lost',
-    });
+    await expect(method()).rejects.toMatchObject({ code: 'IPC_ERROR' });
   });
 });
 
