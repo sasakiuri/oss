@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { getLogger } from '@/main/shared-infra/logging';
@@ -25,6 +25,31 @@ import {
 } from '../application/SettingsDocument';
 
 import { LegacySettingsBridge } from './LegacySettingsBridge';
+
+/** Pauses between rename attempts while Windows holds the new file (antivirus, indexer); 150 ms in total. */
+const RENAME_RETRY_DELAYS_MS = [10, 20, 40, 80] as const;
+const TRANSIENT_RENAME_ERRORS = new Set(['EPERM', 'EBUSY', 'EACCES']);
+
+function sleepSync(milliseconds: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+}
+
+/** Renames over `target`, retrying briefly on Windows when another process still holds the source. */
+function replaceFile(source: string, target: string): void {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      renameSync(source, target);
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      const delay = RENAME_RETRY_DELAYS_MS[attempt];
+      if (process.platform !== 'win32' || delay === undefined || !code || !TRANSIENT_RENAME_ERRORS.has(code)) {
+        throw error;
+      }
+      sleepSync(delay);
+    }
+  }
+}
 
 interface AppSettingsStoreOptions {
   filePath: string;
@@ -169,10 +194,21 @@ export class AppSettingsStore implements IAppSettingsStore {
   }
 
   private writeSettings(settings: AppSettingsDto): void {
+    // Replace the file in one rename so a crash mid-write leaves the previous document intact.
+    const temporaryPath = `${this.filePath}.tmp`;
     try {
       mkdirSync(dirname(this.filePath), { recursive: true });
-      writeFileSync(this.filePath, this.serialize(settings), 'utf8');
+      const existingMode = statSync(this.filePath, { throwIfNoEntry: false })?.mode;
+      writeFileSync(temporaryPath, this.serialize(settings), { encoding: 'utf8', flush: true });
+      // The rename replaces the file, so carry over the permissions of the one it replaces.
+      if (existingMode !== undefined) chmodSync(temporaryPath, existingMode & 0o7777);
+      replaceFile(temporaryPath, this.filePath);
     } catch (error) {
+      try {
+        rmSync(temporaryPath, { force: true });
+      } catch {
+        // Report the write failure; a leftover temporary file is replaced by the next write.
+      }
       this.tryLog('error', '[AppSettingsStore] Failed to write settings.json', {
         path: this.filePath,
         error,
