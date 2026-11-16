@@ -1,47 +1,14 @@
 // SPDX-License-Identifier: MIT
-import type {
-  CompetitionIdInput,
-  SetAthleteTargetModeInput,
-  CompetitionStateDto,
-  CompetitionTypeDto,
-  StartCompetitionInput,
-  StartCompetitionResponse,
-} from '@/shared/ipc/contracts';
-
-import { createCommandMethod, createServiceMethod, createVoidServiceMethod } from './createServiceMethod';
-
-type StartCompetitionData = Extract<StartCompetitionResponse, { success: true }>['data'];
+import { createServiceMethod } from './createServiceMethod';
 
 export const competitionService = {
-  startCompetition: createServiceMethod<StartCompetitionInput, StartCompetitionData>((input) =>
-    window.electronAPI.competition.startCompetition(input),
-  ),
-
-  startStage: createServiceMethod<CompetitionIdInput, { sessionId: string }>((input) =>
-    window.electronAPI.competition.startStage(input),
-  ),
-
-  endStage: createCommandMethod<CompetitionIdInput>((input) => window.electronAPI.competition.endStage(input)),
-
-  startNextSeries: createCommandMethod<CompetitionIdInput>((input) =>
-    window.electronAPI.competition.startNextSeries(input),
-  ),
-
-  advanceStage: createCommandMethod<CompetitionIdInput>((input) => window.electronAPI.competition.advanceStage(input)),
-
-  finishCompetition: createCommandMethod<CompetitionIdInput>((input) =>
-    window.electronAPI.competition.finishCompetition(input),
-  ),
-
-  setAthleteTargetMode: createServiceMethod<SetAthleteTargetModeInput, CompetitionStateDto>((input) =>
-    window.electronAPI.competition.setAthleteTargetMode(input),
-  ),
-
-  getCompetitionState: createServiceMethod<CompetitionIdInput, CompetitionStateDto>((input) =>
-    window.electronAPI.competition.getCompetitionState(input),
-  ),
-
-  getCompetitionTypes: createVoidServiceMethod<CompetitionTypeDto[]>(() =>
-    window.electronAPI.competition.getCompetitionTypes(),
-  ),
+  startCompetition: createServiceMethod((api) => api.competition.startCompetition),
+  startStage: createServiceMethod((api) => api.competition.startStage),
+  endStage: createServiceMethod((api) => api.competition.endStage),
+  startNextSeries: createServiceMethod((api) => api.competition.startNextSeries),
+  advanceStage: createServiceMethod((api) => api.competition.advanceStage),
+  finishCompetition: createServiceMethod((api) => api.competition.finishCompetition),
+  setAthleteTargetMode: createServiceMethod((api) => api.competition.setAthleteTargetMode),
+  getCompetitionState: createServiceMethod((api) => api.competition.getCompetitionState),
+  getCompetitionTypes: createServiceMethod((api) => api.competition.getCompetitionTypes),
 };
