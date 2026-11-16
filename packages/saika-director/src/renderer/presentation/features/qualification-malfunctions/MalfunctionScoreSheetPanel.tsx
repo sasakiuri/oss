@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { qualificationMalfunctionsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   MalfunctionScoreSheetDto,
   MalfunctionScoreSheetInputDto,
@@ -43,8 +45,7 @@ export function MalfunctionScoreSheetPanel({
   const [statement, setStatement] = useState('');
   const [preview, setPreview] = useState<MalfunctionScoreSheetPreviewDto | null>(null);
   const [draftId, setDraftId] = useState(() => crypto.randomUUID());
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
   const [notice, setNotice] = useState<string | null>(null);
   const stage = value.policySnapshot.stages.find((candidate) => candidate.stageId === value.stageId);
   const repeat = stage?.allowableTreatment.type === 'REPEAT_FULL_SERIES';
@@ -60,31 +61,18 @@ export function MalfunctionScoreSheetPanel({
 
   const load = useCallback(async () => {
     try {
-      const response = await qualificationMalfunctionsService.listScoreSheets({ caseId: value.id });
-      if (!response.success) throw new Error(response.error.message);
-      setSheets(response.data);
+      setSheets(unwrap(await qualificationMalfunctionsService.listScoreSheets({ caseId: value.id })));
     } catch (caught) {
-      setError(message(caught));
+      setError(errorMessage(caught));
     }
   }, [value.id]);
   useEffect(() => {
     void load();
   }, [load]);
 
-  async function perform(work: () => Promise<void>) {
-    setBusy(true);
-    setError(null);
-    setNotice(null);
-    try {
-      await work();
-    } catch (caught) {
-      setError(message(caught));
-    } finally {
-      setBusy(false);
-    }
-  }
   const calculate = () =>
-    perform(async () => {
+    run(async () => {
+      setNotice(null);
       setPreview(null);
       const input: MalfunctionScoreSheetInputDto = {
         caseId: value.id,
@@ -97,33 +85,30 @@ export function MalfunctionScoreSheetPanel({
         officialRole,
         statement,
       };
-      const response = await qualificationMalfunctionsService.previewScoreSheet(input);
-      if (!response.success) throw new Error(response.error.message);
-      setPreview(response.data);
+      setPreview(unwrap(await qualificationMalfunctionsService.previewScoreSheet(input)));
     });
   const save = () =>
-    perform(async () => {
+    run(async () => {
+      setNotice(null);
       if (!preview) return;
       const response = await qualificationMalfunctionsService.saveScoreSheet({
         id: draftId,
         expectedDigest: preview.digest,
         input: preview.input,
       });
-      if (!response.success) throw new Error(response.error.message);
+      const saved = unwrap(response);
       await load();
       setPreview(null);
       setDraftId(crypto.randomUUID());
-      setNotice(
-        `Calculation v${response.data.version} saved. Reference ${response.data.id} after the official score application.`,
-      );
+      setNotice(`Calculation v${saved.version} saved. Reference ${saved.id} after the official score application.`);
       const updated = await qualificationMalfunctionsService.getById({ caseId: value.id });
       if (updated.success) onChanged(updated.data);
     });
   const exportSheet = (id: string) =>
-    perform(async () => {
-      const response = await qualificationMalfunctionsService.exportScoreSheet({ id });
-      if (!response.success) throw new Error(response.error.message);
-      if (response.data.status === 'COMPLETED') setNotice(`Calculation exported to ${response.data.path}`);
+    run(async () => {
+      setNotice(null);
+      const exported = unwrap(await qualificationMalfunctionsService.exportScoreSheet({ id }));
+      if (exported.status === 'COMPLETED') setNotice(`Calculation exported to ${exported.path}`);
     });
 
   if (!supported) return null;
@@ -404,7 +389,4 @@ function evidence(shots: DraftShot[], source: string, targetGroup: boolean): Evi
       },
     ];
   });
-}
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
