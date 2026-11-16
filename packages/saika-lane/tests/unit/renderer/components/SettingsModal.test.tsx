@@ -8,6 +8,28 @@ import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
 import { settingsService } from '@/renderer/services/settingsService';
 import { updateService } from '@/renderer/services/updateService';
 import { PrintSettingsSchema, settingsContract } from '@/shared/ipc/contracts';
+import type { AppUpdateStateDto } from '@/shared/ipc/contracts';
+
+/** An idle update state with an update check available; `overrides` replaces single fields. */
+const { updateState } = vi.hoisted(() => ({
+  updateState: (overrides: Partial<AppUpdateStateDto> = {}): AppUpdateStateDto => ({
+    status: 'idle',
+    currentVersion: '0.2.1',
+    targetVersion: null,
+    releaseName: null,
+    releaseDate: null,
+    releaseNotes: null,
+    downloadPercent: null,
+    transferredBytes: null,
+    totalBytes: null,
+    bytesPerSecond: null,
+    lastCheckedAt: null,
+    errorMessage: null,
+    canCheckForUpdates: true,
+    canInstallUpdate: false,
+    ...overrides,
+  }),
+}));
 
 // Mock settingsService
 vi.mock('@/renderer/services/settingsService', () => ({
@@ -41,38 +63,8 @@ vi.mock('@/renderer/services/settingsService', () => ({
 
 vi.mock('@/renderer/services/updateService', () => ({
   updateService: {
-    getUpdateState: vi.fn().mockResolvedValue({
-      status: 'idle',
-      currentVersion: '0.2.1',
-      targetVersion: null,
-      releaseName: null,
-      releaseDate: null,
-      releaseNotes: null,
-      downloadPercent: null,
-      transferredBytes: null,
-      totalBytes: null,
-      bytesPerSecond: null,
-      lastCheckedAt: null,
-      errorMessage: null,
-      canCheckForUpdates: true,
-      canInstallUpdate: false,
-    }),
-    checkForUpdates: vi.fn().mockResolvedValue({
-      status: 'checking',
-      currentVersion: '0.2.1',
-      targetVersion: null,
-      releaseName: null,
-      releaseDate: null,
-      releaseNotes: null,
-      downloadPercent: null,
-      transferredBytes: null,
-      totalBytes: null,
-      bytesPerSecond: null,
-      lastCheckedAt: null,
-      errorMessage: null,
-      canCheckForUpdates: false,
-      canInstallUpdate: false,
-    }),
+    getUpdateState: vi.fn().mockResolvedValue(updateState()),
+    checkForUpdates: vi.fn().mockResolvedValue(updateState({ status: 'checking', canCheckForUpdates: false })),
     quitAndInstall: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -148,6 +140,34 @@ describe('SettingsModal', () => {
   });
 
   describe('tab structure', () => {
+    it('lists the tabs in order with the active and inactive styles; Vista has no hover style', async () => {
+      const { unmount } = render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+      const tabBar = screen.getByRole('button', { name: 'General' }).parentElement!;
+      const active = 'border-b-2 border-blue-400 text-blue-400';
+
+      expect([...tabBar.children].map((tab) => [tab.textContent, tab.className])).toEqual([
+        ['General', `px-4 py-2 text-sm font-medium transition-colors ${active}`],
+        ['Target', 'px-4 py-2 text-sm font-medium transition-colors text-zinc-400 hover:text-zinc-200'],
+        ['Connection', 'px-4 py-2 text-sm font-medium transition-colors text-zinc-400 hover:text-zinc-200'],
+        ['MQTT', 'px-4 py-2 text-sm font-medium transition-colors text-zinc-400 hover:text-zinc-200'],
+        ['Printing', 'px-4 py-2 text-sm font-medium transition-colors text-zinc-400 hover:text-zinc-200'],
+        ['Vista', 'px-4 py-2 text-sm font-medium text-zinc-400'],
+        ['JSON', 'px-4 py-2 text-sm font-medium transition-colors text-zinc-400 hover:text-zinc-200'],
+      ]);
+      expect([...tabBar.children].every((tab) => tab.tagName === 'BUTTON' && !tab.hasAttribute('type'))).toBe(true);
+      unmount();
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="vista" />);
+      expect(screen.getByRole('button', { name: 'Vista' })).toHaveClass(`px-4 py-2 text-sm font-medium ${active}`, {
+        exact: true,
+      });
+      expect(screen.getByRole('button', { name: 'General' })).toHaveClass(
+        'px-4 py-2 text-sm font-medium transition-colors text-zinc-400 hover:text-zinc-200',
+        { exact: true },
+      );
+      await screen.findByRole('alert');
+    });
+
     it('displays all tabs including JSON', () => {
       render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
 
@@ -270,6 +290,122 @@ describe('SettingsModal', () => {
   });
 
   describe('application update section', () => {
+    const downloadedUpdate = updateState({
+      status: 'downloaded',
+      targetVersion: '0.2.2',
+      releaseName: 'Saika Lane 0.2.2',
+      releaseDate: '2026-04-23T00:00:00.000Z',
+      releaseNotes: 'Fixes',
+      downloadPercent: 100,
+      transferredBytes: 4096,
+      totalBytes: 4096,
+      bytesPerSecond: 1024,
+      lastCheckedAt: '2026-04-23T00:00:00.000Z',
+      canCheckForUpdates: false,
+      canInstallUpdate: true,
+    });
+
+    it('shows the download progress, target, last check and release notes', () => {
+      const lastCheckedAt = '2026-04-23T00:00:00.000Z';
+      useUpdateStore.getState().setState(
+        updateState({
+          status: 'downloading',
+          targetVersion: '0.2.2',
+          releaseName: 'Saika Lane 0.2.2',
+          releaseNotes: 'Fixes',
+          downloadPercent: 42.25,
+          transferredBytes: 1536,
+          totalBytes: 5 * 1024 * 1024,
+          lastCheckedAt,
+          canCheckForUpdates: false,
+        }),
+      );
+
+      const { container } = render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByText('Current Version: 0.2.1')).toBeInTheDocument();
+      expect(screen.getByText('Downloading version 0.2.2...')).toHaveClass('mt-3 text-sm text-zinc-300', {
+        exact: true,
+      });
+      expect(screen.getByText('Target Version: 0.2.2 (Saika Lane 0.2.2)')).toBeInTheDocument();
+      expect(screen.getByText('42.3% (1.5 KB / 5.0 MB)')).toBeInTheDocument();
+      expect(container.querySelector('.bg-blue-500')).toHaveStyle({ width: '42.25%' });
+      expect(screen.getByText(`Last Checked: ${new Date(lastCheckedAt).toLocaleString()}`)).toBeInTheDocument();
+      expect(screen.getByText('Release Notes')).toBeInTheDocument();
+      expect(screen.getByText('Fixes').tagName).toBe('PRE');
+      expect(screen.getByRole('button', { name: 'Check for Updates' })).toBeDisabled();
+      expect(screen.queryByRole('button', { name: 'Restart & Install' })).not.toBeInTheDocument();
+    });
+
+    it('formats byte counts up to gigabytes and clamps the progress bar', () => {
+      useUpdateStore.getState().setState(
+        updateState({
+          status: 'downloading',
+          downloadPercent: 120,
+          transferredBytes: 512,
+          totalBytes: 1.5 * 1024 ** 3,
+        }),
+      );
+
+      const { container } = render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByText('120.0% (512 B / 1.5 GB)')).toBeInTheDocument();
+      expect(container.querySelector('.bg-blue-500')).toHaveStyle({ width: '100%' });
+      expect(screen.getByText('Downloading version unknown...')).toBeInTheDocument();
+    });
+
+    it.each([
+      [{ status: 'unsupported' }, 'Auto-update is unavailable in this environment.'],
+      [{ status: 'unsupported', errorMessage: 'Portable build' }, 'Portable build'],
+      [{ status: 'idle' }, 'Saika Lane 0.2.1 is ready to check for updates.'],
+      [{ status: 'idle', currentVersion: '' }, 'Saika Lane 0.1.0 is ready to check for updates.'],
+      [{ status: 'checking' }, 'Checking GitHub Releases for a newer version...'],
+      [{ status: 'available' }, 'Version unknown is available. Downloading will start automatically.'],
+      [{ status: 'downloaded', targetVersion: '0.2.2' }, 'Version 0.2.2 has been downloaded and is ready to install.'],
+      [{ status: 'no-update', currentVersion: '' }, 'You are already on the latest version (0.1.0).'],
+      [{ status: 'error' }, 'Update check failed.'],
+    ] as Array<[Partial<AppUpdateStateDto>, string]>)('describes %o as "%s"', (overrides, text) => {
+      useUpdateStore.getState().setState(updateState(overrides));
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByText(text)).toBeInTheDocument();
+    });
+
+    it('shows the updater error in its own alert style', () => {
+      useUpdateStore.getState().setState(updateState({ status: 'error', errorMessage: 'network down' }));
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      const alert = screen.getByRole('alert');
+      expect(alert).toHaveTextContent('network down');
+      expect(alert.className).toBe('mt-3 rounded border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-300');
+      expect(alert).toHaveAttribute('aria-live', 'polite');
+      expect(alert).toHaveAttribute('aria-atomic', 'true');
+    });
+
+    it('keeps a failed update action message when switching tabs and back', async () => {
+      mockCheckForUpdates.mockRejectedValueOnce(new Error('IPC failed'));
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+      fireEvent.click(await screen.findByText('Check for Updates'));
+      expect(await screen.findByText('IPC failed')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Target' }));
+      fireEvent.click(screen.getByRole('button', { name: 'General' }));
+
+      expect(screen.getByText('IPC failed')).toBeInTheDocument();
+    });
+
+    it('shows a failed Restart & Install', async () => {
+      useUpdateStore.getState().setState(downloadedUpdate);
+      mockQuitAndInstall.mockRejectedValueOnce(new Error('Install blocked'));
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      fireEvent.click(screen.getByText('Restart & Install'));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Install blocked');
+    });
+
     it('displays the application update section on the General tab', async () => {
       render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
 
@@ -278,22 +414,7 @@ describe('SettingsModal', () => {
     });
 
     it('triggers an update check from the General tab', async () => {
-      mockCheckForUpdates.mockResolvedValueOnce({
-        status: 'checking',
-        currentVersion: '0.2.1',
-        targetVersion: null,
-        releaseName: null,
-        releaseDate: null,
-        releaseNotes: null,
-        downloadPercent: null,
-        transferredBytes: null,
-        totalBytes: null,
-        bytesPerSecond: null,
-        lastCheckedAt: null,
-        errorMessage: null,
-        canCheckForUpdates: false,
-        canInstallUpdate: false,
-      });
+      mockCheckForUpdates.mockResolvedValueOnce(updateState({ status: 'checking', canCheckForUpdates: false }));
 
       render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
 
@@ -309,22 +430,7 @@ describe('SettingsModal', () => {
     });
 
     it('shows Restart & Install when a downloaded update is available', async () => {
-      useUpdateStore.getState().setState({
-        status: 'downloaded',
-        currentVersion: '0.2.1',
-        targetVersion: '0.2.2',
-        releaseName: 'Saika Lane 0.2.2',
-        releaseDate: '2026-04-23T00:00:00.000Z',
-        releaseNotes: 'Fixes',
-        downloadPercent: 100,
-        transferredBytes: 4096,
-        totalBytes: 4096,
-        bytesPerSecond: 1024,
-        lastCheckedAt: '2026-04-23T00:00:00.000Z',
-        errorMessage: null,
-        canCheckForUpdates: false,
-        canInstallUpdate: true,
-      });
+      useUpdateStore.getState().setState(downloadedUpdate);
 
       render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
 
@@ -336,24 +442,7 @@ describe('SettingsModal', () => {
     });
 
     it('does not let a stale checkForUpdates response overwrite a newer update event state', async () => {
-      let resolveCheckForUpdates:
-        | ((state: {
-            status: 'available';
-            currentVersion: string;
-            targetVersion: string;
-            releaseName: string;
-            releaseDate: string;
-            releaseNotes: string;
-            downloadPercent: null;
-            transferredBytes: null;
-            totalBytes: null;
-            bytesPerSecond: null;
-            lastCheckedAt: string;
-            errorMessage: null;
-            canCheckForUpdates: false;
-            canInstallUpdate: false;
-          }) => void)
-        | null = null;
+      let resolveCheckForUpdates: ((state: AppUpdateStateDto) => void) | null = null;
 
       mockCheckForUpdates.mockReturnValueOnce(
         new Promise((resolve) => {
@@ -370,43 +459,23 @@ describe('SettingsModal', () => {
       });
 
       act(() => {
-        useUpdateStore.getState().setState({
-          status: 'downloaded',
-          currentVersion: '0.2.1',
-          targetVersion: '0.2.2',
-          releaseName: 'Saika Lane 0.2.2',
-          releaseDate: '2026-04-23T00:00:00.000Z',
-          releaseNotes: 'Fixes',
-          downloadPercent: 100,
-          transferredBytes: 4096,
-          totalBytes: 4096,
-          bytesPerSecond: 1024,
-          lastCheckedAt: '2026-04-23T00:00:00.000Z',
-          errorMessage: null,
-          canCheckForUpdates: false,
-          canInstallUpdate: true,
-        });
+        useUpdateStore.getState().setState(downloadedUpdate);
       });
 
       expect(screen.getByText('Restart & Install')).toBeInTheDocument();
 
       await act(async () => {
-        resolveCheckForUpdates?.({
-          status: 'available',
-          currentVersion: '0.2.1',
-          targetVersion: '0.2.2',
-          releaseName: 'Saika Lane 0.2.2',
-          releaseDate: '2026-04-23T00:00:00.000Z',
-          releaseNotes: 'Fixes',
-          downloadPercent: null,
-          transferredBytes: null,
-          totalBytes: null,
-          bytesPerSecond: null,
-          lastCheckedAt: '2026-04-23T00:00:00.000Z',
-          errorMessage: null,
-          canCheckForUpdates: false,
-          canInstallUpdate: false,
-        });
+        resolveCheckForUpdates?.(
+          updateState({
+            status: 'available',
+            targetVersion: '0.2.2',
+            releaseName: 'Saika Lane 0.2.2',
+            releaseDate: '2026-04-23T00:00:00.000Z',
+            releaseNotes: 'Fixes',
+            lastCheckedAt: '2026-04-23T00:00:00.000Z',
+            canCheckForUpdates: false,
+          }),
+        );
         await Promise.resolve();
       });
 
@@ -423,22 +492,7 @@ describe('SettingsModal', () => {
       expect(await screen.findByText('IPC failed')).toBeInTheDocument();
 
       act(() => {
-        useUpdateStore.getState().setState({
-          status: 'downloaded',
-          currentVersion: '0.2.1',
-          targetVersion: '0.2.2',
-          releaseName: 'Saika Lane 0.2.2',
-          releaseDate: '2026-04-23T00:00:00.000Z',
-          releaseNotes: 'Fixes',
-          downloadPercent: 100,
-          transferredBytes: 4096,
-          totalBytes: 4096,
-          bytesPerSecond: 1024,
-          lastCheckedAt: '2026-04-23T00:00:00.000Z',
-          errorMessage: null,
-          canCheckForUpdates: false,
-          canInstallUpdate: true,
-        });
+        useUpdateStore.getState().setState(downloadedUpdate);
       });
 
       expect(screen.queryByText('IPC failed')).not.toBeInTheDocument();
@@ -455,22 +509,11 @@ describe('SettingsModal', () => {
       expect(await screen.findByText('IPC failed')).toBeInTheDocument();
 
       act(() => {
-        useUpdateStore.getState().setState({
-          status: 'error',
-          currentVersion: '0.2.1',
-          targetVersion: null,
-          releaseName: null,
-          releaseDate: null,
-          releaseNotes: null,
-          downloadPercent: null,
-          transferredBytes: null,
-          totalBytes: null,
-          bytesPerSecond: null,
-          lastCheckedAt: '2026-04-23T00:00:00.000Z',
-          errorMessage: 'network down',
-          canCheckForUpdates: true,
-          canInstallUpdate: false,
-        });
+        useUpdateStore
+          .getState()
+          .setState(
+            updateState({ status: 'error', lastCheckedAt: '2026-04-23T00:00:00.000Z', errorMessage: 'network down' }),
+          );
       });
 
       expect(screen.queryByText('IPC failed')).not.toBeInTheDocument();
@@ -653,6 +696,37 @@ describe('SettingsModal', () => {
   });
 
   describe('json editing', () => {
+    it('clears a JSON load error when the lane number changes while the tab is open', async () => {
+      mockGetAppSettings.mockRejectedValueOnce(new Error('read failed'));
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="json" />);
+      expect(await screen.findByText('read failed')).toBeInTheDocument();
+
+      act(() => {
+        useSessionStore.getState().setLaneNumber(5);
+      });
+
+      expect(screen.queryByText('read failed')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'JSON' })).toHaveClass('text-blue-400');
+    });
+
+    it('shows the settings path placeholder while loading and Unavailable without metadata', async () => {
+      let resolveSettings: ((value: Awaited<ReturnType<typeof settingsService.getAppSettings>>) => void) | null = null;
+      mockGetAppSettings.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveSettings = resolve;
+        }),
+      );
+      vi.mocked(settingsService.getSettingsFileInfo).mockRejectedValueOnce(new Error('Path unavailable'));
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} initialTab="json" />);
+
+      expect(screen.getByText('Loading...')).toBeInTheDocument();
+      await act(async () => {
+        resolveSettings?.(await settingsService.getAppSettings());
+      });
+
+      expect(await screen.findByText('Unavailable')).toBeInTheDocument();
+    });
+
     it('saves the full settings document from the JSON tab', async () => {
       const updatedSettings = {
         printing: PrintSettingsSchema.parse({}),
