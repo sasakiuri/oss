@@ -143,6 +143,7 @@ export function useChampionshipScreenCommands({
   const submitNewEvent = useCallback(
     async (data: EventFields) => {
       if (!selectedChampionship) return;
+      let eventId: string;
       try {
         const result = await createEvent({ championshipId: selectedChampionship.id, ...data });
         // A success without the new event's id fails like an unsuccessful response.
@@ -152,10 +153,22 @@ export function useChampionshipScreenCommands({
         }
         hideEventForm();
         setSelectedEventId(result.data);
-        // A rejected load of the new event's entries is reported as a failure to add it.
-        await Promise.all([loadParticipants(result.data), loadFiringPointAssignments(result.data)]);
+        eventId = result.data;
       } catch (error) {
         addNotification('error', failureMessage(error, 'Failed to add the event'));
+        return;
+      }
+      // The event exists by now: a failed load of its entries is reported on its own.
+      let loadFailure: string | null;
+      try {
+        const responses = await Promise.all([loadParticipants(eventId), loadFiringPointAssignments(eventId)]);
+        const failed = responses.find((response) => !response.success);
+        loadFailure = failed && !failed.success ? failed.error.message : null;
+      } catch (error) {
+        loadFailure = error instanceof Error ? error.message : String(error);
+      }
+      if (loadFailure !== null) {
+        addNotification('error', `The event was added, but loading its entries failed: ${loadFailure}`);
       }
     },
     [
