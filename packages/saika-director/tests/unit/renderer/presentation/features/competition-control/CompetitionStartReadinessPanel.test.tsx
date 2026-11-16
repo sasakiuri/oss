@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompetitionStartReadinessPanel } from '@/renderer/presentation/features/competition-control/CompetitionStartReadinessPanel';
 import { mqttService } from '@/renderer/services';
 
+import { fail } from '../../../../../helpers/renderer/serviceResponses';
+
 vi.mock('@/renderer/services', () => ({ mqttService: { getStartReadiness: vi.fn() } }));
 const scope = { competitionId: '11111111-1111-4111-8111-111111111111', phase: 'SIGHTING' as const };
 const data = { ...scope, checkedAt: '2026-09-08T00:00:00.000Z', laneIds: ['lane-a'], issues: [] };
@@ -62,5 +64,14 @@ describe('CompetitionStartReadinessPanel', () => {
     await act(async () => resolveFirst({ success: true, data }));
     expect(screen.queryByText('No outstanding configured checks.')).not.toBeInTheDocument();
     expect(screen.getByText('Join Lanes before checking their readiness.')).toBeInTheDocument();
+  });
+
+  it('shows a failed readiness check as its message', async () => {
+    vi.mocked(mqttService.getStartReadiness).mockResolvedValue(fail('Lane registry is unavailable'));
+    render(<CompetitionStartReadinessPanel {...scope} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /^Could not check readiness: Lane registry is unavailable$/,
+    );
+    expect(screen.queryByText('No outstanding configured checks.')).not.toBeInTheDocument();
   });
 });
