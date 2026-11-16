@@ -1,30 +1,45 @@
 // SPDX-License-Identifier: MIT
 import { Volume2, X } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert';
-import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
-import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
 import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { settingsService } from '@/renderer/services/settingsService';
-import { updateService } from '@/renderer/services/updateService';
-import type {
-  AppSettingsDto,
-  AppSettingsInputDto,
-  AppUpdateStateDto,
-  SettingsFileInfoDto,
-} from '@/shared/ipc/contracts';
 
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
 import { useSessionStore } from '../stores/sessionStore';
 
 import { MqttSettingsTab } from './settings/MqttSettingsTab';
 import { SettingsConnectionTab } from './settings/SettingsConnectionTab';
+import { SettingsJsonTab } from './settings/SettingsJsonTab';
 import { SettingsPrintingTab } from './settings/SettingsPrintingTab';
 import { SettingsTargetTab } from './settings/SettingsTargetTab';
 import { ShotTimingSettingsPanel } from './settings/ShotTimingSettingsPanel';
+import { UpdateStatusPanel } from './settings/UpdateStatusPanel';
 import { VistaSettingsPanel } from './settings/VistaSettingsPanel';
+
+export type SettingsTab = 'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'vista' | 'json';
+
+const tabs: ReadonlyArray<{ id: SettingsTab; label: string }> = [
+  { id: 'general', label: 'General' },
+  { id: 'target', label: 'Target' },
+  { id: 'connection', label: 'Connection' },
+  { id: 'mqtt', label: 'MQTT' },
+  { id: 'printing', label: 'Printing' },
+  { id: 'vista', label: 'Vista' },
+  { id: 'json', label: 'JSON' },
+];
+
+function tabClassName(tab: SettingsTab, active: boolean): string {
+  // The Vista tab has never had the hover and transition styles of the other tabs.
+  if (tab === 'vista') {
+    return `px-4 py-2 text-sm font-medium ${active ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400'}`;
+  }
+  return `px-4 py-2 text-sm font-medium transition-colors ${
+    active ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400 hover:text-zinc-200'
+  }`;
+}
 
 /**
  * SettingsModal component props
@@ -35,69 +50,9 @@ export interface SettingsModalProps {
   /** Close callback */
   onClose: () => void;
   /** Initial tab to display */
-  initialTab?: 'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'vista' | 'json';
+  initialTab?: SettingsTab;
   /** Optional CSS class name */
   className?: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function formatUpdateTimestamp(value: string | null): string | null {
-  if (!value) {
-    return null;
-  }
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleString();
-}
-
-function formatByteCount(value: number | null): string | null {
-  if (value == null) {
-    return null;
-  }
-
-  if (value < 1024) {
-    return `${Math.round(value)} B`;
-  }
-
-  if (value < 1024 * 1024) {
-    return `${(value / 1024).toFixed(1)} KB`;
-  }
-
-  if (value < 1024 * 1024 * 1024) {
-    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-  }
-
-  return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
-function describeUpdateState(state: AppUpdateStateDto, fallbackVersion: string): string {
-  switch (state.status) {
-    case 'unsupported':
-      return state.errorMessage ?? 'Auto-update is unavailable in this environment.';
-    case 'idle':
-      return `Saika Lane ${state.currentVersion || fallbackVersion} is ready to check for updates.`;
-    case 'checking':
-      return 'Checking GitHub Releases for a newer version...';
-    case 'available':
-      return `Version ${state.targetVersion ?? 'unknown'} is available. Downloading will start automatically.`;
-    case 'downloading':
-      return `Downloading version ${state.targetVersion ?? 'unknown'}...`;
-    case 'downloaded':
-      return `Version ${state.targetVersion ?? 'unknown'} has been downloaded and is ready to install.`;
-    case 'no-update':
-      return `You are already on the latest version (${state.currentVersion || fallbackVersion}).`;
-    case 'error':
-      return state.errorMessage ?? 'Update check failed.';
-    default:
-      return 'Update status is unavailable.';
-  }
 }
 
 /**
@@ -117,37 +72,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const updateState = useUpdateStore((state) => state);
   const [inputValue, setInputValue] = useState(laneNumber.toString());
   const [volumeValue, setVolumeValue] = useState(audioVolume);
-  const [activeTab, setActiveTab] = useState<
-    'general' | 'target' | 'connection' | 'mqtt' | 'printing' | 'vista' | 'json'
-  >(initialTab);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [updateActionError, setUpdateActionError] = useState<string | null>(null);
-  const [jsonDraft, setJsonDraft] = useState('');
-  const [jsonError, setJsonError] = useState<string | null>(null);
-  const [settingsFilePath, setSettingsFilePath] = useState('');
-  const jsonDraftDirtyRef = useRef(false);
-
-  const applySettingsToStores = (settings: AppSettingsDto) => {
-    useSessionStore.getState().setLaneNumber(settings.userPreferences.laneNumber);
-    useSessionStore.getState().setAudioVolume(settings.userPreferences.audioVolume);
-    useSessionStore.getState().setDiscipline(settings.userPreferences.discipline);
-
-    useCompetitionStore.getState().setSavedCompetitionTypeId(settings.userPreferences.competitionTypeId || null);
-    useMqttStore.getState().setSettings(settings.mqtt);
-  };
-
-  const readSettingsDocument = async () => {
-    const settings = await settingsService.getAppSettings();
-    let metadata: SettingsFileInfoDto | null = null;
-
-    try {
-      metadata = await settingsService.getSettingsFileInfo();
-    } catch {
-      metadata = null;
-    }
-
-    return { settings, metadata };
-  };
 
   // Sync input values with store when modal opens or values change
   useEffect(() => {
@@ -156,8 +83,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setVolumeValue(audioVolume);
       setSaveError(null);
       setUpdateActionError(null);
-      setJsonError(null);
-      jsonDraftDirtyRef.current = false;
     }
   }, [isOpen, laneNumber, audioVolume]);
 
@@ -167,40 +92,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setActiveTab(initialTab);
     }
   }, [isOpen, initialTab]);
-
-  useEffect(() => {
-    if (!isOpen || activeTab !== 'json') {
-      return;
-    }
-
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        setJsonError(null);
-        setJsonDraft('');
-        setSettingsFilePath('');
-        jsonDraftDirtyRef.current = false;
-        const { settings, metadata } = await readSettingsDocument();
-        if (cancelled) {
-          return;
-        }
-
-        setSettingsFilePath(metadata?.path ?? 'Unavailable');
-        if (!jsonDraftDirtyRef.current) {
-          setJsonDraft(JSON.stringify(settings, null, 2));
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setJsonError(errorMessage(err));
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, isOpen]);
 
   useEffect(() => {
     setUpdateActionError(null);
@@ -233,81 +124,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     onClose();
   };
 
-  const handleReloadJson = async () => {
-    try {
-      setJsonError(null);
-      setJsonDraft('');
-      setSettingsFilePath('');
-      jsonDraftDirtyRef.current = false;
-      const { settings, metadata } = await readSettingsDocument();
-      setSettingsFilePath(metadata?.path ?? 'Unavailable');
-      if (!jsonDraftDirtyRef.current) {
-        setJsonDraft(JSON.stringify(settings, null, 2));
-      }
-    } catch (err) {
-      setJsonError(errorMessage(err));
-    }
-  };
-
-  const handleSaveJson = async () => {
-    try {
-      setJsonError(null);
-      const parsed = JSON.parse(jsonDraft) as unknown;
-      const normalizedSettings =
-        isRecord(parsed) &&
-        isRecord(parsed.mqtt) &&
-        typeof parsed.mqtt.laneId === 'string' &&
-        parsed.mqtt.laneId.trim() === ''
-          ? {
-              ...parsed,
-              mqtt: {
-                enabled: parsed.mqtt.enabled,
-                brokerUrl: parsed.mqtt.brokerUrl,
-                laneAlias: parsed.mqtt.laneAlias,
-                autoConnect: parsed.mqtt.autoConnect,
-              },
-            }
-          : parsed;
-
-      await settingsService.saveAppSettings(normalizedSettings as AppSettingsInputDto);
-      const normalized = await settingsService.getAppSettings();
-      jsonDraftDirtyRef.current = false;
-      setJsonDraft(JSON.stringify(normalized, null, 2));
-      applySettingsToStores(normalized);
-    } catch (err) {
-      setJsonError(errorMessage(err));
-    }
-  };
-
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
       onClose();
     }
   };
-
-  const handleCheckForUpdates = async () => {
-    try {
-      setUpdateActionError(null);
-      await updateService.checkForUpdates();
-    } catch (err) {
-      setUpdateActionError(errorMessage(err));
-    }
-  };
-
-  const handleQuitAndInstall = async () => {
-    try {
-      setUpdateActionError(null);
-      await updateService.quitAndInstall();
-    } catch (err) {
-      setUpdateActionError(errorMessage(err));
-    }
-  };
-
-  const displayedVersion = updateState.currentVersion || window.electronAPI.appVersion;
-  const formattedLastChecked = formatUpdateTimestamp(updateState.lastCheckedAt);
-  const formattedTransferred = formatByteCount(updateState.transferredBytes);
-  const formattedTotal = formatByteCount(updateState.totalBytes);
-  const visibleUpdateError = updateActionError ?? (updateState.status === 'error' ? updateState.errorMessage : null);
 
   return (
     <div
@@ -330,64 +151,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Tab bar */}
         <div className="flex shrink-0 overflow-x-auto border-b border-zinc-700">
-          <button
-            onClick={() => setActiveTab('general')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'general' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            General
-          </button>
-          <button
-            onClick={() => setActiveTab('target')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'target' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Target
-          </button>
-          <button
-            onClick={() => setActiveTab('connection')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'connection'
-                ? 'border-b-2 border-blue-400 text-blue-400'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Connection
-          </button>
-          <button
-            onClick={() => setActiveTab('mqtt')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'mqtt' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            MQTT
-          </button>
-          <button
-            onClick={() => setActiveTab('printing')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'printing'
-                ? 'border-b-2 border-blue-400 text-blue-400'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            Printing
-          </button>
-          <button
-            onClick={() => setActiveTab('vista')}
-            className={`px-4 py-2 text-sm font-medium ${activeTab === 'vista' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400'}`}
-          >
-            Vista
-          </button>
-          <button
-            onClick={() => setActiveTab('json')}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              activeTab === 'json' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            JSON
-          </button>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={tabClassName(tab.id, activeTab === tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Content */}
@@ -397,87 +169,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <>
               <div className="p-4">
                 <div className="flex flex-col gap-4">
-                  <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-zinc-200">Application Update</p>
-                        <p className="mt-1 text-xs text-zinc-400">Current Version: {displayedVersion}</p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={handleCheckForUpdates}
-                          disabled={!updateState.canCheckForUpdates}
-                          className="rounded bg-zinc-700 px-3 py-2 text-sm text-zinc-100 transition-colors enabled:hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          Check for Updates
-                        </button>
-
-                        {updateState.canInstallUpdate && (
-                          <button
-                            type="button"
-                            onClick={handleQuitAndInstall}
-                            className="rounded bg-emerald-600 px-3 py-2 text-sm text-white transition-colors hover:bg-emerald-500"
-                          >
-                            Restart &amp; Install
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <p className="mt-3 text-sm text-zinc-300">
-                      {describeUpdateState(updateState, window.electronAPI.appVersion)}
-                    </p>
-
-                    {updateState.targetVersion && (
-                      <p className="mt-2 text-xs text-zinc-400">
-                        Target Version: {updateState.targetVersion}
-                        {updateState.releaseName ? ` (${updateState.releaseName})` : ''}
-                      </p>
-                    )}
-
-                    {updateState.downloadPercent !== null && (
-                      <div className="mt-3">
-                        <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
-                          <div
-                            className="h-full bg-blue-500 transition-[width]"
-                            style={{ width: `${Math.max(0, Math.min(100, updateState.downloadPercent))}%` }}
-                          />
-                        </div>
-                        <p className="mt-2 text-xs text-zinc-400">
-                          {updateState.downloadPercent.toFixed(1)}%
-                          {formattedTransferred && formattedTotal
-                            ? ` (${formattedTransferred} / ${formattedTotal})`
-                            : ''}
-                        </p>
-                      </div>
-                    )}
-
-                    {formattedLastChecked && (
-                      <p className="mt-2 text-xs text-zinc-500">Last Checked: {formattedLastChecked}</p>
-                    )}
-
-                    {updateState.releaseNotes && (
-                      <div className="mt-3 rounded border border-zinc-700 bg-zinc-950/70 p-3">
-                        <p className="text-xs uppercase tracking-wide text-zinc-500">Release Notes</p>
-                        <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap text-xs text-zinc-300">
-                          {updateState.releaseNotes}
-                        </pre>
-                      </div>
-                    )}
-
-                    {visibleUpdateError && (
-                      <div
-                        className="mt-3 rounded border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-300"
-                        role="alert"
-                        aria-live="polite"
-                        aria-atomic="true"
-                      >
-                        {visibleUpdateError}
-                      </div>
-                    )}
-                  </div>
+                  <UpdateStatusPanel actionError={updateActionError} onActionError={setUpdateActionError} />
 
                   {/* Lane Number Input */}
                   <div className="flex flex-col gap-2">
@@ -564,53 +256,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {activeTab === 'mqtt' && <MqttSettingsTab />}
           {activeTab === 'vista' && <VistaSettingsPanel />}
 
-          {activeTab === 'json' && (
-            <>
-              <div className="flex flex-col gap-3 p-4">
-                <div className="rounded border border-zinc-700 bg-zinc-900/60 p-3">
-                  <p className="text-xs uppercase tracking-wide text-zinc-500">settings.json</p>
-                  <p className="mt-1 break-all font-mono text-xs text-zinc-300">{settingsFilePath || 'Loading...'}</p>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <label htmlFor="settings-json" className="text-sm font-medium text-zinc-300">
-                    Settings Document
-                  </label>
-                  <textarea
-                    id="settings-json"
-                    value={jsonDraft}
-                    onChange={(e) => {
-                      jsonDraftDirtyRef.current = true;
-                      setJsonDraft(e.target.value);
-                    }}
-                    spellCheck={false}
-                    className="h-72 resize-none rounded border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <span className="text-xs text-zinc-400">
-                    Updating the entire document applies the same validation as saving through the GUI. mqtt.laneId is
-                    managed automatically and retains its current value when saved.
-                  </span>
-                </div>
-              </div>
-
-              {jsonError && <ErrorAlert inset>{jsonError}</ErrorAlert>}
-
-              <div className="flex items-center justify-end gap-2 border-t border-zinc-700 bg-zinc-900 px-4 py-3">
-                <button
-                  onClick={handleReloadJson}
-                  className="rounded bg-zinc-700 px-4 py-2 text-sm text-zinc-100 transition-colors hover:bg-zinc-600"
-                >
-                  Reload
-                </button>
-                <button
-                  onClick={handleSaveJson}
-                  className="rounded bg-blue-600 px-4 py-2 text-sm text-white transition-colors hover:bg-blue-500"
-                >
-                  Save JSON
-                </button>
-              </div>
-            </>
-          )}
+          {activeTab === 'json' && <SettingsJsonTab />}
         </div>
       </div>
     </div>
