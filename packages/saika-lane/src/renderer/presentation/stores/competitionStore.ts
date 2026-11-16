@@ -52,8 +52,6 @@ interface CompetitionActions {
   setSavedCompetitionTypeId: (id: string | null) => void;
   /** Set the stage-authoritative target scoring profile. */
   setTargetProfileId: (id?: TargetScoringProfileId) => void;
-  /** Set the event-authoritative scoring gauge independently from the face. */
-  setScoringGaugeProfileId: (id?: ScoringGaugeProfileId) => void;
   setInterruption: (interruption: CompetitionState['interruption']) => void;
   applyPhaseChange: (
     phase: Phase,
@@ -162,10 +160,6 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
 
   setTargetProfileId: (id) => {
     set({ targetProfileId: id });
-  },
-
-  setScoringGaugeProfileId: (id) => {
-    set({ scoringGaugeProfileId: id });
   },
 
   setInterruption: (interruption) => {

@@ -334,11 +334,11 @@ describe('sessionStore', () => {
       expect(state.totalScore).toBe(0);
     });
 
-    it('preserves manufacturer and deviceId on reset', () => {
-      const { setDeviceInfo, setSessionId, setMode, addShot, updateScores, resetSession } = useSessionStore.getState();
+    it('preserves deviceId on reset', () => {
+      const { setDeviceId, setSessionId, setMode, addShot, updateScores, resetSession } = useSessionStore.getState();
 
       // Set device info and session state
-      setDeviceInfo('KOHTO', 'MT201');
+      setDeviceId('MT201');
       setSessionId('test-session-123');
       setMode('MATCH');
       addShot({
@@ -364,7 +364,6 @@ describe('sessionStore', () => {
       expect(state.shots).toEqual([]);
       expect(state.totalScore).toBe(0);
       expect(state.seriesScores).toEqual([]);
-      expect(state.manufacturer).toBe('KOHTO');
       expect(state.deviceId).toBe('MT201');
     });
 

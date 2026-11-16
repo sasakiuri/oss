@@ -53,7 +53,7 @@ export function useConnection(): UseConnectionResult {
   const manufacturer = useConnectionStore((state) => state.manufacturer);
   const setConnection = useConnectionStore((state) => state.setConnection);
   const disconnectStore = useConnectionStore((state) => state.disconnect);
-  const setDeviceInfo = useSessionStore((state) => state.setDeviceInfo);
+  const setDeviceId = useSessionStore((state) => state.setDeviceId);
 
   const connecting = useAsyncAction(
     async (port: string, mfr: TargetManufacturer, deviceId?: string, baudRate?: number) => {
@@ -64,7 +64,7 @@ export function useConnection(): UseConnectionResult {
         baudRate,
       });
       setConnection(result.connectionId, port, mfr, deviceId);
-      setDeviceInfo(mfr, deviceId ?? null);
+      setDeviceId(deviceId ?? null);
     },
     { errorMessage: 'An error occurred while connecting' },
   );

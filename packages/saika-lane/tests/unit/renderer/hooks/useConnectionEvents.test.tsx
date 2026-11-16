@@ -76,7 +76,6 @@ describe('useConnectionEvents', () => {
       expect(connState.manufacturer).toBe('KOHTO');
 
       const sessState = useSessionStore.getState();
-      expect(sessState.manufacturer).toBe('KOHTO');
       expect(sessState.deviceId).toBe('MT201');
     });
 
@@ -99,7 +98,7 @@ describe('useConnectionEvents', () => {
   describe('disconnected event', () => {
     it('resets the store', () => {
       useConnectionStore.getState().setConnection('conn-1', '/dev/ttyUSB0', 'KOHTO', 'MT201');
-      useSessionStore.getState().setDeviceInfo('KOHTO', 'MT201');
+      useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useConnectionEvents());
 
@@ -118,7 +117,6 @@ describe('useConnectionEvents', () => {
       expect(connState.connectionId).toBeNull();
 
       const sessState = useSessionStore.getState();
-      expect(sessState.manufacturer).toBeNull();
       expect(sessState.deviceId).toBeNull();
     });
 
