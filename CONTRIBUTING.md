@@ -84,7 +84,17 @@ Docs measures all `src` TypeScript except generated API types, declarations,
 and Storybook stories, while retaining higher thresholds on its previously
 verified boundaries. Storybook stories use the separate Storybook checks.
 Reports include text, HTML, JSON, and a JSON summary.
-Vista runs main-process tests in Node.js and renderer tests in jsdom.
+Lane, Director, and Vista run main-process tests in Node.js and renderer tests in
+jsdom. Lane and Director select the environment by Vitest project: tests under
+`tests/unit/renderer/` run in the `renderer` project, all others in the Node.js
+project (`main` in Lane, `node` in Director). Director database tests take a migrated in-memory database from
+`migratedDatabase()` in `tests/helpers/database.ts`, which runs the migrations once
+per test file and returns an independent copy on each call.
+
+Golden tests pin released values: MQTT topics and command actions in Protocol,
+Lane error codes, Director digests and migrated schema, and Docs HTML. A failing
+golden test means a released contract changed; update the expected value only
+when that change is intended.
 
 Vitest and React Testing Library checks use the optional presets from
 `@sasakiuri/eslint-config`. CI rejects focused or assertion-free tests, lint warnings, conditional assertions without
@@ -229,6 +239,31 @@ behavior, including failures and recovery. For asynchronous changes, cover delay
 responses and changes of connection or selection. For persistence changes, cover
 upgrades with existing records, rollback and reopening.
 
+Common additions touch a fixed set of places:
+
+- **MQTT topic or command**: add the builder to `mqttTopics` and its kind to
+  `ParsedMqttTopic` and `parseMqttTopic`, or the row to `MQTT_COMMAND_ACTIONS` and
+  its schema to `createCommandSchemas()`, in `saika-protocol`. Add the entry to the
+  golden tests (`tests/topics.test.ts`, `tests/commands.test.ts`). On Lane, add the
+  action's policy to the handler table for its topic scope.
+- **Director IPC contract**: export the contract from `src/shared/ipc/contracts`,
+  add it to `directorBridgeContracts`, and give its namespace a permission in
+  `DirectorOperatorPermissions.ts` and in the expected table of
+  `DirectorOperatorPermissions.test.ts`. Register its handlers with
+  `ipcRouter.register` in the owning module. The preload bridge and `ElectronAPI`
+  follow.
+- **Director migration**: add the next numbered file under
+  `src/main/infrastructure/database/migrations/` and register it in `index.ts`. It
+  may import only `./Migration`, Node.js built-ins by their `node:` specifier, `zod`,
+  and `better-sqlite3`.
+  Append its entry (version, name, file, SHA-256) to
+  `tests/unit/main/infrastructure/database/published-migrations.json` and refresh
+  `migrated-schema.txt` by running `PublishedMigrations.test.ts` with `vitest -u`.
+  Never edit a published migration.
+- **Lane target device**: add the definition to `src/shared/target/targetDevices.ts`
+  and to the list in `tests/unit/shared/target/targetDevices.test.ts`. Existing
+  device identifiers and aliases are saved in settings and never change.
+
 Run `npx turbo depcruise` to check dependency direction. Update the relevant
 manuals in `saika-docs` when behavior or screen labels change.
 
@@ -317,7 +352,8 @@ This creates a markdown file in `.changeset/` that should be committed with your
 Lane, Director, Vista, and Docs form a Changesets fixed group. A change to any suite
 package advances all four to the same version. The shared `v<version>` release contains
 the three desktop applications and documentation. Shared configuration packages are
-versioned separately.
+versioned separately. `scripts/saika-suite.json` lists the suite applications for the
+release scripts; `scripts/saika-suite.test.mjs` keeps it equal to the fixed group.
 
 ## Pull Request Process
 
