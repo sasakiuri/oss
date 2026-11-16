@@ -21,8 +21,8 @@ Course details and operating limits are described in the [Lane specification](..
 | Manufacturer                    | Models                                        | Status                                           |
 | ------------------------------- | --------------------------------------------- | ------------------------------------------------ |
 | Kohto Electronics (Koto Denshi) | MT201, BPT-216                                | Implemented; BPT-216 hardware validation pending |
-| SIUS                            | HS10, HS25, Ascor                             | Stub                                             |
-| Meyton                          | —                                             | Stub                                             |
+| SIUS                            | HS10, HS25                                    | Definition only; no serial connection            |
+| Meyton                          | —                                             | Definition only; no serial connection            |
 | DISAG                           | KT RDT ZIE 1 (RedDot Rifle / Pistol profiles) | Implemented; hardware validation pending         |
 | Custom                          | User-defined protocol                         | Supported                                        |
 
@@ -52,9 +52,15 @@ Course details and operating limits are described in the [Lane specification](..
 ## Architecture
 
 Feature modules under `src/main/modules/` separate domain rules, application
-operations and device/storage adapters. Shared IPC contracts connect them to the
-renderer. See the [architecture guide](../../ARCHITECTURE.md) for composition,
-serial data flow, message validation and persistence requirements.
+operations and device/storage adapters; `src/main/composition/` builds shared
+services and loads the module catalog. IPC contracts under `src/shared/ipc/`,
+defined with [`@sasakiuri/saika-ipc`](../saika-ipc/), connect the modules to the
+renderer. Target device definitions live in `src/shared/target/targetDevices.ts`.
+See the [architecture guide](../../ARCHITECTURE.md) for composition, serial data
+flow, message validation and persistence requirements.
+
+Unit tests run in two Vitest projects: `renderer` (jsdom) for
+`tests/unit/renderer/` and `main` (Node.js) for everything else.
 
 ## Data Storage
 

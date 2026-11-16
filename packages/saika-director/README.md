@@ -56,7 +56,9 @@ competitions.
 ## Development
 
 Services are constructed under `src/main/composition/`. Lane and Director share
-MQTT schemas through [`@sasakiuri/saika-protocol`](../saika-protocol/). The
+MQTT schemas and topics through [`@sasakiuri/saika-protocol`](../saika-protocol/)
+and IPC contract helpers through [`@sasakiuri/saika-ipc`](../saika-ipc/). The
+renderer bridge is derived from `src/shared/ipc/directorBridgeContracts.ts`. The
 [architecture guide](../../ARCHITECTURE.md) describes composition and command
 ordering; the [contribution guide](../../CONTRIBUTING.md#changing-application-code)
 covers changes and checks.
