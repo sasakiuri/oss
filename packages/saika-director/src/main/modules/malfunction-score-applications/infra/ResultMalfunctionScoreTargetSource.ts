@@ -1,3 +1,5 @@
+import { sameRulePackIdentity } from '@sasakiuri/saika-rules';
+
 import type { IEventRepository } from '@/main/modules/championship';
 import { qualificationScoreSourceDigest, type IResultRepository } from '@/main/modules/results';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
@@ -21,12 +23,8 @@ export class ResultMalfunctionScoreTargetSource implements IMalfunctionScoreAppl
       !value.rulePackIdentity ||
       !definition.rulePackIdentity ||
       !event.rulePackIdentity ||
-      value.rulePackIdentity.id !== definition.rulePackIdentity.id ||
-      value.rulePackIdentity.schemaVersion !== definition.rulePackIdentity.schemaVersion ||
-      value.rulePackIdentity.id !== event.rulePackIdentity.id ||
-      value.rulePackIdentity.schemaVersion !== event.rulePackIdentity.schemaVersion ||
-      value.rulePackIdentity.fingerprint.value !== definition.rulePackIdentity.fingerprint.value ||
-      value.rulePackIdentity.fingerprint.value !== event.rulePackIdentity.fingerprint.value
+      !sameRulePackIdentity(value.rulePackIdentity, definition.rulePackIdentity) ||
+      !sameRulePackIdentity(value.rulePackIdentity, event.rulePackIdentity)
     )
       throw new Error('The application requires the exact Qualification Rule Pack recorded in the case');
     const candidates = this.results
