@@ -1,21 +1,24 @@
 // SPDX-License-Identifier: MIT
 /**
- * Log level
+ * Log levels. The IPC event schema validates against this list, so the type and the schema cannot drift.
  */
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+export const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
 
 /**
- * Log source (origin)
+ * Log sources (origins). The IPC event schema validates against this list, so the type and the schema cannot drift.
  */
-export type LogSource =
-  | 'main' // Main Process general
-  | 'ipc' // IPC communication
-  | 'usb' // USB communication
-  | 'domain' // Domain events
-  | 'cqrs' // CQRS Bus (command/query)
-  | 'module' // Module system
-  | 'mqtt' // MQTT communication
-  | 'renderer'; // Renderer Process
+export const LOG_SOURCES = [
+  'main', // Main Process general
+  'ipc', // IPC communication
+  'usb', // USB communication
+  'domain', // Domain events
+  'cqrs', // CQRS Bus (command/query)
+  'module', // Module system
+  'mqtt', // MQTT communication
+  'renderer', // Renderer Process
+] as const;
+export type LogSource = (typeof LOG_SOURCES)[number];
 
 /**
  * Log entry

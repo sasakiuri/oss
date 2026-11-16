@@ -391,6 +391,67 @@ describe('IpcRouter', () => {
   // ============================
   // z.void() input
   // ============================
+  describe('response validation', () => {
+    const invalidResponse = (operation: string, path: string) => ({
+      code: 'IPC_INVALID_RESPONSE',
+      message: `[${operation}] Invalid IPC response`,
+      metadata: {
+        context: operation,
+        validationErrors: [{ path, message: expect.any(String) }],
+      },
+    });
+
+    it('replaces a query result outside the contract with an IPC_INVALID_RESPONSE error', async () => {
+      router.register(testQueryContract, {
+        getData: vi.fn().mockResolvedValue({ value: 'not a number' }),
+        getAll: vi.fn().mockResolvedValue([]),
+      } as never);
+
+      const result = await getRegisteredHandler('testQuery:getData')({}, { id: '1' });
+
+      expect(result).toEqual({ success: false, data: null, error: invalidResponse('getData', 'data.value') });
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        'Output validation failed: getData',
+        'main',
+        expect.objectContaining({ operation: 'getData', errors: expect.stringContaining('data.value') }),
+      );
+    });
+
+    it('replaces a command result outside the contract with an IPC_INVALID_RESPONSE error', async () => {
+      const contract = defineContract('strict', {
+        create: command(
+          z
+            .object({ success: z.literal(true), data: z.object({ id: z.string() }) })
+            .or(CommandResponseSchema.extend({ success: z.literal(false) })),
+        ),
+      });
+      router.register(contract, { create: vi.fn().mockResolvedValue({ id: 7 }) } as never);
+
+      const result = (await getRegisteredHandler('strict:create')({}, undefined)) as {
+        success: boolean;
+        error: { code: string };
+      };
+
+      expect(result.success).toBe(false);
+      expect(result.error.code).toBe('IPC_INVALID_RESPONSE');
+      expect(result).not.toHaveProperty('data');
+    });
+
+    it('sends a valid result as the handler built it', async () => {
+      const data = { value: 42, extra: 'kept' };
+      router.register(testQueryContract, {
+        getData: vi.fn().mockResolvedValue(data),
+        getAll: vi.fn().mockResolvedValue([]),
+      } as never);
+
+      const result = (await getRegisteredHandler('testQuery:getData')({}, { id: '1' })) as { data: unknown };
+
+      expect(result).toEqual({ success: true, data });
+      expect(result.data).toBe(data);
+      expect(mockLogger.error).not.toHaveBeenCalled();
+    });
+  });
+
   describe('z.void() input', () => {
     it('z.void() input command skips payload validation and executes the handler', async () => {
       const mockHandler = vi.fn().mockResolvedValue('void-ok');

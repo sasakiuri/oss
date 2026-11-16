@@ -142,4 +142,47 @@ describe('createEventBridge', () => {
     expect(mockRemoveListener).toHaveBeenCalledTimes(2);
     expect(mockRemoveListener).toHaveBeenCalledWith('evt:beta', expect.any(Function));
   });
+
+  describe('payload validation', () => {
+    const contract = defineEventContract('evt', {
+      update: defineEvent(z.object({ value: z.number() })),
+    });
+
+    function subscribe() {
+      const callback = vi.fn();
+      createEventBridge(contract).update(callback);
+      const listener = mockOn.mock.calls[0]![1] as (event: unknown, data: unknown) => void;
+      return { callback, listener };
+    }
+
+    it('passes a payload that matches the event schema on as received', () => {
+      const { callback, listener } = subscribe();
+      const payload = { value: 3 };
+
+      listener({}, payload);
+
+      expect(callback).toHaveBeenCalledExactlyOnceWith(payload);
+      expect(callback.mock.calls[0]![0]).toBe(payload);
+    });
+
+    it.each([[{ value: 'three' }], [{}], [null], [undefined], ['<img src=x onerror=alert(1)>']])(
+      'logs and drops the invalid payload %j',
+      (payload) => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        try {
+          const { callback, listener } = subscribe();
+
+          listener({}, payload);
+
+          expect(callback).not.toHaveBeenCalled();
+          expect(consoleError).toHaveBeenCalledExactlyOnceWith(
+            '[IPC] Ignored invalid event payload for "evt:update"',
+            expect.any(Array),
+          );
+        } finally {
+          consoleError.mockRestore();
+        }
+      },
+    );
+  });
 });

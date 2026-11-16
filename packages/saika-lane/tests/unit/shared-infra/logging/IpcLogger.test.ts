@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { IpcLogger } from '@/main/shared-infra/logging/IpcLogger';
 import { Logger } from '@/main/shared-infra/logging/Logger';
+import { eventsContract } from '@/shared/ipc/contracts';
+import { LOG_LEVELS, LOG_SOURCES } from '@/shared/types/log';
 
 const mockWinstonLog = vi.fn();
 vi.mock('@/main/shared-infra/logging/Logger', () => ({
@@ -122,6 +124,22 @@ describe('IpcLogger', () => {
 
       expect(destroyedWindow.webContents.send).not.toHaveBeenCalled();
     });
+
+    // The preload bridge drops payloads outside the event schema, so every source main logs with must be in it.
+    it.each(LOG_SOURCES.flatMap((source) => LOG_LEVELS.map((level) => [level, source] as const)))(
+      'sends a %s log from %s that the logMessage event schema accepts',
+      (level, source) => {
+        logger[level]('message', source);
+        logger[level]('message', source, { error: 'detail', attempts: 2 });
+
+        const calls = vi.mocked(mockWindow.webContents.send).mock.calls;
+        expect(calls).toHaveLength(2);
+        for (const [channel, payload] of calls) {
+          expect(channel).toBe(eventsContract.channels.logMessage);
+          expect(eventsContract.events.logMessage.schema.safeParse(payload).error?.issues).toBeUndefined();
+        }
+      },
+    );
 
     it('should send on log:message channel', () => {
       logger.debug('channel test');

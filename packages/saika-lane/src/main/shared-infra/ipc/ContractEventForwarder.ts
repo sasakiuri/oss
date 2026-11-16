@@ -2,6 +2,7 @@
 /** Forwards domain events to the renderer using the channels in eventsContract. */
 
 import type { BrowserWindow } from 'electron';
+import type { z } from 'zod';
 
 import type { ShotDto } from '@/main/modules/session/application/dto';
 import type { Shot } from '@/main/modules/session/domain/Shot';
@@ -36,6 +37,8 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ConnectionStatusChangedEventPayload, MqttStatusChangedEventPayload } from '@/shared/ipc/contracts';
 import { eventsContract } from '@/shared/ipc/contracts';
 
+type EventKey = keyof typeof eventsContract.events;
+
 export class ContractEventForwarder {
   private readonly unsubscribers: (() => void)[] = [];
 
@@ -45,32 +48,28 @@ export class ContractEventForwarder {
   ) {}
 
   start(): void {
-    this.forward<PositionExtraNullifiedEvent>(
-      'PositionExtraNullified',
-      eventsContract.channels.positionExtraNullified,
-      (event) => ({
-        sessionId: event.aggregateId,
-        competitionId: event.competitionId,
-        ...(event.resetError ? { resetError: event.resetError } : {}),
-      }),
-    );
-    this.forward<ShotRecordingFailedEvent>('ShotRecordingFailed', eventsContract.channels.error, (event) => ({
+    this.forward('PositionExtraNullified', 'positionExtraNullified', (event: PositionExtraNullifiedEvent) => ({
+      sessionId: event.aggregateId,
+      competitionId: event.competitionId,
+      ...(event.resetError ? { resetError: event.resetError } : {}),
+    }));
+    this.forward('ShotRecordingFailed', 'error', (event: ShotRecordingFailedEvent) => ({
       code: 'SHOT_PROGRESS_FAILED',
       message: event.message,
       userMessage: event.message,
       severity: 'error',
     }));
     // ShotRecorded → event:shotRecorded
-    this.forward<ShotRecordedEvent>('ShotRecorded', eventsContract.channels.shotRecorded, (event) => ({
+    this.forward('ShotRecorded', 'shotRecorded', (event: ShotRecordedEvent) => ({
       sessionId: event.aggregateId,
       shot: { ...this.transformShot(event.shot), reportedMode: event.reportedMode ?? null },
     }));
 
     // ConnectionEstablished → event:connectionStatusChanged
-    this.forward<ConnectionEstablishedEvent>(
+    this.forward(
       'ConnectionEstablished',
-      eventsContract.channels.connectionStatusChanged,
-      (event): ConnectionStatusChangedEventPayload => ({
+      'connectionStatusChanged',
+      (event: ConnectionEstablishedEvent): ConnectionStatusChangedEventPayload => ({
         connectionId: event.aggregateId,
         status: 'connected',
         manufacturer: event.manufacturer.value as ConnectionStatusChangedEventPayload['manufacturer'],
@@ -80,10 +79,10 @@ export class ContractEventForwarder {
     );
 
     // ConnectionLost → event:connectionStatusChanged
-    this.forward<ConnectionLostEvent>(
+    this.forward(
       'ConnectionLost',
-      eventsContract.channels.connectionStatusChanged,
-      (event): ConnectionStatusChangedEventPayload => ({
+      'connectionStatusChanged',
+      (event: ConnectionLostEvent): ConnectionStatusChangedEventPayload => ({
         connectionId: event.aggregateId,
         status: 'disconnected',
         reason: event.reason,
@@ -91,38 +90,34 @@ export class ContractEventForwarder {
     );
 
     // SessionStarted → event:sessionStarted
-    this.forward<SessionStartedEvent>('SessionStarted', eventsContract.channels.sessionStarted, (event) => ({
+    this.forward('SessionStarted', 'sessionStarted', (event: SessionStartedEvent) => ({
       sessionId: event.aggregateId,
       discipline: event.discipline.value,
     }));
 
     // ModeSwitched → event:modeSwitched
-    this.forward<ModeSwitchedEvent>('ModeSwitched', eventsContract.channels.modeSwitched, (event) => ({
+    this.forward('ModeSwitched', 'modeSwitched', (event: ModeSwitchedEvent) => ({
       sessionId: event.aggregateId,
       mode: event.newMode.value,
     }));
 
     // SessionReset → event:sessionReset
-    this.forward<SessionResetEvent>('SessionReset', eventsContract.channels.sessionReset, (event) => ({
+    this.forward('SessionReset', 'sessionReset', (event: SessionResetEvent) => ({
       sessionId: event.aggregateId,
     }));
 
     // CompetitionStarted → event:competitionStarted
-    this.forward<CompetitionStartedEvent>(
-      'CompetitionStarted',
-      eventsContract.channels.competitionStarted,
-      (event) => ({
-        competitionId: event.aggregateId,
-        competitionTypeId: event.competitionTypeId,
-        sessionId: event.sessionId,
-        config: event.config,
-        shotsPerSeries: event.config.shotsPerSeries,
-        acc: event.config.acc,
-      }),
-    );
+    this.forward('CompetitionStarted', 'competitionStarted', (event: CompetitionStartedEvent) => ({
+      competitionId: event.aggregateId,
+      competitionTypeId: event.competitionTypeId,
+      sessionId: event.sessionId,
+      config: event.config,
+      shotsPerSeries: event.config.shotsPerSeries,
+      acc: event.config.acc,
+    }));
 
     // PhaseChanged → event:phaseChanged
-    this.forward<PhaseChangedEvent>('PhaseChanged', eventsContract.channels.phaseChanged, (event) => ({
+    this.forward('PhaseChanged', 'phaseChanged', (event: PhaseChangedEvent) => ({
       previousPhase: event.previousPhase,
       newPhase: event.newPhase,
       stageIndex: event.stageIndex,
@@ -133,10 +128,10 @@ export class ContractEventForwarder {
       scoringGaugeProfileId: event.scoringGaugeProfileId,
     }));
 
-    this.forward<CompetitionProgressChangedEvent>(
+    this.forward(
       'CompetitionProgressChanged',
-      eventsContract.channels.competitionProgressChanged,
-      (event) => ({
+      'competitionProgressChanged',
+      (event: CompetitionProgressChangedEvent) => ({
         competitionId: event.aggregateId,
         stageIndex: event.stageIndex,
         seriesIndex: event.seriesIndex,
@@ -145,21 +140,21 @@ export class ContractEventForwarder {
     );
 
     // TimerTick → event:timerTick
-    this.forward<TimerTickEvent>('TimerTick', eventsContract.channels.timerTick, (event) => ({
+    this.forward('TimerTick', 'timerTick', (event: TimerTickEvent) => ({
       remainingSeconds: event.remainingSeconds,
       totalSeconds: event.totalSeconds,
       formattedRemaining: event.formattedRemaining,
     }));
 
     // TimerExpired → event:timerExpired
-    this.forward<TimerExpiredEvent>('TimerExpired', eventsContract.channels.timerExpired, (event) => ({
+    this.forward('TimerExpired', 'timerExpired', (event: TimerExpiredEvent) => ({
       stageIndex: event.stageIndex,
     }));
 
-    this.forward<CompetitionInterruptionChangedEvent>(
+    this.forward(
       'CompetitionInterruptionChanged',
-      eventsContract.channels.competitionInterruptionChanged,
-      (event) => ({
+      'competitionInterruptionChanged',
+      (event: CompetitionInterruptionChangedEvent) => ({
         competitionId: event.aggregateId,
         interruptionId: event.interruptionId,
         status: event.status,
@@ -169,7 +164,7 @@ export class ContractEventForwarder {
       }),
     );
 
-    this.forward<SafetyStopChangedEvent>('SafetyStopChanged', eventsContract.channels.safetyStopChanged, (event) => ({
+    this.forward('SafetyStopChanged', 'safetyStopChanged', (event: SafetyStopChangedEvent) => ({
       status: event.status,
       safetyStopId: event.safetyStopId,
       reason: event.reason,
@@ -189,27 +184,24 @@ export class ContractEventForwarder {
       clearedAt: event.clearedAt === null ? null : new Date(event.clearedAt).toISOString(),
     }));
 
-    this.forward<CompetitionCueChangedEvent>(
-      'CompetitionCueChanged',
-      eventsContract.channels.competitionCueChanged,
-      (event) => ({ competitionId: event.aggregateId, cue: event.cue }),
-    );
+    this.forward('CompetitionCueChanged', 'competitionCueChanged', (event: CompetitionCueChangedEvent) => ({
+      competitionId: event.aggregateId,
+      cue: event.cue,
+    }));
 
-    this.forward<TimedTargetSequenceChangedEvent>(
-      'TimedTargetSequenceChanged',
-      eventsContract.channels.timedTargetSequenceChanged,
-      (event) => toTimedTargetStateDto(event.state),
+    this.forward('TimedTargetSequenceChanged', 'timedTargetSequenceChanged', (event: TimedTargetSequenceChangedEvent) =>
+      toTimedTargetStateDto(event.state),
     );
 
     // SeriesCompleted → event:seriesCompleted
-    this.forward<SeriesCompletedEvent>('SeriesCompleted', eventsContract.channels.seriesCompleted, (event) => ({
+    this.forward('SeriesCompleted', 'seriesCompleted', (event: SeriesCompletedEvent) => ({
       stageIndex: event.stageIndex,
       seriesIndex: event.seriesIndex,
       shotCount: event.shotCount,
     }));
 
     // StageAdvanced → event:stageAdvanced
-    this.forward<StageAdvancedEvent>('StageAdvanced', eventsContract.channels.stageAdvanced, (event) => ({
+    this.forward('StageAdvanced', 'stageAdvanced', (event: StageAdvancedEvent) => ({
       previousStageIndex: event.previousStageIndex,
       newStageIndex: event.newStageIndex,
       stageName: event.stageName,
@@ -217,37 +209,28 @@ export class ContractEventForwarder {
     }));
 
     // CompetitionFinished → event:competitionFinished
-    this.forward<CompetitionFinishedEvent>(
-      'CompetitionFinished',
-      eventsContract.channels.competitionFinished,
-      (event) => ({
-        sessionId: event.sessionId,
-      }),
-    );
+    this.forward('CompetitionFinished', 'competitionFinished', (event: CompetitionFinishedEvent) => ({
+      sessionId: event.sessionId,
+    }));
 
-    this.forward<DirectorMembershipChangedEvent>(
-      'DirectorMembershipChanged',
-      eventsContract.channels.directorMembershipChanged,
-      (event) => ({ competitionId: event.competitionId, revision: event.revision }),
-    );
+    this.forward('DirectorMembershipChanged', 'directorMembershipChanged', (event: DirectorMembershipChangedEvent) => ({
+      competitionId: event.competitionId,
+      revision: event.revision,
+    }));
 
     // MqttConnected → event:mqttStatusChanged
-    this.forward<MqttConnectedEvent>(
-      'MqttConnected',
-      eventsContract.channels.mqttStatusChanged,
-      (event): MqttStatusChangedEventPayload => ({
-        status: 'connected',
-        ...(event.error ? { error: event.error } : {}),
-        brokerUrl: event.brokerUrl,
-        laneId: event.laneId,
-      }),
-    );
+    this.forward('MqttConnected', 'mqttStatusChanged', (event: MqttConnectedEvent): MqttStatusChangedEventPayload => ({
+      status: 'connected',
+      ...(event.error ? { error: event.error } : {}),
+      brokerUrl: event.brokerUrl,
+      laneId: event.laneId,
+    }));
 
     // MqttDisconnected → event:mqttStatusChanged
-    this.forward<MqttDisconnectedEvent>(
+    this.forward(
       'MqttDisconnected',
-      eventsContract.channels.mqttStatusChanged,
-      (event): MqttStatusChangedEventPayload => ({
+      'mqttStatusChanged',
+      (event: MqttDisconnectedEvent): MqttStatusChangedEventPayload => ({
         status: 'disconnected',
         ...(event.reason ? { error: event.reason } : {}),
       }),
@@ -259,7 +242,13 @@ export class ContractEventForwarder {
     this.unsubscribers.length = 0;
   }
 
-  private forward<E>(eventType: EventName, channel: string, transform: (event: E) => unknown): void {
+  /** Forwards one domain event; the payload type is the event's contract schema, which the preload bridge enforces. */
+  private forward<E, K extends EventKey>(
+    eventType: EventName,
+    key: K,
+    transform: (event: E) => z.input<(typeof eventsContract.events)[K]['schema']>,
+  ): void {
+    const channel = eventsContract.channels[key];
     const unsub = this.eventBus.on(eventType, (event: unknown) => {
       if (!this.mainWindow.isDestroyed()) {
         this.mainWindow.webContents.send(channel, transform(event as E));

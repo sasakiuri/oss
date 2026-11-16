@@ -32,6 +32,11 @@ export const INFRA_ERRORS = {
     userMessage: 'Duplicate IPC channel registration',
     severity: 'error',
   },
+  IPC_INVALID_RESPONSE: {
+    message: 'Invalid IPC response',
+    userMessage: 'The application returned an invalid response',
+    severity: 'error',
+  },
   LOGGER_NOT_INITIALIZED: {
     message: 'Logger has not been initialized',
     userMessage: 'Logger has not been initialized',
