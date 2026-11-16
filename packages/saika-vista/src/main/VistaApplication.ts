@@ -2,7 +2,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
-import type { VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
+import { VISTA_PROTOCOL_VERSION, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
 import { discoverVistaNodes } from '@sasakiuri/saika-protocol/vista-node';
 
 import { CommandSchema, type AppState, type Command, type NodeState, type ScreenConfig } from '../shared/model';
@@ -36,7 +36,7 @@ export class VistaApplication {
   ) {
     this.state = state;
     this.identity = {
-      protocolVersion: 1,
+      protocolVersion: VISTA_PROTOCOL_VERSION,
       sourceId: state.document.id,
       bootId: randomUUID(),
       kind: 'display',
