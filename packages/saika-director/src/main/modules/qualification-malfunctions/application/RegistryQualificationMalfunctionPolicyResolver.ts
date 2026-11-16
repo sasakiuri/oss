@@ -1,3 +1,5 @@
+import { sameRulePackIdentity } from '@sasakiuri/saika-rules';
+
 import type { IEventRepository } from '@/main/modules/championship';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 
@@ -54,12 +56,7 @@ function assertCompatibleIdentity(
   definitionIdentity: QualificationMalfunctionPolicyContext['rulePackIdentity'],
 ): void {
   if (!eventIdentity) return;
-  if (
-    !definitionIdentity ||
-    eventIdentity.id !== definitionIdentity.id ||
-    eventIdentity.schemaVersion !== definitionIdentity.schemaVersion ||
-    eventIdentity.fingerprint.value !== definitionIdentity.fingerprint.value
-  ) {
+  if (!definitionIdentity || !sameRulePackIdentity(eventIdentity, definitionIdentity)) {
     throw new Error('The event Rule Pack binding does not match the registered competition type');
   }
 }

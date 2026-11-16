@@ -1,4 +1,4 @@
-import type { RulePackIdentity } from '@sasakiuri/saika-rules';
+import { sameRulePackIdentity, type RulePackIdentity } from '@sasakiuri/saika-rules';
 
 export type CompetitionCompatibilityMode = 'DISABLED' | 'ADVISORY' | 'REQUIRED';
 
@@ -63,7 +63,7 @@ export class CompetitionDefinitionCompatibilityPolicy implements ICompetitionDef
       };
     }
 
-    const match = capabilities.rulePacks.find((candidate) => sameIdentity(candidate, requirement.rulePack!));
+    const match = capabilities.rulePacks.find((candidate) => sameRulePackIdentity(candidate, requirement.rulePack!));
     if (match) {
       return {
         status: 'MATCH',
@@ -81,13 +81,4 @@ export class CompetitionDefinitionCompatibilityPolicy implements ICompetitionDef
         : `Lane does not advertise Rule Pack ${requirement.rulePack.id}.`,
     };
   }
-}
-
-function sameIdentity(left: RulePackIdentity, right: RulePackIdentity): boolean {
-  return (
-    left.id === right.id &&
-    left.schemaVersion === right.schemaVersion &&
-    left.fingerprint.algorithm === right.fingerprint.algorithm &&
-    left.fingerprint.value === right.fingerprint.value
-  );
 }
