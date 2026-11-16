@@ -10,7 +10,7 @@ vi.mock('@/renderer/presentation/features/boards/PublishedResultsSummary', () =>
     </div>
   ),
 }));
-vi.mock('@/renderer/presentation/features/championship/components/ResultsView', () => ({
+vi.mock('@/renderer/presentation/features/results/ResultsView', () => ({
   ResultsView: ({ eventId, readOnly }: { eventId: string; readOnly: boolean }) => (
     <div>
       Detailed results: {eventId} / {readOnly ? 'read only' : 'editable'}

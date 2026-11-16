@@ -97,7 +97,7 @@ module.exports = {
       name: 'no-mixed-team-table-to-runtime',
       comment: 'The Mixed Team Final table renders the results it receives.',
       severity: 'error',
-      from: { path: '^src/renderer/presentation/features/championship/components/MixedTeamFinalResultsTable\\.tsx$' },
+      from: { path: '^src/renderer/presentation/features/team-results/MixedTeamFinalResultsTable\\.tsx$' },
       to: { path: '^src/renderer/(services/|presentation/(hooks/|stores/))' },
     },
     {
@@ -105,7 +105,7 @@ module.exports = {
       comment: 'Start List, Results Book and network settings views receive state and commands from their hooks.',
       severity: 'error',
       from: {
-        path: '^src/renderer/presentation/features/(championship/components/(StartListPanel|StartListVersionDetail|StartListSelectField|ResultsBookPanel|OfficialAppointmentsForm|RecordClaimCreateForm|RecordClaimReview|RecordClaimActions|ResultsBookVersionsForm|ResultsBookField)|settings/(SettingsScreen|NetworkSettingsPanel))\\.tsx$',
+        path: '^src/renderer/presentation/features/((start-lists/(StartListPanel|StartListVersionDetail|StartListSelectField)|results-books/(ResultsBookPanel|OfficialAppointmentsForm|RecordClaimCreateForm|RecordClaimReview|RecordClaimActions|ResultsBookVersionsForm|ResultsBookField))|settings/(SettingsScreen|NetworkSettingsPanel))\\.tsx$',
       },
       to: { path: '^src/renderer/(services/|presentation/stores/)' },
     },
@@ -114,7 +114,7 @@ module.exports = {
       comment: 'Queries, commands and the CSV and label policies remain independent of the views that render them.',
       severity: 'error',
       from: {
-        path: '^src/renderer/presentation/features/(championship/components/(useStartListVersions|startListCsv|useResultsBookWorkspace|resultsBookPresentation)|settings/useSettingsScreen)\\.ts$',
+        path: '^src/renderer/presentation/features/((start-lists/(useStartListVersions|startListCsv)|results-books/(useResultsBookWorkspace|resultsBookPresentation))|settings/useSettingsScreen)\\.ts$',
       },
       to: { path: '^src/renderer/.*\\.tsx$' },
     },
@@ -123,7 +123,7 @@ module.exports = {
       comment: 'The Start List CSV and the Results Book labels depend only on shared contracts.',
       severity: 'error',
       from: {
-        path: '^src/renderer/presentation/features/championship/components/(startListCsv|resultsBookPresentation)\\.ts$',
+        path: '^src/renderer/presentation/features/(start-lists/startListCsv|results-books/resultsBookPresentation)\\.ts$',
       },
       to: { path: '^src/', pathNot: '^src/shared/ipc/' },
     },
@@ -132,10 +132,10 @@ module.exports = {
       comment: 'Start List and Results Book forms cannot reach back into their parent panel.',
       severity: 'error',
       from: {
-        path: '^src/renderer/presentation/features/championship/components/(StartListVersionDetail|StartListSelectField|OfficialAppointmentsForm|RecordClaimCreateForm|RecordClaimReview|RecordClaimActions|ResultsBookVersionsForm|ResultsBookField)\\.tsx$',
+        path: '^src/renderer/presentation/features/(start-lists/(StartListVersionDetail|StartListSelectField)|results-books/(OfficialAppointmentsForm|RecordClaimCreateForm|RecordClaimReview|RecordClaimActions|ResultsBookVersionsForm|ResultsBookField))\\.tsx$',
       },
       to: {
-        path: '^src/renderer/presentation/features/championship/components/(StartListPanel|ResultsBookPanel)\\.tsx$',
+        path: '^src/renderer/presentation/features/(start-lists/StartListPanel|results-books/ResultsBookPanel)\\.tsx$',
       },
     },
     {
@@ -217,7 +217,7 @@ module.exports = {
       comment: 'Incident report views call the workspace hook, which owns IPC and report state.',
       severity: 'error',
       from: {
-        path: '^src/renderer/presentation/features/championship/components/(IncidentReportsView|IncidentReportCreateForm|IncidentReportDetail|IncidentReportRoleOptions)\\.tsx$',
+        path: '^src/renderer/presentation/features/incident-reports/(IncidentReportsView|IncidentReportCreateForm|IncidentReportDetail|IncidentReportRoleOptions)\\.tsx$',
       },
       to: { path: '^src/renderer/(services/|presentation/stores/)' },
     },
@@ -225,7 +225,7 @@ module.exports = {
       name: 'no-incident-report-state-to-views',
       comment: 'The incident report workspace hook remains independent of views.',
       severity: 'error',
-      from: { path: '^src/renderer/presentation/features/championship/components/useIncidentReportWorkspace\\.ts$' },
+      from: { path: '^src/renderer/presentation/features/incident-reports/useIncidentReportWorkspace\\.ts$' },
       to: { path: '^src/renderer/.*\\.tsx$' },
     },
     {
@@ -233,10 +233,10 @@ module.exports = {
       comment: 'Report forms cannot reach back into the view or its state hook.',
       severity: 'error',
       from: {
-        path: '^src/renderer/presentation/features/championship/components/(IncidentReportCreateForm|IncidentReportDetail|IncidentReportRoleOptions)\\.tsx$',
+        path: '^src/renderer/presentation/features/incident-reports/(IncidentReportCreateForm|IncidentReportDetail|IncidentReportRoleOptions)\\.tsx$',
       },
       to: {
-        path: '^src/renderer/presentation/features/championship/components/(IncidentReportsView\\.tsx|useIncidentReportWorkspace\\.ts)$',
+        path: '^src/renderer/presentation/features/incident-reports/(IncidentReportsView\\.tsx|useIncidentReportWorkspace\\.ts)$',
       },
     },
     {
