@@ -87,7 +87,7 @@ export function createLaneServices(
     storage,
   });
   const competitionShootOffControl = new LocalCompetitionShootOffControl(storage);
-  settingsStore.getAll();
+  settingsStore.initialize();
   const eventBus = new TypedEventBus();
   const membership = new DirectorMembership(storage, eventBus);
   const db = createSqliteDb(join(userDataPath, 'saika-lane.db'));
@@ -119,13 +119,12 @@ export function createLaneServices(
   queryBus.use(new QueryLoggingMiddleware());
 
   // 3. Load modules (registers all command/query handlers)
-  let safetyStopControl: LaneSafetyStopService | null = null;
-  let startup: ActiveRunStartup | null = null;
+  // The timer permit reads startup and the safety latch only when a timer runs, after both exist.
   const timerService = new LaneTimerService(
     competitionRepository,
     eventBus,
     storage,
-    () => startup?.isReady() === true && safetyStopControl?.isStopped() !== true && !reserveTransferJournal.pending(),
+    (): boolean => startup.isReady() && !safetyStopControl.isStopped() && !reserveTransferJournal.pending(),
   );
   const competitionInterruptionRepository = new LocalCompetitionInterruptionRepository(storage);
   const competitionInterruptionControl = new CompetitionInterruptionService(
@@ -136,7 +135,7 @@ export function createLaneServices(
     eventBus,
     sessionRepository,
   );
-  safetyStopControl = new LaneSafetyStopService(
+  const safetyStopControl = new LaneSafetyStopService(
     new SqliteLaneSafetyStopRepository(db),
     new CompetitionSafetyTimerFreezer(competitionRepository, timerService),
     eventBus,
@@ -206,15 +205,15 @@ export function createLaneServices(
   );
   const estComplaintSignalService = new EstComplaintSignalService(new SqliteEstComplaintSignalRepository(db));
 
-  startup = new ActiveRunStartup({
+  const startup = new ActiveRunStartup({
     setAsideActiveRun: () => competitionRepository.clearActivePointer(),
     competitions: competitionRepository,
     sessions: sessionRepository,
     membership,
     timer: timerService,
-    safetyCompetitionId: () => safetyStopControl!.getState()?.timerSnapshot?.competitionId ?? null,
+    safetyCompetitionId: () => safetyStopControl.getState()?.timerSnapshot?.competitionId ?? null,
     interruptions: competitionInterruptionControl,
-    safetyStopped: () => safetyStopControl!.isStopped(),
+    safetyStopped: () => safetyStopControl.isStopped(),
     transferPending: () => reserveTransferJournal.pending(),
     context: sessionContextCache,
     createCompetition: () =>

@@ -65,6 +65,11 @@ export class AppSettingsStore implements IAppSettingsStore {
     this.legacy = new LegacySettingsBridge(options.storage);
   }
 
+  /** Creates settings.json on first run and refreshes the electron-store mirrors other services read. */
+  initialize(): void {
+    this.getAll();
+  }
+
   getAll(): AppSettingsDto {
     const settings = this.loadSettings();
     this.legacy.syncLegacyStorage(settings);
