@@ -23,26 +23,18 @@ import { createEventBridge } from './createEventBridge';
 /**
  * Build the complete preload API from IPC contracts.
  *
- * Maps contract-generated bridges into the ElectronAPI structure
- * expected by the Renderer process.
+ * Most namespaces expose their contract bridge unchanged. The session contract is split into
+ * `commands` and `queries`, and three settings procedures take the bare value and wrap it in
+ * the contract input.
  */
 export function buildPreloadAPI(): ElectronAPI {
   const session = createProcedureBridge(ipcRenderer, sessionContract);
-  const connection = createProcedureBridge(ipcRenderer, connectionContract);
-  const competition = createProcedureBridge(ipcRenderer, competitionContract);
   const settings = createProcedureBridge(ipcRenderer, settingsContract);
-  const events = createEventBridge(eventsContract);
-  const report = createProcedureBridge(ipcRenderer, reportContract);
-  const window = createProcedureBridge(ipcRenderer, windowContract);
-  const mqtt = createProcedureBridge(ipcRenderer, mqttContract);
-  const updates = createProcedureBridge(ipcRenderer, updaterContract);
-  const timedTarget = createProcedureBridge(ipcRenderer, timedTargetContract);
-  const hasNativeWindowFrame = process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME === '1';
 
   return {
     startup: createProcedureBridge(ipcRenderer, startupContract),
     platform: process.platform,
-    hasNativeWindowFrame,
+    hasNativeWindowFrame: process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME === '1',
     appVersion: __APP_VERSION__,
 
     commands: {
@@ -52,29 +44,14 @@ export function buildPreloadAPI(): ElectronAPI {
       resetSession: session.resetSession,
     },
 
-    usb: {
-      connect: connection.connect,
-      disconnect: connection.disconnect,
-      listPorts: connection.listPorts,
-      getDevicesByManufacturer: connection.getDevicesByManufacturer,
-    },
+    usb: createProcedureBridge(ipcRenderer, connectionContract),
 
     queries: {
       getSessionScore: session.getSessionScore,
       getShotHistory: session.getShotHistory,
     },
 
-    competition: {
-      startCompetition: competition.startCompetition,
-      startStage: competition.startStage,
-      startNextSeries: competition.startNextSeries,
-      endStage: competition.endStage,
-      advanceStage: competition.advanceStage,
-      finishCompetition: competition.finishCompetition,
-      setAthleteTargetMode: competition.setAthleteTargetMode,
-      getCompetitionState: competition.getCompetitionState,
-      getCompetitionTypes: competition.getCompetitionTypes,
-    },
+    competition: createProcedureBridge(ipcRenderer, competitionContract),
 
     settings: {
       saveConnectionSettings: (settingsData) => settings.saveConnectionSettings({ settings: settingsData }),
@@ -87,76 +64,12 @@ export function buildPreloadAPI(): ElectronAPI {
       savePrintSettings: settings.savePrintSettings,
     },
 
-    report: {
-      getScoreSheet: report.getScoreSheet,
-      openPrintWindow: report.openPrintWindow,
-      listPrinters: report.listPrinters,
-      printReady: report.printReady,
-    },
-
-    window: {
-      toggleFullscreen: window.toggleFullscreen,
-      minimize: window.minimize,
-      maximize: window.maximize,
-      close: window.close,
-      getWindowState: window.getWindowState,
-    },
-
-    mqtt: {
-      connectMqtt: mqtt.connectMqtt,
-      disconnectMqtt: mqtt.disconnectMqtt,
-      getMqttStatus: mqtt.getMqttStatus,
-      getDirectorMembership: mqtt.getDirectorMembership,
-      getSafetyState: mqtt.getSafetyState,
-      getRangeOfficerRequest: mqtt.getRangeOfficerRequest,
-      requestRangeOfficer: mqtt.requestRangeOfficer,
-      clearRangeOfficerRequest: mqtt.clearRangeOfficerRequest,
-      getQualificationMalfunctionSignal: mqtt.getQualificationMalfunctionSignal,
-      declareQualificationMalfunction: mqtt.declareQualificationMalfunction,
-      clearQualificationMalfunctionSignal: mqtt.clearQualificationMalfunctionSignal,
-      getEstComplaintSignal: mqtt.getEstComplaintSignal,
-      getEstComplaintContext: mqtt.getEstComplaintContext,
-      declareEstComplaint: mqtt.declareEstComplaint,
-      clearEstComplaintSignal: mqtt.clearEstComplaintSignal,
-      saveMqttSettings: mqtt.saveMqttSettings,
-      getMqttSettings: mqtt.getMqttSettings,
-    },
-
-    timedTarget,
+    report: createProcedureBridge(ipcRenderer, reportContract),
+    window: createProcedureBridge(ipcRenderer, windowContract),
+    mqtt: createProcedureBridge(ipcRenderer, mqttContract),
+    timedTarget: createProcedureBridge(ipcRenderer, timedTargetContract),
     vista: createProcedureBridge(ipcRenderer, vistaContract),
-
-    updates: {
-      getUpdateState: updates.getUpdateState,
-      checkForUpdates: updates.checkForUpdates,
-      quitAndInstall: updates.quitAndInstall,
-    },
-
-    on: {
-      shotReceived: events.shotReceived,
-      shotRecorded: events.shotRecorded,
-      positionExtraNullified: events.positionExtraNullified,
-      connectionStatusChanged: events.connectionStatusChanged,
-      sessionStarted: events.sessionStarted,
-      modeSwitched: events.modeSwitched,
-      sessionReset: events.sessionReset,
-      error: events.error,
-      logMessage: events.logMessage,
-      competitionStarted: events.competitionStarted,
-      phaseChanged: events.phaseChanged,
-      competitionProgressChanged: events.competitionProgressChanged,
-      timerTick: events.timerTick,
-      timerExpired: events.timerExpired,
-      competitionInterruptionChanged: events.competitionInterruptionChanged,
-      safetyStopChanged: events.safetyStopChanged,
-      competitionCueChanged: events.competitionCueChanged,
-      timedTargetSequenceChanged: events.timedTargetSequenceChanged,
-      seriesCompleted: events.seriesCompleted,
-      stageAdvanced: events.stageAdvanced,
-      competitionFinished: events.competitionFinished,
-      mqttStatusChanged: events.mqttStatusChanged,
-      directorMembershipChanged: events.directorMembershipChanged,
-      fullscreenChanged: events.fullscreenChanged,
-      updateStateChanged: events.updateStateChanged,
-    },
+    updates: createProcedureBridge(ipcRenderer, updaterContract),
+    on: createEventBridge(eventsContract),
   };
 }
