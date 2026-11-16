@@ -38,7 +38,9 @@ npm run depcruise --workspace=@sasakiuri/saika-protocol
 Portable schemas depend only on local contract modules and Zod. The explicit Node-only `vista-node` subpath
 provides encrypted spectator HTTP transport, replay protection for each listener and local multicast discovery;
 renderers must not import it. `Vista` defines complete versioned display snapshots, source identities, exact
-target definitions, shooting histories and result publication state. See
+target definitions, shooting histories and result publication state. `VISTA_CATALOG_PATH` and
+`vistaSnapshotPath()` build the source API paths, `parseVistaSourcePath()` reads them back, and
+`VISTA_PROTOCOL_VERSION` is the version every identity and snapshot carries. See
 [Vista display data](../../ARCHITECTURE.md#vista-display-data) for acquisition, storage, and permissions.
 
 Vista transport accepts requests within a 30-second clock window to limit replay. Keep the clocks on both

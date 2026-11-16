@@ -6,8 +6,11 @@ const Text = z.string().max(2048);
 const Count = z.number().int().nonnegative().safe();
 const Score = z.number().nonnegative().finite().nullable();
 
+/** Version of the Vista source API carried by every identity and snapshot. */
+export const VISTA_PROTOCOL_VERSION = 1 as const;
+
 export const VistaIdentitySchema = z.object({
-  protocolVersion: z.literal(1),
+  protocolVersion: z.literal(VISTA_PROTOCOL_VERSION),
   sourceId: Id,
   bootId: Id,
   kind: z.enum(['lane', 'director', 'display']),
@@ -102,7 +105,7 @@ export type VistaCatalog = z.infer<typeof VistaCatalogSchema>;
 
 export const VistaSnapshotSchema = z
   .object({
-    protocolVersion: z.literal(1),
+    protocolVersion: z.literal(VISTA_PROTOCOL_VERSION),
     sourceId: Id,
     subjectId: Id,
     generation: Id,
@@ -231,3 +234,15 @@ export type VistaSnapshot = z.infer<typeof VistaSnapshotSchema>;
 /** Read-only source API. Entire snapshots replace earlier revisions atomically. */
 export const VISTA_CATALOG_PATH = '/vista/v1/catalog';
 export const vistaSnapshotPath = (subjectId: string): string => `/vista/v1/snapshot/${encodeURIComponent(subjectId)}`;
+
+type VistaSourceRequest = { readonly kind: 'catalog' } | { readonly kind: 'snapshot'; readonly subjectId: string };
+
+/**
+ * Reads a source API path built from `VISTA_CATALOG_PATH` or `vistaSnapshotPath`; any other path returns null.
+ * A malformed percent-escape in the subject ID throws the `URIError` of `decodeURIComponent`.
+ */
+export function parseVistaSourcePath(path: string): VistaSourceRequest | null {
+  if (path === VISTA_CATALOG_PATH) return { kind: 'catalog' };
+  const subjectId = /^\/vista\/v1\/snapshot\/([^/]+)$/.exec(path)?.[1];
+  return subjectId === undefined ? null : { kind: 'snapshot', subjectId: decodeURIComponent(subjectId) };
+}

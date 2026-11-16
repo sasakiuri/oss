@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: MIT
 import assert from 'node:assert/strict';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { VistaShotSchema, VistaSnapshotSchema, type VistaParticipant, type VistaSnapshot } from '../src/Vista';
+import {
+  VISTA_CATALOG_PATH,
+  VISTA_PROTOCOL_VERSION,
+  VistaIdentitySchema,
+  VistaShotSchema,
+  VistaSnapshotSchema,
+  parseVistaSourcePath,
+  vistaSnapshotPath,
+  type VistaParticipant,
+  type VistaSnapshot,
+} from '../src/Vista';
 
 function snapshot(): VistaSnapshot {
   return {
@@ -229,5 +239,53 @@ describe('Vista positions within the selected definition', () => {
 
     participant.shots[0].stage = 3;
     expect(VistaSnapshotSchema.safeParse(value).success).toBe(false);
+  });
+});
+
+describe('Vista protocol version', () => {
+  it('stays version 1 in identities and snapshots', () => {
+    expect(VISTA_PROTOCOL_VERSION).toBe(1);
+    expectTypeOf({ protocolVersion: VISTA_PROTOCOL_VERSION }.protocolVersion).toEqualTypeOf<1>();
+    const identity = { protocolVersion: 1, sourceId: 'lane', bootId: 'boot', kind: 'lane', name: 'Lane 1' };
+    expect(VistaIdentitySchema.safeParse(identity).success).toBe(true);
+    expect(VistaIdentitySchema.safeParse({ ...identity, protocolVersion: 2 }).success).toBe(false);
+    expect(VistaSnapshotSchema.safeParse({ ...snapshot(), protocolVersion: 2 }).success).toBe(false);
+  });
+});
+
+describe('Vista source paths', () => {
+  it('keeps the released catalog and snapshot paths', () => {
+    expect(VISTA_CATALOG_PATH).toBe('/vista/v1/catalog');
+    expect(vistaSnapshotPath('relay 1/2')).toBe('/vista/v1/snapshot/relay%201%2F2');
+  });
+
+  it('reads the catalog path', () => {
+    expect(parseVistaSourcePath(VISTA_CATALOG_PATH)).toEqual({ kind: 'catalog' });
+  });
+
+  it.each(['final', 'relay 1/2', 'a%b', 'snapshot?x=1#y', 'ä·漢', '..'])(
+    'reads back the subject of a snapshot path for %j',
+    (subjectId) => {
+      expect(parseVistaSourcePath(vistaSnapshotPath(subjectId))).toEqual({ kind: 'snapshot', subjectId });
+    },
+  );
+
+  it.each([
+    '',
+    '/',
+    '/vista/v1/catalog/',
+    '/vista/v1/identity',
+    '/vista/v1/display/state',
+    '/vista/v1/snapshot',
+    '/vista/v1/snapshot/',
+    '/vista/v1/snapshot/a/b',
+    '/vista/v2/snapshot/a',
+    'vista/v1/snapshot/a',
+  ])('returns null for %j', (path) => {
+    expect(parseVistaSourcePath(path)).toBeNull();
+  });
+
+  it('throws on a malformed escape in the subject ID', () => {
+    expect(() => parseVistaSourcePath('/vista/v1/snapshot/%E0%A4%A')).toThrow(URIError);
   });
 });
