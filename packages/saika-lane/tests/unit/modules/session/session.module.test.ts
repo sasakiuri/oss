@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('electron', () => ({
   app: { getPath: () => '/tmp/test-userData' },
+}));
+vi.mock('@/main/shared-infra/logging/createLogger', () => ({
+  getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }),
 }));
 
 import {
@@ -13,6 +20,7 @@ import {
   StartSessionToken,
   SwitchModeToken,
 } from '@/main/composition/tokens';
+import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { sessionModule } from '@/main/modules/session/session.module';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { sessionContract } from '@/shared/ipc/contracts';
@@ -198,6 +206,52 @@ describe('session.module', () => {
 
       expect(ipcRouter.register).toHaveBeenCalledTimes(1);
       expect(ipcRouter.register).toHaveBeenCalledWith(sessionContract, expect.any(Object));
+    });
+  });
+
+  describe('startSession IPC', () => {
+    let userDataPath: string;
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      userDataPath = mkdtempSync(join(tmpdir(), 'saika-lane-session-module-'));
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      rmSync(userDataPath, { recursive: true, force: true });
+    });
+
+    it('returns the started session id even when another session starts meanwhile', async () => {
+      sessionModule.register({
+        database,
+        commandBus,
+        queryBus,
+        eventBus,
+        sessionRepository,
+        competitionRepository: createMockCompetitionRepository(),
+        ipcRouter,
+        userDataPath,
+      });
+      const handlers = vi.mocked(ipcRouter.register).mock.calls[0]![1] as {
+        startSession: (input: { discipline: 'AIR_RIFLE_10M' }) => Promise<{ sessionId: string }>;
+      };
+      vi.mocked(commandBus.execute).mockImplementation(async (token) => {
+        expect(token).toBe(StartSessionToken);
+        // A stage start elsewhere announces its own session before this command returns.
+        eventBus.emit({
+          type: 'SessionStarted',
+          timestamp: Date.now(),
+          aggregateId: 'other-session',
+          discipline: Discipline.airRifle10m(),
+        });
+        return { sessionId: 'started-session' };
+      });
+
+      await expect(handlers.startSession({ discipline: 'AIR_RIFLE_10M' })).resolves.toEqual({
+        sessionId: 'started-session',
+      });
+      expect(vi.getTimerCount()).toBe(0);
     });
   });
 });

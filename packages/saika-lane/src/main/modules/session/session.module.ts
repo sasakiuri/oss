@@ -13,7 +13,6 @@ import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { SqliteShotObservationRepository } from '@/main/modules/shot-observation/infra/SqliteShotObservationRepository';
-import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { sessionContract } from '@/shared/ipc/contracts';
 import type { InferHandlers } from '@/shared/ipc/defineContract';
 
@@ -98,27 +97,7 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     const sessionHandlers: InferHandlers<typeof sessionContract> = {
       startSession: async (input) => {
         const discipline = Discipline.fromValue(input.discipline);
-
-        // Subscribe to SessionStarted event to capture generated sessionId
-        const eventPromise = new Promise<string>((resolve) => {
-          const unsub = eventBus.on('SessionStarted', (event) => {
-            unsub?.();
-            resolve(event.aggregateId);
-          });
-        });
-
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            reject(ErrorCatalog.createError('SESSION_START_TIMEOUT'));
-          }, 5000);
-        });
-
-        // Execute command via token-based dispatch (returns void)
-        await commandBus.execute(StartSessionToken, { discipline });
-
-        // Wait for event to capture sessionId (with timeout)
-        const sessionId = await Promise.race([eventPromise, timeoutPromise]);
-
+        const { sessionId } = await commandBus.execute(StartSessionToken, { discipline });
         return { sessionId };
       },
 
