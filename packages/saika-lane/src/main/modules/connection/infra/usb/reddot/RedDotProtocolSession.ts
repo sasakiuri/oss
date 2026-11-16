@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { type RedDotStreamEvent, RedDotStreamScanner } from '@/main/modules/target/adapters/disag/RedDotStreamScanner';
 import type { DisagRedDotTargetType } from '@/main/modules/target/domain/targetDeviceDefinitions';
-import {
-  type RedDotStreamEvent,
-  RedDotStreamScanner,
-} from '@/main/modules/target/infra/parsers/disag/RedDotStreamScanner';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';

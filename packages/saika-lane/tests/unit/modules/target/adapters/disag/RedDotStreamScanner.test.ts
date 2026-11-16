@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { RedDotStreamScanner } from '@/main/modules/target/infra/parsers/disag/RedDotStreamScanner';
+import { RedDotStreamScanner } from '@/main/modules/target/adapters/disag/RedDotStreamScanner';
 
-import { validRedDotFrame } from '../../../../../../helpers/redDotFixtures';
+import { validRedDotFrame } from '../../../../../helpers/redDotFixtures';
 
 describe('RedDotStreamScanner', () => {
   it('returns exactly one frame for every possible two-part split', () => {

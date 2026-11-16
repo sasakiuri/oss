@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+import { RedDotStreamScanner } from '@/main/modules/target/adapters/disag/RedDotStreamScanner';
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import type { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 
-import { RedDotStreamScanner } from './disag/RedDotStreamScanner';
 import type { IManufacturerParser, ParseResult } from './IManufacturerParser';
 
 export class DisagFormatParser implements IManufacturerParser {
