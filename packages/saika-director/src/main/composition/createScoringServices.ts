@@ -14,12 +14,16 @@ import {
   SqliteObservationReviewRepository,
   StoredReviewSubjects,
 } from '@/main/modules/observation-reviews';
-import { SqliteProtestEventScope } from '@/main/modules/protests';
 import {
   SqliteMalfunctionScoreSheetRepository,
   SqliteQualificationMalfunctionRepository,
 } from '@/main/modules/qualification-malfunctions';
-import { FinalResultsReader, QualificationResultsReader, ScoringDecisionTargetResolver } from '@/main/modules/results';
+import {
+  FinalResultsReader,
+  QualificationResultsReader,
+  ScoringDecisionTargetResolver,
+  SqliteResultCompetitionScope,
+} from '@/main/modules/results';
 import {
   CompositeScoreCorrectionCaseSource,
   ExaminationScoreCorrectionCaseSource,
@@ -96,7 +100,7 @@ export function createScoringServices({
       ),
     ]),
   );
-  const reviewCompetitionScope = new SqliteProtestEventScope(database);
+  const reviewCompetitionScope = new SqliteResultCompetitionScope(database);
   const observationReviewService = new ObservationReviewService(
     new StoredReviewSubjects(shotObservationEvidenceJournal, firingWindowJournal),
     new SqliteObservationReviewRepository(database),

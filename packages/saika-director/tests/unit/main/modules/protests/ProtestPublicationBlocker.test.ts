@@ -1,17 +1,13 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  ProtestCase,
-  ProtestEntry,
-  ProtestPublicationBlocker,
-  SqliteProtestEventScope,
-  SqliteProtestRepository,
-} from '@/main/modules/protests';
+import { ProtestCase, ProtestEntry, ProtestPublicationBlocker, SqliteProtestRepository } from '@/main/modules/protests';
 import { GuardedResultPublicationReadiness } from '@/main/modules/result-publication/application/GuardedResultPublicationReadiness';
 import { OptionalResultPublicationBlocker } from '@/main/modules/result-publication/application/OptionalResultPublicationBlocker';
 import { ResultPublicationService } from '@/main/modules/result-publication/application/ResultPublicationService';
 import { SqliteResultPublicationRepository } from '@/main/modules/result-publication/infra/SqliteResultPublicationRepository';
+
+import { SqliteResultCompetitionScope } from '@/main/modules/results';
 
 import { migratedDatabase } from '../../../../helpers/database';
 
@@ -29,7 +25,7 @@ describe('Protest publication review', () => {
     `);
     repository = new SqliteProtestRepository(db);
     blocker = new ProtestPublicationBlocker(repository, (id, scope) =>
-      new SqliteProtestEventScope(db).competitionIds(id, scope),
+      new SqliteResultCompetitionScope(db).competitionIds(id, scope),
     );
   });
   afterEach(() => db.close());

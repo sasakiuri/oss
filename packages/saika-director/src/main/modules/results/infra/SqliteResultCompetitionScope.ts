@@ -1,7 +1,11 @@
+// SPDX-License-Identifier: MIT
 import type Database from 'better-sqlite3';
 
-/** Resolves stored result/run associations; the protest workflow does not depend on their owners. */
-export class SqliteProtestEventScope {
+/**
+ * Finds the competitions that produced an event's results: qualification results by their source
+ * competition, Finals by their operation runs, control decisions and imported Mixed Team results.
+ */
+export class SqliteResultCompetitionScope {
   constructor(private readonly db: Database.Database) {}
 
   competitionIds(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): string[] {

@@ -6,8 +6,9 @@ import {
   FinalRecoveryEntry,
   FinalRecoveryPublicationBlocker,
   SqliteFinalRecoveryRepository,
-  SqliteFinalRecoveryEventScope,
 } from '@/main/modules/final-recoveries';
+
+import { SqliteResultCompetitionScope } from '@/main/modules/results';
 
 import { migratedDatabase } from '../../../../helpers/database';
 
@@ -20,7 +21,7 @@ describe('Final recovery publication review', () => {
     db = migratedDatabase();
     repository = new SqliteFinalRecoveryRepository(db);
     blocker = new FinalRecoveryPublicationBlocker(repository, (id) =>
-      new SqliteFinalRecoveryEventScope(db).competitionIds(id),
+      new SqliteResultCompetitionScope(db).competitionIds(id, 'FINAL'),
     );
   });
   afterEach(() => db.close());
