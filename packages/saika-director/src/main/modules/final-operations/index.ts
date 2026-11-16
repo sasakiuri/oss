@@ -10,7 +10,6 @@ export type {
   FinalOperationStepProjection,
   FinalOperationStepStatus,
 } from './domain/FinalOperationProjector';
-export { normalizeShootOffUnits, shootOffUnitsFromMetadata } from './domain/FinalOperationShootOffUnit';
 export type { FinalOperationShootOffUnit } from './domain/FinalOperationShootOffUnit';
 export type {
   FinalOperationEntry,

@@ -27,7 +27,6 @@ export {
   sumScoresBySeries,
 } from './ScoringSeriesLayout';
 export { IssfStandardStrategy } from './strategies/IssfStandardStrategy';
-export { registerBuiltinCompetitionTypes } from './registerBuiltinCompetitionTypes';
 export {
   competitionTypeFromRulePack,
   DEFAULT_FIRING_WINDOW_CLOCK_TOLERANCE_MILLISECONDS,

@@ -21,7 +21,6 @@ export {
 export { ScoringDecisionTargetResolver } from './application/ScoringDecisionTargetResolver';
 export {
   applyResultClassificationOverlay,
-  noResultClassificationOverlays,
   type IResultClassificationOverlaySource,
   type ResultClassificationOverlay,
 } from './application/ResultClassificationOverlaySource';

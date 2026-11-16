@@ -10,7 +10,6 @@ export type {
 } from './domain/IShotObservationEvidenceJournal';
 export { SqliteShotObservationEvidenceJournal } from './infra/SqliteShotObservationEvidenceJournal';
 export { SqliteFiringWindowJournal } from './infra/SqliteFiringWindowJournal';
-export { SqliteSafetyStopAuditJournal } from './infra/SqliteSafetyStopAuditJournal';
 export type {
   ISafetyStopAuditJournal,
   SafetyStopAuditEntry,
@@ -19,7 +18,7 @@ export type {
   SafetyStopAuditOperation,
   SafetyStopLaneOutcome,
 } from './domain/ISafetyStopAuditJournal';
-export { SafetyStopClearancePolicy, SAFETY_STOP_CLEARANCE_RULE_REFERENCES } from './domain/SafetyStopClearancePolicy';
+export { SafetyStopClearancePolicy } from './domain/SafetyStopClearancePolicy';
 export type {
   FiringBoundarySignal,
   FiringCommandBoundary,

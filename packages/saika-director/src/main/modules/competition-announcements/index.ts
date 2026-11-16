@@ -10,6 +10,4 @@ export type {
   ScheduledAnnouncementTask,
 } from './application/CompetitionAnnouncementPorts';
 export type { CompetitionAnnouncementDue } from './domain/events';
-export { CompetitionTypeAnnouncementPolicyResolver } from './infra/CompetitionTypeAnnouncementPolicyResolver';
-export { SystemCompetitionAnnouncementClock } from './infra/SystemCompetitionAnnouncementClock';
 export { competitionAnnouncementsModule } from './competitionAnnouncements.module';

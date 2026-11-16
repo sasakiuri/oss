@@ -11,7 +11,7 @@ export {
   type ISanctionAuthorizationResolver,
   type SanctionAuthorizationRequest,
 } from './application/SanctionAuthorizationResolver';
-export { AthleteIdentity, normalizeIssfId } from './domain/AthleteIdentity';
+export { AthleteIdentity } from './domain/AthleteIdentity';
 export {
   AthleteIdentityLinkEntry,
   getActiveAthleteIdentityLinks,
@@ -21,7 +21,6 @@ export type { IAthleteSanctionRepository } from './domain/IAthleteSanctionReposi
 export {
   getActiveSanctionDecisions,
   SanctionDecision,
-  selectEffectiveSanction,
   type SanctionAuthorization,
   type SanctionClassificationCode,
   type SanctionScope,
