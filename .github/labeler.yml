@@ -38,6 +38,11 @@
       - any-glob-to-any-file:
           - packages/saika-docs/**
 
+"Package: saika-ipc 📦":
+  - changed-files:
+      - any-glob-to-any-file:
+          - packages/saika-ipc/**
+
 "Package: saika-lane 📦":
   - changed-files:
       - any-glob-to-any-file:

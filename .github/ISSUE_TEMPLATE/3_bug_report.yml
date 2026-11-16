@@ -20,6 +20,7 @@ body:
         - saika-coach
         - saika-director
         - saika-docs
+        - saika-ipc
         - saika-lane
         - saika-live
         - saika-protocol

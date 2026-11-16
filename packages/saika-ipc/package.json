@@ -1,0 +1,38 @@
+{
+  "name": "@sasakiuri/saika-ipc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed IPC contracts, preload procedure bridge and IPC error conversion for the Saika Electron applications",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./preload": "./src/preload.ts",
+    "./main": "./src/main.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "fix": "eslint --fix . && prettier --write .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "depcruise": "depcruise src --config .dependency-cruiser.cjs"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@sasakiuri/eslint-config": "*",
+    "@sasakiuri/prettier-config": "*",
+    "@sasakiuri/typescript-config": "*",
+    "@vitest/coverage-v8": "4.1.12",
+    "dependency-cruiser": "17.4.3",
+    "electron": "43.8.3",
+    "eslint": "^9",
+    "prettier": "^3.6.2",
+    "typescript": "5.7.3",
+    "vitest": "4.1.12"
+  },
+  "prettier": "@sasakiuri/prettier-config"
+}
