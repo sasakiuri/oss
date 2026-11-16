@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { errorMessage } from '@/renderer/services/serviceError';
 import { createProtestFormTransfer } from '@/shared/forms/ProtestFormTransfer';
 import type { ProtestCaseDto } from '@/shared/ipc/contracts';
 
@@ -25,7 +26,7 @@ export function ProtestFormTransferPanel({
   try {
     transfer = createProtestFormTransfer(protest, { timeZone, parent, eventName, juryName, nation, receivingOfficial });
   } catch (caught) {
-    error = caught instanceof Error ? caught.message : 'Unable to prepare form values';
+    error = errorMessage(caught, 'Unable to prepare form values');
   }
   const copy = async (value: string) => {
     setCopyError(null);

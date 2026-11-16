@@ -9,6 +9,7 @@ import {
   resultVerificationService,
   resultsService,
 } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import { createResultListDisplayPolicy, type ResultListDisplayPolicy } from './policies/ResultListDisplayPolicy';
 
 interface Props {
@@ -71,8 +72,7 @@ export function ResultsListPrintScreen({ config }: Props) {
       try {
         if (isFinal) {
           const response = await resultsService.getFinalByEvent({ eventId });
-          if (!response.success) throw new Error(response.error?.message ?? 'Failed to retrieve results');
-          setFinalResults(response.data.results);
+          setFinalResults(unwrap(response, 'Failed to retrieve results').results);
         } else {
           const [
             resultsResponse,
@@ -91,47 +91,45 @@ export function ResultsListPrintScreen({ config }: Props) {
             resultPublicationService.getStatus({ eventId, resultScope: 'QUALIFICATION' }),
             resultVerificationService.getStatus({ eventId, resultScope: 'QUALIFICATION' }),
           ]);
-          if (!resultsResponse.success) {
-            throw new Error(resultsResponse.error?.message ?? 'Failed to retrieve results');
-          }
-          if (!participantsResponse.success) throw new Error(participantsResponse.error.message);
-          if (!assignmentsResponse.success) throw new Error(assignmentsResponse.error.message);
-          if (!competitionTypesResponse.success) throw new Error(competitionTypesResponse.error.message);
-          if (!publicationResponse.success) throw new Error(publicationResponse.error.message);
-          if (!verificationResponse.success) throw new Error(verificationResponse.error.message);
-          const competitionType = competitionTypesResponse.data.types.find((type) => type.id === eventType);
+          const eventResults = unwrap(resultsResponse, 'Failed to retrieve results');
+          const participantList = unwrap(participantsResponse);
+          const assignmentList = unwrap(assignmentsResponse);
+          const competitionTypeList = unwrap(competitionTypesResponse);
+          const publication = unwrap(publicationResponse);
+          const verification = unwrap(verificationResponse);
+          const competitionType = competitionTypeList.types.find((type) => type.id === eventType);
           const totalSeries =
             competitionType?.totalSeries ??
-            Math.max(1, ...resultsResponse.data.results.map((result) => result.seriesScores.length));
+            Math.max(1, ...eventResults.results.map((result) => result.seriesScores.length));
           const scoringPrecision =
             competitionType?.scoringPrecision ??
-            (resultsResponse.data.results.some((result) =>
+            (eventResults.results.some((result) =>
               [result.totalScore, ...result.seriesScores].some((score) => !Number.isInteger(score)),
             )
               ? 1
               : 0);
-          setQualificationResults(resultsResponse.data.results);
+          setQualificationResults(eventResults.results);
           const relayParticipantIds =
             relayNumber === undefined
               ? null
               : new Set(
-                  assignmentsResponse.data.assignments
+                  assignmentList.assignments
                     .filter((assignment) => assignment.relayNumber === relayNumber)
                     .map((assignment) => assignment.participantId),
                 );
           setParticipants(
             relayParticipantIds
-              ? participantsResponse.data.participants.filter((participant) => relayParticipantIds.has(participant.id))
-              : participantsResponse.data.participants,
+              ? participantList.participants.filter((participant) => relayParticipantIds.has(participant.id))
+              : participantList.participants,
           );
           setDisplayPolicy(createResultListDisplayPolicy({ scoringPrecision, totalSeries }));
           setRulePackId(competitionType?.rulePackId ?? null);
           setCertification({
-            status: publicationResponse.data.status,
-            postedAt: publicationResponse.data.postedAt,
-            protestEndsAt: publicationResponse.data.protestEndsAt,
-            approvalOfficialName: verificationResponse.data.currentApproval?.officialName ?? null,
-            publicationCurrent: publicationResponse.data.publicationCurrent,
+            status: publication.status,
+            postedAt: publication.postedAt,
+            protestEndsAt: publication.protestEndsAt,
+            approvalOfficialName: verification.currentApproval?.officialName ?? null,
+            publicationCurrent: publication.publicationCurrent,
           });
         }
         setLoading(false);

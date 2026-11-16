@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import {
   assessProtestFormDraft,
   createProtestFormDraft,
@@ -14,8 +15,7 @@ export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTr
   const [attachmentsText, setAttachmentsText] = useState('');
   const [template, setTemplate] = useState<File | null>(null);
   const [font, setFont] = useState<File | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run } = useAsyncAction();
   const draft = createProtestFormDraft(transfer, overrides);
   const attachments = [
     ...new Set(
@@ -49,9 +49,7 @@ export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTr
   ];
   const exportPdf = async () => {
     if (!template) return;
-    setBusy(true);
-    setError(null);
-    try {
+    await run(async () => {
       if (template.size > 5 * 1024 * 1024 || (font && font.size > 30 * 1024 * 1024))
         throw new Error('Select a form up to 5 MB and a font up to 30 MB.');
       const { fillProtestPdf } = await import('@/renderer/infrastructure/forms/ProtestPdfWriter');
@@ -66,11 +64,7 @@ export function ProtestOfficialFormPanel({ transfer }: { transfer: ProtestFormTr
       link.download = `Draft-${draft.code}-${draft.caseId}.pdf`;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Unable to prepare the official form');
-    } finally {
-      setBusy(false);
-    }
+    }, 'Unable to prepare the official form');
   };
   return (
     <details className="my-4 rounded border p-3">
