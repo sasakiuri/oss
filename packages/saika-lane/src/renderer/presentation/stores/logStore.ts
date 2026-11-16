@@ -53,3 +53,14 @@ export const useLogStore = create<LogState & LogActions>((set) => ({
     set({ autoScroll });
   },
 }));
+
+/** Adds an error raised in the renderer to the debug log; the id is the prefix and the current time. */
+export function logRendererError(idPrefix: string, message: string): void {
+  useLogStore.getState().addEntry({
+    id: `${idPrefix}-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    level: 'error',
+    message,
+    source: 'renderer',
+  });
+}
