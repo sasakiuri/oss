@@ -184,6 +184,54 @@ describe('useTargetExaminationCases', () => {
     expect(result.current.selectedCaseId).toBe(second.id);
   });
 
+  it('selects the newest open case by default', async () => {
+    listAll.mockResolvedValue(
+      response(
+        caseFixture({ id: 'older-open', summary: 'Older open', status: 'OPEN' }),
+        caseFixture({ id: 'newer-open', summary: 'Newer open', status: 'OPEN' }),
+        caseFixture({ id: 'closed', summary: 'Closed', status: 'CLOSED' }),
+        caseFixture({ id: 'void', summary: 'Void', status: 'VOID' }),
+      ),
+    );
+    const { result } = renderHook(() => useTargetExaminationCases());
+    await waitFor(() => expect(result.current.selectedCaseId).toBe('newer-open'));
+  });
+
+  it('selects the newest case by default when no case is open', async () => {
+    listAll.mockResolvedValue(
+      response(
+        caseFixture({ id: 'closed', summary: 'Closed', status: 'CLOSED' }),
+        caseFixture({ id: 'void', summary: 'Void', status: 'VOID' }),
+      ),
+    );
+    const { result } = renderHook(() => useTargetExaminationCases());
+    await waitFor(() => expect(result.current.selectedCaseId).toBe('void'));
+  });
+
+  it('shows the message of a failed load response', async () => {
+    listAll.mockResolvedValueOnce({ success: false, error: { code: 'UNKNOWN_ERROR', message: 'Ledger unavailable' } });
+    const { result } = renderHook(() => useTargetExaminationCases());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe('Ledger unavailable');
+  });
+
+  it('shows the load fallback text when the query rejects with a non-error value', async () => {
+    listAll.mockRejectedValueOnce('bridge closed');
+    const { result } = renderHook(() => useTargetExaminationCases());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe('Failed to load examinations');
+  });
+
+  it('shows the command fallback text when a command rejects with a non-error value', async () => {
+    const { result } = renderHook(() => useTargetExaminationCases());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    appendEntry.mockRejectedValueOnce('bridge closed');
+    await act(async () => {
+      expect(await result.current.commands.appendEntry(entry)).toBe(false);
+    });
+    expect(result.current.error).toBe('Failed to update the target examination');
+  });
+
   it('ignores requests from a discarded Strict Mode effect', async () => {
     const discarded = deferred<ReturnType<typeof response>>();
     listAll.mockReturnValueOnce(discarded.promise).mockResolvedValueOnce(response(caseFixture()));
