@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useEffect, useState } from 'react';
 import { FinalBoardTable } from './components/FinalBoardTable';
 import { laneControlService } from '@/renderer/services';
-import { mapResponseToFinalBoardLaneData } from '@/renderer/services/mappers/laneControlMapper';
+import { mapResponseToFinalBoardLaneData } from './laneControlMapper';
 import { useBoardLaneData } from '@/renderer/presentation/hooks/useBoardLaneData';
 import { useAuthoritativeRangeClock } from '@/renderer/presentation/hooks/useAuthoritativeRangeClock';
 import type { BoardWindowConfig } from '@/shared/types/BoardWindowConfig';
@@ -29,7 +29,7 @@ export function FinalBoardScreen({ config }: { config?: BoardWindowConfig }) {
   const loadFn = useCallback(async (): Promise<FinalBoardLaneData[]> => {
     const response = await laneControlService.getAll();
     if (response.success && Array.isArray(response.data)) {
-      return (response.data as Array<Record<string, unknown>>)
+      return response.data
         .filter((lane) => lane.roundType === 'Final')
         .map(mapResponseToFinalBoardLaneData)
         .filter((lane) => lane.unifiedPhase !== 'IDLE' || lane.playerName !== 'Unregistered');
