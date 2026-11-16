@@ -46,6 +46,7 @@ vi.mock('@/main/infrastructure/window/hardenBrowserWindow', () => ({ hardenBrows
 vi.mock('@/main/infrastructure/window/resolveDevServerUrl', () => ({ resolveDevServerUrl: () => null }));
 vi.mock('@/main/modules/operational-archives', () => ({ applyPendingDatabaseRestoreSync: () => ({ applied: false }) }));
 vi.mock('@/main/composition/createContainer', () => ({
+  directorDatabasePath: (userDataPath: string) => `${userDataPath}/saika.db`,
   createApp: (
     _preload: string,
     updateLifecycle: { beforeInstall: () => Promise<void>; onInstallError: (message: string) => void },
