@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useLogStore } from '@/renderer/presentation/stores/logStore';
+import { logRendererError, useLogStore } from '@/renderer/presentation/stores/logStore';
 import type { LogEntry, LogLevel, LogSource } from '@/shared/types/log';
 
 /**
@@ -380,5 +380,31 @@ describe('logStore', () => {
       expect(entries).toHaveLength(1);
       expect(entries[0]!.metadata).toBeUndefined();
     });
+  });
+});
+
+describe('logRendererError', () => {
+  beforeEach(() => {
+    useLogStore.getState().clearEntries();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-16T03:04:05.678Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('adds a renderer error entry with a time-based id', () => {
+    logRendererError('settings-restore-error', 'Failed to load user preferences: offline');
+
+    expect(useLogStore.getState().entries).toEqual([
+      {
+        id: `settings-restore-error-${Date.parse('2026-11-16T03:04:05.678Z')}`,
+        timestamp: '2026-11-16T03:04:05.678Z',
+        level: 'error',
+        message: 'Failed to load user preferences: offline',
+        source: 'renderer',
+      },
+    ]);
   });
 });

@@ -4,7 +4,7 @@ import { competitionService } from '@/renderer/services/competitionService';
 import type { CompetitionStateDto } from '@/shared/ipc/contracts';
 
 import { clearedAthleteTargetControl, isSameCompetitionPosition, useCompetitionStore } from './competitionStore';
-import { useLogStore } from './logStore';
+import { logRendererError } from './logStore';
 import { useSessionStore } from './sessionStore';
 
 let revision = 0;
@@ -15,13 +15,7 @@ export function invalidateAthleteTargetControl(): void {
 }
 
 function reportFailure(error: unknown): void {
-  useLogStore.getState().addEntry({
-    id: `athlete-target-error-${Date.now()}`,
-    timestamp: new Date().toISOString(),
-    level: 'error',
-    message: `Failed to update athlete target mode: ${errorMessage(error)}`,
-    source: 'renderer',
-  });
+  logRendererError('athlete-target-error', `Failed to update athlete target mode: ${errorMessage(error)}`);
 }
 
 /** Orders command/query responses against newer events and current competition coordinates. */
