@@ -47,7 +47,6 @@ $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
 # Derived paths
 $PackageDir = Join-Path $BuildDir 'packages\saika-lane'
-$SharedConfigPackages = @('eslint-config', 'prettier-config', 'stylelint-config', 'typescript-config')
 
 function Write-Step {
     param([int]$Number, [string]$Message)
@@ -84,6 +83,60 @@ function Invoke-Robocopy {
         exit 1
     }
     $LASTEXITCODE = 0
+}
+
+# The workspace packages that the root package and Saika Lane depend on, directly
+# or through each other, as directory names under packages/. Workspace package
+# @sasakiuri/<name> lives in packages/<name>.
+function Get-WorkspaceDependencies {
+    param([string]$MonorepoRoot)
+    $pending = New-Object System.Collections.Generic.Queue[string]
+    $pending.Enqueue((Join-Path $MonorepoRoot 'package.json'))
+    $pending.Enqueue((Join-Path $MonorepoRoot 'packages\saika-lane\package.json'))
+    $directories = New-Object System.Collections.Generic.List[string]
+    while ($pending.Count -gt 0) {
+        $manifest = Get-Content -Path $pending.Dequeue() -Raw | ConvertFrom-Json
+        foreach ($field in @('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies')) {
+            if ($null -eq $manifest.$field) { continue }
+            foreach ($name in $manifest.$field.PSObject.Properties.Name) {
+                if (-not $name.StartsWith('@sasakiuri/')) { continue }
+                $directory = $name.Substring('@sasakiuri/'.Length)
+                if ($directory -eq 'saika-lane' -or $directories.Contains($directory)) { continue }
+                $packageJson = Join-Path $MonorepoRoot "packages\$directory\package.json"
+                if (-not (Test-Path $packageJson) -or
+                    (Get-Content -Path $packageJson -Raw | ConvertFrom-Json).name -ne $name) {
+                    Write-Fail "Workspace package $name was not found in packages\$directory"
+                    exit 1
+                }
+                $directories.Add($directory)
+                $pending.Enqueue($packageJson)
+            }
+        }
+    }
+    return $directories.ToArray()
+}
+
+# The compiler options of a tsconfig file after applying the files it extends.
+# A workspace package reference such as @sasakiuri/typescript-config/vite.json
+# resolves to packages/typescript-config/vite.json of the build directory.
+function Get-CompilerOptions {
+    param([string]$File)
+    $config = Get-Content -Path $File -Raw | ConvertFrom-Json
+    $options = [ordered]@{}
+    if ($config.extends) {
+        $parent = if ($config.extends.StartsWith('@sasakiuri/')) {
+            Join-Path $BuildDir ('packages\' + $config.extends.Substring('@sasakiuri/'.Length))
+        } else {
+            Join-Path (Split-Path -Parent $File) $config.extends
+        }
+        $options = Get-CompilerOptions $parent
+    }
+    if ($config.compilerOptions) {
+        foreach ($property in $config.compilerOptions.PSObject.Properties) {
+            $options[$property.Name] = $property.Value
+        }
+    }
+    return $options
 }
 
 # --------------------------------------------------------------------------
@@ -127,24 +180,22 @@ if ($SkipCopy) {
     Invoke-Robocopy $saikaLaneSrc $PackageDir @('node_modules', '.git', 'release', 'dist', 'logs')
     Write-Success 'saika-lane copied'
 
-    # 2c: Copy shared config packages (workspace dependencies)
-    foreach ($configPkg in $SharedConfigPackages) {
-        $configSrc = Join-Path $WslMonorepoRoot "packages\$configPkg"
-        $configDest = Join-Path $BuildDir "packages\$configPkg"
-        if (Test-Path $configSrc) {
-            Write-Host "  Copying packages/$configPkg..." -ForegroundColor DarkGray
-            Invoke-Robocopy $configSrc $configDest @('node_modules')
-            Write-Success "$configPkg copied"
-        } else {
-            Write-Host "  Skipped packages/$configPkg (not found)" -ForegroundColor Yellow
-        }
+    # 2c: Copy the workspace packages that the root and saika-lane depend on
+    # (runtime packages such as saika-protocol, and shared configs)
+    foreach ($workspacePkg in (Get-WorkspaceDependencies $WslMonorepoRoot)) {
+        $workspaceSrc = Join-Path $WslMonorepoRoot "packages\$workspacePkg"
+        $workspaceDest = Join-Path $BuildDir "packages\$workspacePkg"
+        Write-Host "  Copying packages/$workspacePkg..." -ForegroundColor DarkGray
+        Invoke-Robocopy $workspaceSrc $workspaceDest @('node_modules')
+        Write-Success "$workspacePkg copied"
     }
 
     Write-Success "Monorepo source copied to $BuildDir"
 }
 
 # --------------------------------------------------------------------------
-# Step 3: Patch root package.json for build (remove turbo, keep workspaces)
+# Step 3: Patch root package.json for build (remove turbo and the Git hook
+# setup, keep workspaces)
 # --------------------------------------------------------------------------
 Write-Step 3 'Patch root package.json for build'
 
@@ -157,6 +208,14 @@ if (Test-Path $rootPkgPath) {
         $rootPkg.devDependencies.PSObject.Properties['turbo']) {
         $rootPkg.devDependencies.PSObject.Properties.Remove('turbo')
         Write-Host '  Removed turbo from root devDependencies' -ForegroundColor DarkGray
+    }
+
+    # The prepare script installs Git hooks from .husky, which is not copied:
+    # the build directory is not a Git repository.
+    if ($rootPkg.PSObject.Properties['scripts'] -and
+        $rootPkg.scripts.PSObject.Properties['prepare']) {
+        $rootPkg.scripts.PSObject.Properties.Remove('prepare')
+        Write-Host '  Removed the prepare script from root scripts' -ForegroundColor DarkGray
     }
 
     $rootPkgContent = $rootPkg | ConvertTo-Json -Depth 20
@@ -174,40 +233,16 @@ Write-Step 4 'Replace tsconfig.json with inlined version'
 
 # The tsconfig.json extends @sasakiuri/typescript-config/vite.json which chains
 # to base.json. We inline the resolved settings so the build works without
-# needing the workspace symlinks to be perfectly resolved by tsc.
+# needing the workspace symlinks to be perfectly resolved by tsc, and check
+# only the sources that the build compiles. The settings are read from the
+# copied files, so they follow changes to the shared configuration.
 $tsconfigPath = Join-Path $PackageDir 'tsconfig.json'
-$tsconfigContent = @'
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "incremental": true,
-    "useDefineForClassFields": true,
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "types": ["@testing-library/jest-dom", "vitest/globals"],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist", "tests"]
+$tsconfig = [ordered]@{
+    compilerOptions = Get-CompilerOptions $tsconfigPath
+    include = @('src/**/*.ts', 'src/**/*.tsx')
+    exclude = @('node_modules', 'dist', 'tests')
 }
-'@
+$tsconfigContent = $tsconfig | ConvertTo-Json -Depth 20
 
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($tsconfigPath, $tsconfigContent, $utf8NoBom)
