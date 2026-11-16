@@ -8,14 +8,8 @@ import type {
   TransformerForwardingRule,
   EventTransformer,
 } from '@/main/shared-infra/ipc/EventForwardingRule';
-import type {
-  ShotReceived,
-  LaneConnected,
-  LaneTimerTick,
-  LaneTimerExpired,
-  LaneControlUpdated,
-  DebugLogEmitted,
-} from '@/main/domain/events';
+import type { LaneTimerTick, LaneTimerExpired, LaneControlUpdated } from '@/main/modules/lane-control';
+import type { ShotReceived, LaneConnected, DebugLogEmitted } from '@/main/modules/mqtt';
 import { eventsContract } from '@/shared/ipc/contracts';
 import { DiffCalculator } from '@/main/modules/lane-control';
 import type { LaneControlIpcPayload } from '@/shared/types/LaneControlIpcPayload';

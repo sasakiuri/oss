@@ -7,7 +7,7 @@ import type {
 } from '@/main/modules/shootoff/commands/ShootoffCommands';
 import type { IShootoffRepository } from '@/main/modules/shootoff/domain/IShootoffRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { AnyDomainEvent } from '@/main/domain/events';
+import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import { FinalShootoff } from '@/main/modules/shootoff/domain/FinalShootoff';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
