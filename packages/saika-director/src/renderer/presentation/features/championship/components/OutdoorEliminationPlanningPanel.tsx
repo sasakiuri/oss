@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Megaphone, RefreshCw, ShieldAlert, XCircle } from 'lucide-react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { eliminationPlanningService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { OutdoorEliminationPlanDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../../shared/common/Button';
@@ -13,8 +15,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
   const [officialName, setOfficialName] = useState('');
   const [statement, setStatement] = useState('Checked against the published start list and current range capacity.');
   const [waive, setWaive] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run: perform } = useAsyncAction();
   const latest = plans.at(-1) ?? null;
 
   const load = useCallback(async () => {
@@ -27,21 +28,14 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
     void load();
   }, [load]);
 
-  const run = async (operation: () => Promise<OutdoorEliminationPlanDto>) => {
-    setBusy(true);
-    setError(null);
-    try {
+  const run = (operation: () => Promise<OutdoorEliminationPlanDto>) =>
+    perform(async () => {
       const updated = await operation();
       setPlans((current) => {
         const without = current.filter((plan) => plan.id !== updated.id);
         return [...without, updated];
       });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const create = async () => {
     const usableFiringPoints = Number(capacity);
@@ -62,8 +56,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
             }
           : {}),
       });
-      if (!response.success) throw new Error(response.error.message);
-      return response.data;
+      return unwrap(response);
     });
   };
 
@@ -75,8 +68,7 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
         officialName: officialName.trim(),
         statement: statement.trim(),
       });
-      if (!response.success) throw new Error(response.error.message);
-      return response.data;
+      return unwrap(response);
     });
   };
 

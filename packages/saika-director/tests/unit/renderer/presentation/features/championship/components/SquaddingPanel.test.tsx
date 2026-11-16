@@ -69,6 +69,20 @@ describe('SquaddingPanel', () => {
     expect(await screen.findByText('Bridge closed')).toBeVisible();
   });
 
+  it('shows a successful draw without a draw as the fallback text and keeps the operator', async () => {
+    vi.mocked(squaddingService.list).mockResolvedValue(ok([]));
+    vi.mocked(squaddingService.createDraw).mockResolvedValueOnce({ success: true } as never);
+    renderPanel();
+    fireEvent.change(screen.getByLabelText('Official / operator'), { target: { value: 'Operator' } });
+    const loads = vi.mocked(squaddingService.list).mock.calls.length;
+
+    fireEvent.click(screen.getByRole('button', { name: /^Draw 1 relay/ }));
+
+    expect(await screen.findByText('Squadding operation failed')).toBeVisible();
+    expect(screen.getByLabelText('Official / operator')).toHaveValue('Operator');
+    expect(squaddingService.list).toHaveBeenCalledTimes(loads);
+  });
+
   it('shows failed approvals and voids as their messages', async () => {
     vi.mocked(squaddingService.list).mockResolvedValue(ok([pending]));
     vi.mocked(squaddingService.approve).mockResolvedValueOnce(fail('Only the Technical Delegate can approve'));
