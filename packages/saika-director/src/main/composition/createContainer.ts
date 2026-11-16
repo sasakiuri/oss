@@ -9,6 +9,7 @@ import { eventsContract } from '@/shared/ipc/contracts';
 import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
 import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
 import { WindowManager } from '@/main/infrastructure/window/WindowManager';
+import { registerBackupCaptureReadiness } from '@/main/modules/backup-capture-readiness';
 import { FinalOperationService, SqliteFinalOperationRepository } from '@/main/modules/final-operations';
 import { LaneTimerService } from '@/main/modules/lane-control';
 import { registerOperatorAccess } from '@/main/modules/operator-access';
@@ -27,7 +28,6 @@ import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinitio
 import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
 import { competitionTypeRegistry } from '@/shared/competitionTypes/CompetitionTypeRegistry';
 import { registerBuiltinCompetitionTypes } from '@/shared/competitionTypes/registerBuiltinCompetitionTypes';
-import { backupCaptureReadinessContract } from '@/shared/ipc/contracts';
 import { Logger } from '@/shared/logging';
 
 import { createBackupServices } from './createBackupServices';
@@ -262,14 +262,9 @@ export function createApp(
   registerUpdater(ipcRouter, updater, windowManager);
   registerOperatorAccess(ipcRouter, operatorAccessService);
   registerPublicationReviewPolicies(ipcRouter, publicationReviewPolicies);
-  ipcRouter.register(backupCaptureReadinessContract, {
-    get: async ({ competitionId }) => backupCaptureReadiness.get(competitionId),
-    save: async (input) => backupCaptureReadiness.save(input),
-    sources: async () =>
-      estBackupCapturePlans.list().flatMap((plan) => {
-        const event = policyEvents.findById(plan.eventId);
-        return event ? [{ eventId: plan.eventId, label: `${event.name} · ${plan.sourceLabel}` }] : [];
-      }),
+  registerBackupCaptureReadiness(ipcRouter, backupCaptureReadiness, {
+    plans: estBackupCapturePlans,
+    events: policyEvents,
   });
 
   // Timer Service
