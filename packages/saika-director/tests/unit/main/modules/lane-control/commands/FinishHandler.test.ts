@@ -5,7 +5,7 @@ import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
 import { QUALIFICATION_CONFIG, buildMultiShotSeriesFinalConfig } from '../../../../../helpers/testConfigs';
-import { FinishHandler } from '@/main/modules/lane-control/commands/FinishHandler';
+import { FinishHandler } from '@/main/modules/lane-control/application/commands/FinishHandler';
 import { DomainError } from '@/shared/errors';
 
 function createIdleLane(id = 'lane-1', channel = 1): LaneControl {

@@ -5,7 +5,7 @@ import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
 import { QUALIFICATION_CONFIG } from '../../../../../helpers/testConfigs';
-import { DeleteShotHandler } from '@/main/modules/lane-control/commands/DeleteShotHandler';
+import { DeleteShotHandler } from '@/main/modules/lane-control/application/commands/DeleteShotHandler';
 import { DomainError } from '@/shared/errors';
 
 function createIdleLane(id = 'lane-1', channel = 1): LaneControl {

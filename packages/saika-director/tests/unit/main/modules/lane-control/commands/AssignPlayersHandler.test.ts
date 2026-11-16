@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AssignPlayersHandler } from '@/main/modules/lane-control/commands/AssignPlayersHandler';
+import { AssignPlayersHandler } from '@/main/modules/lane-control/application/commands/AssignPlayersHandler';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/ILaneControlRepository';
-import type { AssignPlayersCommand } from '@/main/modules/lane-control/commands/LaneCommands';
+import type { AssignPlayersCommand } from '@/main/modules/lane-control/application/commands/LaneCommands';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';

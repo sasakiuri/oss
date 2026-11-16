@@ -1,7 +1,7 @@
 import { ISSF_2026_ARMIX_FINAL } from '@sasakiuri/saika-rules';
 import { describe, expect, it, vi } from 'vitest';
 
-import { PublishMqttMixedTeamFinalResultsHandler } from '@/main/modules/results/commands/PublishMqttMixedTeamFinalResultsHandler';
+import { PublishMqttMixedTeamFinalResultsHandler } from '@/main/modules/results/application/commands/PublishMqttMixedTeamFinalResultsHandler';
 import type { IMixedTeamFinalResultRepository, MixedTeamFinalResultRecord } from '@/main/modules/team-results';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';
 import type { MixedTeamFinalDecisionDto } from '@/shared/ipc/contracts';

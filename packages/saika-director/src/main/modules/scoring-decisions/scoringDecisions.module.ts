@@ -3,7 +3,7 @@ import { scoringDecisionsContract } from '@/shared/ipc/contracts';
 import { AppendScoringDecisionHandler } from './application/AppendScoringDecisionHandler';
 import { RevokeScoringDecisionHandler } from './application/RevokeScoringDecisionHandler';
 import { toScoringDecisionDtos } from './application/toScoringDecisionDto';
-import { AppendScoringDecisionToken, RevokeScoringDecisionToken } from './tokens';
+import { AppendScoringDecisionToken, RevokeScoringDecisionToken } from './application/tokens';
 
 export const scoringDecisionsModule = defineModule({
   name: 'scoringDecisions',

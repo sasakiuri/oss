@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { MoveLaneCommand } from '@/main/modules/lane-control/commands/LaneCommands';
-import { MoveLaneHandler } from '@/main/modules/lane-control/commands/MoveLaneHandler';
+import type { MoveLaneCommand } from '@/main/modules/lane-control/application/commands/LaneCommands';
+import { MoveLaneHandler } from '@/main/modules/lane-control/application/commands/MoveLaneHandler';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import type { ILaneControlRepository } from '@/main/modules/lane-control/domain/ILaneControlRepository';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';

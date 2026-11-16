@@ -5,7 +5,7 @@ import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { Player } from '@/main/modules/lane-control/domain/Player';
 import { QUALIFICATION_CONFIG, buildMultiShotSeriesFinalConfig } from '../../../../../helpers/testConfigs';
-import { StartSeriesHandler } from '@/main/modules/lane-control/commands/StartSeriesHandler';
+import { StartSeriesHandler } from '@/main/modules/lane-control/application/commands/StartSeriesHandler';
 
 function createIdleLane(id = 'lane-1', channel = 1): LaneControl {
   return LaneControl.create(id, Channel.create(channel), QUALIFICATION_CONFIG);

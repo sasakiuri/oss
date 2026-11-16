@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Channel } from '@/main/modules/lane-control/domain/Channel';
 import { LaneControl } from '@/main/modules/lane-control/domain/LaneControl';
 import { Player } from '@/main/modules/lane-control/domain/Player';
-import { PublishFinalResultsHandler } from '@/main/modules/results/commands/PublishFinalResultsHandler';
+import { PublishFinalResultsHandler } from '@/main/modules/results/application/commands/PublishFinalResultsHandler';
 import { FinalResult } from '@/main/modules/results/domain/FinalResult';
 import type { IFinalResultRepository } from '@/main/modules/results/domain/IFinalResultRepository';
 import { competitionTypeRegistry } from '@/shared/competitionTypes';

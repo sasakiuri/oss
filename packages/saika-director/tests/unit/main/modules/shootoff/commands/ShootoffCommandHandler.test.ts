@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ShootoffCommandHandler } from '@/main/modules/shootoff/commands/ShootoffCommandHandler';
+import { ShootoffCommandHandler } from '@/main/modules/shootoff/application/commands/ShootoffCommandHandler';
 import type {
   StartShootoffCommand,
   AddShootoffShotCommand,
   ResolveShootoffCommand,
-} from '@/main/modules/shootoff/commands/ShootoffCommands';
+} from '@/main/modules/shootoff/application/commands/ShootoffCommands';
 import type { IShootoffRepository } from '@/main/modules/shootoff/domain/IShootoffRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
