@@ -10,8 +10,7 @@ export type SessionErrorCode =
   | 'INVALID_SERIES'
   | 'INVALID_SESSION_STATE'
   | 'SESSION_ALREADY_FINISHED'
-  | 'CURRENT_SERIES_NOT_FOUND'
-  | 'SESSION_START_TIMEOUT';
+  | 'CURRENT_SERIES_NOT_FOUND';
 
 export const SESSION_ERRORS: ReadonlyArray<[SessionErrorCode, ErrorDefinition]> = [
   [
@@ -92,15 +91,6 @@ export const SESSION_ERRORS: ReadonlyArray<[SessionErrorCode, ErrorDefinition]> 
       code: 'CURRENT_SERIES_NOT_FOUND',
       message: 'Current series not found',
       userMessage: 'Current series not found',
-      severity: 'error',
-    },
-  ],
-  [
-    'SESSION_START_TIMEOUT',
-    {
-      code: 'SESSION_START_TIMEOUT',
-      message: 'Session start timed out waiting for SessionStarted event',
-      userMessage: 'Session start timed out',
       severity: 'error',
     },
   ],

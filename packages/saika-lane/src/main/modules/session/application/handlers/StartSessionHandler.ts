@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { StartSessionInput } from '@/main/composition/tokens';
+import type { StartSessionInput, StartSessionResult } from '@/main/composition/tokens';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Session } from '@/main/modules/session/domain/Session';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
@@ -8,7 +8,7 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 export function createStartSessionHandler(
   sessionRepository: ISessionRepository,
   eventBus: IEventBus,
-): CommandHandler<StartSessionInput> {
+): CommandHandler<StartSessionInput, StartSessionResult> {
   return async (input) => {
     // Create a new session
     const session = Session.create(input.discipline);
@@ -23,5 +23,7 @@ export function createStartSessionHandler(
       aggregateId: session.id,
       discipline: session.discipline,
     });
+
+    return { sessionId: session.id };
   };
 }

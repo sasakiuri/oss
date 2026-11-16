@@ -88,7 +88,12 @@ export interface GetShotHistoryInput {
 // Command Tokens
 // ---------------------------------------------------------------------------
 
-export const StartSessionToken = defineCommand<StartSessionInput>('StartSession');
+/** Return value of the start session command */
+export interface StartSessionResult {
+  sessionId: string;
+}
+
+export const StartSessionToken = defineCommand<StartSessionInput, StartSessionResult>('StartSession');
 
 export const RecordShotToken = defineCommand<RecordShotInput>('RecordShot');
 

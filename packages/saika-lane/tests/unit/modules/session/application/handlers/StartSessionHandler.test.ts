@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { StartSessionInput } from '@/main/composition/tokens';
+import type { StartSessionInput, StartSessionResult } from '@/main/composition/tokens';
 import { createStartSessionHandler } from '@/main/modules/session/application/handlers/StartSessionHandler';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -10,7 +10,7 @@ import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
 describe('createStartSessionHandler', () => {
-  let handler: CommandHandler<StartSessionInput>;
+  let handler: CommandHandler<StartSessionInput, StartSessionResult>;
   let mockSessionRepository: ISessionRepository;
   let mockEventBus: IEventBus;
 
@@ -51,6 +51,13 @@ describe('createStartSessionHandler', () => {
       expect(savedSession).toBeInstanceOf(Session);
       expect(savedSession.discipline).toBe(discipline);
       expect(savedSession.isFinished).toBe(false);
+    });
+
+    it('returns the id of the session it started', async () => {
+      const result = await handler({ discipline: Discipline.airRifle10m() });
+
+      const savedSession = vi.mocked(mockSessionRepository.save).mock.calls[0]![0];
+      expect(result).toEqual({ sessionId: savedSession.id });
     });
 
     it('should emit a SessionStarted event', async () => {
