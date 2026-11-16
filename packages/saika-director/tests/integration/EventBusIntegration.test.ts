@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TypedEventBus, type IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { CompetitionStarted, PhaseChanged, ShotReceived } from '@/main/domain/events';
+import type { LaneConnected, LanePhaseChanged, ShotReceived } from '@/main/domain/events';
 
 describe('EventBusIntegration', () => {
   let eventBus: IEventBus;
@@ -12,13 +12,13 @@ describe('EventBusIntegration', () => {
   describe('Event Emission', () => {
     it('should call registered handler when event is emitted', () => {
       const handler = vi.fn();
-      eventBus.on('CompetitionStarted', handler);
+      eventBus.on('LaneConnected', handler);
 
-      const event: CompetitionStarted = {
-        type: 'CompetitionStarted',
+      const event: LaneConnected = {
+        type: 'LaneConnected',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        name: 'Test Competition',
+        laneId: 'lane-1',
+        channel: 1,
       };
 
       eventBus.emit(event);
@@ -58,15 +58,15 @@ describe('EventBusIntegration', () => {
       const handler2 = vi.fn();
       const handler3 = vi.fn();
 
-      eventBus.on('PhaseChanged', handler1);
-      eventBus.on('PhaseChanged', handler2);
-      eventBus.on('PhaseChanged', handler3);
+      eventBus.on('LanePhaseChanged', handler1);
+      eventBus.on('LanePhaseChanged', handler2);
+      eventBus.on('LanePhaseChanged', handler3);
 
-      const event: PhaseChanged = {
-        type: 'PhaseChanged',
+      const event: LanePhaseChanged = {
+        type: 'LanePhaseChanged',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        phase: 'PREPARATION',
+        laneId: 'lane-1',
+        phase: 'ACTIVE',
         remainingTime: 600,
       };
 
@@ -80,15 +80,15 @@ describe('EventBusIntegration', () => {
     it('should call handlers in registration order', () => {
       const callOrder: number[] = [];
 
-      eventBus.on('CompetitionStarted', () => callOrder.push(1));
-      eventBus.on('CompetitionStarted', () => callOrder.push(2));
-      eventBus.on('CompetitionStarted', () => callOrder.push(3));
+      eventBus.on('LaneConnected', () => callOrder.push(1));
+      eventBus.on('LaneConnected', () => callOrder.push(2));
+      eventBus.on('LaneConnected', () => callOrder.push(3));
 
-      const event: CompetitionStarted = {
-        type: 'CompetitionStarted',
+      const event: LaneConnected = {
+        type: 'LaneConnected',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        name: 'Test',
+        laneId: 'lane-1',
+        channel: 1,
       };
 
       eventBus.emit(event);
@@ -100,13 +100,13 @@ describe('EventBusIntegration', () => {
   describe('Handler Unsubscription', () => {
     it('should not call handler after unsubscription', () => {
       const handler = vi.fn();
-      const unsubscribe = eventBus.on('CompetitionStarted', handler);
+      const unsubscribe = eventBus.on('LaneConnected', handler);
 
-      const event: CompetitionStarted = {
-        type: 'CompetitionStarted',
+      const event: LaneConnected = {
+        type: 'LaneConnected',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        name: 'Test',
+        laneId: 'lane-1',
+        channel: 1,
       };
 
       // First emit - handler should be called
@@ -125,14 +125,14 @@ describe('EventBusIntegration', () => {
       const handler1 = vi.fn();
       const handler2 = vi.fn();
 
-      const unsubscribe1 = eventBus.on('PhaseChanged', handler1);
-      eventBus.on('PhaseChanged', handler2);
+      const unsubscribe1 = eventBus.on('LanePhaseChanged', handler1);
+      eventBus.on('LanePhaseChanged', handler2);
 
-      const event: PhaseChanged = {
-        type: 'PhaseChanged',
+      const event: LanePhaseChanged = {
+        type: 'LanePhaseChanged',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        phase: 'MATCH',
+        laneId: 'lane-1',
+        phase: 'ACTIVE',
         remainingTime: 2700,
       };
 
@@ -147,17 +147,17 @@ describe('EventBusIntegration', () => {
 
     it('should handle multiple unsubscriptions safely', () => {
       const handler = vi.fn();
-      const unsubscribe = eventBus.on('CompetitionStarted', handler);
+      const unsubscribe = eventBus.on('LaneConnected', handler);
 
       // Multiple unsubscriptions should not throw
       unsubscribe();
       unsubscribe();
 
-      const event: CompetitionStarted = {
-        type: 'CompetitionStarted',
+      const event: LaneConnected = {
+        type: 'LaneConnected',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        name: 'Test',
+        laneId: 'lane-1',
+        channel: 1,
       };
 
       eventBus.emit(event);
@@ -167,35 +167,35 @@ describe('EventBusIntegration', () => {
 
   describe('Event Type Isolation', () => {
     it('should not call handler for different event types', () => {
-      const competitionHandler = vi.fn();
+      const connectionHandler = vi.fn();
       const phaseHandler = vi.fn();
 
-      eventBus.on('CompetitionStarted', competitionHandler);
-      eventBus.on('PhaseChanged', phaseHandler);
+      eventBus.on('LaneConnected', connectionHandler);
+      eventBus.on('LanePhaseChanged', phaseHandler);
 
-      const event: CompetitionStarted = {
-        type: 'CompetitionStarted',
+      const event: LaneConnected = {
+        type: 'LaneConnected',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        name: 'Test',
+        laneId: 'lane-1',
+        channel: 1,
       };
 
       eventBus.emit(event);
 
-      expect(competitionHandler).toHaveBeenCalledTimes(1);
+      expect(connectionHandler).toHaveBeenCalledTimes(1);
       expect(phaseHandler).not.toHaveBeenCalled();
     });
 
     it('should handle events without registered handlers gracefully', () => {
       const handler = vi.fn();
-      eventBus.on('CompetitionStarted', handler);
+      eventBus.on('LaneConnected', handler);
 
       // Emit an event type with no handlers registered
-      const event: PhaseChanged = {
-        type: 'PhaseChanged',
+      const event: LanePhaseChanged = {
+        type: 'LanePhaseChanged',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        phase: 'MATCH',
+        laneId: 'lane-1',
+        phase: 'ACTIVE',
         remainingTime: 2700,
       };
 
@@ -212,14 +212,14 @@ describe('EventBusIntegration', () => {
       });
       const successHandler = vi.fn();
 
-      eventBus.on('CompetitionStarted', errorHandler);
-      eventBus.on('CompetitionStarted', successHandler);
+      eventBus.on('LaneConnected', errorHandler);
+      eventBus.on('LaneConnected', successHandler);
 
-      const event: CompetitionStarted = {
-        type: 'CompetitionStarted',
+      const event: LaneConnected = {
+        type: 'LaneConnected',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        name: 'Test',
+        laneId: 'lane-1',
+        channel: 1,
       };
 
       // Should not throw even though one handler throws
@@ -253,17 +253,17 @@ describe('EventBusIntegration', () => {
     });
 
     it('should emit different event types independently', () => {
-      const competitionHandler = vi.fn();
+      const connectionHandler = vi.fn();
       const shotHandler = vi.fn();
 
-      eventBus.on('CompetitionStarted', competitionHandler);
+      eventBus.on('LaneConnected', connectionHandler);
       eventBus.on('ShotReceived', shotHandler);
 
-      const compEvent: CompetitionStarted = {
-        type: 'CompetitionStarted',
+      const connectionEvent: LaneConnected = {
+        type: 'LaneConnected',
         timestamp: Date.now(),
-        competitionId: 'comp-1',
-        name: 'Test',
+        laneId: 'lane-1',
+        channel: 1,
       };
 
       const shotEvent: ShotReceived = {
@@ -276,11 +276,11 @@ describe('EventBusIntegration', () => {
         seriesNumber: 1,
       };
 
-      eventBus.emit(compEvent);
+      eventBus.emit(connectionEvent);
       eventBus.emit(shotEvent);
       eventBus.emit(shotEvent);
 
-      expect(competitionHandler).toHaveBeenCalledTimes(1);
+      expect(connectionHandler).toHaveBeenCalledTimes(1);
       expect(shotHandler).toHaveBeenCalledTimes(2);
     });
   });
