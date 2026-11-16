@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { estBackupVerificationService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type {
   EstBackupCaptureStatusDto,
   EstBackupColumnMappingDto,
@@ -50,8 +51,7 @@ export function EstBackupCapturePanel({
       try {
         const result = await estBackupVerificationService.getCapture({ eventId });
         if (cancelled) return;
-        if (!result.success) throw new Error(result.error.message);
-        setStatus(result.data);
+        setStatus(unwrap(result));
         setError(null);
       } catch (caught) {
         if (!cancelled) setError(String(caught));
@@ -79,9 +79,8 @@ export function EstBackupCapturePanel({
     setBusy(true);
     setError(null);
     try {
-      const result = await work();
-      if (!result.success) throw new Error(result.error.message);
-      if (current()) setStatus(result.data);
+      const captured = unwrap(await work());
+      if (current()) setStatus(captured);
     } catch (caught) {
       if (current()) setError(String(caught));
     } finally {
