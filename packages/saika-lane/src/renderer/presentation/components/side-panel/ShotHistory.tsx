@@ -3,7 +3,7 @@ import React, { memo, useEffect, useRef } from 'react';
 
 import type { NullifiedExtraDto, ShotDto } from '@/shared/ipc/contracts';
 
-import { toArrowDirection } from '../../utils/scoreUtils';
+import { formatScore, toArrowDirection } from '../../utils/scoreUtils';
 
 interface ShotHistoryItem {
   id: string;
@@ -35,8 +35,6 @@ export const ShotHistory: React.FC<ShotHistoryProps> = memo(({ shots, nullifiedE
         extra.competitionContext.seriesIndex === context.seriesIndex
       );
     });
-  const formatScore = (score: number): string =>
-    acc === 'RING' ? String(Math.floor(score / 10)) : (score / 10).toFixed(1);
   const rows = [
     ...shots.map((shot) => ({ kind: 'shot' as const, value: shot, time: shot.receivedAt ?? shot.timestamp })),
     ...nullifiedExtras.map((extra) => ({ kind: 'extra' as const, value: extra, time: extra.receivedAt })),
@@ -59,7 +57,7 @@ export const ShotHistory: React.FC<ShotHistoryProps> = memo(({ shots, nullifiedE
               </p>
               <p>Not scored · ISSF 6.10.4(c) / 7.7.3</p>
               <p>
-                Device value: {row.value.deviceScoreX10 === null ? '—' : formatScore(row.value.deviceScoreX10)} ·
+                Device value: {row.value.deviceScoreX10 === null ? '—' : formatScore(row.value.deviceScoreX10, acc)} ·
                 Reported mode: {row.value.reportedMode ?? 'Unknown'}
               </p>
             </div>
@@ -68,7 +66,7 @@ export const ShotHistory: React.FC<ShotHistoryProps> = memo(({ shots, nullifiedE
               <div className="grid grid-cols-3 gap-1 text-4xl">
                 <span className="text-zinc-400">{row.value.shotNumber}</span>
                 <span className="text-right font-mono font-semibold tabular-nums text-zinc-100">
-                  {formatScore(row.value.score)}
+                  {formatScore(row.value.score, acc)}
                 </span>
                 <span className="text-right font-mono tabular-nums text-zinc-300">
                   {toArrowDirection(row.value.x, row.value.y)}

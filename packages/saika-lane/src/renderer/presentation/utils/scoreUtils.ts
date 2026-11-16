@@ -18,6 +18,13 @@ export const DISCIPLINE_LABELS: Record<Discipline, string> = {
 };
 
 /**
+ * Formats a score kept in tenths: whole rings (rounded down) for RING scoring, one decimal otherwise.
+ */
+export function formatScore(tenths: number, acc: 'RING' | 'DECIMAL'): string {
+  return acc === 'RING' ? String(Math.floor(tenths / 10)) : (tenths / 10).toFixed(1);
+}
+
+/**
  * Converts X/Y coordinates to arrow direction
  * @param x X coordinate (mm, positive = right) or null for miss shot
  * @param y Y coordinate (mm, positive = up) or null for miss shot

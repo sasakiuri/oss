@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import React, { memo, useLayoutEffect, useRef } from 'react';
 
+import { formatScore } from '../../utils/scoreUtils';
+
 const SCROLL_THRESHOLD_PX = 50;
 const SERIES_COLUMNS = 3;
 
@@ -48,9 +50,7 @@ export const SeriesScoreGrid: React.FC<SeriesScoreGridProps> = memo(({ scores, a
               <div key={rowIndex} className="grid h-12 shrink-0 snap-start grid-cols-3 gap-1">
                 {row.map((score, colIndex) => (
                   <div key={colIndex} className="flex items-center justify-center rounded px-1 py-1">
-                    <span className="font-mono text-4xl font-semibold text-zinc-100">
-                      {acc === 'RING' ? String(Math.floor(score / 10)) : (score / 10).toFixed(1)}
-                    </span>
+                    <span className="font-mono text-4xl font-semibold text-zinc-100">{formatScore(score, acc)}</span>
                   </div>
                 ))}
               </div>
