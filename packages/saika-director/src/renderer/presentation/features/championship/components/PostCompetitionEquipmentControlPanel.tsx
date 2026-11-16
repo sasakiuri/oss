@@ -10,6 +10,7 @@ import type { ParticipantDto } from '@/shared/ipc/contracts/championship.contrac
 
 import { Button } from '../../shared/common/Button';
 import { inputClass, sectionClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 type SelectionBasis = PostCompetitionEquipmentCheckDto['selectionBasis'];
 type Outcome = Extract<PostCompetitionEquipmentCheckDto['entries'][number], { type: 'TEST_RECORDED' }>['outcome'];
@@ -97,7 +98,7 @@ export function PostCompetitionEquipmentControlPanel({ championshipId, eventId, 
         </Button>
       </header>
 
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
       {notice && <p className="border-l-2 border-vscode-success pl-3 text-xs text-vscode-success">{notice}</p>}
 
       <SelectionForm

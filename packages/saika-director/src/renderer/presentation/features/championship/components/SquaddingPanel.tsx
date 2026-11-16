@@ -8,6 +8,7 @@ import type { SquaddingDrawDto } from '@/shared/ipc/contracts';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { Button } from '../../shared/common/Button';
 import { mutedLabelClass, smallInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 interface SquaddingPanelProps {
   eventId: string;
@@ -125,7 +126,7 @@ export function SquaddingPanel({
         </Button>
       </header>
 
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
         <label className={mutedLabelClass}>
           Seed

@@ -14,6 +14,7 @@ import { EstBackupCapturePanel } from './EstBackupCapturePanel';
 import { EstBackupResultChecksPanel } from './EstBackupResultChecksPanel';
 import { EstBackupSourcesPanel } from './EstBackupSourcesPanel';
 import { inputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 export function EstBackupVerificationPanel({
   eventId,
@@ -78,7 +79,7 @@ export function EstBackupVerificationPanel({
           Close
         </Button>
       </header>
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
       <form
         className="space-y-3"
         onSubmit={(event) => {

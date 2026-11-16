@@ -4,6 +4,7 @@ import { teamResultsService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { TeamResultDto, TeamResultFormatDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
+import { InlineError } from '../../shared/common/InlineError';
 
 export function TeamResultsPanel({ eventId, onClose }: { eventId: string; onClose: () => void }) {
   const [format, setFormat] = useState<TeamResultFormatDto>('THREE_MEMBER');
@@ -55,7 +56,7 @@ export function TeamResultsPanel({ eventId, onClose }: { eventId: string; onClos
       </header>
 
       {loading && <p className="text-xs text-vscode-text-muted">Calculating team results…</p>}
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
       {!loading && !error && results.length === 0 && (
         <p className="text-xs text-vscode-text-muted">No participants have a Team ID for this event.</p>
       )}

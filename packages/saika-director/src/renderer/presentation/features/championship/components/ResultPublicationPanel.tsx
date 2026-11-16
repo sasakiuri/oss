@@ -10,6 +10,7 @@ import { ObservationReviewsPanel } from '../../observation-reviews/ObservationRe
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
 import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 interface ResultPublicationPanelProps {
   eventId: string;
@@ -130,7 +131,7 @@ export function ResultPublicationPanel({ eventId, eventName, onClose }: ResultPu
   return (
     <Modal isOpen onClose={onClose} title={`Result publication${eventName ? ` — ${eventName}` : ''}`} size="xl">
       <div className="space-y-4">
-        {error && <div className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</div>}
+        {error && <InlineError as="div">{error}</InlineError>}
         {loading || !status ? (
           <p className="text-[13px] text-vscode-text-muted">Loading publication status…</p>
         ) : (

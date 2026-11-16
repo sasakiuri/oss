@@ -11,6 +11,7 @@ import type {
 } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { blockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
 
 interface FinalControlPanelProps {
   competitionId: string;
@@ -193,7 +194,7 @@ export function FinalControlPanel({
         </Button>
       </header>
 
-      {error && <div className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</div>}
+      {error && <InlineError as="div">{error}</InlineError>}
       {assessment && (
         <div className="border-l-2 border-vscode-accent pl-3 text-xs leading-5">
           <p className="font-semibold text-vscode-text">

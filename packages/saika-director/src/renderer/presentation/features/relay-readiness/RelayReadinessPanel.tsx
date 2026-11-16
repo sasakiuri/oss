@@ -7,6 +7,7 @@ import type { RelayReadinessAssessmentDto, RelayStartSettingsDto } from '@/share
 
 import { Button } from '../shared/common/Button';
 import { blockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../shared/common/InlineError';
 
 interface RelayReadinessPanelProps {
   competitionId: string;
@@ -116,7 +117,7 @@ export function RelayReadinessPanel({
           <RefreshCw size={13} /> Refresh
         </Button>
       </header>
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
       <label className="block text-xs text-vscode-text-muted">
         Check target mode
         <select

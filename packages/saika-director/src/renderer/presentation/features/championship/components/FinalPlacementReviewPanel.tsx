@@ -6,6 +6,7 @@ import type { FinalPlacementReviewStatusDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
 import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 interface FinalPlacementReviewPanelProps {
   eventId: string;
@@ -122,7 +123,11 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
     <Modal isOpen onClose={onClose} title={`Final placement review — ${eventName ?? 'Final'}`}>
       <div className="space-y-5">
         {loading && <p className="text-[13px] text-vscode-text-muted">Loading…</p>}
-        {error && <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>}
+        {error && (
+          <InlineError as="div" size="13px">
+            {error}
+          </InlineError>
+        )}
 
         {status && (
           <>

@@ -8,6 +8,7 @@ import type { FinalResultDeclarationStatusDto } from '@/shared/ipc/contracts';
 import { Button } from '../../shared/common/Button';
 import { Modal } from '../../shared/common/Modal';
 import { fullWidthInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 interface FinalResultDeclarationPanelProps {
   eventId: string;
@@ -64,7 +65,7 @@ export function FinalResultDeclarationPanel({ eventId, eventName, onClose }: Fin
   return (
     <Modal isOpen onClose={onClose} title={`Final result declaration${eventName ? ` — ${eventName}` : ''}`} size="md">
       <div className="space-y-4">
-        {error && <div className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</div>}
+        {error && <InlineError as="div">{error}</InlineError>}
         {loading || !status ? (
           <p className="text-[13px] text-vscode-text-muted">Loading Final declaration status…</p>
         ) : status.declaration ? (

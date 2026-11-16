@@ -8,6 +8,7 @@ import type { EstChampionshipInspectionAssessmentDto } from '@/shared/ipc/contra
 
 import { Button } from '../../shared/common/Button';
 import { inputClass, stackedLabelClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { InlineError } from '../../shared/common/InlineError';
 
 export function EstChampionshipInspectionPanel({ championshipId }: { championshipId: string }) {
   const [assessment, setAssessment] = useState<EstChampionshipInspectionAssessmentDto | null>(null);
@@ -99,7 +100,7 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
           <RefreshCw size={13} aria-hidden="true" /> Refresh
         </Button>
       </header>
-      {error && <p className="border-l-2 border-vscode-error pl-3 text-xs text-vscode-error">{error}</p>}
+      {error && <InlineError>{error}</InlineError>}
 
       <details open={!assessment?.plan} className="rounded-[3px] border border-vscode-border p-3">
         <summary className="cursor-pointer text-xs font-medium text-vscode-text">

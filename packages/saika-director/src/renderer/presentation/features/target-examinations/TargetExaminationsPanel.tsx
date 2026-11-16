@@ -11,6 +11,7 @@ import { CreateCaseForm } from './CreateCaseForm';
 import { formatEnum, statusClass, statusLabel, uniqueScopes } from './examinationPresentation';
 import type { TargetExaminationLaneOption } from './examinationTypes';
 import { useTargetExaminationCases } from './useTargetExaminationCases';
+import { InlineError } from '../shared/common/InlineError';
 
 interface TargetExaminationsPanelProps {
   primaryScope?: TargetExaminationScopePayload;
@@ -70,7 +71,11 @@ function TargetExaminationWorkspace({
         </div>
       </header>
 
-      {error && <div className="border-l-2 border-vscode-error pl-3 text-[13px] text-vscode-error">{error}</div>}
+      {error && (
+        <InlineError as="div" size="13px">
+          {error}
+        </InlineError>
+      )}
       {loading && <p className="text-[13px] text-vscode-text-muted">Loading target examinations…</p>}
 
       {showCreate && primaryScope && (
