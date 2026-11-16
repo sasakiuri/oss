@@ -16,11 +16,9 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S, P25, R3P60, R3P_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import { LaneInterruptionRecord } from '@/main/modules/competition-interruption/domain/LaneInterruptionRecord';
-import {
-  createShotIngestionHandler,
-  type ShotIngestionDeps,
-} from '@/main/modules/connection/infra/ShotIngestionHandler';
-import type { ShotData } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { ShotRoutingDeps } from '@/main/modules/connection/application/ShotRoutingService';
+import type { ShotData } from '@/main/modules/connection/domain/ShotData';
+import { createShotIngestionHandler } from '@/main/modules/connection/infra/ShotIngestionHandler';
 
 import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
 import { buildSession } from '../../../../helpers/factories';
@@ -37,7 +35,7 @@ describe('ShotIngestionHandler', () => {
   let sessionRepository: ReturnType<typeof createMockSessionRepository>;
   let competitionRepository: ReturnType<typeof createMockCompetitionRepository>;
   let shotObservationRepository: ReturnType<typeof createMockShotObservationRepository>;
-  let deps: ShotIngestionDeps;
+  let deps: ShotRoutingDeps;
   let shotData: ShotData;
 
   beforeEach(() => {
@@ -407,7 +405,7 @@ describe('ShotIngestionHandler', () => {
       canAcceptShot: vi.fn().mockReturnValue(true),
       getState: vi.fn().mockReturnValue({
         timedTargetProgramId: 'P25_FINAL_SHOOT_OFF_RAPID_3_7',
-      } as ReturnType<NonNullable<ShotIngestionDeps['shootOffReader']>['getState']>),
+      } as ReturnType<NonNullable<ShotRoutingDeps['shootOffReader']>['getState']>),
     };
     deps.timedTargetReader = {
       tryAcceptShot: vi.fn().mockReturnValue({
@@ -587,7 +585,7 @@ describe('ShotIngestionHandler', () => {
       isStopped: () => true,
       getState: () =>
         ({ safetyStopId: '77777777-7777-4777-8777-777777777777' }) as ReturnType<
-          NonNullable<ShotIngestionDeps['safetyStopReader']>['getState']
+          NonNullable<ShotRoutingDeps['safetyStopReader']>['getState']
         >,
     };
 
