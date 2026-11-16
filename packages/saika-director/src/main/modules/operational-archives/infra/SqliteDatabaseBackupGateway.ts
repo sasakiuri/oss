@@ -15,6 +15,8 @@ import type {
   PendingDatabaseRestore,
 } from '../application/OperationalArchivePorts';
 
+import { passesIntegrityCheck, readSchemaVersionValue } from './databaseFileFacts';
+
 export const PENDING_RESTORE_DATABASE = 'saika.restore-pending.db';
 export const PENDING_RESTORE_MARKER = 'saika.restore-pending.json';
 
@@ -56,14 +58,12 @@ export class SqliteDatabaseBackupGateway implements DatabaseBackupGateway {
     let schemaVersion = 0;
     let championshipCount = 0;
     try {
-      const integrityRows = candidate.pragma('integrity_check') as Array<Record<string, unknown>>;
-      integrityOk = integrityRows.length === 1 && Object.values(integrityRows[0] ?? {})[0] === 'ok';
-      const schemaRow = candidate.prepare("SELECT value FROM schema_meta WHERE key = 'version'").get() as
-        { value: string } | undefined;
-      if (!schemaRow || !/^(0|[1-9]\d*)$/.test(schemaRow.value)) {
+      integrityOk = passesIntegrityCheck(candidate);
+      const schemaValue = readSchemaVersionValue(candidate);
+      if (schemaValue === undefined || !/^(0|[1-9]\d*)$/.test(schemaValue)) {
         throw new Error('The selected file has no valid Saika schema version');
       }
-      schemaVersion = Number(schemaRow.value);
+      schemaVersion = Number(schemaValue);
       const countRow = candidate.prepare('SELECT COUNT(*) AS count FROM championships').get() as { count: number };
       championshipCount = countRow.count;
       assertEvidenceFileContents(candidate);
