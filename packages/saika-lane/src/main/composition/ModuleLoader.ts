@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 /** Registers modules with the dependencies declared in their definitions. */
 
-import type { ModuleDefinition, ServiceRegistry } from '@/main/composition/ModuleDefinition';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+
+import type { ModuleDefinition, ServiceRegistry } from './ModuleDefinition';
 
 export class ModuleLoader {
   load(modules: readonly ModuleDefinition[], registry: ServiceRegistry): void {

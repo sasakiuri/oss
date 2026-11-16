@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ModuleDefinition, ServiceRegistry } from '@/main/composition/ModuleDefinition';
-import { ModuleLoader } from '@/main/shared-infra/module/ModuleLoader';
+import { ModuleLoader } from '@/main/composition/ModuleLoader';
 
 // ---------- logger mock ----------
 

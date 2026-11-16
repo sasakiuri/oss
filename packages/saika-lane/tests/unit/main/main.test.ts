@@ -162,7 +162,7 @@ function setupMainHarness({
     getLogger: () => logger,
     initializeLogger: () => logger,
   }));
-  vi.doMock('@/main/shared-infra/module', () => ({
+  vi.doMock('@/main/composition/ModuleLoader', () => ({
     ModuleLoader: class {
       load = vi.fn();
     },

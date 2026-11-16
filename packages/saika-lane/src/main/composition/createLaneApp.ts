@@ -4,13 +4,13 @@ import { BrowserWindow, Menu } from 'electron';
 import { focusStartupWindow } from '@/main/focusStartupWindow';
 import { ContractEventForwarder } from '@/main/shared-infra/ipc';
 import { initializeLogger } from '@/main/shared-infra/logging';
-import { ModuleLoader } from '@/main/shared-infra/module';
 import { scheduleAutoConnect } from '@/main/startup/scheduleAutoConnect';
 import { bindMainWindow } from '@/main/window/bindMainWindow';
 import { startupContract } from '@/shared/ipc/contracts';
 
 import { bindCompetitionEvents } from './bindCompetitionEvents';
 import { createLaneServices, type LaneApplicationPaths } from './createLaneServices';
+import { ModuleLoader } from './ModuleLoader';
 import { laneModules } from './modules';
 
 /** Composes the service graph, registers features, then binds the Electron window. */
