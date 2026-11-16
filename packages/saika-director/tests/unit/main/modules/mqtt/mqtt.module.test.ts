@@ -249,7 +249,6 @@ function registerModule(
   ) => Promise<unknown>;
   output: ModuleOutput;
   executeCommand: (token: { name: string }, input: unknown) => Promise<unknown>;
-  addDebugEntry: ReturnType<typeof vi.fn>;
   findLaneByChannel: ReturnType<typeof vi.fn>;
   appendObservationEvidence: ReturnType<typeof vi.fn>;
   observeShootOffShot: ReturnType<typeof vi.fn>;
@@ -312,7 +311,6 @@ function registerModule(
     ].map((definition) => [definition.id, definition]),
   );
 
-  const addDebugEntry = vi.fn();
   const findLaneByChannel = vi.fn();
   const appendObservationEvidence = vi.fn();
   const observeShootOffShot = vi.fn();
@@ -337,7 +335,6 @@ function registerModule(
         handlers = registeredHandlers as MqttHandlers;
       }),
     } as never,
-    debugLogStore: { addEntry: addDebugEntry } as never,
     appConfigService: {
       get: (key: string) => config.get(key),
       set: (key: string, value: unknown) => {
@@ -425,7 +422,6 @@ function registerModule(
       commandBus.execute(ApplyQualificationRecoverySettlementTransportToken, input as never),
     output,
     executeCommand: (token, input) => commandBus.execute(token, input),
-    addDebugEntry,
     findLaneByChannel,
     appendObservationEvidence,
     observeShootOffShot,
@@ -676,7 +672,6 @@ describe('mqttModule wiring', () => {
     expect(rules.map((rule) => [rule.eventType, rule.channel])).toEqual([
       ['ShotReceived', eventsContract.channels.shotReceived],
       ['LaneConnected', eventsContract.channels.laneConnected],
-      ['DebugLogEmitted', eventsContract.channels.debugLog],
       ['MqttConnectionError', eventsContract.channels.mqttConnectionError],
       ['MqttControlStateChanged', eventsContract.channels.mqttControlStateChanged],
       ['FiringWindowViolationDetected', eventsContract.channels.firingWindowViolationDetected],
@@ -693,12 +688,6 @@ describe('mqttModule wiring', () => {
       }),
     ).toStrictEqual({ channel: 3, shotNumber: 4, score: 10.5, seriesNumber: 2 });
     expect(payload('LaneConnected', { timestamp: 1, laneId: LANE_ID, channel: 3 })).toStrictEqual({ channel: 3 });
-    expect(payload('DebugLogEmitted', { timestamp: 7, direction: 'LOG', raw: 'raw', parsed: { a: 1 } })).toStrictEqual({
-      timestamp: 7,
-      direction: 'LOG',
-      raw: 'raw',
-      parsed: { a: 1 },
-    });
     expect(payload('MqttConnectionError', { timestamp: 1, message: 'offline' })).toStrictEqual({
       message: 'offline',
     });
@@ -766,25 +755,11 @@ describe('mqttModule wiring', () => {
     ]);
   });
 
-  it('records debug lines and reports connection errors', () => {
-    const { emitEvent, addDebugEntry } = registerModule('BR60S');
+  it('reports connection errors', () => {
+    const { emitEvent } = registerModule('BR60S');
 
-    callback('onDebugLog')('subscribed');
     callback('onError')('broker refused');
 
-    expect(addDebugEntry).toHaveBeenCalledExactlyOnceWith({
-      timestamp: expect.any(Number),
-      direction: 'LOG',
-      raw: 'subscribed',
-    });
-    expect(emitted(emitEvent, 'DebugLogEmitted')).toEqual([
-      {
-        type: 'DebugLogEmitted',
-        timestamp: addDebugEntry.mock.calls[0]![0].timestamp,
-        direction: 'LOG',
-        raw: 'subscribed',
-      },
-    ]);
     expect(emitted(emitEvent, 'MqttConnectionError')).toEqual([
       { type: 'MqttConnectionError', timestamp: expect.any(Number), message: 'broker refused' },
     ]);

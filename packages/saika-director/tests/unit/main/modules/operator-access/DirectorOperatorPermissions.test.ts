@@ -23,7 +23,6 @@ const expected: Record<string, readonly [OperatorPermission, Record<string, Oper
   board: ['OPERATE', { openEstBackupSourcePrint: 'OFFICIATE', openProtestPrint: 'OFFICIATE' }],
   championship: ['ADMIN'],
   competitionAnnouncements: ['OPERATE'],
-  debug: ['ADMIN'],
   eliminationPlanning: ['ADMIN'],
   equipmentRegistry: ['EQUIPMENT'],
   estBackupVerification: ['OFFICIATE'],

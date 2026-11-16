@@ -4,7 +4,6 @@ import type { RulePackRegistry } from '@sasakiuri/saika-rules';
 import type Database from 'better-sqlite3';
 
 import type { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
-import type { IDebugLogStore } from '@/main/infrastructure/logging/Logger';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import type { AthleteSanctionService, ISanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
 import type { EstBackupCaptureService } from '@/main/modules/est-backup-capture';
@@ -86,7 +85,6 @@ export interface ServiceRegistry {
   readonly queryBus: QueryBus;
   readonly ipcRouter: IpcRouter;
   readonly windowManager: WindowManager;
-  readonly debugLogStore: IDebugLogStore;
   readonly laneControlRepository: ILaneControlRepository;
   readonly laneTimerService: LaneTimerService;
   readonly appConfigService: AppConfigService;

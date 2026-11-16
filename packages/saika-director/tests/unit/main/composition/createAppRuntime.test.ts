@@ -31,7 +31,6 @@ function setup(failStartup = false, boardsClosed: Promise<void> = Promise.resolv
       },
       stopAllTimers: () => order.push('timers'),
     },
-    consoleForwarder: { stop: () => order.push('console') },
     lifecycleEntries: [
       {
         name: 'mqtt',
@@ -65,16 +64,7 @@ describe('application runtime composition', () => {
       remainingTime: 12,
     });
     await lifecycle.stopAll();
-    expect(order).toEqual([
-      'restore',
-      'mqtt:start',
-      'mqtt:stop',
-      'console',
-      'windows',
-      'timers',
-      'repository',
-      'database',
-    ]);
+    expect(order).toEqual(['restore', 'mqtt:start', 'mqtt:stop', 'windows', 'timers', 'repository', 'database']);
     broadcast.mockClear();
     eventBus.emit({ type: 'LaneTimerTick', laneId: 'lane-1', remainingTime: 11, phase: 'ACTIVE', timestamp: 2 });
     expect(broadcast).not.toHaveBeenCalled();
@@ -83,7 +73,7 @@ describe('application runtime composition', () => {
   it('rolls back the composed infrastructure when a module cannot start', async () => {
     const { lifecycle, order } = setup(true);
     await expect(lifecycle.startAll()).rejects.toThrow('mqtt unavailable');
-    expect(order).toEqual(['restore', 'mqtt:start', 'console', 'windows', 'timers', 'repository', 'database']);
+    expect(order).toEqual(['restore', 'mqtt:start', 'windows', 'timers', 'repository', 'database']);
   });
 
   it('waits for native board closure before releasing the repositories and database', async () => {

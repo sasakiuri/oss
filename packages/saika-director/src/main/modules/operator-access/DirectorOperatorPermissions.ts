@@ -53,7 +53,6 @@ const namespacePermissions: Record<DirectorContractNamespace, OperatorPermission
   estChampionshipInspections: 'EQUIPMENT',
   postCompetitionEquipmentControl: 'EQUIPMENT',
   championship: 'ADMIN',
-  debug: 'ADMIN',
   eliminationPlanning: 'ADMIN',
   evidenceFiles: 'ADMIN',
   operationalArchives: 'ADMIN',

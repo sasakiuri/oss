@@ -9,7 +9,7 @@ import type {
   EventTransformer,
 } from '@/main/shared-infra/ipc/EventForwardingRule';
 import type { LaneTimerTick, LaneTimerExpired, LaneControlUpdated } from '@/main/modules/lane-control';
-import type { ShotReceived, LaneConnected, DebugLogEmitted } from '@/main/modules/mqtt';
+import type { ShotReceived, LaneConnected } from '@/main/modules/mqtt';
 import { eventsContract } from '@/shared/ipc/contracts';
 import { DiffCalculator } from '@/main/modules/lane-control';
 import type { LaneControlIpcPayload } from '@/shared/types/LaneControlIpcPayload';
@@ -113,19 +113,6 @@ function buildTestRules(): (EventForwardingRule | TransformerForwardingRule)[] {
         return { channel: e.channel };
       },
     },
-    {
-      eventType: 'DebugLogEmitted',
-      channel: eventsContract.channels.debugLog,
-      extractPayload: (event: AnyDomainEvent) => {
-        const e = event as DebugLogEmitted;
-        return {
-          timestamp: e.timestamp,
-          direction: e.direction,
-          raw: e.raw,
-          parsed: e.parsed,
-        };
-      },
-    },
     // Lane-control module rules
     {
       eventType: 'LaneControlUpdated',
@@ -197,7 +184,6 @@ describe('DomainEventForwarder', () => {
         'LaneTimerTick',
         'LaneTimerExpired',
         'LaneControlUpdated',
-        'DebugLogEmitted',
       ];
 
       expect(mockEventBus.on).toHaveBeenCalledTimes(expectedEventTypes.length);
@@ -646,28 +632,6 @@ describe('DomainEventForwarder', () => {
       expect(mockWindowManager.broadcast).toHaveBeenCalledWith(eventsContract.channels.laneTimerExpired, {
         laneId: 'lane-1',
         phase: 'ACTIVE',
-      });
-    });
-
-    it('should forward DebugLogEmitted event', () => {
-      forwarder.start();
-
-      const event: DebugLogEmitted = {
-        type: 'DebugLogEmitted',
-        timestamp: Date.now(),
-        direction: 'TX',
-        raw: 'test raw',
-        parsed: 'test parsed data',
-      };
-
-      const handler = eventHandlers.get('DebugLogEmitted');
-      handler!(event);
-
-      expect(mockWindowManager.broadcast).toHaveBeenCalledWith(eventsContract.channels.debugLog, {
-        timestamp: event.timestamp,
-        direction: 'TX',
-        raw: 'test raw',
-        parsed: 'test parsed data',
       });
     });
   });

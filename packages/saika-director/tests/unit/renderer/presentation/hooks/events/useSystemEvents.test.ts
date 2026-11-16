@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useSystemEvents } from '@/renderer/presentation/hooks/useSystemEvents';
 import { useConnectionStore } from '@/renderer/presentation/stores/system/connection.store';
-import { useDebugStore } from '@/renderer/presentation/stores/system/debug.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import { mqttService } from '@/renderer/services';
 import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
@@ -49,11 +48,6 @@ describe('useSystemEvents', () => {
       isConnected: false,
       connectedChannels: [],
     });
-    useDebugStore.setState({
-      entries: [],
-      isVisible: false,
-      activeTab: 'ALL',
-    });
     useNotificationStore.setState({ notifications: [] });
   });
 
@@ -83,7 +77,6 @@ describe('useSystemEvents', () => {
 
       expect([...capturedHandlers.keys()].sort()).toEqual([
         'competitionAnnouncementDue',
-        'debugLog',
         'firingWindowViolationDetected',
         'laneConnected',
         'mqttConnectionError',
@@ -308,43 +301,6 @@ describe('useSystemEvents', () => {
       const state = useConnectionStore.getState();
       expect(state.isConnected).toBe(false);
       expect(state.connectedChannels).toEqual([]);
-    });
-  });
-
-  describe('debugLog event', () => {
-    it('should add debug entry to the debug store', () => {
-      const { fireEvent } = renderSystemEvents();
-
-      const logEntry = {
-        timestamp: Date.now(),
-        direction: 'RX' as const,
-        raw: 'test raw data',
-        parsed: 'test parsed data',
-      };
-
-      fireEvent('debugLog', logEntry);
-
-      const state = useDebugStore.getState();
-      expect(state.entries).toHaveLength(1);
-      expect(state.entries[0]).toEqual(logEntry);
-    });
-
-    it('should accumulate multiple debug entries', () => {
-      const { fireEvent } = renderSystemEvents();
-
-      fireEvent('debugLog', {
-        timestamp: 1000,
-        direction: 'TX',
-        raw: 'first',
-      });
-      fireEvent('debugLog', {
-        timestamp: 2000,
-        direction: 'RX',
-        raw: 'second',
-      });
-
-      const state = useDebugStore.getState();
-      expect(state.entries).toHaveLength(2);
     });
   });
 });

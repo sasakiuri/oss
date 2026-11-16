@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
-import { ConsoleForwarder } from '@/main/infrastructure/logging/ConsoleForwarder';
 import { DomainEventForwarder } from '@/main/shared-infra/ipc/DomainEventForwarder';
 import { AppLifecycle } from '@/main/shared-infra/lifecycle/AppLifecycle';
 import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
@@ -9,7 +8,7 @@ import type { CompetitionServices } from './createCompetitionServices';
 
 type Dependencies = Pick<ServiceRegistry, 'eventBus' | 'windowManager' | 'laneTimerService'> &
   Pick<CompetitionServices, 'laneControlRepository'> &
-  ModuleLoadResult & { databaseManager: DatabaseManager; consoleForwarder: ConsoleForwarder };
+  ModuleLoadResult & { databaseManager: DatabaseManager };
 
 /** Starts dependencies first and stops modules before their repositories and database. */
 export function createAppRuntime({
@@ -18,7 +17,6 @@ export function createAppRuntime({
   laneControlRepository,
   laneTimerService,
   databaseManager,
-  consoleForwarder,
   lifecycleEntries,
   eventForwardingRules,
 }: Dependencies) {
@@ -48,9 +46,6 @@ export function createAppRuntime({
     name: 'DomainEventForwarder',
     start: async () => domainEventForwarder.start(),
     stop: async () => domainEventForwarder.stop(),
-  });
-  lifecycle.registerShutdownOnly('ConsoleForwarder', () => {
-    consoleForwarder.stop();
   });
 
   // Modules stop before their infrastructure dependencies.

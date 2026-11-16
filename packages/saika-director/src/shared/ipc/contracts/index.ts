@@ -5,7 +5,6 @@ export * from './backupCaptureReadiness.contract';
 export * from './board.contract';
 export * from './championship.contract';
 export * from './competitionAnnouncements.contract';
-export * from './debug.contract';
 export * from './eliminationPlanning.contract';
 export * from './equipmentRegistry.contract';
 export * from './estBackupVerification.contract';

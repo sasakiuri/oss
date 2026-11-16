@@ -1616,6 +1616,5 @@ export class DirectorMqttService {
 
   private log(message: string): void {
     logger.info(message);
-    this.callbacks.onDebugLog?.(`[MQTT] ${message}`);
   }
 }

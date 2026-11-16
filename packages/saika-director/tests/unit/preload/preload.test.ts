@@ -35,6 +35,11 @@ describe('preload API', () => {
     expect(api.appVersion).toEqual(expect.any(String));
   });
 
+  it('exposes no debug log query or event', () => {
+    expect(api).not.toHaveProperty('queries');
+    expect(api.on).not.toHaveProperty('debugLog');
+  });
+
   it('exposes every contract procedure as one method that invokes its channel', () => {
     const procedures = new Map<string, { namespace: string; key: string; voidInput: boolean }>();
     for (const contract of contracts) {
@@ -69,11 +74,10 @@ describe('preload API', () => {
     }
 
     expect(invokedChannels.sort()).toEqual([...procedures.keys()].sort());
-    // Each API namespace uses the contract of the same name, except these two.
+    // Each API namespace uses the contract of the same name, except this one.
     expect(contractOfNamespace).toEqual({
       ...Object.fromEntries(Object.keys(contractOfNamespace).map((namespace) => [namespace, namespace])),
       laneControl: 'unified-lane-control',
-      queries: 'debug',
     });
   });
 });

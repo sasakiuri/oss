@@ -35,13 +35,6 @@ const shotReceivedSchema = z.object({
 
 const laneConnectedSchema = z.object({ channel: z.number() });
 
-const debugLogSchema = z.object({
-  timestamp: z.number(),
-  direction: z.enum(['TX', 'RX', 'LOG']),
-  raw: z.string(),
-  parsed: z.string().optional(),
-});
-
 const laneTimerTickSchema = z.object({
   laneId: z.string(),
   remainingTime: z.number(),
@@ -131,7 +124,6 @@ const laneControlPatchedSchema = z.object({
 
 export type ShotReceivedEvent = z.infer<typeof shotReceivedSchema>;
 export type LaneConnectedEvent = z.infer<typeof laneConnectedSchema>;
-export type DebugLogEvent = z.infer<typeof debugLogSchema>;
 export type LaneTimerTickEvent = z.infer<typeof laneTimerTickSchema>;
 export type LaneTimerExpiredEvent = z.infer<typeof laneTimerExpiredSchema>;
 export type LaneControlUpdatedEvent = z.infer<typeof laneControlUpdatedSchema>;
@@ -150,7 +142,6 @@ export const eventsContract = defineEventContract('event', {
   appUpdateStateChanged: defineEvent(AppUpdateStateSchema),
   shotReceived: defineEvent(shotReceivedSchema),
   laneConnected: defineEvent(laneConnectedSchema),
-  debugLog: defineEvent(debugLogSchema),
   mqttConnectionError: defineEvent(mqttConnectionErrorSchema),
   mqttControlStateChanged: defineEvent(mqttControlStateChangedSchema),
   firingWindowViolationDetected: defineEvent(firingWindowViolationDetectedSchema),

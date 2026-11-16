@@ -22,13 +22,6 @@ export interface LaneConnected extends DomainEvent {
   channel: number;
 }
 
-export interface DebugLogEmitted extends DomainEvent {
-  type: 'DebugLogEmitted';
-  direction: 'TX' | 'RX' | 'LOG';
-  raw: string;
-  parsed?: string;
-}
-
 export interface MqttConnectionError extends DomainEvent {
   type: 'MqttConnectionError';
   message: string;
@@ -68,7 +61,6 @@ declare module '@/main/shared-infra/events/EventBus' {
   interface EventRegistry {
     ShotReceived: ShotReceived;
     LaneConnected: LaneConnected;
-    DebugLogEmitted: DebugLogEmitted;
     MqttConnectionError: MqttConnectionError;
     MqttControlStateChanged: MqttControlStateChanged;
     FiringWindowViolationDetected: FiringWindowViolationDetected;

@@ -8,8 +8,6 @@ import { eventsContract } from '@/shared/ipc/contracts';
 
 import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
 import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
-import { ConsoleForwarder } from '@/main/infrastructure/logging/ConsoleForwarder';
-import { DebugLogStore } from '@/main/infrastructure/logging/Logger';
 import { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import { FinalOperationService, SqliteFinalOperationRepository } from '@/main/modules/final-operations';
 import { LaneTimerService } from '@/main/modules/lane-control';
@@ -89,11 +87,6 @@ export function createApp(
 
   // === Core Infrastructure ===
   const eventBus = new TypedEventBus();
-
-  // Logging
-  const debugLogStore = new DebugLogStore();
-  const consoleForwarder = new ConsoleForwarder(eventBus);
-  consoleForwarder.start();
 
   // Database
   const userDataPath = app.getPath('userData');
@@ -300,7 +293,6 @@ export function createApp(
     queryBus,
     ipcRouter,
     windowManager,
-    debugLogStore,
     laneControlRepository,
     laneTimerService,
     appConfigService,
@@ -356,7 +348,6 @@ export function createApp(
     laneControlRepository,
     laneTimerService,
     databaseManager,
-    consoleForwarder,
     lifecycleEntries,
     eventForwardingRules,
   });

@@ -42,7 +42,6 @@ export const ResolveLaneShootoffToken = defineCommand<ResolveLaneShootoffCommand
 // --- Query Tokens ---
 export const GetScoreSheetsToken = defineQuery<GetScoreSheetsQuery, unknown>('GetScoreSheets');
 export const GetAllLaneControlsToken = defineQuery<unknown, unknown>('GetAllLaneControls');
-export const GetDebugLogToken = defineQuery<unknown, unknown>('GetDebugLog');
 export const GetLaneByIdToken = defineQuery<GetLaneByIdQuery, unknown>('GetLaneById');
 export const GetLaneByChannelToken = defineQuery<GetLaneByChannelQuery, unknown>('GetLaneByChannel');
 export const GetAllLanesToken = defineQuery<unknown, unknown>('GetAllLanes');
