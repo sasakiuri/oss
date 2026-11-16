@@ -32,6 +32,7 @@ import { SqliteScoringDecisionRepository } from '@/main/modules/scoring-decision
 import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
 import { directorVistaDefinition, vistaDigest } from '@/main/modules/vista/application/directorVistaDefinition';
 import { DirectorVistaSource } from '@/main/modules/vista/application/DirectorVistaSource';
+import { sha256Json } from '@/main/domain/sha256Json';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { CompetitionTypeRegistry, getMatchSeriesShotCounts } from '@/shared/competitionTypes';
 import { BP60 } from '@/shared/competitionTypes/definitions/BP60';
@@ -204,6 +205,63 @@ function fire(snapshot: MqttControlSnapshotDto) {
   };
 }
 
+/**
+ * Every catalog and snapshot a scenario reads is pinned as exact JSON. Generated UUIDs and SHA-256 digests are
+ * replaced by their order of first appearance, so equal values stay equal and the rest of the JSON is exact.
+ */
+const vistaOutputs: unknown[] = [];
+function canonicalVistaOutput(value: unknown): unknown {
+  const placeholders = new Map<string, string>();
+  const prefixes = new Map<string, string>();
+  const json = JSON.stringify(value, null, 2)
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{64}/g, (match) => {
+      if (!placeholders.has(match)) {
+        const placeholder = `<${match.length === 64 ? 'digest' : 'uuid'}-${placeholders.size + 1}>`;
+        placeholders.set(match, placeholder);
+        if (match.length !== 64) prefixes.set(match.slice(0, 8), `${placeholder.slice(0, -1)}:8>`);
+      }
+      return placeholders.get(match)!;
+    })
+    // Labels show the first eight characters of competition and reset command IDs.
+    .replace(/\b[0-9a-f]{8}\b/g, (match) => prefixes.get(match) ?? match);
+  return JSON.parse(json);
+}
+beforeEach(() => {
+  vistaOutputs.length = 0;
+  const catalog = DirectorVistaSource.prototype.catalog;
+  const snapshot = DirectorVistaSource.prototype.snapshot;
+  vi.spyOn(DirectorVistaSource.prototype, 'catalog').mockImplementation(function (this: DirectorVistaSource) {
+    const value = catalog.call(this);
+    vistaOutputs.push({ catalog: value });
+    return value;
+  });
+  vi.spyOn(DirectorVistaSource.prototype, 'snapshot').mockImplementation(async function (
+    this: DirectorVistaSource,
+    subjectId: string,
+  ) {
+    try {
+      const value = await snapshot.call(this, subjectId);
+      vistaOutputs.push({ snapshot: value });
+      return value;
+    } catch (error) {
+      vistaOutputs.push({ snapshotError: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+  });
+});
+afterEach(() => {
+  // The full JSON runs to megabytes, so each output is pinned by the SHA-256 of its canonical JSON.
+  const outputs = canonicalVistaOutput(vistaOutputs) as Record<string, unknown>[];
+  expect(
+    outputs.map((output) =>
+      'snapshotError' in output
+        ? output
+        : Object.fromEntries(Object.entries(output).map(([kind, value]) => [kind, sha256Json(value)])),
+    ),
+  ).toMatchSnapshot();
+  vi.restoreAllMocks();
+});
+
 describe('Director Vista source', () => {
   let db: Database.Database;
   let registry: CompetitionTypeRegistry;
@@ -237,7 +295,16 @@ describe('Director Vista source', () => {
     }));
     source = new DirectorVistaSource(db, registry, journal, { getSnapshot: board }, identity, () => checkedAt);
   });
-  afterEach(() => db.close());
+  afterEach(() => {
+    // The saved sources and snapshots are read back by later Director versions.
+    if (db.open)
+      vistaOutputs.push({
+        rows: db
+          .prepare('SELECT id, source_json, snapshot_json, revision FROM vista_competition_sources ORDER BY rowid')
+          .all(),
+      });
+    db.close();
+  });
 
   function seedQualificationEvent(eventCode = 'BR60S') {
     seedChampionship(db, { id: championshipId, name: 'Championship', date: '2026-09-11', venue: 'Range' });
@@ -2207,6 +2274,35 @@ describe('Director Vista source', () => {
         .subjects.map((subject) => subject.id)
         .filter((id) => id.includes(':reset:')),
     ).toEqual([expect.stringContaining(nextCompetition)]);
+  });
+
+  it('pins the exact catalog and snapshot JSON, digests included, for a competition with fixed IDs', async () => {
+    const ids = [
+      [competitionId, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'],
+      [laneId, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'],
+      [sessionId, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'],
+      [participantId, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'],
+    ] as const;
+    const withFixedIds = <T>(value: T): T =>
+      JSON.parse(ids.reduce((json, [from, to]) => json.replaceAll(from, to), JSON.stringify(value))) as T;
+    const [fixedCompetitionId, fixedLaneId, fixedSessionId] = ids.map(([, to]) => to);
+    source.observe(withFixedIds(control(registry)));
+    journal.append({
+      ...shot(),
+      id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      shotId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+      competitionId: fixedCompetitionId!,
+      laneId: fixedLaneId!,
+      sessionId: fixedSessionId!,
+    });
+    const fired = control(registry);
+    fire(fired);
+    source.observe(withFixedIds(fired));
+
+    expect({
+      catalog: source.catalog(),
+      snapshot: await source.snapshot(`${fixedCompetitionId}:relay`),
+    }).toMatchSnapshot();
   });
 
   it('provides complete deduplicated history and stable semantic revisions with anchored clocks', async () => {
