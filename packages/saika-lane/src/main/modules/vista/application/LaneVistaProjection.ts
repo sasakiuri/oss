@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 
 import {
+  VISTA_EVENT_CODES,
   VISTA_PROTOCOL_VERSION,
   VistaDefinitionSchema,
   VistaSnapshotSchema,
@@ -24,11 +25,7 @@ export function laneVistaDefinition(competition: CompetitionState, session: Sess
       candidate.discipline === session.discipline.value &&
       canonicalJson(candidate.config) === canonicalJson(competition.config),
   );
-  if (
-    !standard ||
-    !['AR60', 'AP60', 'BR60S', 'BP60', 'AR60_FINAL', 'AP60_FINAL', 'BR60S_FINAL', 'BP60_FINAL'].includes(standard.id)
-  )
-    return null;
+  if (!standard || !(VISTA_EVENT_CODES as readonly string[]).includes(standard.id)) return null;
   const profile = getDefaultTargetScoringProfile(session.discipline.value);
   const rifle = session.discipline.value.includes('RIFLE');
   const target = {
