@@ -28,6 +28,7 @@ import { AssignedFinalRecoveryFiringContextSource } from './application/Assigned
 import { AssignedMalfunctionFiringContextSource } from './application/AssignedMalfunctionFiringContextSource';
 import { BroadcastCommandHandler } from './application/commands/BroadcastCommandHandler';
 import { CommandIdempotencyGuard } from './application/commands/CommandIdempotencyGuard';
+import { LaneCommandProcessor } from './application/commands/LaneCommandProcessor';
 import { LaneTier1CommandHandler } from './application/commands/LaneTier1CommandHandler';
 import { PerLaneCommandHandler } from './application/commands/PerLaneCommandHandler';
 import { CompetitionCueSubscriber } from './application/CompetitionCueSubscriber';
@@ -139,7 +140,6 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
   }) {
     const mqttClient = new MqttClientService();
     const appVersion = app.getVersion();
-    const idempotencyGuard = new CommandIdempotencyGuard();
     const getLaneId = (): string => settingsStore.getLaneId();
     const definitionsById = new Map(ALL_COMPETITION_TYPES.map((definition) => [definition.id, definition]));
     const rulePacks = ALL_COMPETITION_TYPES.flatMap((definition) =>
@@ -302,7 +302,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     );
 
     // Initialize retain publisher (handles reconnect republish + shot backlog replay)
-    const retainPublisher = new RetainPublisher(
+    const retainPublisher = new RetainPublisher({
       mqttClient,
       storage,
       competitionRepository,
@@ -313,13 +313,13 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       assignmentPublisher,
       safetyStatePublisher,
       rangeOfficerRequestPublisher,
-      timedTargetStatePublisher,
-      qualificationRecoveryStatePublisher,
-      (shotId) => qualificationRecoveryShotOutbox.hasShot(shotId),
       qualificationMalfunctionSignalPublisher,
       estComplaintSignalPublisher,
-      () => startup.isReady(),
-    );
+      timedTargetStatePublisher,
+      qualificationRecoveryStatePublisher,
+      excludeCompetitionShotReplay: (shotId) => qualificationRecoveryShotOutbox.hasShot(shotId),
+      canPublishCompetition: () => startup.isReady(),
+    });
 
     // Initialize RPC handler
     const rpcHandler = new RpcRequestHandler(mqttClient, storage, queryBus);
@@ -334,68 +334,66 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     );
     const competitionCueSubscriber = new CompetitionCueSubscriber(mqttClient, eventBus, getLaneId);
 
-    // Initialize command handlers (laneId is read dynamically via getter)
-    const competitionId = ''; // Set when joining a competition
-
-    const broadcastHandler = new BroadcastCommandHandler(
+    // One receive boundary validates, authorizes and deduplicates every command handler's deliveries.
+    const processor = new LaneCommandProcessor({
       mqttClient,
+      idempotencyGuard: new CommandIdempotencyGuard(),
+      commandAuthorization,
+      getLaneId,
+      isReady: () => startup.isReady(),
+    });
+
+    const broadcastHandler = new BroadcastCommandHandler({
+      mqttClient,
+      processor,
       commandBus,
       timerService,
       competitionRepository,
       competitionStatePublisher,
       scorePublisher,
-      idempotencyGuard,
       getLaneId,
-      competitionId,
-      competitionInterruptionControl,
+      interruptionControl: competitionInterruptionControl,
       safetyStopControl,
-      competitionShootOffControl,
-      commandAuthorization,
+      shootOffControl: competitionShootOffControl,
       timedTargetControl,
-      () => startup.isReady(),
-    );
+    });
 
-    const perLaneHandler = new PerLaneCommandHandler(
+    const perLaneHandler = new PerLaneCommandHandler({
       mqttClient,
+      processor,
       commandBus,
-      idempotencyGuard,
       competitionRepository,
       assignmentPublisher,
       scorePublisher,
       competitionStatePublisher,
-      competitionInterruptionControl,
+      interruptionControl: competitionInterruptionControl,
       getLaneId,
-      competitionId,
       safetyStopControl,
-      commandAuthorization,
       qualificationRecoveryControl,
       qualificationRecoveryStatePublisher,
       qualificationRecoveryAdjudicationControl,
       qualificationRecoverySettlementControl,
       malfunctionFiringControl,
       reserveTransferControl,
-      (competitionId) => retainPublisher.replayTransferredSession(competitionId),
-      () => startup.isReady(),
-    );
+      replayTransferredSession: (competitionId) => retainPublisher.replayTransferredSession(competitionId),
+    });
 
-    const tier1Handler = new LaneTier1CommandHandler(
+    const tier1Handler = new LaneTier1CommandHandler({
       mqttClient,
-      idempotencyGuard,
+      processor,
       broadcastHandler,
       perLaneHandler,
       rpcHandler,
       competitionStateSubscriber,
+      competitionCueSubscriber,
       retainPublisher,
       membership,
       getLaneId,
       safetyStopControl,
       safetyStatePublisher,
-      competitionCueSubscriber,
       competitionShootOffControl,
-      commandAuthorization,
       timedTargetControl,
-      () => startup.isReady(),
-    );
+    });
 
     let lastConnectError: string | null = null;
     let inFlightConnect: { key: string; promise: Promise<void> } | null = null;

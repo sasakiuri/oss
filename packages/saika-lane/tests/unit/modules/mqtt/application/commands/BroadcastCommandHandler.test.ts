@@ -27,10 +27,15 @@ import { Timer } from '@/main/modules/competition/domain/Timer';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
-import { BroadcastCommandHandler } from '@/main/modules/mqtt/application/commands/BroadcastCommandHandler';
+import {
+  BroadcastCommandHandler,
+  type BroadcastCommandHandlerDeps,
+} from '@/main/modules/mqtt/application/commands/BroadcastCommandHandler';
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
+import { LaneCommandProcessor } from '@/main/modules/mqtt/application/commands/LaneCommandProcessor';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
+import { CommandAuthorizationPolicy } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
@@ -114,6 +119,33 @@ describe('BroadcastCommandHandler', () => {
   let handler: BroadcastCommandHandler;
   let messageHandler: (topic: string, payload: Buffer) => void;
 
+  function createHandler(overrides: Partial<BroadcastCommandHandlerDeps> = {}): BroadcastCommandHandler {
+    return new BroadcastCommandHandler({
+      mqttClient,
+      processor: new LaneCommandProcessor({
+        mqttClient,
+        idempotencyGuard: guard,
+        commandAuthorization: new CommandAuthorizationPolicy(),
+        getLaneId: () => LANE_ID,
+        isReady: () => startupReady,
+      }),
+      commandBus,
+      timerService,
+      competitionRepository: competitionRepository as ICompetitionRepository,
+      competitionStatePublisher,
+      scorePublisher,
+      getLaneId: () => LANE_ID,
+      interruptionControl,
+      safetyStopControl: { isStopped: () => false, getState: () => null },
+      shootOffControl,
+      timedTargetControl: {
+        getState: vi.fn().mockReturnValue(null),
+        cancel: vi.fn(),
+      } as unknown as ITimedTargetControl,
+      ...overrides,
+    });
+  }
+
   beforeEach(() => {
     startupReady = true;
     mqttClient = createMockMqttClient();
@@ -144,23 +176,7 @@ describe('BroadcastCommandHandler', () => {
       canAcceptShot: vi.fn().mockReturnValue(false),
       recordShot: vi.fn(),
     };
-    handler = new BroadcastCommandHandler(
-      mqttClient,
-      commandBus,
-      timerService,
-      competitionRepository as ICompetitionRepository,
-      competitionStatePublisher,
-      scorePublisher,
-      guard,
-      () => LANE_ID,
-      COMPETITION_ID,
-      interruptionControl,
-      undefined,
-      shootOffControl,
-      undefined,
-      undefined,
-      () => startupReady,
-    );
+    handler = createHandler();
 
     (mqttClient.onMessage as ReturnType<typeof vi.fn>).mockImplementation(
       (h: (topic: string, payload: Buffer) => void) => {
@@ -385,20 +401,7 @@ describe('BroadcastCommandHandler', () => {
         isStopped: vi.fn(() => stopped),
         getState: vi.fn(() => ({ safetyStopId: 'a7777777-7777-4777-a777-777777777777' })),
       } as unknown as Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
-      handler = new BroadcastCommandHandler(
-        mqttClient,
-        commandBus,
-        timerService,
-        competitionRepository as ICompetitionRepository,
-        competitionStatePublisher,
-        scorePublisher,
-        guard,
-        () => LANE_ID,
-        COMPETITION_ID,
-        interruptionControl,
-        safetyStopControl,
-        shootOffControl,
-      );
+      handler = createHandler({ safetyStopControl });
 
       await sendMessage(
         'start-shoot-off',
@@ -494,22 +497,7 @@ describe('BroadcastCommandHandler', () => {
         restore: vi.fn(),
         dispose: vi.fn(),
       } as unknown as ITimedTargetControl;
-      handler = new BroadcastCommandHandler(
-        mqttClient,
-        commandBus,
-        timerService,
-        competitionRepository as ICompetitionRepository,
-        competitionStatePublisher,
-        scorePublisher,
-        guard,
-        () => LANE_ID,
-        COMPETITION_ID,
-        interruptionControl,
-        undefined,
-        shootOffControl,
-        undefined,
-        timedTargetControl,
-      );
+      handler = createHandler({ timedTargetControl });
     });
 
     it('arms the RulePack program at the Director supplied absolute LOAD time', async () => {
@@ -684,22 +672,7 @@ describe('BroadcastCommandHandler', () => {
         isStopped: vi.fn(() => stopped),
         getState: vi.fn(() => ({ safetyStopId: 'a7777777-7777-4777-a777-777777777777' })),
       } as unknown as Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
-      handler = new BroadcastCommandHandler(
-        mqttClient,
-        commandBus,
-        timerService,
-        competitionRepository as ICompetitionRepository,
-        competitionStatePublisher,
-        scorePublisher,
-        guard,
-        () => LANE_ID,
-        COMPETITION_ID,
-        interruptionControl,
-        safetyStopControl,
-        shootOffControl,
-        undefined,
-        timedTargetControl,
-      );
+      handler = createHandler({ safetyStopControl, timedTargetControl });
 
       await sendMessage(
         'start-timed-target',

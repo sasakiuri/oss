@@ -11,16 +11,11 @@ import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/to
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { IMalfunctionFiringControl, MalfunctionFiringRequest } from '@/main/modules/malfunction-firing';
-import type { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
 import type { QualificationRecoveryStatePublisher } from '@/main/modules/mqtt/application/QualificationRecoveryStatePublisher';
 import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
-import {
-  CommandAuthorizationPolicy,
-  type ICommandAuthorizationPolicy,
-} from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
 import type {
@@ -34,7 +29,7 @@ import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
-import { LaneCommandProcessor, type LaneCommandSchemas } from './LaneCommandProcessor';
+import type { LaneCommandProcessor, LaneCommandSchemas } from './LaneCommandProcessor';
 
 type PerLaneAction = MqttCommandActionOf<'competition-lane'>;
 
@@ -45,44 +40,31 @@ const ACTION_SCHEMAS: LaneCommandSchemas<PerLaneAction> = commandSchemasForScope
 
 type PerLaneTopic = ParsedMqttTopicOf<'laneCompetitionCommand'>;
 
+export interface PerLaneCommandHandlerDeps {
+  mqttClient: IMqttClientService;
+  processor: LaneCommandProcessor;
+  commandBus: CommandBus;
+  competitionRepository: ICompetitionRepository;
+  assignmentPublisher: Pick<LaneAssignmentPublisher, 'assign'>;
+  scorePublisher: Pick<LaneScorePublisher, 'publishCurrentScore'>;
+  competitionStatePublisher: Pick<LaneCompetitionStatePublisher, 'publishCurrentState'>;
+  interruptionControl: ICompetitionInterruptionControl;
+  getLaneId: () => string;
+  safetyStopControl: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
+  qualificationRecoveryControl: IQualificationRecoveryControl;
+  qualificationRecoveryStatePublisher: Pick<QualificationRecoveryStatePublisher, 'publishCurrentState'>;
+  qualificationRecoveryAdjudicationControl: IQualificationRecoveryAdjudicationControl;
+  qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
+  malfunctionFiringControl: IMalfunctionFiringControl;
+  reserveTransferControl: IReserveLaneTransferControl;
+  replayTransferredSession: (competitionId: string) => Promise<void>;
+}
+
 export class PerLaneCommandHandler {
-  private readonly processor: LaneCommandProcessor;
   private readonly subscription: TopicSubscription;
 
-  constructor(
-    mqttClient: IMqttClientService,
-    private readonly commandBus: CommandBus,
-    idempotencyGuard: CommandIdempotencyGuard,
-    private readonly competitionRepository: ICompetitionRepository,
-    private readonly assignmentPublisher: LaneAssignmentPublisher,
-    private readonly scorePublisher: LaneScorePublisher,
-    private readonly competitionStatePublisher: LaneCompetitionStatePublisher,
-    private readonly interruptionControl: ICompetitionInterruptionControl,
-    private readonly getLaneId: () => string,
-    _competitionId: string,
-    private readonly safetyStopControl?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
-    commandAuthorization: ICommandAuthorizationPolicy = new CommandAuthorizationPolicy(),
-    private readonly qualificationRecoveryControl?: IQualificationRecoveryControl,
-    private readonly qualificationRecoveryStatePublisher?: Pick<
-      QualificationRecoveryStatePublisher,
-      'publishCurrentState'
-    >,
-    private readonly qualificationRecoveryAdjudicationControl?: IQualificationRecoveryAdjudicationControl,
-    private readonly qualificationRecoverySettlementControl?: IQualificationRecoverySettlementControl,
-    private readonly malfunctionFiringControl?: IMalfunctionFiringControl,
-    private readonly reserveTransferControl?: IReserveLaneTransferControl,
-    private readonly replayTransferredSession?: (competitionId: string) => Promise<void>,
-    isReady: () => boolean = () => true,
-  ) {
-    this.processor = new LaneCommandProcessor(
-      mqttClient,
-      idempotencyGuard,
-      commandAuthorization,
-      getLaneId,
-      'PerLaneCommandHandler',
-      isReady,
-    );
-    this.subscription = new TopicSubscription(mqttClient, {
+  constructor(private readonly deps: PerLaneCommandHandlerDeps) {
+    this.subscription = new TopicSubscription(deps.mqttClient, {
       listenBeforeSubscribe: false,
       unsubscribeErrors: 'rethrow-while-connected',
     });
@@ -94,11 +76,11 @@ export class PerLaneCommandHandler {
   async subscribeToCompetition(competitionId: string): Promise<void> {
     await this.unsubscribeFromCompetition();
 
-    const topic = mqttTopicFilters.laneCompetitionCommands(competitionId, this.getLaneId());
+    const topic = mqttTopicFilters.laneCompetitionCommands(competitionId, this.deps.getLaneId());
     await this.subscription.open(topic, (msgTopic, payload) => {
       const parsed = parseMqttTopic(msgTopic);
       if (parsed?.kind !== 'laneCompetitionCommand') return;
-      if (parsed.laneId !== this.getLaneId()) return;
+      if (parsed.laneId !== this.deps.getLaneId()) return;
 
       void this.handleCommand(parsed, payload);
     });
@@ -115,13 +97,15 @@ export class PerLaneCommandHandler {
    * Processes a command
    */
   private handleCommand(parsed: PerLaneTopic, payload: Buffer): Promise<void> {
-    return this.processor.handle<PerLaneAction>({
+    return this.deps.processor.handle<PerLaneAction>({
+      logContext: 'PerLaneCommandHandler',
       action: parsed.action,
       payload,
       schemas: ACTION_SCHEMAS,
+      requiresReady: () => true,
       acknowledgementTopic: mqttTopics.laneCompetitionCommandAcknowledgement(
         parsed.competitionId,
-        this.getLaneId(),
+        this.deps.getLaneId(),
         parsed.action,
       ),
       execute: (action, command) => this.executeAction(action, command, parsed.competitionId),
@@ -137,10 +121,9 @@ export class PerLaneCommandHandler {
     competitionId: string,
   ): Promise<Record<string, unknown> | undefined> {
     if (action !== 'reserve-lane-transfer' && action !== 'read-malfunction-firing')
-      this.reserveTransferControl?.assertMutationAllowed();
+      this.deps.reserveTransferControl.assertMutationAllowed();
     switch (action) {
       case 'reserve-lane-transfer': {
-        if (!this.reserveTransferControl) throw new Error('Reserve transfer is unavailable');
         const transfer = command.transfer as ReserveLaneTransferAction;
         const transferCompetitionId =
           transfer.operation === 'PREPARE_SOURCE'
@@ -149,33 +132,32 @@ export class PerLaneCommandHandler {
               ? transfer.bundle.request.competitionId
               : competitionId;
         if (transferCompetitionId !== competitionId) throw new Error('Transfer belongs to another competition');
-        const bundle = await this.reserveTransferControl.execute(competitionId, transfer);
+        const bundle = await this.deps.reserveTransferControl.execute(competitionId, transfer);
         if (bundle.request.competitionId !== competitionId) throw new Error('Transfer belongs to another competition');
-        if (transfer.operation === 'ACTIVATE_TARGET') await this.replayTransferredSession?.(competitionId);
-        await this.competitionStatePublisher.publishCurrentState(competitionId);
-        await this.scorePublisher.publishCurrentScore(competitionId);
+        if (transfer.operation === 'ACTIVATE_TARGET') await this.deps.replayTransferredSession(competitionId);
+        await this.deps.competitionStatePublisher.publishCurrentState(competitionId);
+        await this.deps.scorePublisher.publishCurrentScore(competitionId);
         return { bundle };
       }
       case 'start-malfunction-firing': {
         this.assertSafetyCleared(action);
-        if (!this.malfunctionFiringControl) throw new Error('Malfunction firing is unavailable');
         const request = command.request as MalfunctionFiringRequest;
         if (request.competitionId !== competitionId) throw new Error('Firing request has a different competition');
-        return { evidence: MalfunctionFiringEvidenceSchema.parse(await this.malfunctionFiringControl.start(request)) };
+        return {
+          evidence: MalfunctionFiringEvidenceSchema.parse(await this.deps.malfunctionFiringControl.start(request)),
+        };
       }
       case 'read-malfunction-firing': {
-        if (!this.malfunctionFiringControl) throw new Error('Malfunction firing is unavailable');
         return {
           evidence: MalfunctionFiringEvidenceSchema.parse(
-            this.malfunctionFiringControl.read(competitionId, command.runId as string),
+            this.deps.malfunctionFiringControl.read(competitionId, command.runId as string),
           ),
         };
       }
       case 'cancel-malfunction-firing': {
-        if (!this.malfunctionFiringControl) throw new Error('Malfunction firing is unavailable');
         return {
           evidence: MalfunctionFiringEvidenceSchema.parse(
-            this.malfunctionFiringControl.cancel(
+            this.deps.malfunctionFiringControl.cancel(
               competitionId,
               command.runId as string,
               command.reason as string,
@@ -186,13 +168,13 @@ export class PerLaneCommandHandler {
       }
       case 'assign-athlete': {
         const athlete = command.athlete as Athlete | null;
-        await this.assignmentPublisher.assign(competitionId, athlete);
+        await this.deps.assignmentPublisher.assign(competitionId, athlete);
         return undefined;
       }
 
       case 'reset-session': {
         // ResetSession requires a sessionId. Retrieve CompetitionState from competitionId to resolve sessionId.
-        const competition = await this.competitionRepository.findById(competitionId);
+        const competition = await this.deps.competitionRepository.findById(competitionId);
         if (!competition) {
           throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { competitionId });
         }
@@ -201,22 +183,22 @@ export class PerLaneCommandHandler {
             detail: `reset-session is only allowed before competition start; current phase is ${competition.phase}`,
           });
         }
-        await this.commandBus.execute(ResetSessionToken, {
+        await this.deps.commandBus.execute(ResetSessionToken, {
           sessionId: competition.sessionId,
         });
         // A successful reset acknowledgement guarantees that the broker no
         // longer retains the pre-reset score.
-        await this.scorePublisher.publishCurrentScore();
+        await this.deps.scorePublisher.publishCurrentScore();
         return undefined;
       }
 
       case 'pause-timer': {
-        const record = await this.interruptionControl.pause({
+        const record = await this.deps.interruptionControl.pause({
           competitionId,
           interruptionId: command.interruptionId as string,
           pausedAt: new Date(command.pausedAt as string),
         });
-        await this.competitionStatePublisher.publishCurrentState(competitionId);
+        await this.deps.competitionStatePublisher.publishCurrentState(competitionId);
         return {
           interruptionId: record.interruptionId,
           status: record.status,
@@ -228,30 +210,30 @@ export class PerLaneCommandHandler {
 
       case 'resume-timer': {
         this.assertSafetyCleared(action);
-        const record = await this.interruptionControl.resume({
+        const record = await this.deps.interruptionControl.resume({
           competitionId,
           interruptionId: command.interruptionId as string,
           timerStartAt: new Date(command.timerStartAt as string),
           authorizedRemainingSeconds: command.authorizedRemainingSeconds as number,
           unlimitedSightingShots: command.unlimitedSightingShots as boolean,
         });
-        await this.competitionStatePublisher.publishCurrentState(competitionId);
+        await this.deps.competitionStatePublisher.publishCurrentState(competitionId);
         return { interruptionId: record.interruptionId, status: record.status };
       }
 
       case 'resume-match': {
         this.assertSafetyCleared(action);
-        const record = await this.interruptionControl.resumeMatch({
+        const record = await this.deps.interruptionControl.resumeMatch({
           competitionId,
           interruptionId: command.interruptionId as string,
         });
-        await this.competitionStatePublisher.publishCurrentState(competitionId);
+        await this.deps.competitionStatePublisher.publishCurrentState(competitionId);
         return { interruptionId: record.interruptionId, status: record.status };
       }
 
       case 'start-qualification-recovery': {
         this.assertSafetyCleared(action);
-        const control = this.requireQualificationRecoveryControl();
+        const control = this.deps.qualificationRecoveryControl;
         const record = await control.start({
           runId: command.runId as string,
           decisionId: command.decisionId as string,
@@ -268,7 +250,7 @@ export class PerLaneCommandHandler {
           decisionRuleReference: command.decisionRuleReference as string,
           decidedAt: new Date(command.decidedAt as string),
         });
-        await this.qualificationRecoveryStatePublisher?.publishCurrentState(competitionId);
+        await this.deps.qualificationRecoveryStatePublisher.publishCurrentState(competitionId);
         return {
           runId: record.runId,
           sequenceId: record.sequenceId,
@@ -279,18 +261,18 @@ export class PerLaneCommandHandler {
 
       case 'cancel-qualification-recovery': {
         this.assertSafetyCleared(action);
-        const control = this.requireQualificationRecoveryControl();
+        const control = this.deps.qualificationRecoveryControl;
         const current = control.get(command.runId as string);
         if (!current || current.competitionId !== competitionId) {
           throw new Error(`Qualification recovery run ${command.runId as string} does not belong to this competition`);
         }
         const record = control.cancel({ runId: current.runId, reason: command.reason as string });
-        await this.qualificationRecoveryStatePublisher?.publishCurrentState(competitionId);
+        await this.deps.qualificationRecoveryStatePublisher.publishCurrentState(competitionId);
         return { runId: record.runId, sequenceId: record.sequenceId, status: record.status };
       }
 
       case 'apply-qualification-recovery': {
-        const control = this.requireQualificationRecoveryAdjudicationControl();
+        const control = this.deps.qualificationRecoveryAdjudicationControl;
         const current = control.get(command.runId as string);
         if (current && current.competitionId !== competitionId) {
           throw new Error(`Qualification recovery run ${command.runId as string} does not belong to this competition`);
@@ -303,8 +285,8 @@ export class PerLaneCommandHandler {
           appliedAt: new Date(command.appliedAt as string),
         });
         await Promise.all([
-          this.competitionStatePublisher.publishCurrentState(competitionId),
-          this.scorePublisher.publishCurrentScore(competitionId),
+          this.deps.competitionStatePublisher.publishCurrentState(competitionId),
+          this.deps.scorePublisher.publishCurrentScore(competitionId),
         ]);
         return {
           adjudicationId: record.id,
@@ -316,7 +298,7 @@ export class PerLaneCommandHandler {
       }
 
       case 'settle-qualification-recovery': {
-        const control = this.requireQualificationRecoverySettlementControl();
+        const control = this.deps.qualificationRecoverySettlementControl;
         const current = control.get(command.decisionId as string);
         if (current && current.competitionId !== competitionId) {
           throw new Error(
@@ -341,8 +323,8 @@ export class PerLaneCommandHandler {
           appliedAt: new Date(command.appliedAt as string),
         });
         await Promise.all([
-          this.competitionStatePublisher.publishCurrentState(competitionId),
-          this.scorePublisher.publishCurrentScore(competitionId),
+          this.deps.competitionStatePublisher.publishCurrentState(competitionId),
+          this.deps.scorePublisher.publishCurrentScore(competitionId),
         ]);
         return {
           settlementId: record.id,
@@ -353,7 +335,7 @@ export class PerLaneCommandHandler {
       }
 
       case 'retire-finalist': {
-        const competition = await this.competitionRepository.findById(competitionId);
+        const competition = await this.deps.competitionRepository.findById(competitionId);
         if (!competition) throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: competitionId });
         if (competition.config.name !== 'Final') {
           throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
@@ -361,12 +343,12 @@ export class PerLaneCommandHandler {
           });
         }
         if (competition.phase !== 'FINISHED') {
-          await this.commandBus.execute(FinishCompetitionToken, { competitionId });
+          await this.deps.commandBus.execute(FinishCompetitionToken, { competitionId });
         }
         const finalSnapshotCommandId = command.commandId as string;
         await Promise.all([
-          this.competitionStatePublisher.publishCurrentState(competitionId, finalSnapshotCommandId),
-          this.scorePublisher.publishCurrentScore(competitionId, finalSnapshotCommandId),
+          this.deps.competitionStatePublisher.publishCurrentState(competitionId, finalSnapshotCommandId),
+          this.deps.scorePublisher.publishCurrentScore(competitionId, finalSnapshotCommandId),
         ]);
         return {
           checkpointId: command.checkpointId,
@@ -378,27 +360,8 @@ export class PerLaneCommandHandler {
   }
 
   private assertSafetyCleared(action: string): void {
-    if (!this.safetyStopControl?.isStopped()) return;
-    const safetyStopId = this.safetyStopControl.getState()?.safetyStopId ?? 'unknown';
+    if (!this.deps.safetyStopControl.isStopped()) return;
+    const safetyStopId = this.deps.safetyStopControl.getState()?.safetyStopId ?? 'unknown';
     throw new Error(`Safety stop ${safetyStopId} is active; ${action} is blocked`);
-  }
-
-  private requireQualificationRecoveryControl(): IQualificationRecoveryControl {
-    if (!this.qualificationRecoveryControl) throw new Error('Lane Qualification recovery control is unavailable');
-    return this.qualificationRecoveryControl;
-  }
-
-  private requireQualificationRecoveryAdjudicationControl(): IQualificationRecoveryAdjudicationControl {
-    if (!this.qualificationRecoveryAdjudicationControl) {
-      throw new Error('Lane Qualification recovery adjudication control is unavailable');
-    }
-    return this.qualificationRecoveryAdjudicationControl;
-  }
-
-  private requireQualificationRecoverySettlementControl(): IQualificationRecoverySettlementControl {
-    if (!this.qualificationRecoverySettlementControl) {
-      throw new Error('Qualification recovery settlement is unavailable');
-    }
-    return this.qualificationRecoverySettlementControl;
   }
 }

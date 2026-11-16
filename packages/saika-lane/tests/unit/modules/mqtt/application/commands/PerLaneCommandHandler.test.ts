@@ -25,16 +25,19 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { IMalfunctionFiringControl, MalfunctionFiringRun } from '@/main/modules/malfunction-firing';
 import { CommandIdempotencyGuard } from '@/main/modules/mqtt/application/commands/CommandIdempotencyGuard';
+import { LaneCommandProcessor } from '@/main/modules/mqtt/application/commands/LaneCommandProcessor';
 import { PerLaneCommandHandler } from '@/main/modules/mqtt/application/commands/PerLaneCommandHandler';
 import type { LaneAssignmentPublisher } from '@/main/modules/mqtt/application/LaneAssignmentPublisher';
 import type { LaneCompetitionStatePublisher } from '@/main/modules/mqtt/application/LaneCompetitionStatePublisher';
 import type { LaneScorePublisher } from '@/main/modules/mqtt/application/LaneScorePublisher';
+import { CommandAuthorizationPolicy } from '@/main/modules/mqtt/domain/CommandAuthorizationPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type {
   IQualificationRecoveryAdjudicationControl,
   IQualificationRecoveryControl,
   IQualificationRecoverySettlementControl,
 } from '@/main/modules/qualification-recovery';
+import type { IReserveLaneTransferControl } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
 
 import { createMockCommandBus } from '../../../../../helpers/mockDependencies';
 
@@ -184,28 +187,34 @@ describe('PerLaneCommandHandler', () => {
       read: vi.fn().mockImplementation(() => firingEvidence(firingRequest())),
       cancel: vi.fn().mockImplementation(() => ({ ...firingEvidence(firingRequest()), status: 'CANCELLED' })),
     };
-    handler = new PerLaneCommandHandler(
+    handler = new PerLaneCommandHandler({
       mqttClient,
+      processor: new LaneCommandProcessor({
+        mqttClient,
+        idempotencyGuard: guard,
+        commandAuthorization: new CommandAuthorizationPolicy(),
+        getLaneId: () => LANE_ID,
+        isReady: () => startupReady,
+      }),
       commandBus,
-      guard,
-      competitionRepo,
+      competitionRepository: competitionRepo,
       assignmentPublisher,
       scorePublisher,
       competitionStatePublisher,
       interruptionControl,
-      () => LANE_ID,
-      COMPETITION_ID,
-      { isStopped: () => safetyStopped, getState: () => null },
-      undefined,
+      getLaneId: () => LANE_ID,
+      safetyStopControl: { isStopped: () => safetyStopped, getState: () => null },
       qualificationRecoveryControl,
       qualificationRecoveryStatePublisher,
       qualificationRecoveryAdjudicationControl,
       qualificationRecoverySettlementControl,
       malfunctionFiringControl,
-      undefined,
-      undefined,
-      () => startupReady,
-    );
+      reserveTransferControl: {
+        assertMutationAllowed: vi.fn(),
+        execute: vi.fn(),
+      } as unknown as IReserveLaneTransferControl,
+      replayTransferredSession: vi.fn().mockResolvedValue(undefined),
+    });
 
     (mqttClient.onMessage as Mock).mockImplementation((h: (topic: string, payload: Buffer) => void) => {
       messageHandler = h;

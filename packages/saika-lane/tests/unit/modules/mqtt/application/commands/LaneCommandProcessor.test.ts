@@ -16,7 +16,7 @@ const commandId = 'c3333333-3333-4333-a333-333333333333';
 const now = '2026-09-09T00:00:00.000Z';
 const command = { commandId, issuedBy: 'director', issuedAt: now, directorSentAt: now };
 
-function setup(policy = new CommandAuthorizationPolicy(), canExecute = () => true) {
+function setup(policy = new CommandAuthorizationPolicy(), isReady = () => true) {
   const publications: CommandAcknowledgement[] = [];
   const mqtt = {
     publish: vi.fn(async (_topic: string, payload: string) => {
@@ -24,13 +24,21 @@ function setup(policy = new CommandAuthorizationPolicy(), canExecute = () => tru
     }),
   };
   const guard = new CommandIdempotencyGuard();
-  const processor = new LaneCommandProcessor(mqtt, guard, policy, () => 'lane', 'test', canExecute);
+  const processor = new LaneCommandProcessor({
+    mqttClient: mqtt,
+    idempotencyGuard: guard,
+    commandAuthorization: policy,
+    getLaneId: () => 'lane',
+    isReady,
+  });
   const execute = vi.fn().mockResolvedValue(undefined);
   const request = {
+    logContext: 'test',
     action: 'probe-clock',
     payload: Buffer.from(JSON.stringify(command)),
     acknowledgementTopic: 'ack',
     schemas: { 'probe-clock': laneCommandSchemas.ProbeClockCommandSchema },
+    requiresReady: () => true,
     execute,
   };
   return { processor, mqtt, guard, publications, execute, request };
