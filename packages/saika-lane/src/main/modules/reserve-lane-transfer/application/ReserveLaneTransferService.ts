@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { createHash } from 'node:crypto';
 
-import { canonicalJson } from '@sasakiuri/saika-rules';
-
 import {
   ReserveLaneTransferBundleSchema,
   type ReserveLaneTransferAction,
   type ReserveLaneTransferBundle,
-} from '@/shared/mqtt/ReserveLaneTransfer';
+} from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
+import { canonicalJson } from '@sasakiuri/saika-rules';
 
 import type {
   IReserveLaneTransferControl,

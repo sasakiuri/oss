@@ -7,15 +7,14 @@ import {
   query,
   queryResponseSchema,
 } from '@sasakiuri/saika-ipc';
-import { z } from 'zod';
-
 import {
   EstComplaintIssueSchema,
   EstComplaintSignalContextSchema,
   EstComplaintSignalPayloadSchema,
-} from '@/shared/mqtt/EstComplaintSignal';
-import { QualificationMalfunctionSignalPayloadSchema } from '@/shared/mqtt/QualificationMalfunctionSignal';
-import { RangeOfficerRequestPayloadSchema } from '@/shared/mqtt/RangeOfficerRequest';
+} from '@sasakiuri/saika-protocol/EstComplaintSignal';
+import { QualificationMalfunctionSignalPayloadSchema } from '@sasakiuri/saika-protocol/QualificationMalfunctionSignal';
+import { RangeOfficerRequestPayloadSchema } from '@sasakiuri/saika-protocol/RangeOfficerRequest';
+import { z } from 'zod';
 
 // ============================================================
 // Shared schemas

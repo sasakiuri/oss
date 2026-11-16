@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 
+import {
+  QualificationMalfunctionSignalPayloadSchema,
+  type QualificationMalfunctionSignalPayload,
+} from '@sasakiuri/saika-protocol/QualificationMalfunctionSignal';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type {
   QualificationMalfunctionSignalService,
   QualificationMalfunctionSignalState,
 } from '@/main/modules/qualification-malfunction-signal';
-import {
-  QualificationMalfunctionSignalPayloadSchema,
-  type QualificationMalfunctionSignalPayload,
-} from '@/shared/mqtt/QualificationMalfunctionSignal';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';

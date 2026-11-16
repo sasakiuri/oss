@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: MIT
+import type {
+  ReserveLaneTransferBundle,
+  ReserveLaneTransferRequest,
+} from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 import { canonicalJson } from '@sasakiuri/saika-rules';
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
@@ -11,7 +15,6 @@ import type { Session } from '@/main/modules/session/domain/Session';
 import { SessionFactory } from '@/main/modules/session/domain/SessionFactory';
 import { parseSessionStorageData } from '@/main/modules/session/infra/SessionStorageSchema';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { ReserveLaneTransferBundle, ReserveLaneTransferRequest } from '@/shared/mqtt/ReserveLaneTransfer';
 
 import type { IReserveLaneTransferStatePort } from '../domain/ReserveLaneTransfer';
 

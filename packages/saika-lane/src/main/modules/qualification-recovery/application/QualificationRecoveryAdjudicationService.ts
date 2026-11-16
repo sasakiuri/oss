@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { QualificationRecoveryShotPayload } from '@sasakiuri/saika-protocol/QualificationRecovery';
+
 import { emitPhaseChanged } from '@/main/modules/competition/application/emitPhaseChanged';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
@@ -9,7 +11,6 @@ import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { QualificationRecoveryShotPayload } from '@/shared/mqtt/QualificationRecovery';
 import {
   isScoringGaugeProfileId,
   isTargetScoringProfileId,

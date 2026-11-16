@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { defineEvent, defineEventContract } from '@sasakiuri/saika-ipc';
+import { CompetitionCuePayloadSchema } from '@sasakiuri/saika-protocol/CompetitionCue';
+import { TimedTargetStateSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 import { z } from 'zod';
 
-import { CompetitionCuePayloadSchema } from '@/shared/mqtt/CompetitionCue';
-import { TimedTargetStateSchema } from '@/shared/mqtt/TimedTargetState';
 import { PHASE_VALUES } from '@/shared/types/Phase';
 
 import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';

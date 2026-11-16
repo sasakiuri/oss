@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
+import { ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+
 import { TimingProfileStoreSchema } from '@/shared/ipc/contracts/timingProfiles.schema';
-import {
-  DEFAULT_TIMED_TARGET_TIMING_SETTINGS,
-  TimedTargetTimingSettingsSchema,
-} from '@/shared/mqtt/TimedTargetTimingSettings';
+import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { ITimingProfileStore, TimingProfileState } from '../application/TimingProfileService';

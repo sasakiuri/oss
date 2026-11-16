@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
+import type { CompetitionShootOffShotPayload } from '@sasakiuri/saika-protocol/CompetitionShootOffShot';
 import { describe, expect, it } from 'vitest';
 
 import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
-import type { CompetitionShootOffShotPayload } from '@/shared/mqtt/CompetitionShootOffShot';
 
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const runId = '22222222-2222-4222-8222-222222222222';

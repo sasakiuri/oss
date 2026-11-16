@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
+import { TimedTargetStatePayloadSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { ITimedTargetControl, TimedTargetState } from '@/main/modules/timed-target';
 import { toTimedTargetStateDto } from '@/main/modules/timed-target/toTimedTargetStateDto';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import { TimedTargetStatePayloadSchema } from '@/shared/mqtt/TimedTargetState';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';

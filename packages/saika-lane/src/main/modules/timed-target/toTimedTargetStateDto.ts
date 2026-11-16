@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { TimedTargetStateDto } from '@/shared/mqtt/TimedTargetState';
+import type { TimedTargetStateDto } from '@sasakiuri/saika-protocol/TimedTargetState';
 
 import type { TimedTargetState } from './domain/ITimedTargetControl';
 

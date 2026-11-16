@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
+import {
+  QualificationRecoveryShotPayloadSchema,
+  type QualificationRecoveryShotPayload,
+} from '@sasakiuri/saika-protocol/QualificationRecovery';
 import type Database from 'better-sqlite3';
 
 import type { IQualificationRecoveryShotEvidenceReader } from '@/main/modules/qualification-recovery/domain/IQualificationRecoveryShotEvidenceReader';
 import type { IQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery/domain/IQualificationRecoveryShotOutbox';
-import {
-  QualificationRecoveryShotPayloadSchema,
-  type QualificationRecoveryShotPayload,
-} from '@/shared/mqtt/QualificationRecovery';
 
 interface OutboxRow {
   payload_json: string;

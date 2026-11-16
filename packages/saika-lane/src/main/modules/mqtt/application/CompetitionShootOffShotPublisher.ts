@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
+import type { CompetitionShootOffShotPayload } from '@sasakiuri/saika-protocol/CompetitionShootOffShot';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { ICompetitionShootOffControl, ICompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
-import type { CompetitionShootOffShotPayload } from '@/shared/mqtt/CompetitionShootOffShot';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';

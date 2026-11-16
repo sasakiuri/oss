@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+import { QualificationMalfunctionSignalPayloadSchema } from '@sasakiuri/saika-protocol/QualificationMalfunctionSignal';
 import { describe, expect, it } from 'vitest';
-
-import { QualificationMalfunctionSignalPayloadSchema } from '@/shared/mqtt/QualificationMalfunctionSignal';
 
 const emptyState = {
   schemaVersion: 1,

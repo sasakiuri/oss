@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { MalfunctionFiringRequestPayload } from '@sasakiuri/saika-protocol/MalfunctionFiring';
 import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
@@ -34,7 +35,6 @@ import type {
   IQualificationRecoveryControl,
   IQualificationRecoverySettlementControl,
 } from '@/main/modules/qualification-recovery';
-import type { MalfunctionFiringRequestPayload } from '@/shared/mqtt/MalfunctionFiring';
 
 import { createMockCommandBus } from '../../../../../helpers/mockDependencies';
 

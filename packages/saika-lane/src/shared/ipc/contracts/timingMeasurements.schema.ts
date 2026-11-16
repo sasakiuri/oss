@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { z } from 'zod';
-
-import { TimedTargetTimingSettingsSchema } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 export const MAX_TIMING_MEASUREMENT_BYTES = 262_144;
 export const TimingMeasurementRequestSchema = z.object({

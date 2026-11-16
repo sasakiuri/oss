@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+
 import type { TimedTargetStateDto } from '@/shared/ipc/contracts';
 import type {
   TimingMeasurementRequest,
@@ -10,7 +12,6 @@ import type {
   ApplyTimingProfile,
   RecordTimingInstallation,
 } from '@/shared/ipc/contracts/timingProfiles.schema';
-import type { TimedTargetTimingSettings } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 import { createServiceMethod, createVoidServiceMethod } from './createServiceMethod';
 

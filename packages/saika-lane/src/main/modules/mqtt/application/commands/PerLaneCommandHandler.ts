@@ -3,6 +3,8 @@
 
 import { commandSchemasForScope, type MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
+import { MalfunctionFiringEvidenceSchema } from '@sasakiuri/saika-protocol/MalfunctionFiring';
+import type { ReserveLaneTransferAction } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
 import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
@@ -31,8 +33,6 @@ import type { IReserveLaneTransferControl } from '@/main/modules/reserve-lane-tr
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
-import { MalfunctionFiringEvidenceSchema } from '@/shared/mqtt/MalfunctionFiring';
-import type { ReserveLaneTransferAction } from '@/shared/mqtt/ReserveLaneTransfer';
 
 import { LaneCommandProcessor, type LaneCommandSchemas } from './LaneCommandProcessor';
 

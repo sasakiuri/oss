@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-import type { TimedTargetTimingSettings } from '@/shared/mqtt/TimedTargetTimingSettings';
+import type { ShotTimingSettings as TimedTargetTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+
 import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
 import type { TimedTargetSchedule } from './TimedTargetSchedule';

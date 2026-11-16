@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { createHash, randomUUID } from 'node:crypto';
 
+import {
+  ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema,
+  type ShotTimingSettings as TimedTargetTimingSettings,
+} from '@sasakiuri/saika-protocol/ShotTimingSettings';
+
 import type { ConnectionSettingsDto } from '@/shared/ipc/contracts';
 import type { TimingMeasurementRequest } from '@/shared/ipc/contracts/timingMeasurements.schema';
 import {
@@ -13,11 +18,7 @@ import {
   type TimingProfileStatus,
   type TimingProfileStore,
 } from '@/shared/ipc/contracts/timingProfiles.schema';
-import {
-  DEFAULT_TIMED_TARGET_TIMING_SETTINGS,
-  TimedTargetTimingSettingsSchema,
-  type TimedTargetTimingSettings,
-} from '@/shared/mqtt/TimedTargetTimingSettings';
+import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 import { TimingMeasurementAnalyzer, type ITimingMeasurementAnalyzer } from '../domain/TimingMeasurementAnalyzer';
 import { TimingProfileValidityPolicy, type ITimingProfileValidityPolicy } from '../domain/TimingProfileValidityPolicy';

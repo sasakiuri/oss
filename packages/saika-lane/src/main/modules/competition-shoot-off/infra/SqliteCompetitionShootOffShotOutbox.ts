@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-import type Database from 'better-sqlite3';
-
-import type { ICompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off/domain/ICompetitionShootOffShotOutbox';
 import {
   CompetitionShootOffShotPayloadSchema,
   type CompetitionShootOffShotPayload,
-} from '@/shared/mqtt/CompetitionShootOffShot';
+} from '@sasakiuri/saika-protocol/CompetitionShootOffShot';
+import type Database from 'better-sqlite3';
+
+import type { ICompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off/domain/ICompetitionShootOffShotOutbox';
 
 interface OutboxRow {
   payload_json: string;

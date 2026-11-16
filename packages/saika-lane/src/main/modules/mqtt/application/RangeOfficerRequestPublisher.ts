@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
+import { RangeOfficerRequestPayloadSchema } from '@sasakiuri/saika-protocol/RangeOfficerRequest';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
-import { RangeOfficerRequestPayloadSchema } from '@/shared/mqtt/RangeOfficerRequest';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
