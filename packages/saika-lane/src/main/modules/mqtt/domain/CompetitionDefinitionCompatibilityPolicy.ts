@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
-import type { RulePackIdentity } from '@sasakiuri/saika-rules';
+import { sameRulePackIdentity, type RulePackIdentity } from '@sasakiuri/saika-rules';
 
 export interface LocalCompetitionDefinitionIdentity {
   readonly id: string;
@@ -48,12 +48,7 @@ export class CompetitionDefinitionCompatibilityPolicy {
 
     const expected = binding.rulePack;
     const actual = localDefinition.rulePackIdentity;
-    const matches =
-      expected.id === actual.id &&
-      expected.schemaVersion === actual.schemaVersion &&
-      expected.fingerprint.algorithm === actual.fingerprint.algorithm &&
-      expected.fingerprint.value === actual.fingerprint.value;
-    return matches
+    return sameRulePackIdentity(expected, actual)
       ? { status: 'MATCH', joinAllowed: true, guidance: `Rule Pack ${expected.id} matches exactly.` }
       : {
           status: 'MISMATCH',
