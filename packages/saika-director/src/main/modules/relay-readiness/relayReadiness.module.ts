@@ -1,9 +1,9 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { relayReadinessContract } from '@/shared/ipc/contracts';
 
-export const relayReadinessModule: ModuleDefinition<'relayReadinessService' | 'ipcRouter'> = {
+export const relayReadinessModule = defineModule({
   name: 'relayReadiness',
-  deps: ['relayReadinessService', 'ipcRouter'] as const,
+  deps: ['relayReadinessService', 'ipcRouter'],
   register({ relayReadinessService: service, ipcRouter }) {
     ipcRouter.register(relayReadinessContract, {
       getStartSettings: async (input) => service.getStartSettings(input.competitionId),
@@ -13,4 +13,4 @@ export const relayReadinessModule: ModuleDefinition<'relayReadinessService' | 'i
       assess: (input) => service.assess(input),
     });
   },
-};
+});

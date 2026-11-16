@@ -1,11 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { mixedTeamFinalControlContract } from '@/shared/ipc/contracts';
 import { MixedTeamFinalControlService } from './application/MixedTeamFinalControlService';
 import { SqliteMixedTeamFinalControlRepository } from './infra/SqliteMixedTeamFinalControlRepository';
 
-export const mixedTeamFinalControlModule: ModuleDefinition<'database' | 'ipcRouter' | 'competitionTypeRegistry'> = {
+export const mixedTeamFinalControlModule = defineModule({
   name: 'mixedTeamFinalControl',
-  deps: ['database', 'ipcRouter', 'competitionTypeRegistry'] as const,
+  deps: ['database', 'ipcRouter', 'competitionTypeRegistry'],
   register({ database, ipcRouter, competitionTypeRegistry }) {
     const service = new MixedTeamFinalControlService(
       new SqliteMixedTeamFinalControlRepository(database),
@@ -19,4 +19,4 @@ export const mixedTeamFinalControlModule: ModuleDefinition<'database' | 'ipcRout
       voidDecision: async (input) => service.voidDecision(input),
     });
   },
-};
+});

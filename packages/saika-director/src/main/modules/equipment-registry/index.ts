@@ -1,10 +1,10 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { equipmentRegistryContract, type EquipmentAthlete } from '@/shared/ipc/contracts';
 
 import { EquipmentRegistryService } from './EquipmentRegistryService';
 import { SqliteEquipmentRegistryRepository } from './SqliteEquipmentRegistryRepository';
 
-export const equipmentRegistryModule: ModuleDefinition<'database' | 'ipcRouter'> = {
+export const equipmentRegistryModule = defineModule({
   name: 'equipmentRegistry',
   deps: ['database', 'ipcRouter'],
   register({ database, ipcRouter }) {
@@ -25,4 +25,4 @@ export const equipmentRegistryModule: ModuleDefinition<'database' | 'ipcRouter'>
       withdraw: async (input) => service.withdraw(input),
     });
   },
-};
+});

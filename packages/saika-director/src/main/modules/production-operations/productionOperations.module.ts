@@ -1,11 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { productionOperationsContract } from '@/shared/ipc/contracts';
 import { ProductionOperationService } from './application/ProductionOperationService';
 import { SqliteProductionOperationRepository } from './infra/SqliteProductionOperationRepository';
 
-export const productionOperationsModule: ModuleDefinition<'database' | 'ipcRouter'> = {
+export const productionOperationsModule = defineModule({
   name: 'productionOperations',
-  deps: ['database', 'ipcRouter'] as const,
+  deps: ['database', 'ipcRouter'],
   register({ database, ipcRouter }) {
     const service = new ProductionOperationService(new SqliteProductionOperationRepository(database));
     ipcRouter.register(productionOperationsContract, {
@@ -14,4 +14,4 @@ export const productionOperationsModule: ModuleDefinition<'database' | 'ipcRoute
       record: (input) => service.record(input),
     });
   },
-};
+});

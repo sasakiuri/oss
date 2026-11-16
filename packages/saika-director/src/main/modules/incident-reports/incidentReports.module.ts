@@ -1,13 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { incidentReportsContract } from '@/shared/ipc/contracts';
 
 import { IncidentReportService } from './application/IncidentReportService';
 
-export const incidentReportsModule: ModuleDefinition<
-  'queryBus' | 'ipcRouter' | 'rangeIncidentReportRepository' | 'scoringDecisionRepository'
-> = {
+export const incidentReportsModule = defineModule({
   name: 'incidentReports',
-  deps: ['queryBus', 'ipcRouter', 'rangeIncidentReportRepository', 'scoringDecisionRepository'] as const,
+  deps: ['queryBus', 'ipcRouter', 'rangeIncidentReportRepository', 'scoringDecisionRepository'],
   register({ queryBus, ipcRouter, rangeIncidentReportRepository, scoringDecisionRepository }) {
     const service = new IncidentReportService(queryBus, rangeIncidentReportRepository, scoringDecisionRepository);
     ipcRouter.register(incidentReportsContract, {
@@ -17,4 +15,4 @@ export const incidentReportsModule: ModuleDefinition<
       appendEntry: (input) => service.appendEntry(input),
     });
   },
-};
+});

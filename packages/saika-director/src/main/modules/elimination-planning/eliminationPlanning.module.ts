@@ -1,11 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { eliminationPlanningContract } from '@/shared/ipc/contracts';
 
 import { OutdoorEliminationPlanningService } from './application/OutdoorEliminationPlanningService';
 import { SqliteEliminationPlanningSource } from './infra/SqliteEliminationPlanningSource';
 import { SqliteOutdoorEliminationPlanRepository } from './infra/SqliteOutdoorEliminationPlanRepository';
 
-export const eliminationPlanningModule: ModuleDefinition<'database' | 'ipcRouter' | 'competitionTypeRegistry'> = {
+export const eliminationPlanningModule = defineModule({
   name: 'eliminationPlanning',
   deps: ['database', 'ipcRouter', 'competitionTypeRegistry'],
   register({ database, ipcRouter, competitionTypeRegistry }) {
@@ -22,4 +22,4 @@ export const eliminationPlanningModule: ModuleDefinition<'database' | 'ipcRouter
       voidPlan: async (input) => service.voidPlan(input),
     });
   },
-};
+});

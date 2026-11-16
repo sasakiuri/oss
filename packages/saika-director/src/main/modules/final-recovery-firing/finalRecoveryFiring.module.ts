@@ -1,5 +1,5 @@
 import { SqliteFinalRecoveryRepository } from '@/main/modules/final-recoveries';
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { finalRecoveryFiringContract } from '@/shared/ipc/contracts';
 import { AuthorizedFinalFiringSource } from './AuthorizedFinalFiringSource';
 import {
@@ -9,7 +9,7 @@ import {
 } from './FinalRecoveryFiringService';
 import { SqliteFinalFiringRepository } from './SqliteFinalFiringRepository';
 
-export const finalRecoveryFiringModule: ModuleDefinition<'database' | 'ipcRouter' | 'commandBus'> = {
+export const finalRecoveryFiringModule = defineModule({
   name: 'finalRecoveryFiring',
   deps: ['database', 'ipcRouter', 'commandBus'],
   register({ database, ipcRouter, commandBus }) {
@@ -28,4 +28,4 @@ export const finalRecoveryFiringModule: ModuleDefinition<'database' | 'ipcRouter
     });
     return {};
   },
-};
+});

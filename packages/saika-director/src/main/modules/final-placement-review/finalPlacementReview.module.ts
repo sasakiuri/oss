@@ -1,13 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { finalPlacementReviewContract } from '@/shared/ipc/contracts';
 
 import { FinalPlacementReviewService } from './application/FinalPlacementReviewService';
 
-export const finalPlacementReviewModule: ModuleDefinition<
-  'ipcRouter' | 'finalResultsReader' | 'finalPlacementReviewRepository'
-> = {
+export const finalPlacementReviewModule = defineModule({
   name: 'finalPlacementReview',
-  deps: ['ipcRouter', 'finalResultsReader', 'finalPlacementReviewRepository'] as const,
+  deps: ['ipcRouter', 'finalResultsReader', 'finalPlacementReviewRepository'],
   register({ ipcRouter, finalResultsReader, finalPlacementReviewRepository }) {
     const service = new FinalPlacementReviewService(finalResultsReader, finalPlacementReviewRepository);
     ipcRouter.register(finalPlacementReviewContract, {
@@ -16,4 +14,4 @@ export const finalPlacementReviewModule: ModuleDefinition<
       revoke: (input) => service.revoke(input),
     });
   },
-};
+});

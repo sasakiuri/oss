@@ -1,7 +1,7 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { operationalArchivesContract } from '@/shared/ipc/contracts';
 
-export const operationalArchivesModule: ModuleDefinition<'ipcRouter' | 'operationalArchiveService'> = {
+export const operationalArchivesModule = defineModule({
   name: 'operationalArchives',
   deps: ['ipcRouter', 'operationalArchiveService'],
   register({ ipcRouter, operationalArchiveService }) {
@@ -14,4 +14,4 @@ export const operationalArchivesModule: ModuleDefinition<'ipcRouter' | 'operatio
       cancelPendingRestore: () => operationalArchiveService.cancelPendingRestore(),
     });
   },
-};
+});

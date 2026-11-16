@@ -1,11 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { postCompetitionEquipmentControlContract } from '@/shared/ipc/contracts';
 
 import { PostCompetitionEquipmentControlService } from './application/PostCompetitionEquipmentControlService';
 import { SqliteEquipmentControlSubjectSource } from './infra/SqliteEquipmentControlSubjectSource';
 import { SqlitePostCompetitionEquipmentCheckRepository } from './infra/SqlitePostCompetitionEquipmentCheckRepository';
 
-export const postCompetitionEquipmentControlModule: ModuleDefinition<'database' | 'ipcRouter'> = {
+export const postCompetitionEquipmentControlModule = defineModule({
   name: 'postCompetitionEquipmentControl',
   deps: ['database', 'ipcRouter'],
   register({ database, ipcRouter }) {
@@ -22,4 +22,4 @@ export const postCompetitionEquipmentControlModule: ModuleDefinition<'database' 
       voidCheck: async (input) => service.voidCheck(input),
     });
   },
-};
+});

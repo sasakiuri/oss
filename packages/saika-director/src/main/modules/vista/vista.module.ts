@@ -7,7 +7,7 @@ import { VISTA_PROTOCOL_VERSION, parseVistaSourcePath, type VistaIdentity } from
 import { SqliteFinalControlRepository } from '@/main/modules/final-control';
 import { SqliteFinalOperationRepository } from '@/main/modules/final-operations';
 import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { ResultBoardSnapshotService, ResultPublicationService } from '@/main/modules/result-publication';
 import { vistaContract } from '@/shared/ipc/contracts';
 import { Logger } from '@/shared/utils/Logger';
@@ -15,21 +15,7 @@ import { DirectorVistaSource } from './application/DirectorVistaSource';
 import { SqliteVistaSourceStore } from './infra/SqliteVistaSourceStore';
 
 const logger = Logger.create('vista');
-export const vistaModule: ModuleDefinition<
-  | 'database'
-  | 'eventBus'
-  | 'ipcRouter'
-  | 'appConfigService'
-  | 'competitionTypeRegistry'
-  | 'competitionShotJournal'
-  | 'resultVerificationService'
-  | 'resultPublicationRepository'
-  | 'resultPublicationReadiness'
-  | 'resultPublicationPolicyResolver'
-  | 'finalResultDeclarationService'
-  | 'qualificationResultsReader'
-  | 'finalResultsReader'
-> = {
+export const vistaModule = defineModule({
   name: 'vista',
   deps: [
     'database',
@@ -207,4 +193,4 @@ export const vistaModule: ModuleDefinition<
       ],
     };
   },
-};
+});

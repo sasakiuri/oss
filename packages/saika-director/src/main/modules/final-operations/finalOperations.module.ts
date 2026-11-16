@@ -1,9 +1,9 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { finalOperationsContract } from '@/shared/ipc/contracts';
 
-export const finalOperationsModule: ModuleDefinition<'ipcRouter' | 'finalOperationService'> = {
+export const finalOperationsModule = defineModule({
   name: 'finalOperations',
-  deps: ['ipcRouter', 'finalOperationService'] as const,
+  deps: ['ipcRouter', 'finalOperationService'],
   register({ ipcRouter, finalOperationService: service }) {
     ipcRouter.register(finalOperationsContract, {
       getByCompetition: async ({ competitionId }) => service.getByCompetition(competitionId),
@@ -16,4 +16,4 @@ export const finalOperationsModule: ModuleDefinition<'ipcRouter' | 'finalOperati
       closeShootOffRound: async (input) => service.closeShootOffRound(input),
     });
   },
-};
+});

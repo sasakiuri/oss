@@ -1,7 +1,7 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { evidenceFilesContract } from '@/shared/ipc/contracts';
 
-export const evidenceFilesModule: ModuleDefinition<'ipcRouter' | 'evidenceFileService'> = {
+export const evidenceFilesModule = defineModule({
   name: 'evidenceFiles',
   deps: ['ipcRouter', 'evidenceFileService'],
   register({ ipcRouter, evidenceFileService }) {
@@ -11,4 +11,4 @@ export const evidenceFilesModule: ModuleDefinition<'ipcRouter' | 'evidenceFileSe
       exportFile: ({ id }) => evidenceFileService.exportFile(id),
     });
   },
-};
+});

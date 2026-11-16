@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { rangeInterruptionsContract } from '@/shared/ipc/contracts';
 
 import { RangeInterruptionService } from './application/RangeInterruptionService';
@@ -13,18 +13,9 @@ import { ApplyQualificationRecoverySettlementTransportToken } from './domain/IQu
 import { SqliteQualificationRecoveryExecutionRepository } from './infra/SqliteQualificationRecoveryExecutionRepository';
 import { SqliteQualificationRecoverySettlementRepository } from './infra/SqliteQualificationRecoverySettlementRepository';
 
-export const rangeInterruptionsModule: ModuleDefinition<
-  'database' | 'eventBus' | 'commandBus' | 'ipcRouter' | 'rangeInterruptionRepository' | 'competitionTypeRegistry'
-> = {
+export const rangeInterruptionsModule = defineModule({
   name: 'rangeInterruptions',
-  deps: [
-    'database',
-    'eventBus',
-    'commandBus',
-    'ipcRouter',
-    'rangeInterruptionRepository',
-    'competitionTypeRegistry',
-  ] as const,
+  deps: ['database', 'eventBus', 'commandBus', 'ipcRouter', 'rangeInterruptionRepository', 'competitionTypeRegistry'],
   register({ database, eventBus, commandBus, ipcRouter, rangeInterruptionRepository, competitionTypeRegistry }) {
     const executionRepository = new SqliteQualificationRecoveryExecutionRepository(database);
     const executionService = new QualificationRecoveryExecutionService(
@@ -82,4 +73,4 @@ export const rangeInterruptionsModule: ModuleDefinition<
       },
     });
   },
-};
+});

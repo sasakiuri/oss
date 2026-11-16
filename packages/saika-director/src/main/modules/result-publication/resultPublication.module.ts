@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { resultPublicationContract } from '@/shared/ipc/contracts';
 
 import { ResultBoardSnapshotService } from './application/ResultBoardSnapshotService';
@@ -6,15 +6,7 @@ import { ResultPublicationService } from './application/ResultPublicationService
 import { toResultPublicationStatusDto } from './application/ResultPublicationDto';
 import { readPublicationReviewSettings, writePublicationReviewSettings } from './application/publicationReviewSettings';
 
-export const resultPublicationModule: ModuleDefinition<
-  | 'appConfigService'
-  | 'ipcRouter'
-  | 'resultPublicationRepository'
-  | 'resultPublicationReadiness'
-  | 'resultPublicationPolicyResolver'
-  | 'finalResultDeclarationService'
-  | 'resultVerificationService'
-> = {
+export const resultPublicationModule = defineModule({
   name: 'resultPublication',
   deps: [
     'appConfigService',
@@ -24,7 +16,7 @@ export const resultPublicationModule: ModuleDefinition<
     'resultPublicationPolicyResolver',
     'finalResultDeclarationService',
     'resultVerificationService',
-  ] as const,
+  ],
   register({
     appConfigService,
     ipcRouter,
@@ -54,4 +46,4 @@ export const resultPublicationModule: ModuleDefinition<
       declareFinal: (input) => finalResultDeclarationService.declare(input),
     });
   },
-};
+});

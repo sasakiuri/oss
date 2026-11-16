@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { championshipContract } from '@/shared/ipc/contracts';
 
 import { ChampionshipService } from './application/ChampionshipService';
@@ -9,9 +9,9 @@ import { SqliteEventResultPresence } from './infra/SqliteEventResultPresence';
 import { SqliteFiringPointAssignmentRepository } from './infra/SqliteFiringPointAssignmentRepository';
 import { SqliteParticipantRepository } from './infra/SqliteParticipantRepository';
 
-export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipcRouter' | 'competitionTypeRegistry'> = {
+export const championshipModule = defineModule({
   name: 'championship',
-  deps: ['database', 'queryBus', 'ipcRouter', 'competitionTypeRegistry'] as const,
+  deps: ['database', 'queryBus', 'ipcRouter', 'competitionTypeRegistry'],
   register(ctx) {
     const { database, queryBus, ipcRouter, competitionTypeRegistry } = ctx;
 
@@ -49,4 +49,4 @@ export const championshipModule: ModuleDefinition<'database' | 'queryBus' | 'ipc
       getCompetitionTypes: async () => service.listCompetitionTypes(),
     });
   },
-};
+});

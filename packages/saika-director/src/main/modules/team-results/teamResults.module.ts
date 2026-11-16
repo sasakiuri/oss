@@ -1,11 +1,9 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { teamResultsContract } from '@/shared/ipc/contracts';
 
-export const teamResultsModule: ModuleDefinition<
-  'ipcRouter' | 'teamResultsService' | 'mixedTeamFinalResultRepository'
-> = {
+export const teamResultsModule = defineModule({
   name: 'teamResults',
-  deps: ['ipcRouter', 'teamResultsService', 'mixedTeamFinalResultRepository'] as const,
+  deps: ['ipcRouter', 'teamResultsService', 'mixedTeamFinalResultRepository'],
   register({ ipcRouter, teamResultsService: service, mixedTeamFinalResultRepository }) {
     ipcRouter.register(teamResultsContract, {
       getQualification: ({ eventId, format }) => service.getQualification(eventId, format),
@@ -28,4 +26,4 @@ export const teamResultsModule: ModuleDefinition<
         })),
     });
   },
-};
+});

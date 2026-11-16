@@ -1,17 +1,9 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { irregularShotCasesContract } from '@/shared/ipc/contracts';
 
 import { IrregularShotCaseService } from './application/IrregularShotCaseService';
 
-export const irregularShotCasesModule: ModuleDefinition<
-  | 'queryBus'
-  | 'ipcRouter'
-  | 'irregularShotCaseRepository'
-  | 'competitionShotJournal'
-  | 'rangeIncidentReportRepository'
-  | 'scoringDecisionRepository'
-  | 'competitionTypeRegistry'
-> = {
+export const irregularShotCasesModule = defineModule({
   name: 'irregularShotCases',
   deps: [
     'queryBus',
@@ -21,7 +13,7 @@ export const irregularShotCasesModule: ModuleDefinition<
     'rangeIncidentReportRepository',
     'scoringDecisionRepository',
     'competitionTypeRegistry',
-  ] as const,
+  ],
   register({
     queryBus,
     ipcRouter,
@@ -46,4 +38,4 @@ export const irregularShotCasesModule: ModuleDefinition<
       appendEntry: (input) => service.appendEntry(input),
     });
   },
-};
+});

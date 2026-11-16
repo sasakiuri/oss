@@ -154,3 +154,10 @@ export interface ModuleDefinition<TDeps extends keyof ServiceRegistry = keyof Se
   readonly deps: readonly TDeps[];
   register(ctx: Pick<ServiceRegistry, TDeps>): ModuleOutput | void;
 }
+
+/** Declares a module; the services `register` receives are inferred from `deps`. */
+export function defineModule<const TDeps extends keyof ServiceRegistry>(
+  definition: ModuleDefinition<TDeps>,
+): ModuleDefinition<TDeps> {
+  return definition;
+}

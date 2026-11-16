@@ -1,4 +1,4 @@
-import type { ModuleDefinition, ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule, type ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
 import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
 import type { EventTransformer } from '@/main/shared-infra/ipc/EventForwardingRule';
 import type { LaneControlIpcPayload } from '@/shared/types/LaneControlIpcPayload';
@@ -133,17 +133,7 @@ class LaneControlUpdatedTransformer implements EventTransformer {
 
 const DEFAULT_QUALIFICATION_CONFIG = buildRoundConfig(BR60S);
 
-export const laneControlModule: ModuleDefinition<
-  | 'laneControlRepository'
-  | 'eventBus'
-  | 'commandBus'
-  | 'queryBus'
-  | 'competitionTypeRegistry'
-  | 'debugLogStore'
-  | 'ipcRouter'
-  | 'laneTimerService'
-  | 'participantEligibilityReader'
-> = {
+export const laneControlModule = defineModule({
   name: 'lane-control',
   deps: [
     'laneControlRepository',
@@ -155,7 +145,7 @@ export const laneControlModule: ModuleDefinition<
     'ipcRouter',
     'laneTimerService',
     'participantEligibilityReader',
-  ] as const,
+  ],
   register(ctx): ModuleOutput {
     const {
       laneControlRepository,
@@ -312,4 +302,4 @@ export const laneControlModule: ModuleDefinition<
       ],
     };
   },
-};
+});

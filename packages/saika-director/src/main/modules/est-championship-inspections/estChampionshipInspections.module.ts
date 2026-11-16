@@ -1,12 +1,10 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { estChampionshipInspectionsContract } from '@/shared/ipc/contracts';
 
 import { EstChampionshipInspectionService } from './application/EstChampionshipInspectionService';
 import { SqliteEstChampionshipInspectionRepository } from './infra/SqliteEstChampionshipInspectionRepository';
 
-export const estChampionshipInspectionsModule: ModuleDefinition<
-  'database' | 'ipcRouter' | 'estInspectionStartService'
-> = {
+export const estChampionshipInspectionsModule = defineModule({
   name: 'estChampionshipInspections',
   deps: ['database', 'ipcRouter', 'estInspectionStartService'],
   register({ database, ipcRouter, estInspectionStartService }) {
@@ -20,4 +18,4 @@ export const estChampionshipInspectionsModule: ModuleDefinition<
       revoke: (input) => service.revoke(input),
     });
   },
-};
+});

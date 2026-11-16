@@ -1,11 +1,11 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { targetExaminationsContract } from '@/shared/ipc/contracts';
 
 import { TargetExaminationService } from './application/TargetExaminationService';
 
-export const targetExaminationsModule: ModuleDefinition<'ipcRouter' | 'targetExaminationRepository'> = {
+export const targetExaminationsModule = defineModule({
   name: 'targetExaminations',
-  deps: ['ipcRouter', 'targetExaminationRepository'] as const,
+  deps: ['ipcRouter', 'targetExaminationRepository'],
   register({ ipcRouter, targetExaminationRepository }) {
     const service = new TargetExaminationService(targetExaminationRepository);
     ipcRouter.register(targetExaminationsContract, {
@@ -18,4 +18,4 @@ export const targetExaminationsModule: ModuleDefinition<'ipcRouter' | 'targetExa
       appendEntry: (input) => service.appendEntry(input),
     });
   },
-};
+});

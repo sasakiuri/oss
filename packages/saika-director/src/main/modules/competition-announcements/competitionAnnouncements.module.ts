@@ -1,5 +1,5 @@
 import type { AnyDomainEvent } from '@/main/shared-infra/events/EventBus';
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { competitionAnnouncementsContract, eventsContract } from '@/shared/ipc/contracts';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
 
@@ -9,11 +9,9 @@ import type { CompetitionAnnouncementDue } from './domain/events';
 import { CompetitionTypeAnnouncementPolicyResolver } from './infra/CompetitionTypeAnnouncementPolicyResolver';
 import { SystemCompetitionAnnouncementClock } from './infra/SystemCompetitionAnnouncementClock';
 
-export const competitionAnnouncementsModule: ModuleDefinition<
-  'eventBus' | 'ipcRouter' | 'appConfigService' | 'competitionTypeRegistry'
-> = {
+export const competitionAnnouncementsModule = defineModule({
   name: 'competitionAnnouncements',
-  deps: ['eventBus', 'ipcRouter', 'appConfigService', 'competitionTypeRegistry'] as const,
+  deps: ['eventBus', 'ipcRouter', 'appConfigService', 'competitionTypeRegistry'],
   register({ eventBus, ipcRouter, appConfigService, competitionTypeRegistry }) {
     const scheduler = new CompetitionAnnouncementScheduler(
       new CompetitionTypeAnnouncementPolicyResolver(competitionTypeRegistry),
@@ -69,7 +67,7 @@ export const competitionAnnouncementsModule: ModuleDefinition<
       ],
     };
   },
-};
+});
 
 function toRunningTimers(snapshot: MqttControlSnapshotDto): RunningCompetitionTimer[] {
   return snapshot.competitions.flatMap((competition) => {

@@ -2,7 +2,7 @@ import { MalfunctionScoreSheetService } from './application/MalfunctionScoreShee
 import { SqliteMalfunctionScoreSheetRepository } from './infra/SqliteMalfunctionScoreSheetRepository';
 import { ElectronMalfunctionScoreSheetExporter } from './infra/ElectronMalfunctionScoreSheetExporter';
 import { SqliteEventRepository, SqliteParticipantRepository } from '@/main/modules/championship';
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { qualificationMalfunctionsContract } from '@/shared/ipc/contracts';
 
 import { DirectorQualificationMalfunctionSubjectResolver } from './application/DirectorQualificationMalfunctionSubjectResolver';
@@ -11,11 +11,9 @@ import { RegistryQualificationMalfunctionPolicyResolver } from './application/Re
 import { SqliteQualificationMalfunctionRepository } from './infra/SqliteQualificationMalfunctionRepository';
 import { ObservedQualificationMalfunctionSignalSource } from './infra/ObservedQualificationMalfunctionSignalSource';
 
-export const qualificationMalfunctionsModule: ModuleDefinition<
-  'database' | 'eventBus' | 'ipcRouter' | 'competitionTypeRegistry' | 'laneControlRepository'
-> = {
+export const qualificationMalfunctionsModule = defineModule({
   name: 'qualificationMalfunctions',
-  deps: ['database', 'eventBus', 'ipcRouter', 'competitionTypeRegistry', 'laneControlRepository'] as const,
+  deps: ['database', 'eventBus', 'ipcRouter', 'competitionTypeRegistry', 'laneControlRepository'],
   register({ database, eventBus, ipcRouter, competitionTypeRegistry, laneControlRepository }) {
     const signals = new ObservedQualificationMalfunctionSignalSource();
     const repository = new SqliteQualificationMalfunctionRepository(database);
@@ -65,4 +63,4 @@ export const qualificationMalfunctionsModule: ModuleDefinition<
       ],
     };
   },
-};
+});

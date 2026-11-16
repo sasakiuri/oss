@@ -3,15 +3,15 @@ import {
   SqliteFiringPointAssignmentRepository,
   SqliteParticipantRepository,
 } from '@/main/modules/championship';
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { startListsContract } from '@/shared/ipc/contracts';
 
 import { StartListService } from './application/StartListService';
 import { SqliteStartListRepository } from './infra/SqliteStartListRepository';
 
-export const startListsModule: ModuleDefinition<'database' | 'ipcRouter' | 'participantEligibilityReader'> = {
+export const startListsModule = defineModule({
   name: 'startLists',
-  deps: ['database', 'ipcRouter', 'participantEligibilityReader'] as const,
+  deps: ['database', 'ipcRouter', 'participantEligibilityReader'],
   register({ database, ipcRouter, participantEligibilityReader }) {
     const service = new StartListService(
       new SqliteStartListRepository(database),
@@ -32,4 +32,4 @@ export const startListsModule: ModuleDefinition<'database' | 'ipcRouter' | 'part
       withdrawDistribution: async (input) => service.withdrawDistribution(input),
     });
   },
-};
+});

@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
+import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { estComplaintsContract } from '@/shared/ipc/contracts';
 
 import { EstComplaintCaseService } from './application/EstComplaintCaseService';
@@ -6,11 +6,9 @@ import { ObservedEstComplaintSignalSource } from './infra/ObservedEstComplaintSi
 import { SqliteEstComplaintCaseLinkRepository } from './infra/SqliteEstComplaintCaseLinkRepository';
 import { TargetExaminationCaseGateway } from './infra/TargetExaminationCaseGateway';
 
-export const estComplaintsModule: ModuleDefinition<
-  'database' | 'eventBus' | 'ipcRouter' | 'targetExaminationRepository'
-> = {
+export const estComplaintsModule = defineModule({
   name: 'estComplaints',
-  deps: ['database', 'eventBus', 'ipcRouter', 'targetExaminationRepository'] as const,
+  deps: ['database', 'eventBus', 'ipcRouter', 'targetExaminationRepository'],
   register({ database, eventBus, ipcRouter, targetExaminationRepository }) {
     const signals = new ObservedEstComplaintSignalSource();
     const service = new EstComplaintCaseService(
@@ -40,4 +38,4 @@ export const estComplaintsModule: ModuleDefinition<
       ],
     };
   },
-};
+});
