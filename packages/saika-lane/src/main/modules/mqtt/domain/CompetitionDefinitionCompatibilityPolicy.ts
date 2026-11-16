@@ -1,6 +1,5 @@
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import type { RulePackIdentity } from '@sasakiuri/saika-rules';
-
-import type { CompetitionStatePayload } from './MqttCompetitionStateSchemas';
 
 export interface LocalCompetitionDefinitionIdentity {
   readonly id: string;

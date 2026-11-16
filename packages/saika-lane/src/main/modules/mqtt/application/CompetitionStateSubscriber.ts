@@ -4,6 +4,10 @@
  * lane has a local aggregate with the same competition ID before join is ACKed.
  */
 
+import {
+  CompetitionStatePayloadSchema,
+  type CompetitionStatePayload,
+} from '@sasakiuri/saika-protocol/CompetitionState';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import { StartCompetitionToken } from '@/main/composition/tokens';
@@ -13,10 +17,6 @@ import {
   type LocalCompetitionDefinitionIdentity,
 } from '@/main/modules/mqtt/domain/CompetitionDefinitionCompatibilityPolicy';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import {
-  CompetitionStatePayloadSchema,
-  type CompetitionStatePayload,
-} from '@/main/modules/mqtt/domain/MqttCompetitionStateSchemas';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
