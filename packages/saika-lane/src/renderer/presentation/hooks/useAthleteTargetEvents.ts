@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 
 import { invalidateAthleteTargetControl, refreshAthleteTargetControl } from '../stores/athleteTargetControl';
-import { useCompetitionStore } from '../stores/competitionStore';
+import { isSameCompetitionPosition, useCompetitionStore } from '../stores/competitionStore';
 
 /** Refreshes the main-process projection, including automatic transitions that stay ACTIVE. */
 export function useAthleteTargetEvents(): void {
@@ -11,13 +11,7 @@ export function useAthleteTargetEvents(): void {
       void refreshAthleteTargetControl();
     };
     const unsubscribeStore = useCompetitionStore.subscribe((current, previous) => {
-      if (
-        current.competitionId !== previous.competitionId ||
-        current.phase !== previous.phase ||
-        current.stageIndex !== previous.stageIndex ||
-        current.seriesIndex !== previous.seriesIndex
-      )
-        refresh();
+      if (!isSameCompetitionPosition(current, previous)) refresh();
     });
     const unsubscribePhase = window.electronAPI.on.phaseChanged(refresh);
     const unsubscribeProgress = window.electronAPI.on.competitionProgressChanged((event) => {
