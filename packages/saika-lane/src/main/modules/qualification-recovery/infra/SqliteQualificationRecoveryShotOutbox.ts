@@ -7,6 +7,7 @@ import type Database from 'better-sqlite3';
 
 import type { IQualificationRecoveryShotEvidenceReader } from '@/main/modules/qualification-recovery/domain/IQualificationRecoveryShotEvidenceReader';
 import type { IQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery/domain/IQualificationRecoveryShotOutbox';
+import { SqliteOutboxTable } from '@/main/shared-infra/sqlite/SqliteOutboxTable';
 
 interface OutboxRow {
   payload_json: string;
@@ -15,7 +16,11 @@ interface OutboxRow {
 export class SqliteQualificationRecoveryShotOutbox
   implements IQualificationRecoveryShotOutbox, IQualificationRecoveryShotEvidenceReader
 {
-  constructor(private readonly db: Database.Database) {}
+  private readonly table: SqliteOutboxTable;
+
+  constructor(private readonly db: Database.Database) {
+    this.table = new SqliteOutboxTable(db, { name: 'qualification_recovery_shot_outbox', key: 'shot_id' });
+  }
 
   enqueue(payload: QualificationRecoveryShotPayload): void {
     const validated = QualificationRecoveryShotPayloadSchema.parse(payload);
@@ -42,13 +47,9 @@ export class SqliteQualificationRecoveryShotOutbox
   }
 
   findPending(limit = 100): QualificationRecoveryShotPayload[] {
-    const rows = this.db
-      .prepare(
-        `SELECT payload_json FROM qualification_recovery_shot_outbox
-         WHERE published_at IS NULL ORDER BY created_at, rowid LIMIT ?`,
-      )
-      .all(limit) as OutboxRow[];
-    return rows.map((row) => QualificationRecoveryShotPayloadSchema.parse(JSON.parse(row.payload_json)));
+    return this.table
+      .pendingPayloads(limit)
+      .map((json) => QualificationRecoveryShotPayloadSchema.parse(JSON.parse(json)));
   }
 
   findByRunId(runId: string): QualificationRecoveryShotPayload[] {
@@ -62,11 +63,6 @@ export class SqliteQualificationRecoveryShotOutbox
   }
 
   markPublished(shotId: string, publishedAt: Date): void {
-    this.db
-      .prepare(
-        `UPDATE qualification_recovery_shot_outbox
-         SET published_at = COALESCE(published_at, ?) WHERE shot_id = ?`,
-      )
-      .run(publishedAt.toISOString(), shotId);
+    this.table.markPublished(shotId, publishedAt);
   }
 }
