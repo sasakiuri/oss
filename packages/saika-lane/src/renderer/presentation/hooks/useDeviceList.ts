@@ -16,7 +16,7 @@ export function useDeviceList(manufacturer: TargetManufacturer) {
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [isLoadingDevices, setIsLoadingDevices] = useState(false);
   const [deviceError, setDeviceError] = useState<string | null>(null);
-  const { setDiscipline } = useSessionStore();
+  const setDiscipline = useSessionStore((state) => state.setDiscipline);
   const isInitialLoadRef = useRef(true);
 
   const fetchDevices = useCallback(

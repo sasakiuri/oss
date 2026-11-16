@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { UseSessionResult } from '@/renderer/presentation/hooks/useSession';
 import * as useSessionModule from '@/renderer/presentation/hooks/useSession';
@@ -47,6 +47,11 @@ const filterProps = (props: Record<string, unknown>) => {
   }
   return safe;
 };
+
+/** Lets a mocked store hook answer selector calls from a fixed state. */
+function mockStoreState(store: Mock, state: unknown): void {
+  store.mockImplementation((selector?: (current: unknown) => unknown) => (selector ? selector(state) : state));
+}
 
 const modeSwitchActions = {
   handlePreparationClick: vi.fn(),
@@ -213,7 +218,7 @@ describe('MainScreen', () => {
 
     // useSessionStore is both a hook (called as function) and has getState()
     const mockUseSessionStore = vi.mocked(useSessionStoreModule.useSessionStore);
-    mockUseSessionStore.mockReturnValue({
+    mockStoreState(mockUseSessionStore, {
       discipline: 'AIR_RIFLE_10M',
       mode: 'SIGHTING',
     } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -223,7 +228,7 @@ describe('MainScreen', () => {
       setLaneNumber: mockSetLaneNumber,
     });
 
-    vi.mocked(useConnectionStoreModule.useConnectionStore).mockReturnValue({
+    mockStoreState(vi.mocked(useConnectionStoreModule.useConnectionStore), {
       status: 'disconnected',
     } as ReturnType<typeof useConnectionStoreModule.useConnectionStore>);
   });
@@ -259,7 +264,7 @@ describe('MainScreen', () => {
     });
 
     it('StatusBar displays connected state when connected', () => {
-      vi.mocked(useConnectionStoreModule.useConnectionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useConnectionStoreModule.useConnectionStore), {
         status: 'connected',
       } as ReturnType<typeof useConnectionStoreModule.useConnectionStore>);
 
@@ -331,7 +336,7 @@ describe('MainScreen', () => {
         ...defaultMockSession,
         currentSessionId: 'session-123',
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: null,
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -349,7 +354,7 @@ describe('MainScreen', () => {
         ...defaultMockSession,
         currentSessionId: 'session-123',
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -364,7 +369,7 @@ describe('MainScreen', () => {
         ...defaultMockSession,
         currentSessionId: 'session-123',
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -397,7 +402,7 @@ describe('MainScreen', () => {
         ...defaultMockShot,
         shots: mockShots,
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -413,7 +418,7 @@ describe('MainScreen', () => {
         ...defaultMockSession,
         currentSessionId: 'session-123',
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -515,7 +520,7 @@ describe('MainScreen', () => {
         ...defaultMockShot,
         shots: [],
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -549,7 +554,7 @@ describe('MainScreen', () => {
         ...defaultMockShot,
         shots: mockShots,
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'MATCH',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -606,7 +611,7 @@ describe('MainScreen', () => {
         ...defaultMockShot,
         shots: mockShots,
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'MATCH',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -849,7 +854,7 @@ describe('MainScreen', () => {
         ...defaultMockSession,
         currentSessionId: 'session-123',
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -864,7 +869,7 @@ describe('MainScreen', () => {
         ...defaultMockSession,
         currentSessionId: 'session-123',
       });
-      vi.mocked(useSessionStoreModule.useSessionStore).mockReturnValue({
+      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);

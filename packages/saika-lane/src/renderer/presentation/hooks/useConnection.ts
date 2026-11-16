@@ -47,16 +47,13 @@ function toErrorMessage(err: unknown, fallback: string): string {
 }
 
 export function useConnection(): UseConnectionResult {
-  const {
-    status,
-    connectionId,
-    portName,
-    manufacturer,
-    setConnection,
-    disconnect: disconnectStore,
-  } = useConnectionStore();
-
-  const { setDeviceInfo } = useSessionStore();
+  const status = useConnectionStore((state) => state.status);
+  const connectionId = useConnectionStore((state) => state.connectionId);
+  const portName = useConnectionStore((state) => state.portName);
+  const manufacturer = useConnectionStore((state) => state.manufacturer);
+  const setConnection = useConnectionStore((state) => state.setConnection);
+  const disconnectStore = useConnectionStore((state) => state.disconnect);
+  const setDeviceInfo = useSessionStore((state) => state.setDeviceInfo);
 
   const connecting = useAsyncAction(
     async (port: string, mfr: TargetManufacturer, deviceId?: string, baudRate?: number) => {

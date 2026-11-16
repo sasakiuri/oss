@@ -44,12 +44,13 @@ const CURSOR_IDLE_TIMEOUT_MS = 5000;
 export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwitchActions, onFinishSavedRun }) => {
   const useNativeControlsOverlay = window.electronAPI.hasNativeWindowFrame;
   const { currentSessionId } = useSession();
-  const { isPrinting, error: printError, dismissError } = usePrintStore();
+  const isPrinting = usePrintStore((state) => state.isPrinting);
+  const printError = usePrintStore((state) => state.error);
+  const dismissError = usePrintStore((state) => state.dismissError);
   const { shots } = useShot();
-  const { discipline } = useSessionStore();
+  const discipline = useSessionStore((state) => state.discipline);
   const preparationShotNumberResetIndices = useSessionStore((s) => s.preparationShotNumberResetIndices);
-  const { status } = useConnectionStore();
-  const isConnected = status === 'connected';
+  const isConnected = useConnectionStore((state) => state.status === 'connected');
   const interruption = useCompetitionStore((state) => state.interruption);
   const competitionId = useCompetitionStore((state) => state.competitionId);
   const membership = useDirectorMembershipStore((state) => state.membership);
