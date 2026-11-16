@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-import { COMPETITION_ERRORS, type CompetitionErrorCode } from './catalogs/CompetitionErrors';
-import { CONNECTION_ERRORS, type ConnectionErrorCode } from './catalogs/ConnectionErrors';
-import { INFRA_ERRORS, type InfraErrorCode } from './catalogs/InfraErrors';
-import { MQTT_ERRORS, type MqttErrorCode } from './catalogs/MqttErrors';
-import { REPORT_ERRORS, type ReportErrorCode } from './catalogs/ReportErrors';
-import { SESSION_ERRORS, type SessionErrorCode } from './catalogs/SessionErrors';
-import { STORAGE_ERRORS, type StorageErrorCode } from './catalogs/StorageErrors';
-import { TARGET_ERRORS, type TargetErrorCode } from './catalogs/TargetErrors';
+import { COMPETITION_ERRORS } from './catalogs/CompetitionErrors';
+import { CONNECTION_ERRORS } from './catalogs/ConnectionErrors';
+import { INFRA_ERRORS } from './catalogs/InfraErrors';
+import { MQTT_ERRORS } from './catalogs/MqttErrors';
+import { REPORT_ERRORS } from './catalogs/ReportErrors';
+import { SESSION_ERRORS } from './catalogs/SessionErrors';
+import { STORAGE_ERRORS } from './catalogs/StorageErrors';
+import { TARGET_ERRORS } from './catalogs/TargetErrors';
 import { DomainError } from './DomainError';
 
 /**
@@ -19,18 +19,24 @@ export interface ErrorDefinition {
   severity: 'error' | 'warning' | 'info';
 }
 
+/** A domain catalog: each error code once, with its texts and severity. */
+export type ErrorCatalogEntries = Readonly<Record<string, Omit<ErrorDefinition, 'code'>>>;
+
+const CATALOG_ENTRIES = {
+  ...SESSION_ERRORS,
+  ...CONNECTION_ERRORS,
+  ...STORAGE_ERRORS,
+  ...INFRA_ERRORS,
+  ...TARGET_ERRORS,
+  ...COMPETITION_ERRORS,
+  ...REPORT_ERRORS,
+  ...MQTT_ERRORS,
+};
+
 /**
  * Error code type definition
  */
-export type ErrorCode =
-  | SessionErrorCode
-  | ConnectionErrorCode
-  | StorageErrorCode
-  | InfraErrorCode
-  | TargetErrorCode
-  | CompetitionErrorCode
-  | ReportErrorCode
-  | MqttErrorCode;
+export type ErrorCode = keyof typeof CATALOG_ENTRIES;
 
 /**
  * CatalogError implementation class
@@ -55,16 +61,9 @@ class CatalogError extends DomainError {
  * Integrates domain-specific catalogs and provides error creation and definition retrieval.
  */
 export class ErrorCatalog {
-  private static readonly ERROR_DEFINITIONS: ReadonlyMap<ErrorCode, ErrorDefinition> = new Map([
-    ...SESSION_ERRORS,
-    ...CONNECTION_ERRORS,
-    ...STORAGE_ERRORS,
-    ...INFRA_ERRORS,
-    ...TARGET_ERRORS,
-    ...COMPETITION_ERRORS,
-    ...REPORT_ERRORS,
-    ...MQTT_ERRORS,
-  ]);
+  private static readonly ERROR_DEFINITIONS: ReadonlyMap<ErrorCode, ErrorDefinition> = new Map(
+    (Object.keys(CATALOG_ENTRIES) as ErrorCode[]).map((code) => [code, { code, ...CATALOG_ENTRIES[code] }]),
+  );
 
   static createError(code: ErrorCode, metadata?: Record<string, unknown>, cause?: Error): DomainError {
     const definition = this.ERROR_DEFINITIONS.get(code);

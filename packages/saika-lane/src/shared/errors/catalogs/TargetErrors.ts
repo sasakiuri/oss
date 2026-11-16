@@ -1,88 +1,46 @@
 // SPDX-License-Identifier: MIT
-import type { ErrorDefinition } from '../ErrorCatalog';
+import type { ErrorCatalogEntries } from '../ErrorCatalog';
 
-export type TargetErrorCode =
-  | 'INVALID_TARGET'
-  | 'INCOMPATIBLE_TARGET_DISCIPLINE'
-  | 'INVALID_TARGET_DESIGN'
-  | 'UNKNOWN_DISCIPLINE'
-  | 'UNKNOWN_MODE'
-  | 'UNKNOWN_MANUFACTURER'
-  | 'UNKNOWN_DEVICE_ID'
-  | 'UNKNOWN_CONNECTION_STATUS';
-
-export const TARGET_ERRORS: ReadonlyArray<[TargetErrorCode, ErrorDefinition]> = [
-  [
-    'INVALID_TARGET',
-    {
-      code: 'INVALID_TARGET',
-      message: 'Invalid target configuration',
-      userMessage: 'Invalid target configuration',
-      severity: 'error',
-    },
-  ],
-  [
-    'INCOMPATIBLE_TARGET_DISCIPLINE',
-    {
-      code: 'INCOMPATIBLE_TARGET_DISCIPLINE',
-      message: 'Target {{deviceId}} requires {{requiredDiscipline}}, but the active session uses {{currentDiscipline}}',
-      userMessage:
-        'Select a {{requiredDiscipline}} competition before connecting target {{deviceId}} (current: {{currentDiscipline}})',
-      severity: 'error',
-    },
-  ],
-  [
-    'INVALID_TARGET_DESIGN',
-    {
-      code: 'INVALID_TARGET_DESIGN',
-      message: 'Invalid target design',
-      userMessage: 'Invalid target design',
-      severity: 'error',
-    },
-  ],
-  [
-    'UNKNOWN_DISCIPLINE',
-    {
-      code: 'UNKNOWN_DISCIPLINE',
-      message: 'Unknown discipline',
-      userMessage: 'Unknown discipline',
-      severity: 'error',
-    },
-  ],
-  [
-    'UNKNOWN_MODE',
-    {
-      code: 'UNKNOWN_MODE',
-      message: 'Unknown mode',
-      userMessage: 'Unknown mode',
-      severity: 'error',
-    },
-  ],
-  [
-    'UNKNOWN_MANUFACTURER',
-    {
-      code: 'UNKNOWN_MANUFACTURER',
-      message: 'Unknown manufacturer',
-      userMessage: 'Unknown manufacturer',
-      severity: 'error',
-    },
-  ],
-  [
-    'UNKNOWN_DEVICE_ID',
-    {
-      code: 'UNKNOWN_DEVICE_ID',
-      message: 'Unknown device ID',
-      userMessage: 'Unknown device ID',
-      severity: 'error',
-    },
-  ],
-  [
-    'UNKNOWN_CONNECTION_STATUS',
-    {
-      code: 'UNKNOWN_CONNECTION_STATUS',
-      message: 'Unknown connection status',
-      userMessage: 'Unknown connection status',
-      severity: 'error',
-    },
-  ],
-];
+export const TARGET_ERRORS = {
+  INVALID_TARGET: {
+    message: 'Invalid target configuration',
+    userMessage: 'Invalid target configuration',
+    severity: 'error',
+  },
+  INCOMPATIBLE_TARGET_DISCIPLINE: {
+    message: 'Target {{deviceId}} requires {{requiredDiscipline}}, but the active session uses {{currentDiscipline}}',
+    userMessage:
+      'Select a {{requiredDiscipline}} competition before connecting target {{deviceId}} (current: {{currentDiscipline}})',
+    severity: 'error',
+  },
+  INVALID_TARGET_DESIGN: {
+    message: 'Invalid target design',
+    userMessage: 'Invalid target design',
+    severity: 'error',
+  },
+  UNKNOWN_DISCIPLINE: {
+    message: 'Unknown discipline',
+    userMessage: 'Unknown discipline',
+    severity: 'error',
+  },
+  UNKNOWN_MODE: {
+    message: 'Unknown mode',
+    userMessage: 'Unknown mode',
+    severity: 'error',
+  },
+  UNKNOWN_MANUFACTURER: {
+    message: 'Unknown manufacturer',
+    userMessage: 'Unknown manufacturer',
+    severity: 'error',
+  },
+  UNKNOWN_DEVICE_ID: {
+    message: 'Unknown device ID',
+    userMessage: 'Unknown device ID',
+    severity: 'error',
+  },
+  UNKNOWN_CONNECTION_STATUS: {
+    message: 'Unknown connection status',
+    userMessage: 'Unknown connection status',
+    severity: 'error',
+  },
+} satisfies ErrorCatalogEntries;
