@@ -90,4 +90,14 @@ describe('IrregularShotCasesPanel case actions', () => {
     await waitFor(() => expect(appendEntry).toHaveBeenCalledTimes(2));
     expect(appendEntry.mock.calls[1]?.[0]).toMatchObject({ type: 'NOTE', statement: 'Jury is reviewing the video' });
   });
+
+  it('disables appending a case action on a void case', async () => {
+    list.mockResolvedValue(ok([irregularCase('VOID')]));
+    renderPanel();
+    const card = await caseCard();
+
+    fillOfficialAndStatement(card, 'Recorded after the case was voided');
+
+    expect(within(card).getByRole('button', { name: 'Append case action' })).toBeDisabled();
+  });
 });
