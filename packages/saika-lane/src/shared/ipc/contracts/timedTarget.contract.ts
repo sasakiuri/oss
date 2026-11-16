@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
-import { ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import { ShotTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { TimedTargetStateSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 import { z } from 'zod';
 
@@ -25,11 +25,8 @@ export const timedTargetContract = defineContract('timedTarget', {
   saveTimingProfile: command(SaveTimingProfileSchema, commandDataResponseSchema(TimingProfileStatusSchema)),
   applyTimingProfile: command(ApplyTimingProfileSchema, commandDataResponseSchema(TimingProfileStatusSchema)),
   getState: query(queryResponseSchema(TimedTargetStateSchema.nullable())),
-  getTimingSettings: query(queryResponseSchema(TimedTargetTimingSettingsSchema)),
-  setTimingSettings: command(
-    TimedTargetTimingSettingsSchema,
-    commandDataResponseSchema(TimedTargetTimingSettingsSchema),
-  ),
+  getTimingSettings: query(queryResponseSchema(ShotTimingSettingsSchema)),
+  setTimingSettings: command(ShotTimingSettingsSchema, commandDataResponseSchema(ShotTimingSettingsSchema)),
   cancel: command(
     z.object({ sequenceId: z.string().uuid(), reason: z.string().trim().min(1).max(500) }),
     commandDataResponseSchema(TimedTargetStateSchema),

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BoundedShotTimingPolicy } from '@/main/modules/timed-target/domain/ShotTimingPolicy';
 import { buildTimedTargetSchedule } from '@/main/modules/timed-target/domain/TimedTargetSchedule';
-import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
+import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
 
 const schedule = buildTimedTargetSchedule({
   sequenceId: 'sequence',

@@ -2,8 +2,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { TimingProfileService, StoredTimingProfiles } from '@/main/modules/timing-profiles';
+import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
 import type { ConnectionSettingsDto } from '@/shared/ipc/contracts';
-import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 import { createMockStorage } from '../../../helpers/mockDependencies';
 

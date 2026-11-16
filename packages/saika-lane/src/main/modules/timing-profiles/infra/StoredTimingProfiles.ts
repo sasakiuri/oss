@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-import { ShotTimingSettingsSchema as TimedTargetTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
+import { ShotTimingSettingsSchema } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 
+import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
 import { TimingProfileStoreSchema } from '@/shared/ipc/contracts/timingProfiles.schema';
-import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { ITimingProfileStore, TimingProfileState } from '../application/TimingProfileService';
@@ -17,15 +17,13 @@ export class StoredTimingProfiles implements ITimingProfileStore {
       ...TimingProfileStoreSchema.parse(
         this.storage.get(KEY) ?? { profiles: [], applications: [], activeApplicationId: null },
       ),
-      settings: TimedTargetTimingSettingsSchema.parse(
-        this.storage.get(SETTINGS_KEY) ?? DEFAULT_TIMED_TARGET_TIMING_SETTINGS,
-      ),
+      settings: ShotTimingSettingsSchema.parse(this.storage.get(SETTINGS_KEY) ?? DEFAULT_TIMED_TARGET_TIMING_SETTINGS),
     };
   }
   write(state: TimingProfileState): void {
     this.storage.setMany({
       [KEY]: TimingProfileStoreSchema.parse(state),
-      [SETTINGS_KEY]: TimedTargetTimingSettingsSchema.parse(state.settings),
+      [SETTINGS_KEY]: ShotTimingSettingsSchema.parse(state.settings),
     });
   }
 }

@@ -2,9 +2,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
 import { ShotTimingSettingsPanel } from '@/renderer/presentation/components/settings/ShotTimingSettingsPanel';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
-import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/shared/mqtt/TimedTargetTimingSettings';
 
 vi.mock('@/renderer/services/timedTargetService', () => ({
   timedTargetService: {
