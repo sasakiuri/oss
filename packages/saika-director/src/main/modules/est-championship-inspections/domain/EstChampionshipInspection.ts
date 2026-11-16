@@ -1,3 +1,5 @@
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
+
 export const EST_INSPECTION_OUTCOMES = ['PASSED', 'FAILED'] as const;
 export type EstInspectionOutcome = (typeof EST_INSPECTION_OUTCOMES)[number];
 
@@ -137,20 +139,4 @@ export class IssfEstChampionshipInspectionPolicy implements IEstChampionshipInsp
       targets,
     };
   }
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

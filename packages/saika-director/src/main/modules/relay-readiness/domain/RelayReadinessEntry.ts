@@ -1,3 +1,5 @@
+import { requiredText, optionalText } from '@/main/domain/guards';
+
 export const RELAY_READINESS_PHASES = ['RELAY', 'SIGHTING', 'MATCH'] as const;
 export const RELAY_READINESS_REQUIREMENTS = [
   'RANGE_EQUIPMENT_READY',
@@ -114,15 +116,4 @@ export function isRelayPhaseRequirement(requirement: RelayReadinessRequirement):
     'CONTROL_SHEET_RENEWED',
     'BACKING_MATERIAL_CLEAR',
   ].includes(requirement);
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

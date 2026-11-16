@@ -11,6 +11,7 @@ import {
 } from '../domain/QualificationRecoverySettlement';
 import { requireQualificationSighting } from '../domain/QualificationSightingReadiness';
 import { getRangeInterruptionState } from '../domain/RangeInterruptionEntry';
+import { requiredText } from '@/main/domain/guards';
 
 export interface ApplyQualificationRecoverySettlementInput {
   readonly caseId: string;
@@ -179,12 +180,6 @@ function toTransportInput(request: QualificationRecoverySettlementRequest) {
     statement: request.statement,
     appliedAt: request.appliedAt.toISOString(),
   };
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function errorMessage(error: unknown): string {

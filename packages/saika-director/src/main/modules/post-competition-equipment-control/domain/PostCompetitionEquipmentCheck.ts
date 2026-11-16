@@ -1,3 +1,5 @@
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
+
 export const EQUIPMENT_CONTROL_SELECTION_BASES = [
   'RANDOM_DRAW',
   'TARGETED_CREDIBLE_EVIDENCE',
@@ -254,22 +256,6 @@ export function ruleReferencesForSelection(basis: EquipmentControlSelectionBasis
   }
 }
 
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
 function uniqueRequiredText(values: readonly string[], name: string): string[] {
   return [...new Set(values.map((value) => requiredText(value, name)))];
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

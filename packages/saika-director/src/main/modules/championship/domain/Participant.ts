@@ -1,5 +1,6 @@
 import { ParticipantId } from './ParticipantId';
 import { EventId } from './EventId';
+import { optionalText } from '@/main/domain/guards';
 
 export const PARTICIPANT_GENDERS = ['M', 'F', 'X', 'UNSPECIFIED'] as const;
 export const PARTICIPANT_ENTRY_STATUSES = ['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB'] as const;
@@ -96,9 +97,4 @@ function normalizeOfficialEntry(value: Partial<ParticipantOfficialEntry>): Parti
     teamId,
     teamName,
   });
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

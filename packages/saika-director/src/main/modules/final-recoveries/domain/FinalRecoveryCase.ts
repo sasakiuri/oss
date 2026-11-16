@@ -1,4 +1,5 @@
 import type { FinalRecoveryAllowanceSubject } from './FinalRecoveryAuthorizationPolicy';
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
 
 export const FINAL_RECOVERY_PROCEDURE_PROFILES = [
   'RIFLE_PISTOL_10M_50M',
@@ -236,26 +237,10 @@ export function finalRecoveryStatus(entries: readonly FinalRecoveryEntry[]): Fin
   return status;
 }
 
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
 function optionalNonNegativeInteger(value: number | null | undefined, name: string): number | null {
   if (value === undefined || value === null) return null;
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
   return value;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }
 
 function normalizeSubject(

@@ -4,6 +4,7 @@ import {
   type QualificationRecoveryShotPayload,
   type QualificationRecoveryStatePayload,
 } from '@sasakiuri/saika-protocol/QualificationRecovery';
+import { validDate } from '@/main/domain/guards';
 
 export type QualificationRecoveryExecutionPhase = QualificationRecoveryFiringAuthorizationPayload['phase'];
 export type QualificationRecoveryExecutionStatus =
@@ -282,9 +283,4 @@ function positiveInteger(value: number, name: string): void {
 
 function nonNegativeInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

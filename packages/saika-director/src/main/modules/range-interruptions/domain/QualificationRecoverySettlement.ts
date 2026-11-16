@@ -1,4 +1,5 @@
 import type { QualificationRecoveryCommandResult } from './QualificationRecoveryExecution';
+import { requiredText, validDate } from '@/main/domain/guards';
 
 export type QualificationRecoverySettlementStatus = 'REQUESTED' | 'COMMAND_FAILED' | 'APPLIED';
 
@@ -130,12 +131,6 @@ function commandAccepted(command: QualificationRecoveryCommandResult, laneId: st
   );
 }
 
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
 function positiveInteger(value: number, name: string): number {
   if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
   return value;
@@ -144,11 +139,6 @@ function positiveInteger(value: number, name: string): number {
 function nonNegativeInteger(value: number, name: string): number {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
   return value;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }
 
 function clone<T>(value: T): T {

@@ -1,3 +1,5 @@
+import { requiredText, validDate } from '@/main/domain/guards';
+
 export interface CreateTargetRecoveryAssessmentProps {
   id?: string;
   caseId: string;
@@ -66,19 +68,8 @@ export class TargetRecoveryAssessment {
   }
 }
 
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
-}
-
 function validPositiveInteger(value: number | undefined, name: string): number | null {
   if (value === undefined) return null;
   if (!Number.isInteger(value) || value < 1) throw new Error(`${name} must be positive`);
   return value;
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }

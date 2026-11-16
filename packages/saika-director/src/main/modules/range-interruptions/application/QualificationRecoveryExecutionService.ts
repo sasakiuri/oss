@@ -19,6 +19,7 @@ import {
 } from '../domain/QualificationRecoveryExecution';
 import { requireQualificationSighting } from '../domain/QualificationSightingReadiness';
 import { getRangeInterruptionState } from '../domain/RangeInterruptionEntry';
+import { requiredText } from '@/main/domain/guards';
 
 export interface StartQualificationRecoveryExecutionInput {
   readonly caseId: string;
@@ -400,10 +401,4 @@ function assertCompleteObservedEvidence(execution: QualificationRecoveryExecutio
   ) {
     throw new Error('Completed Lane state and observed recovery-shot evidence do not match');
   }
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }

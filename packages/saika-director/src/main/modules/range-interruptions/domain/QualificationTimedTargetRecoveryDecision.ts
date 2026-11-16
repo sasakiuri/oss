@@ -2,6 +2,7 @@ import type {
   QualificationTimedTargetInterruptionRecommendation,
   QualificationTimedTargetSeriesRecoveryRecommendation,
 } from '@sasakiuri/saika-rules';
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
 
 export interface QualificationTimedTargetAuthorizedRecovery {
   readonly extraSightingSeriesShots: number;
@@ -151,26 +152,10 @@ function deepFreeze<T>(value: T): T {
   return value;
 }
 
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
 function positiveInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
 }
 
 function nonNegativeInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

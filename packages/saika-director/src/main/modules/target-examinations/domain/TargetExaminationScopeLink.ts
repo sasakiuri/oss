@@ -1,3 +1,5 @@
+import { requiredText } from '@/main/domain/guards';
+
 export const TARGET_EXAMINATION_SCOPE_TYPES = ['COMPETITION', 'EVENT'] as const;
 
 export type TargetExaminationScopeType = (typeof TARGET_EXAMINATION_SCOPE_TYPES)[number];
@@ -64,12 +66,6 @@ export class TargetExaminationScopeLink {
 
 function validateScopeType(value: TargetExaminationScopeType): void {
   if (!TARGET_EXAMINATION_SCOPE_TYPES.includes(value)) throw new Error('scopeType is invalid');
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function normalizeOptional(value: string | undefined): string | null {

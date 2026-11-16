@@ -1,3 +1,5 @@
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
+
 export const PROTEST_KINDS = ['VERBAL', 'WRITTEN', 'FINAL_VERBAL', 'APPEAL'] as const;
 export const PROTEST_SCOPE_TYPES = ['COMPETITION', 'EVENT'] as const;
 export type ProtestKind = (typeof PROTEST_KINDS)[number];
@@ -78,18 +80,4 @@ export class ProtestCase {
   static reconstruct(props: ProtestCaseProps & { id: string; createdAt: Date }): ProtestCase {
     return ProtestCase.create(props);
   }
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

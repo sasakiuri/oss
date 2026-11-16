@@ -1,4 +1,5 @@
 import type { CompetitionShotObservation } from '@/main/modules/mqtt';
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
 
 export const FINAL_SERIES_IRREGULAR_SHOT_KINDS = [
   'LATE_OR_UNFIRED_SHOT',
@@ -294,20 +295,4 @@ export function irregularShotCaseStatus(entries: readonly IrregularShotCaseEntry
     else if (entry.type === 'VOID') status = 'VOID';
   }
   return status;
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

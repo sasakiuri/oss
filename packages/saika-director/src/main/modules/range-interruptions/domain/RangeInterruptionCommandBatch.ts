@@ -1,3 +1,5 @@
+import { requiredText, validDate } from '@/main/domain/guards';
+
 export const RANGE_COMMAND_OPERATIONS = ['PAUSE', 'RESUME', 'MATCH_RESUME'] as const;
 export type RangeCommandOperation = (typeof RANGE_COMMAND_OPERATIONS)[number];
 
@@ -91,15 +93,4 @@ function actionFor(operation: RangeCommandOperation): RangeCommandLaneOutcome['a
   if (operation === 'PAUSE') return 'pause-timer';
   if (operation === 'RESUME') return 'resume-timer';
   return 'resume-match';
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

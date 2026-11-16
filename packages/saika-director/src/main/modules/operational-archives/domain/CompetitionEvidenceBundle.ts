@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { requiredText } from '@/main/domain/guards';
 
 export type EvidenceScalar = string | number | boolean | null;
 export type EvidenceRecord = Readonly<Record<string, EvidenceScalar>>;
@@ -96,10 +97,4 @@ function canonicalize(value: unknown): unknown {
 
 function digest(value: string): string {
   return createHash('sha256').update(value).digest('hex');
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }

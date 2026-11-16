@@ -24,6 +24,7 @@ import {
   allowAllParticipantEligibility,
   type IParticipantEligibilityReader,
 } from '@/main/shared-infra/operations/ParticipantEligibility';
+import { requiredText } from '@/main/domain/guards';
 
 type StartListStatus = StartListVersionDto['status'];
 
@@ -325,12 +326,6 @@ function canonicalJson(value: unknown): string {
 
 function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
 
 function validIso(value: string, name: string): string {

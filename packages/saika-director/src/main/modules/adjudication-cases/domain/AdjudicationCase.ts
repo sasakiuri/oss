@@ -1,3 +1,5 @@
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
+
 export const ADJUDICATION_CASE_SCOPE_TYPES = ['EVENT', 'COMPETITION'] as const;
 export const ADJUDICATION_CASE_CATEGORIES = [
   'SCORING',
@@ -266,20 +268,4 @@ export function activeAdjudicationLinks(history: readonly AdjudicationCaseLink[]
       .flatMap((link) => (link.reversesLinkId ? [link.reversesLinkId] : [])),
   );
   return history.filter((link) => link.operation === 'ADD' && !removedIds.has(link.id));
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

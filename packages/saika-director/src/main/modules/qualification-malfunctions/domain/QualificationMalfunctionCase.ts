@@ -4,6 +4,7 @@ import type {
   QualificationMalfunctionClassification,
   RulePackIdentity,
 } from '@sasakiuri/saika-rules';
+import { requiredText, optionalText, validDate } from '@/main/domain/guards';
 
 export const QUALIFICATION_MALFUNCTION_REPORT_SOURCES = ['LANE_SIGNAL', 'DIRECTOR_MANUAL'] as const;
 export const QUALIFICATION_MALFUNCTION_CLAIM_MODES = ['CLAIM', 'DOCUMENTATION_ONLY'] as const;
@@ -364,17 +365,6 @@ export function latestQualificationMalfunctionClassification(
   return null;
 }
 
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
-}
-
 function nonNegativeInteger(value: number, name: string): number {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
   return value;
@@ -391,11 +381,6 @@ function optionalNonNegativeInteger(value: number | null | undefined, name: stri
 
 function optionalPositiveInteger(value: number | null | undefined, name: string): number | null {
   return value === undefined || value === null ? null : positiveInteger(value, name);
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }
 
 function copyRulePackIdentity(identity: RulePackIdentity | null): RulePackIdentity | null {
