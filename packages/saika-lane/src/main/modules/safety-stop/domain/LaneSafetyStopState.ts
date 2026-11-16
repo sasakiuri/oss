@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { nonNegativeInteger, requiredText, validTime } from '@/shared/validation';
 
 export type LaneSafetyStopStatus = 'STOPPED' | 'CLEAR';
 
@@ -41,16 +42,16 @@ export class LaneSafetyStopState {
   static create(props: LaneSafetyStopStateProps): LaneSafetyStopState {
     const status = props.status;
     if (status !== 'STOPPED' && status !== 'CLEAR') throw new Error('Safety stop status is invalid');
-    const stoppedAt = validDate(props.stoppedAt, 'stoppedAt');
+    const stoppedAt = validTime(props.stoppedAt, 'stoppedAt');
     const timerSnapshot = props.timerSnapshot
       ? Object.freeze({
           competitionId: requiredText(props.timerSnapshot.competitionId, 'competitionId'),
           remainingSeconds: nonNegativeInteger(props.timerSnapshot.remainingSeconds, 'remainingSeconds'),
           totalSeconds: nonNegativeInteger(props.timerSnapshot.totalSeconds, 'totalSeconds'),
-          frozenAt: validDate(props.timerSnapshot.frozenAt, 'frozenAt'),
+          frozenAt: validTime(props.timerSnapshot.frozenAt, 'frozenAt'),
         })
       : null;
-    const clearedAt = props.clearedAt ? validDate(props.clearedAt, 'clearedAt') : null;
+    const clearedAt = props.clearedAt ? validTime(props.clearedAt, 'clearedAt') : null;
     const clearedBy = nullableText(props.clearedBy);
     const clearanceReason = nullableText(props.clearanceReason);
     if (status === 'CLEAR' && (!clearedAt || !clearedBy || !clearanceReason)) {
@@ -87,24 +88,8 @@ export class LaneSafetyStopState {
   }
 }
 
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
 function nullableText(value: string | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   const normalized = value.trim();
   return normalized || null;
-}
-
-function nonNegativeInteger(value: number, name: string): number {
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
-  return value;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { TimedTargetProgram, TimedTargetPurpose } from '@sasakiuri/saika-rules';
 
+import { validDate } from '@/shared/validation';
+
 import type { TimedTargetExecutionContext } from './TimedTargetExecutionContext';
 
 export type TimedTargetSignal = 'RED' | 'GREEN';
@@ -69,7 +71,7 @@ export function buildTimedTargetSchedule(input: {
   loadAt: Date;
   executionContext?: TimedTargetExecutionContext;
 }): TimedTargetSchedule {
-  assertValidDate(input.loadAt, 'loadAt');
+  validDate(input.loadAt, 'loadAt');
   const attentionAtMs = input.loadAt.getTime() + input.program.loadPreparationSeconds * 1_000;
   let nextGreenAtMs = attentionAtMs + input.program.attentionDelayMilliseconds;
   const exposures = input.program.exposures.map((exposure, index) => {
@@ -107,7 +109,7 @@ export function buildTimedTargetSchedule(input: {
 }
 
 export function projectTimedTargetSchedule(schedule: TimedTargetSchedule, at: Date): TimedTargetProjection {
-  assertValidDate(at, 'projection time');
+  validDate(at, 'projection time');
   const atMs = at.getTime();
   if (atMs < schedule.loadAt.getTime()) {
     return projection('ARMED', 'RED', false, null, schedule.loadAt);
@@ -218,11 +220,5 @@ function validateExecutionContext(context: TimedTargetExecutionContext): TimedTa
 }
 
 function requiredDate(value: string, name: string): Date {
-  const date = new Date(value);
-  assertValidDate(date, name);
-  return date;
-}
-
-function assertValidDate(value: Date, name: string): void {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be a valid date`);
+  return validDate(new Date(value), name);
 }

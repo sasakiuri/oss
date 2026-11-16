@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { TimedTargetPurpose } from '@sasakiuri/saika-rules';
 
+import { requiredText } from '@/shared/validation';
+
 import type { ITimedTargetCommandPause, UnloadObservationInput } from '../domain/ITimedTargetCommandPause';
 import type {
   ITimedTargetControl,
@@ -406,10 +408,4 @@ export function timedTargetEnforcementModeFromEnvironment(
 
 function decision(input: Omit<TimedTargetShotDecision, 'governed'>): TimedTargetShotDecision {
   return Object.freeze({ governed: true, ...input });
-}
-
-function requiredText(value: string, name: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) throw new Error(`${name} is required`);
-  return trimmed;
 }

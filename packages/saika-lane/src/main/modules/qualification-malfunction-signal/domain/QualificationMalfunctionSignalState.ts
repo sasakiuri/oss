@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { nonNegativeInteger, optionalText, requiredText, validTime } from '@/shared/validation';
 
 export type QualificationMalfunctionSignalStatus = 'ACTIVE' | 'CLEARED';
 export type QualificationMalfunctionSignalPhase = 'SIGHTING' | 'MATCH';
@@ -64,8 +65,8 @@ export class QualificationMalfunctionSignalState {
 
   static create(props: QualificationMalfunctionSignalStateProps): QualificationMalfunctionSignalState {
     const context = copyContext(props.context);
-    const signalledAt = validDate(props.signalledAt, 'signalledAt');
-    const clearedAt = props.clearedAt ? validDate(props.clearedAt, 'clearedAt') : null;
+    const signalledAt = validTime(props.signalledAt, 'signalledAt');
+    const clearedAt = props.clearedAt ? validTime(props.clearedAt, 'clearedAt') : null;
     const clearedBy = optionalText(props.clearedBy);
 
     if (props.status === 'ACTIVE' && (clearedAt || clearedBy)) {
@@ -132,21 +133,6 @@ function qualificationPhase(value: string): QualificationMalfunctionSignalPhase 
   return value;
 }
 
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  return value?.trim() || null;
-}
-
-function nonNegativeInteger(value: number, name: string): number {
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
-  return value;
-}
-
 function optionalNonNegativeInteger(value: number | null | undefined, name: string): number | null {
   if (value === null || value === undefined) return null;
   return nonNegativeInteger(value, name);
@@ -156,9 +142,4 @@ function optionalPositiveInteger(value: number | null | undefined, name: string)
   if (value === null || value === undefined) return null;
   if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
   return value;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

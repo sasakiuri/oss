@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { requiredText, validTime } from '@/shared/validation';
+
 export const RANGE_OFFICER_REQUEST_CATEGORIES = [
   'ASSISTANCE',
   'EQUIPMENT',
@@ -52,8 +54,8 @@ export class RangeOfficerRequestState {
 
   static create(props: RangeOfficerRequestStateProps): RangeOfficerRequestState {
     if (!RANGE_OFFICER_REQUEST_CATEGORIES.includes(props.category)) throw new Error('category is invalid');
-    const requestedAt = validDate(props.requestedAt, 'requestedAt');
-    const clearedAt = props.clearedAt ? validDate(props.clearedAt, 'clearedAt') : null;
+    const requestedAt = validTime(props.requestedAt, 'requestedAt');
+    const clearedAt = props.clearedAt ? validTime(props.clearedAt, 'clearedAt') : null;
     if (props.status === 'ACTIVE' && (clearedAt || props.clearedBy)) {
       throw new Error('An active Range Officer request cannot contain clearance data');
     }
@@ -78,15 +80,4 @@ export class RangeOfficerRequestState {
     if (this.status !== 'ACTIVE') throw new Error('No active Range Officer request to clear');
     return RangeOfficerRequestState.create({ ...this, status: 'CLEARED', clearedBy, clearedAt });
   }
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }

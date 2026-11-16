@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { nonNegativeInteger, positiveInteger, requiredText, validDate } from '@/shared/validation';
+
 import type { QualificationRecoveryFiringAuthorization } from './QualificationRecoveryProgram';
 
 export const QUALIFICATION_RECOVERY_ACQUISITION_OWNER = 'qualification-recovery';
@@ -126,25 +128,4 @@ function deepFreeze<T>(value: T): T {
     for (const nested of Object.values(value)) deepFreeze(nested);
   }
   return value;
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function positiveInteger(value: number, name: string): number {
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
-  return value;
-}
-
-function nonNegativeInteger(value: number, name: string): number {
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
-  return value;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be a valid date`);
-  return new Date(value.getTime());
 }
