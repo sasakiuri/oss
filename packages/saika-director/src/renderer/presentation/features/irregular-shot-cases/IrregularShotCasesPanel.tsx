@@ -5,6 +5,7 @@ import type { FinalSeriesAdjudicationCapability, FinalSeriesIncidentConsequence 
 import { incidentReportsService, irregularShotCasesService, scoringDecisionsService } from '@/renderer/services';
 import type { IrregularShotCaseDto, RangeIncidentReportDto, ScoringDecisionDto } from '@/shared/ipc/contracts';
 
+import { useEntryTypeSelection } from '../shared/cases/useEntryTypeSelection';
 import { Button } from '../shared/common/Button';
 
 interface Props {
@@ -315,7 +316,8 @@ function IrregularShotCaseCard({
   onError: (message: string | null) => void;
 }) {
   const [relation, setRelation] = useState<IrregularShotCaseDto['evidence'][number]['relation']>('CONTEXT');
-  const [entryType, setEntryType] = useState<IrregularShotCaseDto['entries'][number]['type']>('NOTE');
+  const entryTypes = availableEntryTypes(value.status);
+  const [entryType, setEntryType] = useEntryTypeSelection(entryTypes, 'NOTE');
   const [resolutionCode, setResolutionCode] =
     useState<NonNullable<IrregularShotCaseDto['entries'][number]['resolutionCode']>>('NO_SCORE_CHANGE');
   const [incidentReportId, setIncidentReportId] = useState('');
@@ -324,11 +326,6 @@ function IrregularShotCaseCard({
   const [officialName, setOfficialName] = useState('');
   const [saving, setSaving] = useState(false);
   const evidenceIds = new Set(value.evidence.map((item) => `${item.observationId}:${item.relation}`));
-  const entryTypes = availableEntryTypes(value.status);
-
-  useEffect(() => {
-    if (!entryTypes.includes(entryType)) setEntryType(entryTypes[0] ?? 'NOTE');
-  }, [entryType, entryTypes]);
 
   const run = async (
     operation: () => Promise<{ success: boolean; data?: IrregularShotCaseDto; error?: { message: string } }>,
