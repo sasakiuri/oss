@@ -6,6 +6,7 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { requiredText, validDate } from '@/shared/validation';
 
 import type { IQualificationRecoveryControl } from '../domain/IQualificationRecoveryControl';
 import type {
@@ -220,15 +221,4 @@ function resolveSessionPlacement(competition: CompetitionState): { priorShots: n
 
 function compareShots(left: Shot, right: Shot): number {
   return left.shotNumber - right.shotNumber || left.timestamp.getTime() - right.timestamp.getTime();
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be a valid date`);
-  return new Date(value.getTime());
 }

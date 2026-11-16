@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { requiredText, validTime } from '@/shared/validation';
+
 export const LANE_INTERRUPTION_STATUSES = ['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH'] as const;
 
 export type LaneInterruptionStatus = (typeof LANE_INTERRUPTION_STATUSES)[number];
@@ -45,16 +47,16 @@ export class LaneInterruptionRecord {
       requiredText(props.competitionId, 'competitionId'),
       requiredText(props.interruptionId, 'interruptionId'),
       props.status,
-      validDate(props.pausedAt, 'pausedAt'),
-      validDate(props.capturedAt, 'capturedAt'),
-      nonNegativeInteger(props.capturedRemainingSeconds, 'capturedRemainingSeconds'),
-      nonNegativeInteger(props.capturedTotalSeconds, 'capturedTotalSeconds'),
-      props.resumeAt ? validDate(props.resumeAt, 'resumeAt') : null,
+      validTime(props.pausedAt, 'pausedAt'),
+      validTime(props.capturedAt, 'capturedAt'),
+      nonNegativeSeconds(props.capturedRemainingSeconds, 'capturedRemainingSeconds'),
+      nonNegativeSeconds(props.capturedTotalSeconds, 'capturedTotalSeconds'),
+      props.resumeAt ? validTime(props.resumeAt, 'resumeAt') : null,
       props.authorizedRemainingSeconds === undefined
         ? null
-        : nonNegativeInteger(props.authorizedRemainingSeconds, 'authorizedRemainingSeconds'),
+        : nonNegativeSeconds(props.authorizedRemainingSeconds, 'authorizedRemainingSeconds'),
       props.unlimitedSightingShots ?? null,
-      validDate(props.updatedAt ?? new Date(), 'updatedAt'),
+      validTime(props.updatedAt ?? new Date(), 'updatedAt'),
       props.restartHold === true,
       props.remainingTimeVerified ?? props.restartHold !== true,
     );
@@ -88,18 +90,8 @@ function validateStatus(value: LaneInterruptionStatus): void {
   if (!LANE_INTERRUPTION_STATUSES.includes(value)) throw new Error('status is invalid');
 }
 
-function nonNegativeInteger(value: number, name: string): number {
+/** Interruption records keep their own wording, "<name> must be non-negative", in MQTT acknowledgements. */
+function nonNegativeSeconds(value: number, name: string): number {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be non-negative`);
   return value;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }

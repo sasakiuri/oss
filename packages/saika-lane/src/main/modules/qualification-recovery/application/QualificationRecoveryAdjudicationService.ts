@@ -17,6 +17,7 @@ import {
   type ScoringGaugeProfileId,
   type TargetScoringProfileId,
 } from '@/shared/target';
+import { requiredText, validDate } from '@/shared/validation';
 
 import type {
   ApplyQualificationRecoveryAdjudicationInput,
@@ -364,15 +365,4 @@ function authorizedShotCount(run: QualificationRecoveryRunRecord): number {
 function compareShots(left: Shot, right: Shot): number {
   const number = left.shotNumber - right.shotNumber;
   return number === 0 ? left.timestamp.getTime() - right.timestamp.getTime() : number;
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be a valid date`);
-  return new Date(value.getTime());
 }

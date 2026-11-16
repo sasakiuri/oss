@@ -5,6 +5,8 @@ import type {
   TimedTargetProgram,
 } from '@sasakiuri/saika-rules';
 
+import { positiveInteger } from '@/shared/validation';
+
 export type QualificationRecoveryFiringAuthorization =
   | {
       readonly phase: 'EXTRA_SIGHTING';
@@ -99,8 +101,4 @@ function copyProgram(program: TimedTargetProgram, exposures: readonly TimedTarge
 
 function maximumShots(program: TimedTargetProgram): number {
   return program.exposures.reduce((total, exposure) => total + exposure.maximumShots, 0);
-}
-
-function positiveInteger(value: number, name: string): void {
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
 }

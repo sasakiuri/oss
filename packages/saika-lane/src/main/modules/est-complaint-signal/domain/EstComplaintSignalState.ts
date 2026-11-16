@@ -5,6 +5,8 @@ import {
   type MissingShotComplaintProcedure,
 } from '@sasakiuri/saika-rules';
 
+import { nonNegativeInteger, optionalText, positiveInteger, requiredText, validTime } from '@/shared/validation';
+
 export const EST_COMPLAINT_ISSUES = [
   'SHOT_VALUE',
   'SHOT_NOT_REGISTERED',
@@ -92,8 +94,8 @@ export class EstComplaintSignalState {
 
   static create(props: EstComplaintSignalStateProps): EstComplaintSignalState {
     const context = copyContext(props.context);
-    const signalledAt = validDate(props.signalledAt, 'signalledAt');
-    const clearedAt = props.clearedAt ? validDate(props.clearedAt, 'clearedAt') : null;
+    const signalledAt = validTime(props.signalledAt, 'signalledAt');
+    const clearedAt = props.clearedAt ? validTime(props.clearedAt, 'clearedAt') : null;
     const clearedBy = optionalText(props.clearedBy);
 
     if (props.status === 'ACTIVE' && (clearedAt || clearedBy)) {
@@ -188,26 +190,6 @@ function complaintPhase(value: string): EstComplaintSignalPhase {
   return value;
 }
 
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optionalText(value: string | null | undefined): string | null {
-  return value?.trim() || null;
-}
-
-function nonNegativeInteger(value: number, name: string): number {
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
-  return value;
-}
-
-function positiveInteger(value: number, name: string): number {
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
-  return value;
-}
-
 function optionalPositiveInteger(value: number | null | undefined, name: string): number | null {
   if (value === null || value === undefined) return null;
   return positiveInteger(value, name);
@@ -216,11 +198,6 @@ function optionalPositiveInteger(value: number | null | undefined, name: string)
 function optionalNonNegativeInteger(value: number | null | undefined, name: string): number | null {
   if (value === null || value === undefined) return null;
   return nonNegativeInteger(value, name);
-}
-
-function validDate(value: Date, name: string): Date {
-  if (!Number.isFinite(value.getTime())) throw new Error(`${name} must be valid`);
-  return new Date(value.getTime());
 }
 
 function validIsoDate(value: string, name: string): string {

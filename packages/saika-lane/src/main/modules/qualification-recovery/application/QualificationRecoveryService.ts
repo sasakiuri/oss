@@ -4,6 +4,7 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { ITimedTargetControl, TimedTargetState } from '@/main/modules/timed-target';
 import type { ShotRecordedEvent, TimedTargetSequenceChangedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { requiredText } from '@/shared/validation';
 
 import type { IQualificationRecoveryControl } from '../domain/IQualificationRecoveryControl';
 import type { IQualificationRecoveryRepository } from '../domain/IQualificationRecoveryRepository';
@@ -305,10 +306,4 @@ export class QualificationRecoveryService implements IQualificationRecoveryContr
       state,
     });
   }
-}
-
-function requiredText(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
 }
