@@ -29,6 +29,8 @@ export class VistaApplication {
   private commandQueue: Promise<unknown> = Promise.resolve();
   private activePolls = new Set<string>();
   private activeTasks = new Set<Promise<void>>();
+  /** The renderer-visible state that the operator and audience windows were last asked to refetch. */
+  private notified: string | null = null;
 
   private constructor(
     state: DisplayState,
@@ -48,7 +50,7 @@ export class VistaApplication {
       node: () => this.node(),
       releaseFailed: (error) => {
         this.error = messageOf(error);
-        this.desktop.changed();
+        this.notifyIfChanged();
       },
     });
   }
@@ -56,7 +58,9 @@ export class VistaApplication {
   static async start(directory: string, desktop: DesktopPort): Promise<VistaApplication> {
     const store = new AtomicStore(join(directory, 'vista.json'), DocumentSchema);
     const document = await store.read(newDocument);
-    const state = new DisplayState(document, store, () => desktop.changed());
+    // Changes before the application exists have no renderer to notify.
+    let changed = (): void => undefined;
+    const state = new DisplayState(document, store, () => changed());
     await state.transact((current) => ({
       ...current,
       generation: current.generation + 1,
@@ -65,6 +69,7 @@ export class VistaApplication {
         : {}),
     }));
     const application = new VistaApplication(state, desktop);
+    changed = () => application.notifyIfChanged();
     await application.display.listen();
     for (const config of state.document.screens)
       if (config.autoStart) {
@@ -251,7 +256,7 @@ export class VistaApplication {
         break;
       }
     }
-    this.desktop.changed();
+    this.notifyIfChanged();
     return remoteWarning;
   }
 
@@ -319,6 +324,33 @@ export class VistaApplication {
     }
   }
 
+  /**
+   * Asks the operator and audience windows to refetch when the state they read differs from the state they were
+   * last asked to refetch. That is view() and each screen's audience(), whose entries are a subset of view().
+   * DisplayState replaces an entry's snapshot only at a higher revision or with the same content, so the revision
+   * stands for the content. The renderers judge freshness against their own clock from receivedAt, so a poll that
+   * only refreshes an unchanged entry's freshness notifies once that time reaches a new second, not on every poll.
+   */
+  private notifyIfChanged(): void {
+    const view = this.view();
+    const signature = JSON.stringify({
+      ...view,
+      snapshots: view.snapshots.map(({ snapshot, state, error, receivedAt }) => [
+        Math.floor(receivedAt / 1000),
+        snapshot.sourceId,
+        snapshot.subjectId,
+        snapshot.generation,
+        snapshot.revision,
+        state,
+        error,
+      ]),
+      identifyUntil: this.state.document.screens.map((config) => this.state.identifyUntil(config.id)),
+    });
+    if (signature === this.notified) return;
+    this.notified = signature;
+    this.desktop.changed();
+  }
+
   /** Starts one poll per source and display PC unless its previous poll is still running; repeats every 200 ms. */
   private async tick(): Promise<void> {
     if (this.stopped) return;
@@ -347,7 +379,11 @@ export class VistaApplication {
     } catch (error) {
       this.error = messageOf(error);
     }
-    this.desktop.changed();
-    if (!this.stopped) this.timer = setTimeout(() => void this.tick(), 200);
+    try {
+      this.notifyIfChanged();
+    } finally {
+      // A failed notification must not end polling.
+      if (!this.stopped) this.timer = setTimeout(() => void this.tick(), 200);
+    }
   }
 }

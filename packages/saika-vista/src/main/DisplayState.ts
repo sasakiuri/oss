@@ -382,6 +382,11 @@ export class DisplayState {
     this.changed();
   }
 
+  /** When the identification overlay of a screen ends, or 0 when it was not requested. */
+  identifyUntil(screenId: string): number {
+    return this.identify.get(screenId) ?? 0;
+  }
+
   audience(screenId: string): AudienceState {
     const config = this.document.screens.find((screen) => screen.id === screenId);
     if (!config) throw new Error('Screen not configured');
@@ -394,7 +399,7 @@ export class DisplayState {
     return {
       config,
       entries,
-      identifyUntil: this.identify.get(screenId) ?? 0,
+      identifyUntil: this.identifyUntil(screenId),
       saved: entries.some((entry) => entry.state !== 'live'),
     };
   }
