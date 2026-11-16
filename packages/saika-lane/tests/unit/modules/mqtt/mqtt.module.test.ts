@@ -7,7 +7,10 @@ import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
-import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import {
+  SqliteCompetitionShootOffShotOutbox,
+  type ICompetitionShootOffControl,
+} from '@/main/modules/competition-shoot-off';
 import { EstComplaintSignalService, SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal';
 import { MalfunctionFiringService } from '@/main/modules/malfunction-firing/application/MalfunctionFiringService';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
@@ -16,17 +19,19 @@ import {
   QualificationMalfunctionSignalService,
   SqliteQualificationMalfunctionSignalRepository,
 } from '@/main/modules/qualification-malfunction-signal';
-import type {
-  IQualificationRecoveryAdjudicationControl,
-  IQualificationRecoveryControl,
-  IQualificationRecoverySettlementControl,
+import {
+  SqliteQualificationRecoveryShotOutbox,
+  type IQualificationRecoveryAdjudicationControl,
+  type IQualificationRecoveryControl,
+  type IQualificationRecoverySettlementControl,
 } from '@/main/modules/qualification-recovery';
 import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
 import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
-import type { ITimedTargetControl } from '@/main/modules/timed-target';
+import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
+import { SqliteTimedTargetSequenceRepository, type ITimedTargetControl } from '@/main/modules/timed-target';
 import { TimingProfileService, StoredTimingProfiles } from '@/main/modules/timing-profiles';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
@@ -262,6 +267,10 @@ describe('mqtt.module', () => {
       ),
       estComplaintSignalService: new EstComplaintSignalService(new SqliteEstComplaintSignalRepository(database)),
       timedTargetControl,
+      timedTargetSequenceRepository: new SqliteTimedTargetSequenceRepository(database),
+      qualificationRecoveryShotOutbox: new SqliteQualificationRecoveryShotOutbox(database),
+      competitionShootOffShotOutbox: new SqliteCompetitionShootOffShotOutbox(database),
+      shotObservationEvidenceOutbox: new SqliteShotObservationEvidenceOutbox(database),
       timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
         connection: () => null,
         hasActiveCompetition: async () => false,
@@ -298,6 +307,10 @@ describe('mqtt.module', () => {
       'qualificationMalfunctionSignalService',
       'estComplaintSignalService',
       'timedTargetControl',
+      'timedTargetSequenceRepository',
+      'qualificationRecoveryShotOutbox',
+      'competitionShootOffShotOutbox',
+      'shotObservationEvidenceOutbox',
       'timingProfileService',
       'sessionRepository',
       'database',

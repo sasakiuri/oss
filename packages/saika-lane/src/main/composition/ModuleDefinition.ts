@@ -10,7 +10,7 @@ import type {
 } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
-import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import type { ICompetitionShootOffControl, ICompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
@@ -22,6 +22,7 @@ import type {
   IQualificationRecoveryAdjudicationControl,
   IQualificationRecoveryControl,
   IQualificationRecoverySettlementControl,
+  IQualificationRecoveryShotOutbox,
 } from '@/main/modules/qualification-recovery';
 import type { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
@@ -29,8 +30,9 @@ import type { IReserveLaneTransferJournal } from '@/main/modules/reserve-lane-tr
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
+import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
-import type { ITimedTargetControl } from '@/main/modules/timed-target';
+import type { ITimedTargetControl, ITimedTargetSequenceRepository } from '@/main/modules/timed-target';
 import type { TimingProfileService } from '@/main/modules/timing-profiles';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
@@ -72,6 +74,10 @@ export interface ServiceRegistry {
   qualificationMalfunctionSignalService: QualificationMalfunctionSignalService;
   estComplaintSignalService: EstComplaintSignalService;
   timedTargetControl: ITimedTargetControl;
+  timedTargetSequenceRepository: ITimedTargetSequenceRepository;
+  qualificationRecoveryShotOutbox: IQualificationRecoveryShotOutbox;
+  competitionShootOffShotOutbox: ICompetitionShootOffShotOutbox;
+  shotObservationEvidenceOutbox: IShotObservationEvidenceOutbox;
   timingProfileService: TimingProfileService;
   mainWindow: BrowserWindow;
   userDataPath: string;
