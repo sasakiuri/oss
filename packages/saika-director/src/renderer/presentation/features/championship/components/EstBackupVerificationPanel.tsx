@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { estBackupVerificationService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   CreateEstBackupVerificationPayload,
   EstBackupVerificationRunDto,
@@ -97,11 +98,11 @@ export function EstBackupVerificationPanel({
                 ...(review.trim() ? { interventionReviewStatement: review } : {}),
                 officialName: official,
               });
-              if (!response.success) throw new Error(response.error.message);
+              unwrap(response);
               await load();
               setError(null);
             } catch (caught) {
-              setError(caught instanceof Error ? caught.message : 'Invalid backup input');
+              setError(errorMessage(caught, 'Invalid backup input'));
             }
           })();
         }}
@@ -256,17 +257,17 @@ export function EstBackupVerificationPanel({
                     eventId,
                     ...(fileLayout === 'MAPPED' ? { mapping: selectedMapping } : {}),
                   });
-                  if (!response.success) throw new Error(response.error.message);
-                  if (response.data.status === 'CANCELLED') return;
-                  setRecordsText(JSON.stringify(response.data.records, null, 2));
-                  setSourceName(response.data.sourceName);
-                  setSourceReference(response.data.sourceReference);
+                  const imported = unwrap(response);
+                  if (imported.status === 'CANCELLED') return;
+                  setRecordsText(JSON.stringify(imported.records, null, 2));
+                  setSourceName(imported.sourceName);
+                  setSourceReference(imported.sourceReference);
                   setImportedProvenance(true);
-                  setSourceId(response.data.sourceId);
+                  setSourceId(imported.sourceId);
                   setSourceGeneration((value) => value + 1);
                   setError(null);
                 } catch (caught) {
-                  setError(caught instanceof Error ? caught.message : 'Failed to import the EST backup source');
+                  setError(errorMessage(caught, 'Failed to import the EST backup source'));
                 } finally {
                   setImporting(false);
                 }

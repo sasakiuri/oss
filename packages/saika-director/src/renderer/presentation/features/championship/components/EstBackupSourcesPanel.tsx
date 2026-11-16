@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { boardService, estBackupVerificationService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type {
   EstBackupSourceDto,
   EstBackupSourceSummaryDto,
@@ -34,8 +35,7 @@ export function EstBackupSourcesPanel({
       .listSources({ eventId })
       .then((result) => {
         if (cancelled) return;
-        if (!result.success) throw new Error(result.error.message);
-        setSources(result.data);
+        setSources(unwrap(result));
         setError(null);
       })
       .catch((caught: unknown) => {
@@ -76,12 +76,11 @@ export function EstBackupSourcesPanel({
                 void (async () => {
                   setBusy(true);
                   try {
-                    const result = await estBackupVerificationService.getSource({ sourceId: source.id });
-                    if (!result.success) throw new Error(result.error.message);
-                    if (result.data.eventId !== eventId || result.data.id !== source.id)
+                    const retained = unwrap(await estBackupVerificationService.getSource({ sourceId: source.id }));
+                    if (retained.eventId !== eventId || retained.id !== source.id)
                       throw new Error('The source belongs to another event');
                     if (mounted.current) {
-                      onSelected(result.data);
+                      onSelected(retained);
                       setError(null);
                     }
                   } catch (caught) {

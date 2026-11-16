@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { estBackupVerificationService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type {
   EstBackupCheckPreviewDto,
   EstBackupCheckReceiptDto,
@@ -15,30 +17,15 @@ export function EstBackupResultChecksPanel({ run }: { run: EstBackupVerification
   const [official, setOfficial] = useState(run.officialName);
   const [statement, setStatement] = useState('');
   const [reviewed, setReviewed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run: act } = useAsyncAction();
   const [receipt, setReceipt] = useState<EstBackupCheckReceiptDto | null>(null);
   const load = async () => {
-    const response = await estBackupVerificationService.previewChecks({ eventId: run.eventId, runId: run.id });
-    if (!response.success) throw new Error(response.error.message);
-    setPreview(response.data);
+    const checks = unwrap(await estBackupVerificationService.previewChecks({ eventId: run.eventId, runId: run.id }));
+    setPreview(checks);
     setSelected(
-      response.data.items
-        .filter((item) => item.state === 'READY')
-        .flatMap((item) => (item.resultId ? [item.resultId] : [])),
+      checks.items.filter((item) => item.state === 'READY').flatMap((item) => (item.resultId ? [item.resultId] : [])),
     );
     setReviewed(false);
-  };
-  const act = async (work: () => Promise<void>) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await work();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
   };
   return (
     <section aria-label="Result checks from EST backup" className="mt-2 space-y-2">
@@ -161,8 +148,7 @@ export function EstBackupResultChecksPanel({ run }: { run: EstBackupVerification
                   statement,
                   manualInterventionsReviewed: true,
                 });
-                if (!response.success) throw new Error(response.error.message);
-                setReceipt(response.data);
+                setReceipt(unwrap(response));
                 await load();
               })
             }
