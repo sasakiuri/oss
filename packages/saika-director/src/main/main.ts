@@ -41,7 +41,7 @@ process.on('unhandledRejection', (reason: unknown) => {
   setTimeout(() => process.exit(1), 200);
 });
 
-import { createApp } from './composition/createContainer';
+import { createApp, directorDatabasePath } from './composition/createContainer';
 import { applyPendingDatabaseRestoreSync } from './modules/operational-archives';
 
 const appDir = dirname(fileURLToPath(import.meta.url));
@@ -52,7 +52,7 @@ if (!hasSingleInstanceLock) {
   app.quit();
 } else {
   const userDataPath = app.getPath('userData');
-  const restoreResult = applyPendingDatabaseRestoreSync(join(userDataPath, 'saika.db'), userDataPath);
+  const restoreResult = applyPendingDatabaseRestoreSync(directorDatabasePath(userDataPath), userDataPath);
   if (restoreResult.error) {
     crashLogger.error('Pending database restore was not applied', { error: restoreResult.error });
   } else if (restoreResult.applied) {
