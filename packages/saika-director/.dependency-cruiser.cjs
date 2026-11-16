@@ -78,6 +78,246 @@ module.exports = {
       to: { path: '^src/renderer/presentation/features/range-interruptions/RangeInterruptionsPanel\\.tsx$' },
     },
     {
+      name: 'no-championship-screen-to-commands-runtime',
+      comment: 'The championship screen gets its commands from useChampionshipScreenCommands.',
+      severity: 'error',
+      from: { path: '^src/renderer/presentation/features/championship/ChampionshipScreen\\.tsx$' },
+      to: { path: '^src/renderer/(services/|presentation/stores/ui/)' },
+    },
+    {
+      name: 'no-championship-results-state-to-views',
+      comment: 'Screen commands and result queries do not depend on the components that render them.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/(features/championship/useChampionshipScreenCommands|hooks/useResults)\\.ts$',
+      },
+      to: { path: '^src/renderer/.*\\.tsx$' },
+    },
+    {
+      name: 'no-mixed-team-table-to-runtime',
+      comment: 'The Mixed Team Final table renders the results it receives.',
+      severity: 'error',
+      from: { path: '^src/renderer/presentation/features/championship/components/MixedTeamFinalResultsTable\\.tsx$' },
+      to: { path: '^src/renderer/(services/|presentation/(hooks/|stores/))' },
+    },
+    {
+      name: 'no-books-lists-view-to-services',
+      comment: 'Start List, Results Book and network settings views receive state and commands from their hooks.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/(championship/components/(StartListPanel|StartListVersionDetail|StartListSelectField|ResultsBookPanel|OfficialAppointmentsForm|RecordClaimCreateForm|RecordClaimReview|RecordClaimActions|ResultsBookVersionsForm|ResultsBookField)|settings/(SettingsScreen|NetworkSettingsPanel))\\.tsx$',
+      },
+      to: { path: '^src/renderer/(services/|presentation/stores/)' },
+    },
+    {
+      name: 'no-books-lists-state-to-views',
+      comment: 'Queries, commands and the CSV and label policies remain independent of the views that render them.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/(championship/components/(useStartListVersions|startListCsv|useResultsBookWorkspace|resultsBookPresentation)|settings/useSettingsScreen)\\.ts$',
+      },
+      to: { path: '^src/renderer/.*\\.tsx$' },
+    },
+    {
+      name: 'no-books-lists-policy-to-runtime',
+      comment: 'The Start List CSV and the Results Book labels depend only on shared contracts.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/championship/components/(startListCsv|resultsBookPresentation)\\.ts$',
+      },
+      to: { path: '^src/', pathNot: '^src/shared/ipc/' },
+    },
+    {
+      name: 'no-books-lists-form-to-panel',
+      comment: 'Start List and Results Book forms cannot reach back into their parent panel.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/championship/components/(StartListVersionDetail|StartListSelectField|OfficialAppointmentsForm|RecordClaimCreateForm|RecordClaimReview|RecordClaimActions|ResultsBookVersionsForm|ResultsBookField)\\.tsx$',
+      },
+      to: {
+        path: '^src/renderer/presentation/features/championship/components/(StartListPanel|ResultsBookPanel)\\.tsx$',
+      },
+    },
+    {
+      name: 'no-malfunction-view-to-services',
+      comment: 'Malfunction case views submit typed commands; their workspace hook owns IPC and case state.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/qualification-malfunctions/(QualificationMalfunctionPanel|CreateMalfunctionForm|MalfunctionDetail|MalfunctionEntryForm|MalfunctionFields)\\.tsx$',
+      },
+      to: { path: '^src/renderer/(services/|presentation/stores/)' },
+    },
+    {
+      name: 'no-malfunction-state-to-views',
+      comment: 'Queries, commands and malfunction rules remain independent of views.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/qualification-malfunctions/(useQualificationMalfunctionCases|malfunctionRules|malfunctionLanes)\\.ts$',
+      },
+      to: { path: '^src/renderer/.*\\.tsx$' },
+    },
+    {
+      name: 'no-malfunction-rules-to-runtime',
+      comment: 'Remedy, entry-type and Lane eligibility rules depend only on shared contracts.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/qualification-malfunctions/(malfunctionRules|malfunctionLanes)\\.ts$',
+      },
+      to: { path: '^src/', pathNot: '^src/shared/ipc/' },
+    },
+    {
+      name: 'no-malfunction-form-to-workspace',
+      comment: 'Case-owned forms cannot reach back into their parent panel or its state hook.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/qualification-malfunctions/(CreateMalfunctionForm|MalfunctionDetail|MalfunctionEntryForm|MalfunctionFields)\\.tsx$',
+      },
+      to: {
+        path: '^src/renderer/presentation/features/qualification-malfunctions/(QualificationMalfunctionPanel\\.tsx|useQualificationMalfunctionCases\\.ts)$',
+      },
+    },
+    {
+      name: 'no-final-recovery-view-to-services',
+      comment: 'Final recovery case views submit typed commands; their workspace hook owns IPC and case state.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/final-recoveries/(FinalRecoveryPanel|CreateRecoveryForm|RecoveryDetail)\\.tsx$',
+      },
+      to: { path: '^src/renderer/(services/|presentation/stores/)' },
+    },
+    {
+      name: 'no-final-recovery-state-to-views',
+      comment: 'Queries, commands and recovery rules remain independent of views.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/final-recoveries/(useFinalRecoveryCases|finalRecoveryRules|finalRecoveryCommands)\\.ts$',
+      },
+      to: { path: '^src/renderer/.*\\.tsx$' },
+    },
+    {
+      name: 'no-final-recovery-rules-to-runtime',
+      comment: 'Recovery gating rules and command types depend only on shared contracts.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/final-recoveries/(finalRecoveryRules|finalRecoveryCommands)\\.ts$',
+      },
+      to: { path: '^src/', pathNot: '^src/shared/ipc/' },
+    },
+    {
+      name: 'no-final-recovery-form-to-workspace',
+      comment: 'Case-owned forms cannot reach back into their parent panel or its state hook.',
+      severity: 'error',
+      from: { path: '^src/renderer/presentation/features/final-recoveries/(CreateRecoveryForm|RecoveryDetail)\\.tsx$' },
+      to: {
+        path: '^src/renderer/presentation/features/final-recoveries/(FinalRecoveryPanel\\.tsx|useFinalRecoveryCases\\.ts)$',
+      },
+    },
+    {
+      name: 'no-incident-report-view-to-services',
+      comment: 'Incident report views call the workspace hook, which owns IPC and report state.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/championship/components/(IncidentReportsView|IncidentReportCreateForm|IncidentReportDetail|IncidentReportRoleOptions)\\.tsx$',
+      },
+      to: { path: '^src/renderer/(services/|presentation/stores/)' },
+    },
+    {
+      name: 'no-incident-report-state-to-views',
+      comment: 'The incident report workspace hook remains independent of views.',
+      severity: 'error',
+      from: { path: '^src/renderer/presentation/features/championship/components/useIncidentReportWorkspace\\.ts$' },
+      to: { path: '^src/renderer/.*\\.tsx$' },
+    },
+    {
+      name: 'no-incident-report-form-to-workspace',
+      comment: 'Report forms cannot reach back into the view or its state hook.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/championship/components/(IncidentReportCreateForm|IncidentReportDetail|IncidentReportRoleOptions)\\.tsx$',
+      },
+      to: {
+        path: '^src/renderer/presentation/features/championship/components/(IncidentReportsView\\.tsx|useIncidentReportWorkspace\\.ts)$',
+      },
+    },
+    {
+      name: 'no-final-operation-view-to-services',
+      comment: 'Final command runner views receive run state and commands from useFinalOperationRun.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/final-operations/(FinalOperationPanel|CreateRunForm|CurrentStepCard|ExecutionLaneSelection|ShootOffBranchSelection|ShootOffResolutionCard|TextField)\\.tsx$',
+      },
+      to: { path: '^src/renderer/(services/|presentation/stores/)' },
+    },
+    {
+      name: 'no-final-operation-state-to-views',
+      comment: 'The run hook and the Final rules remain independent of views.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/final-operations/(useFinalOperationRun|finalOperationRules|finalOperationOutcome)\\.ts$',
+      },
+      to: { path: '^src/renderer/.*\\.tsx$' },
+    },
+    {
+      name: 'no-final-operation-policy-to-runtime',
+      comment: 'Shoot-off outcome parsing and step rules depend only on shared contracts and pure helpers.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/final-operations/(finalOperationRules|finalOperationOutcome)\\.ts$',
+      },
+      to: { path: '^src/renderer/(services/|events/|presentation/(hooks/|stores/))|^src/renderer/.*\\.tsx$' },
+    },
+    {
+      name: 'no-final-operation-detail-to-panel',
+      comment: 'Final command runner sub-views do not reach back into the panel.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/final-operations/',
+        pathNot: '/(index\\.ts|FinalOperationPanel\\.tsx)$',
+      },
+      to: { path: '^src/renderer/presentation/features/final-operations/FinalOperationPanel\\.tsx$' },
+    },
+    {
+      name: 'no-athlete-sanction-view-to-services',
+      comment: 'Sanction forms submit typed commands; the workspace hook owns IPC and the workspace.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/athlete-sanctions/(AthleteSanctionsPanel|CreateIdentityForm|IdentityCard|SanctionForm|ActiveSanctions|Field)\\.tsx$',
+      },
+      to: { path: '^src/renderer/services/' },
+    },
+    {
+      name: 'no-athlete-sanction-state-to-views',
+      comment: 'The workspace hook, command types and sanction rules remain independent of views.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/athlete-sanctions/(useAthleteSanctionsWorkspace|athleteSanctionTypes|athleteSanctionRules|sanctionFormClasses)\\.ts$',
+      },
+      to: { path: '^src/renderer/.*\\.tsx$' },
+    },
+    {
+      name: 'no-athlete-sanction-policy-to-runtime',
+      comment: 'Sanction rules and command types depend only on shared contracts.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/athlete-sanctions/(athleteSanctionTypes|athleteSanctionRules)\\.ts$',
+      },
+      to: {
+        path: '^src/',
+        pathNot: '^src/shared/ipc/|^src/renderer/presentation/features/athlete-sanctions/athleteSanctionTypes\\.ts$',
+      },
+    },
+    {
+      name: 'no-athlete-sanction-form-to-workspace',
+      comment: 'Identity and sanction forms cannot reach back into the panel or its workspace hook.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/athlete-sanctions/(CreateIdentityForm|IdentityCard|SanctionForm|ActiveSanctions)\\.tsx$',
+      },
+      to: {
+        path: '^src/renderer/presentation/features/athlete-sanctions/(AthleteSanctionsPanel\\.tsx|useAthleteSanctionsWorkspace\\.ts)$',
+      },
+    },
+    {
       name: 'no-mqtt-collaborator-to-coordinator',
       comment: 'Focused MQTT components use consumer-owned ports, not the competition coordinator.',
       severity: 'error',
