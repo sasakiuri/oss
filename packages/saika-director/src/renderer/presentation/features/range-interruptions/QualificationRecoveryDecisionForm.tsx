@@ -9,8 +9,8 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import { FormButtons, Field, inputClass, formClass } from './InterruptionFields';
-import { formatEnum } from './interruptionFormatting';
 import { type FormProps } from './interruptionPresentationTypes';
+import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
 export function QualificationRecoveryDecisionHistory({
   decisions,
@@ -34,7 +34,7 @@ export function QualificationRecoveryDecisionHistory({
             <p className="text-vscode-text-muted">
               {decision.authorizedRecovery.extraSightingSeriesShots} extra sighting shots ·{' '}
               {decision.authorizedRecovery.minimumPauseAfterSightingSeconds ?? 0}s pause ·{' '}
-              {formatEnum(decision.authorizedRecovery.seriesRecovery.treatment)} ·{' '}
+              {lowerCaseLabel(decision.authorizedRecovery.seriesRecovery.treatment)} ·{' '}
               {decision.authorizedRecovery.seriesRecovery.shotsToFire} recovery shots
             </p>
             <p className="whitespace-pre-wrap text-vscode-text">{decision.statement}</p>

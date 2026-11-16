@@ -7,10 +7,6 @@ export function statusClass(status: RangeInterruptionCaseDto['status']): string 
   return 'text-vscode-warning';
 }
 
-export function formatEnum(value: string): string {
-  return value.replaceAll('_', ' ').toLowerCase();
-}
-
 export function formatDuration(seconds: number): string {
   const safe = Number.isFinite(seconds) ? Math.max(0, Math.round(seconds)) : 0;
   const minutes = Math.floor(safe / 60);
@@ -19,8 +15,4 @@ export function formatDuration(seconds: number): string {
 
 export function shortLane(laneId: string): string {
   return laneId.length > 12 ? laneId.slice(0, 8) : laneId;
-}
-
-export function toLocalInputValue(value: Date): string {
-  return new Date(value.getTime() - value.getTimezoneOffset() * 60_000).toISOString().slice(0, 19);
 }

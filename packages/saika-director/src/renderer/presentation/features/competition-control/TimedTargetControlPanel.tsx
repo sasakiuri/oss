@@ -5,6 +5,7 @@ import type { DirectorLaneSnapshotDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 import { Card } from '../shared/common/Card';
+import { firingPointLabel } from '../shared/lanes/laneLabels';
 
 interface Props {
   definition: CompetitionTypeDefinition;
@@ -110,8 +111,8 @@ export function TimedTargetControlPanel({
       {externallyVerifiedLanes.length > 0 && (
         <p className="mt-3 border-l-2 border-vscode-warning pl-3 text-xs leading-5 text-vscode-warning">
           End-to-end physical target facing or light actuation and feedback are not confirmed by Saika for{' '}
-          {externallyVerifiedLanes.map(laneLabel).join(', ')}. Operate and visually verify the external signal system
-          before each series (ISSF 8.7.6.3(h)).
+          {externallyVerifiedLanes.map(firingPointLabel).join(', ')}. Operate and visually verify the external signal
+          system before each series (ISSF 8.7.6.3(h)).
         </p>
       )}
 
@@ -146,7 +147,7 @@ export function TimedTargetControlPanel({
               const remaining = state?.nextTransitionAt ? Math.max(0, Date.parse(state.nextTransitionAt) - now) : null;
               return (
                 <tr key={lane.laneId} className="border-t border-vscode-border">
-                  <td className="px-3 py-2 text-vscode-text">{laneLabel(lane)}</td>
+                  <td className="px-3 py-2 text-vscode-text">{firingPointLabel(lane)}</td>
                   <td className="px-3 py-2 text-vscode-text-muted">
                     {lane.hardware?.connection.deviceId ?? lane.hardware?.connection.manufacturer ?? 'Not reported'}
                   </td>
@@ -275,10 +276,6 @@ function shotTimingLabel(lane: DirectorLaneSnapshotDto): string {
   if (!timing) return 'Not reported';
   if (timing.mode === 'TIMESTAMP') return 'Supplied timestamp only';
   return `Review uncertain timing; reception ${timing.maximumReceiptDelayMilliseconds ?? 'unknown'} ms; clock ±${timing.clockUncertaintyMilliseconds ?? 'unknown'} ms`;
-}
-
-function laneLabel(lane: DirectorLaneSnapshotDto): string {
-  return lane.firingPointNumber ? `FP ${lane.firingPointNumber}` : lane.laneAlias || lane.laneId.slice(0, 8);
 }
 
 function physicalSignalLabel(

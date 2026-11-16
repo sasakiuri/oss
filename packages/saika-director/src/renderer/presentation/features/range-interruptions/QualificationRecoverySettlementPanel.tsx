@@ -5,6 +5,7 @@ import type { QualificationRecoverySettlementDto, RangeInterruptionCaseDto } fro
 
 import { Button } from '../shared/common/Button';
 import { readOnlyMutedInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { titleCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
 interface QualificationRecoverySettlementPanelProps {
   interruption: RangeInterruptionCaseDto;
@@ -45,7 +46,7 @@ export function QualificationRecoverySettlementPanel({
           </p>
         </div>
         <span className={settlementStatusClass(settlement?.status)}>
-          {settlement ? formatStatus(settlement.status) : 'Not applied'}
+          {settlement ? titleCaseLabel(settlement.status) : 'Not applied'}
         </span>
       </div>
 
@@ -185,12 +186,4 @@ function settlementStatusClass(status: QualificationRecoverySettlementDto['statu
   if (status === 'APPLIED') return 'text-xs font-medium text-vscode-success';
   if (status === 'COMMAND_FAILED') return 'text-xs font-medium text-vscode-warning';
   return 'text-xs font-medium text-vscode-text-muted';
-}
-
-function formatStatus(value: string): string {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }

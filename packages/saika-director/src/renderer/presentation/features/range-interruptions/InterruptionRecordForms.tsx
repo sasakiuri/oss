@@ -14,11 +14,11 @@ import type {
 import { Button } from '../shared/common/Button';
 
 import { FormButtons, Field, inputClass, formClass } from './InterruptionFields';
-import { toLocalInputValue } from './interruptionFormatting';
 import { type FormProps } from './interruptionPresentationTypes';
+import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
 export function EndInterruptionForm({ interruption, saving, onCancel, onMutate }: FormProps) {
-  const [occurredAt, setOccurredAt] = useState(toLocalInputValue(new Date()));
+  const [occurredAt, setOccurredAt] = useState(toDateTimeLocalValue(new Date(), 'seconds'));
   const [statement, setStatement] = useState('The interruption ended and the athlete is ready for the Jury decision.');
   const [officialName, setOfficialName] = useState(interruption.openedBy);
   return (

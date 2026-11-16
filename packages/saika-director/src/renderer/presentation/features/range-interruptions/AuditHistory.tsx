@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 import type { RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
 
-import { formatEnum, formatDuration } from './interruptionFormatting';
+import { formatDuration } from './interruptionFormatting';
+import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
 export function AuditHistory({ entries }: { entries: RangeInterruptionCaseDto['entries'] }) {
   return (
@@ -17,7 +18,7 @@ export function AuditHistory({ entries }: { entries: RangeInterruptionCaseDto['e
               className="border-t border-vscode-border pt-2 text-xs leading-5 first:border-t-0 first:pt-0"
             >
               <p className="font-semibold text-vscode-text">
-                {formatEnum(entry.type)} · {entry.officialName}
+                {lowerCaseLabel(entry.type)} · {entry.officialName}
               </p>
               <p className="text-vscode-text-muted">{entry.statement}</p>
               <p className="text-vscode-dimmed">

@@ -9,6 +9,7 @@ import type {
 
 import { Button } from '../shared/common/Button';
 import { readOnlyMutedInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { titleCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
 type RecoveryPhase = QualificationRecoveryExecutionDto['phase'];
 
@@ -176,7 +177,7 @@ export function QualificationRecoveryExecutionPanel({
             {interruption.qualificationRecoveryExecutions.map((execution) => (
               <li key={execution.runId} className="border-l-2 border-vscode-border pl-3 leading-5">
                 <p className="font-medium text-vscode-text">
-                  {phaseLabel(execution.phase)} · {formatStatus(execution.status)}
+                  {phaseLabel(execution.phase)} · {titleCaseLabel(execution.status)}
                 </p>
                 <p className="text-vscode-text-muted">
                   {execution.shots.length} observed shot(s) · Lane {laneStateLabel(execution)} · run{' '}
@@ -219,7 +220,7 @@ function RecoveryPhaseCard({
           <p className="mt-0.5 text-xs text-vscode-text-muted">{description}</p>
         </div>
         <span className={executionStatusClass(execution?.status)}>
-          {execution ? formatStatus(execution.status) : 'Not started'}
+          {execution ? titleCaseLabel(execution.status) : 'Not started'}
         </span>
       </div>
       {execution && (
@@ -272,11 +273,11 @@ function SeriesRecoveryCard({
         <div>
           <p className="text-xs font-semibold text-vscode-text">Competition series recovery</p>
           <p className="mt-0.5 text-xs text-vscode-text-muted">
-            {formatStatus(recovery.treatment)} · {recovery.shotsToFire} authorized shot(s)
+            {titleCaseLabel(recovery.treatment)} · {recovery.shotsToFire} authorized shot(s)
           </p>
         </div>
         <span className={executionStatusClass(execution?.status)}>
-          {execution ? formatStatus(execution.status) : 'Not started'}
+          {execution ? titleCaseLabel(execution.status) : 'Not started'}
         </span>
       </div>
       {execution && (
@@ -518,7 +519,7 @@ function authorizedShots(execution: QualificationRecoveryExecutionDto): number {
 }
 
 function laneStateLabel(execution: QualificationRecoveryExecutionDto): string {
-  return execution.latestLaneState ? formatStatus(execution.latestLaneState.status) : 'not observed';
+  return execution.latestLaneState ? titleCaseLabel(execution.latestLaneState.status) : 'not observed';
 }
 
 function latestError(execution: QualificationRecoveryExecutionDto | null): string | null {
@@ -531,14 +532,6 @@ function latestError(execution: QualificationRecoveryExecutionDto | null): strin
 
 function phaseLabel(phase: RecoveryPhase): string {
   return phase === 'EXTRA_SIGHTING' ? 'extra sighting series' : 'competition series recovery';
-}
-
-function formatStatus(value: string): string {
-  return value
-    .toLowerCase()
-    .split('_')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
 }
 
 function executionStatusClass(status: QualificationRecoveryExecutionDto['status'] | undefined): string {

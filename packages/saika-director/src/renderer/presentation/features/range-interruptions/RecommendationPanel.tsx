@@ -4,7 +4,8 @@ import { ClockAlert } from 'lucide-react';
 import type { RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
 
 import { Detail } from './InterruptionFields';
-import { formatEnum, formatDuration } from './interruptionFormatting';
+import { formatDuration } from './interruptionFormatting';
+import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
 export function RecommendationPanel({ interruption }: { interruption: RangeInterruptionCaseDto }) {
   const recommendation = interruption.recommendation!;
@@ -32,7 +33,7 @@ export function RecommendationPanel({ interruption }: { interruption: RangeInter
               recommendation.extraSighting.required ? `${recommendation.extraSighting.shots} shots` : 'Not required'
             }
           />
-          <Detail label="Series treatment" value={formatEnum(recovery.treatment)} />
+          <Detail label="Series treatment" value={lowerCaseLabel(recovery.treatment)} />
           <Detail label="Recovery shots" value={String(recovery.shotsToFire)} />
           {recommendation.minimumPauseAfterSightingSeconds !== undefined && (
             <Detail
