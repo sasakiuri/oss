@@ -9,8 +9,8 @@ import { createSetAthleteTargetModeHandler } from '@/main/modules/competition/ap
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import { ALL_COMPETITION_TYPES, AR60, R3P60, R3P_FINAL } from '@/main/modules/competition/domain/competitionTypes';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import { CompetitionInterruptionService, type LaneInterruptionRecord } from '@/main/modules/competition-interruption';
 import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { createShotIngestionHandler } from '@/main/modules/connection/infra/ShotIngestionHandler';
@@ -86,7 +86,7 @@ async function setup(type = R3P60) {
       stop: vi.fn(),
       pause: async () => ({ remainingSeconds: 600, totalSeconds: 1320 }),
       resumeAt: async () => undefined,
-    } as unknown as LaneTimerService,
+    } as unknown as ICompetitionTimer,
     commands,
     events,
     sessions,

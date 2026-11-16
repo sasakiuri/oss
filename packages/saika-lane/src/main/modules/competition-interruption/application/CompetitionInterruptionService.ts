@@ -4,7 +4,7 @@ import { isAthleteTargetSwitchSeries } from '@/main/modules/competition/domain/C
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { resolveCompetitionTargetMode } from '@/main/modules/competition/domain/CompetitionTargetModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
@@ -26,7 +26,7 @@ export class CompetitionInterruptionService implements ICompetitionInterruptionC
   constructor(
     private readonly repository: ICompetitionInterruptionRepository,
     private readonly competitionRepository: ICompetitionRepository,
-    private readonly timerService: LaneTimerService,
+    private readonly timerService: ICompetitionTimer,
     private readonly commandBus: CommandBus,
     private readonly eventBus: IEventBus,
     private readonly sessionRepository: ISessionRepository,

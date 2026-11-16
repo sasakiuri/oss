@@ -22,7 +22,7 @@ import {
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S, P25 } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import type { PhaseChangedEvent, ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
@@ -239,7 +239,7 @@ describe('createPhaseChangedHandler', () => {
 
     const handler = createPhaseChangedHandler({
       competitionRepository: mockRepo,
-      timerService: mockTimerService as unknown as LaneTimerService,
+      timerService: mockTimerService as unknown as ICompetitionTimer,
     });
     handler(makePhaseChangedEvent('ACTIVE', 'comp-42'));
 
@@ -260,7 +260,7 @@ describe('createPhaseChangedHandler', () => {
 
     const handler = createPhaseChangedHandler({
       competitionRepository: mockRepo,
-      timerService: mockTimerService as unknown as LaneTimerService,
+      timerService: mockTimerService as unknown as ICompetitionTimer,
     });
     handler(makePhaseChangedEvent('ACTIVE'));
 
@@ -275,7 +275,7 @@ describe('createPhaseChangedHandler', () => {
 
     const handler = createPhaseChangedHandler({
       competitionRepository: mockRepo,
-      timerService: mockTimerService as unknown as LaneTimerService,
+      timerService: mockTimerService as unknown as ICompetitionTimer,
     });
     handler(makePhaseChangedEvent('ACTIVE'));
 
@@ -292,7 +292,7 @@ describe('createPhaseChangedHandler', () => {
   it('should stop timer in SERIES_COMPLETE phase', () => {
     const handler = createPhaseChangedHandler({
       competitionRepository: mockRepo,
-      timerService: mockTimerService as unknown as LaneTimerService,
+      timerService: mockTimerService as unknown as ICompetitionTimer,
     });
     handler(makePhaseChangedEvent('SERIES_COMPLETE'));
 
@@ -303,7 +303,7 @@ describe('createPhaseChangedHandler', () => {
   it('should stop timer in FINISHED phase', () => {
     const handler = createPhaseChangedHandler({
       competitionRepository: mockRepo,
-      timerService: mockTimerService as unknown as LaneTimerService,
+      timerService: mockTimerService as unknown as ICompetitionTimer,
     });
     handler(makePhaseChangedEvent('FINISHED'));
 
@@ -314,7 +314,7 @@ describe('createPhaseChangedHandler', () => {
   it('should stop timer in IDLE phase', () => {
     const handler = createPhaseChangedHandler({
       competitionRepository: mockRepo,
-      timerService: mockTimerService as unknown as LaneTimerService,
+      timerService: mockTimerService as unknown as ICompetitionTimer,
     });
     handler(makePhaseChangedEvent('IDLE'));
 
@@ -325,7 +325,7 @@ describe('createPhaseChangedHandler', () => {
   it('should stop timer in SERIES_ENTERED phase', () => {
     const handler = createPhaseChangedHandler({
       competitionRepository: mockRepo,
-      timerService: mockTimerService as unknown as LaneTimerService,
+      timerService: mockTimerService as unknown as ICompetitionTimer,
     });
     handler(makePhaseChangedEvent('SERIES_ENTERED'));
 
@@ -336,7 +336,7 @@ describe('createPhaseChangedHandler', () => {
   it('should stop timer in STAGE_ENTERED phase', () => {
     const handler = createPhaseChangedHandler({
       competitionRepository: mockRepo,
-      timerService: mockTimerService as unknown as LaneTimerService,
+      timerService: mockTimerService as unknown as ICompetitionTimer,
     });
     handler(makePhaseChangedEvent('STAGE_ENTERED'));
 

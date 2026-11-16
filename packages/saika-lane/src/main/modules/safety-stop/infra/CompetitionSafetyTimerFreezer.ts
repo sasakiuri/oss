@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 
 import type { ISafetyTimerFreezer } from '../domain/ILaneSafetyStopControl';
 
@@ -8,7 +8,7 @@ import type { ISafetyTimerFreezer } from '../domain/ILaneSafetyStopControl';
 export class CompetitionSafetyTimerFreezer implements ISafetyTimerFreezer {
   constructor(
     private readonly competitionRepository: ICompetitionRepository,
-    private readonly timerService: LaneTimerService,
+    private readonly timerService: ICompetitionTimer,
   ) {}
 
   async freeze(): Promise<{
