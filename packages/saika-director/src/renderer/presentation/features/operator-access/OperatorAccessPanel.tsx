@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { operatorAccessService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   OperatorAccount,
   OperatorAccessStatus,
@@ -42,21 +43,21 @@ export function OperatorAccessPanel() {
     try {
       const response = await operatorAccessService.status();
       if (current !== generation.current) return;
-      if (!response.success) throw new Error(response.error.message);
-      setStatus(response.data);
+      const loadedStatus = unwrap(response);
+      setStatus(loadedStatus);
       setError(null);
-      if (open && response.data.actor?.permissions.includes('ADMIN')) {
+      if (open && loadedStatus.actor?.permissions.includes('ADMIN')) {
         const administration = await operatorAccessService.getAdministration();
         if (current !== generation.current) return;
-        if (!administration.success) throw new Error(administration.error.message);
-        setAccounts(administration.data.accounts);
-        setAudit(administration.data.audit);
+        const records = unwrap(administration);
+        setAccounts(records.accounts);
+        setAudit(records.audit);
       } else {
         setAccounts([]);
         setAudit([]);
       }
     } catch (error) {
-      if (current === generation.current) setError(error instanceof Error ? error.message : String(error));
+      if (current === generation.current) setError(errorMessage(error));
     }
   }, [open]);
   useEffect(() => {
@@ -76,13 +77,12 @@ export function OperatorAccessPanel() {
     setError(null);
     try {
       const response = await operation();
-      if (!response.success) throw new Error(response.error.message);
-      setStatus(response.data);
+      setStatus(unwrap(response));
       setPassword('');
       setNewPassword('');
       await load();
     } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
+      setError(errorMessage(error));
     } finally {
       busyRef.current = false;
       setBusy(false);

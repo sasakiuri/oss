@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FileSearch, LoaderCircle, RefreshCw, Radio } from 'lucide-react';
 
 import { estComplaintsService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { EstComplaintObservationDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -31,8 +32,7 @@ export function EstComplaintInbox({
     setError(null);
     try {
       const response = await estComplaintsService.listByCompetition({ competitionId });
-      if (!response.success) throw new Error(response.error.message);
-      setObservations(response.data);
+      setObservations(unwrap(response));
     } catch (caught) {
       setError(errorMessage(caught, 'Failed to load Lane EST complaints'));
     } finally {
@@ -56,11 +56,11 @@ export function EstComplaintInbox({
           openedBy: official,
           ...(relayNumber ? { relayNumber } : {}),
         });
-        if (!response.success) throw new Error(response.error.message);
+        const opened = unwrap(response);
         setObservations((current) =>
-          current.map((observation) => (observation.signalId === signalId ? response.data.observation : observation)),
+          current.map((observation) => (observation.signalId === signalId ? opened.observation : observation)),
         );
-        onCaseOpened?.(response.data.targetExaminationCaseId);
+        onCaseOpened?.(opened.targetExaminationCaseId);
       } catch (caught) {
         setError(errorMessage(caught, 'Failed to open the target examination'));
       } finally {
@@ -179,8 +179,4 @@ function issueLabel(issue: EstComplaintObservationDto['issue']): string {
     case 'OTHER':
       return 'Other EST issue';
   }
-}
-
-function errorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback;
 }

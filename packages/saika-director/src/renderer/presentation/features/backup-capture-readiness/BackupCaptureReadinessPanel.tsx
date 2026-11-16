@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { backupCaptureReadinessService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   BackupCaptureReadinessDto,
   BackupCaptureReadinessSettings,
@@ -12,8 +14,7 @@ export function BackupCaptureReadinessPanel({ competitionId }: { competitionId: 
   const [current, setCurrent] = useState<BackupCaptureReadinessDto | null>(null);
   const [draft, setDraft] = useState<(BackupCaptureReadinessSettings & { expectedRevision: string }) | null>(null);
   const [sources, setSources] = useState<{ eventId: string; label: string }[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
   const [pollError, setPollError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
@@ -27,14 +28,14 @@ export function BackupCaptureReadinessPanel({ competitionId }: { competitionId: 
           backupCaptureReadinessService.sources(),
         ]);
         if (cancelled) return;
-        if (!response.success) throw new Error(response.error.message);
-        if (!choices.success) throw new Error(choices.error.message);
-        setCurrent(response.data);
+        const readiness = unwrap(response);
+        const sourceChoices = unwrap(choices);
+        setCurrent(readiness);
         setPollError(null);
-        setSources(choices.data);
-        setDraft((value) => value ?? { ...response.data.settings, expectedRevision: response.data.revision });
+        setSources(sourceChoices);
+        setDraft((value) => value ?? { ...readiness.settings, expectedRevision: readiness.revision });
       } catch (caught) {
-        if (!cancelled) setPollError(caught instanceof Error ? caught.message : String(caught));
+        if (!cancelled) setPollError(errorMessage(caught));
       } finally {
         if (!cancelled) timer = setTimeout(() => void refresh(), 2000);
       }
@@ -52,20 +53,14 @@ export function BackupCaptureReadinessPanel({ competitionId }: { competitionId: 
   };
   const save = async () => {
     if (!draft) return;
-    setBusy(true);
-    setError(null);
-    setSaved(false);
-    try {
+    await run(async () => {
+      setSaved(false);
       const response = await backupCaptureReadinessService.save(draft);
-      if (!response.success) throw new Error(response.error.message);
-      setCurrent(response.data);
-      setDraft({ ...response.data.settings, expectedRevision: response.data.revision });
+      const stored = unwrap(response);
+      setCurrent(stored);
+      setDraft({ ...stored.settings, expectedRevision: stored.revision });
       setSaved(true);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
   return (
     <section aria-label="Backup capture start checks" className="space-y-3 text-xs">

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { observationReviewsService } from '@/renderer/services';
+import { unwrap } from '@/renderer/services/serviceError';
 import type { ObservationReviewItemDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 
@@ -13,8 +15,7 @@ export function ObservationReviewsPanel({ competitionId, eventId, resultScope }:
   const [statement, setStatement] = useState('');
   const [correctionId, setCorrectionId] = useState('');
   const [action, setAction] = useState<'NO_SCORE_CHANGE' | 'SCORE_CORRECTION' | 'REOPEN'>('NO_SCORE_CHANGE');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
   const generation = useRef(0);
   const refresh = useCallback(async () => {
     const request = ++generation.current;
@@ -23,8 +24,7 @@ export function ObservationReviewsPanel({ competitionId, eventId, resultScope }:
         ? observationReviewsService.list({ competitionId })
         : observationReviewsService.listEvent({ eventId: eventId!, resultScope: resultScope! }));
       if (request !== generation.current) return;
-      if (!response.success) throw new Error(response.error.message);
-      setItems(response.data);
+      setItems(unwrap(response));
       setError(null);
     } catch (caught) {
       if (request === generation.current) setError(String(caught));
@@ -39,9 +39,7 @@ export function ObservationReviewsPanel({ competitionId, eventId, resultScope }:
   const selected = items.find((item) => item.subject.id === selectedId);
   const record = async () => {
     if (!selected) return;
-    setBusy(true);
-    setError(null);
-    try {
+    await run(async () => {
       const response = await observationReviewsService.record({
         id: crypto.randomUUID(),
         competitionId: selected.subject.competitionId,
@@ -53,14 +51,10 @@ export function ObservationReviewsPanel({ competitionId, eventId, resultScope }:
         officialName,
         statement,
       });
-      if (!response.success) throw new Error(response.error.message);
+      unwrap(response);
       setStatement('');
       await refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
   return (
     <section aria-label="Target observation review" className="space-y-3 border-t border-vscode-border pt-3">
