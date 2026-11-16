@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import {
   PauseTimerCommandSchema,
   ResumeMatchCommandSchema,
@@ -9,7 +10,7 @@ import {
 
 import { createLaneCommandFailure } from './createLaneCommandFailure';
 import type { DirectorCommandPort } from './DirectorCommandPort';
-import type { CommandBatchResult, CommandExecutionResult, DirectorCommandAction } from './DirectorMqttTypes';
+import type { CommandBatchResult, CommandExecutionResult } from './DirectorMqttTypes';
 
 export interface RangeInterruptionContext {
   requireCompetition(competitionId: string): CompetitionStatePayload;
@@ -186,7 +187,7 @@ export class RangeInterruptionCommands {
   }
 
   private interruptionCommandFailure(
-    action: Extract<DirectorCommandAction, 'pause-timer' | 'resume-timer' | 'resume-match'>,
+    action: Extract<MqttCommandActionOf<'competition-lane'>, 'pause-timer' | 'resume-timer' | 'resume-match'>,
     laneId: string,
     error: unknown,
   ): CommandExecutionResult {

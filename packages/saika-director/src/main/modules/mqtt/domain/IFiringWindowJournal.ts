@@ -1,9 +1,12 @@
+import type { MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import type { FiringWindowTimestampSource, FiringWindowViolationKind } from '@/shared/competitionTypes';
 
 export type FiringCommandPhase = 'SIGHTING' | 'MATCH';
 export type FiringBoundaryTransition = 'OPEN' | 'CLOSE';
-export type FiringBoundarySourceAction =
-  'start-sighting' | 'end-sighting' | 'start-match' | 'timer-started' | 'timer-expired' | 'finish-competition';
+export type FiringBoundarySourceAction = Extract<
+  MqttCommandActionOf<'competition'>,
+  'start-sighting' | 'end-sighting' | 'start-match' | 'timer-started' | 'timer-expired' | 'finish-competition'
+>;
 
 /** Transport-neutral evidence emitted when a firing command is published. */
 export interface FiringBoundarySignal {

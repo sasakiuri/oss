@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-import type { CommandExecutionResult, DirectorCommandAction } from './DirectorMqttTypes';
+import type { MqttCommandAction } from '@sasakiuri/saika-protocol/commands';
+import type { CommandExecutionResult } from './DirectorMqttTypes';
 
 /** Keep partial batch failures in the same Lane result format as acknowledged commands. */
 export function createLaneCommandFailure(input: {
   commandId?: string;
-  action: DirectorCommandAction;
+  action: MqttCommandAction;
   laneId: string;
   code: 'MQTT_PUBLISH_FAILED' | 'RANGE_COMMAND_FAILED' | 'SAFETY_COMMAND_FAILED';
   error: unknown;

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { MqttCommandAction } from '@sasakiuri/saika-protocol/commands';
 import type { CompetitionStartScope } from '@/main/shared-infra/operations/CompetitionStartReadiness';
 import {
   type CompetitionShootOffShotPayload,
@@ -22,39 +23,6 @@ import {
 import { type ClockQualityAssessment } from '../domain/ClockQualityPolicy';
 import type { FiringBoundarySignal } from '../domain/IFiringWindowJournal';
 import { type MqttCredentials } from '../domain/IMqttTransport';
-
-export type DirectorCommandAction =
-  | 'activate-safety-stop'
-  | 'clear-safety-stop'
-  | 'join-competition'
-  | 'leave-competition'
-  | 'start-sighting'
-  | 'end-sighting'
-  | 'start-match'
-  | 'timer-started'
-  | 'timer-expired'
-  | 'advance-series'
-  | 'finish-competition'
-  | 'assign-athlete'
-  | 'reset-session'
-  | 'pause-timer'
-  | 'resume-timer'
-  | 'resume-match'
-  | 'start-qualification-recovery'
-  | 'cancel-qualification-recovery'
-  | 'apply-qualification-recovery'
-  | 'settle-qualification-recovery'
-  | 'retire-finalist'
-  | 'start-shoot-off'
-  | 'stop-shoot-off'
-  | 'start-timed-target'
-  | 'cancel-timed-target'
-  | 'record-timed-target-unload'
-  | 'probe-clock'
-  | 'reserve-lane-transfer'
-  | 'start-malfunction-firing'
-  | 'read-malfunction-firing'
-  | 'cancel-malfunction-firing';
 
 export type ShootOffTiming =
   | { readonly type: 'GENERIC'; readonly durationSeconds: number }
@@ -96,7 +64,7 @@ export interface CommandExecutionResult {
   /** Source scope for observers of competition-specific command outcomes. */
   competitionId?: string;
   commandId: string;
-  action: DirectorCommandAction;
+  action: MqttCommandAction;
   success: boolean;
   lanes: LaneCommandResult[];
 }
