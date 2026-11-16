@@ -1,13 +1,12 @@
 import { createHash } from 'node:crypto';
-import type Database from 'better-sqlite3';
-
 import {
   EventId,
   FiringPointAssignment,
   FiringPointAssignmentId,
   ParticipantId,
-  SqliteFiringPointAssignmentRepository,
-  SqliteParticipantRepository,
+  type IEventSummaryReader,
+  type IFiringPointAssignmentRepository,
+  type IParticipantRepository,
 } from '@/main/modules/championship';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { CreateSquaddingDrawPayload, SquaddingDrawDto, SquaddingDrawEntryPayload } from '@/shared/ipc/contracts';
@@ -20,19 +19,20 @@ import type {
 import { IssfSquaddingPolicy, SQUADDING_ALGORITHM_VERSION } from '../domain/SquaddingPolicy';
 import { sha256Json } from '@/main/domain/sha256Json';
 
-export class SquaddingService {
-  private readonly participants;
-  private readonly assignments;
+/** The championship data a draw reads, and the assignments an applied draw replaces. */
+export interface SquaddingSources {
+  readonly events: IEventSummaryReader;
+  readonly participants: Pick<IParticipantRepository, 'findByEventId'>;
+  readonly assignments: Pick<IFiringPointAssignmentRepository, 'deleteByEventId' | 'saveAll'>;
+}
 
+export class SquaddingService {
   constructor(
-    private readonly database: Database.Database,
     private readonly repository: ISquaddingRepository,
+    private readonly sources: SquaddingSources,
     private readonly competitionTypes: CompetitionTypeRegistry,
     private readonly policy = new IssfSquaddingPolicy(),
-  ) {
-    this.participants = new SqliteParticipantRepository(database);
-    this.assignments = new SqliteFiringPointAssignmentRepository(database);
-  }
+  ) {}
 
   list(eventId: string): SquaddingDrawDto[] {
     return this.repository.findByEvent(eventId).map((draw) => this.toDto(draw));
@@ -116,11 +116,11 @@ export class SquaddingService {
       ),
     );
     const applicationEntry = this.newEntry(draw.id, 'APPLIED', input);
-    this.database.transaction(() => {
-      this.assignments.deleteByEventId(draw.eventId);
-      this.assignments.saveAll(entities);
+    this.repository.transaction(() => {
+      this.sources.assignments.deleteByEventId(draw.eventId);
+      this.sources.assignments.saveAll(entities);
       this.repository.appendEntry(applicationEntry);
-    })();
+    });
     return this.toDto(this.requireDraw(draw.id));
   }
 
@@ -178,14 +178,13 @@ export class SquaddingService {
   }
 
   private requireEventType(eventId: string): string {
-    const row = this.database.prepare('SELECT event_type FROM events WHERE id = ?').get(eventId) as
-      { event_type: string } | undefined;
-    if (!row) throw new Error(`Event not found: ${eventId}`);
-    return row.event_type;
+    const event = this.sources.events.findSummary(eventId);
+    if (!event) throw new Error(`Event not found: ${eventId}`);
+    return event.eventType;
   }
 
   private participantSnapshot(eventId: string) {
-    return this.participants
+    return this.sources.participants
       .findByEventId(eventId)
       .map((participant) => ({
         id: participant.id.value,

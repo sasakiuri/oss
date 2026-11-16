@@ -48,6 +48,10 @@ interface EntryRow {
 export class SqliteStartListRepository implements IStartListRepository {
   constructor(private readonly db: Database.Database) {}
 
+  transaction<T>(operation: () => T): T {
+    return this.db.transaction(operation)();
+  }
+
   appendVersion(value: Omit<StartListVersionRecord, 'entries'>): void {
     this.db
       .prepare(

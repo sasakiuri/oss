@@ -1,3 +1,8 @@
+import {
+  SqliteEventSummaryReader,
+  SqliteFiringPointAssignmentRepository,
+  SqliteParticipantRepository,
+} from '@/main/modules/championship';
 import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefinition';
 import { startListsContract } from '@/shared/ipc/contracts';
 
@@ -9,8 +14,12 @@ export const startListsModule: ModuleDefinition<'database' | 'ipcRouter' | 'part
   deps: ['database', 'ipcRouter', 'participantEligibilityReader'] as const,
   register({ database, ipcRouter, participantEligibilityReader }) {
     const service = new StartListService(
-      database,
       new SqliteStartListRepository(database),
+      {
+        events: new SqliteEventSummaryReader(database),
+        participants: new SqliteParticipantRepository(database),
+        assignments: new SqliteFiringPointAssignmentRepository(database),
+      },
       participantEligibilityReader,
     );
     ipcRouter.register(startListsContract, {

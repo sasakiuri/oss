@@ -53,4 +53,6 @@ export interface IStartListRepository {
   findByEvent(eventId: string): StartListVersionRecord[];
   findById(id: string): StartListVersionRecord | null;
   nextVersionNumber(eventId: string, listKind: StartListKindDto): number;
+  /** Runs the operation in one database transaction. */
+  transaction<T>(operation: () => T): T;
 }

@@ -73,6 +73,7 @@ import { BR60S_FINAL } from '@/shared/competitionTypes/definitions/BR60S_FINAL';
 import { IssfStandardStrategy } from '@/shared/competitionTypes/strategies/IssfStandardStrategy';
 import type { EstBackupVerificationRunDto, ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
 
+import { championshipSources } from '../../../helpers/championshipSources';
 import { migratedDatabase } from '../../../helpers/database';
 
 const CHAMPIONSHIP_ID = '11111111-1111-4111-8111-111111111111';
@@ -833,7 +834,7 @@ describe('range planning', () => {
 
   it('pins StartListService sourceHash from createVersion', () => {
     const database = rangeDatabase();
-    const service = new StartListService(database, new SqliteStartListRepository(database));
+    const service = new StartListService(new SqliteStartListRepository(database), championshipSources(database));
 
     const version = service.createVersion({
       eventId: EVENT_ID,
@@ -853,7 +854,11 @@ describe('range planning', () => {
     const database = rangeDatabase();
     const registry = new CompetitionTypeRegistry();
     registry.register(BR60S);
-    const service = new SquaddingService(database, new SqliteSquaddingRepository(database), registry);
+    const service = new SquaddingService(
+      new SqliteSquaddingRepository(database),
+      championshipSources(database),
+      registry,
+    );
 
     const draw = service.createDraw({
       eventId: EVENT_ID,
