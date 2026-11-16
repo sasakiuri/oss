@@ -5,7 +5,7 @@ import { RulePackIdentitySchema } from './CompetitionState';
 import { ShotTimingSettingsSchema } from './ShotTimingSettings';
 import { TimingEvidenceReportSchema } from './TimingEvidenceReport';
 
-export const LanePhaseSchema = z.enum([
+const LanePhaseSchema = z.enum([
   'OFFLINE',
   'READY',
   'SIGHTING',

@@ -2,7 +2,7 @@
 
 import { z } from 'zod';
 
-export const QualificationMalfunctionSignalContextSchema = z
+const QualificationMalfunctionSignalContextSchema = z
   .object({
     competitionId: z.string().uuid(),
     sessionId: z.string().uuid(),

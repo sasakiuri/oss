@@ -240,8 +240,6 @@ export const {
   CancelMalfunctionFiringCommandSchema,
 } = createCommandSchemas();
 
-export type ProbeClockCommand = z.infer<typeof ProbeClockCommandSchema>;
-
 type CommandSchemas = ReturnType<typeof createCommandSchemas>;
 type CommandSchemaName = Exclude<keyof CommandSchemas, 'CommandBaseSchema'>;
 
