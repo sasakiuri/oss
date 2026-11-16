@@ -296,7 +296,7 @@ it('keeps saved remote screens visible when the first connection after restart f
   const scheduled = await pausePolling(app);
   expect(app.view().peers[0]!.node?.screens[0]!.config).toEqual(config);
 
-  await scheduled.syncPeer('saved-display');
+  await scheduled.peers.sync('saved-display');
 
   const peer = app.view().peers[0]!;
   expect(peer.error).toBeTruthy();
@@ -439,7 +439,7 @@ it('isolates a replacement controller cache conflict and restores healthy remote
     endpoint: `http://127.0.0.1:${display.state.document.port}`,
     secret: display.view().pairingSecret,
   });
-  await scheduled.syncPeer(display.identity.sourceId);
+  await scheduled.peers.sync(display.identity.sourceId);
   expect(display.state.audience(first.id).entries[0]).toMatchObject({
     snapshot: { revision: 5 },
     state: 'stale',
@@ -555,7 +555,7 @@ it('stops forwarding saved peers when a restored PC also has a registered contro
     controller: { id: display.identity.sourceId, generation: display.state.document.generation },
   }));
   vi.spyOn(Date, 'now').mockReturnValue(receivedAt + 6000);
-  await scheduled.syncPeer(display.identity.sourceId);
+  await scheduled.peers.sync(display.identity.sourceId);
   expect(controller.view().peers[0]?.error).toContain('managed remotely');
   expect(display.state.audience('screen-one').entries[0]).toMatchObject({ receivedAt, state: 'stale' });
 });
@@ -604,7 +604,7 @@ it.each(['existing', 'new'] as const)(
     await scheduled.tick();
     if (scheduled.timer) clearTimeout(scheduled.timer);
     await Promise.all([...scheduled.activeTasks]);
-    await scheduled.syncPeer(display.identity.sourceId);
+    await scheduled.peers.sync(display.identity.sourceId);
     expect(display.state.audience(healthy.id).entries[0]?.snapshot.revision).toBe(2);
     expect(display.state.audience('screen-one').entries[0]?.snapshot).toMatchObject({
       subjectId: 'session-one',
@@ -763,9 +763,10 @@ it('does not resurrect a removed remote screen when an earlier state request fin
   const waiting = new Promise<void>((resolve) => {
     entered = resolve;
   });
-  const handle = scheduledDisplay.handleRemote.bind(display);
+  const displayServer = scheduledDisplay.display;
+  const handle = displayServer.handle.bind(displayServer);
   let hold = true;
-  vi.spyOn(scheduledDisplay, 'handleRemote').mockImplementation(async (method, path, body) => {
+  vi.spyOn(displayServer, 'handle').mockImplementation(async (method, path, body) => {
     if (hold && method === 'GET' && path === '/vista/v1/display/state') {
       hold = false;
       entered();
@@ -773,7 +774,7 @@ it('does not resurrect a removed remote screen when an earlier state request fin
     }
     return handle(method, path, body);
   });
-  const pendingPoll = scheduledController.syncPeer(display.identity.sourceId);
+  const pendingPoll = scheduledController.peers.sync(display.identity.sourceId);
   try {
     await waiting;
     const removal = controller.command({
@@ -912,7 +913,7 @@ it.each([false, true])('repairs pairing without reviving requests from revoked a
   if (revoked) await display.command({ type: 'revokeController' });
   await controller.command({ type: 'connectPeer', endpoint, secret: display.view().pairingSecret });
   expect(controller.state.document.peers[0]?.desired).toEqual([revoked ? original : requested]);
-  await scheduled.syncPeer(id);
+  await scheduled.peers.sync(id);
   expect(display.state.document.screens).toEqual([revoked ? original : requested]);
 });
 

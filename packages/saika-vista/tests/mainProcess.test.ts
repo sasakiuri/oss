@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { DesktopPort } from '../src/main/VistaApplication';
+import type { DesktopPort } from '../src/main/DesktopPort';
 import type { ScreenConfig } from '../src/shared/model';
 
 import { screenConfig } from './fixtures';

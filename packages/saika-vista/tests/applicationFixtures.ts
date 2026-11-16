@@ -3,7 +3,8 @@ import type { VistaIdentity, VistaSnapshot } from '@sasakiuri/saika-protocol/Vis
 import { createVistaServer, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
 import { vi } from 'vitest';
 
-import type { DesktopPort, VistaApplication } from '../src/main/VistaApplication';
+import type { DesktopPort } from '../src/main/DesktopPort';
+import type { VistaApplication } from '../src/main/VistaApplication';
 
 import { monitor, snapshot } from './fixtures';
 
@@ -70,10 +71,9 @@ export interface ApplicationInternals {
   timer: ReturnType<typeof setTimeout> | null;
   activeTasks: Set<Promise<void>>;
   tick(): Promise<void>;
-  syncPeer(id: string): Promise<void>;
-  handleRemote(method: string, path: string, body: unknown): Promise<unknown>;
-  sourceViews: Map<string, unknown>;
-  lastCatalog: Map<string, number>;
+  peers: { sync(id: string): Promise<void> };
+  display: { handle(method: string, path: string, body: unknown): Promise<unknown> };
+  sources: { views: Map<string, unknown>; lastCatalog: Map<string, number> };
 }
 
 export function internals(app: VistaApplication): ApplicationInternals {

@@ -336,7 +336,7 @@ it.skipIf(process.platform === 'win32')(
     expect(app.state.getEntries()[0]!.state).toBe('saved');
     expect(app.state.getEntries()[0]!.error).toBe('The source was disconnected by the operator');
     const caches = internals(app);
-    expect(caches.sourceViews.has('lane-one')).toBe(false);
-    expect(caches.lastCatalog.has('lane-one')).toBe(false);
+    expect(caches.sources.views.has('lane-one')).toBe(false);
+    expect(caches.sources.lastCatalog.has('lane-one')).toBe(false);
   },
 );
