@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
 import { mqttService } from '@/renderer/services';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
+import { unwrap } from '@/renderer/services/serviceError';
 import { ClockQualitySettingsSchema, type ClockQualitySettingsDto } from '@/shared/ipc/contracts/mqtt.contract';
 
 import { Button } from '../shared/common/Button';
@@ -13,9 +15,8 @@ const tolerances = [
 
 export function ClockQualitySettingsPanel() {
   const [settings, setSettings] = useState<ClockQualitySettingsDto | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run } = useAsyncAction();
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let disposed = false;
     void mqttService
@@ -39,19 +40,12 @@ export function ClockQualitySettingsPanel() {
       setError('Enter positive whole numbers for clock tolerances.');
       return;
     }
-    setBusy(true);
-    setError(null);
-    setMessage(null);
-    try {
+    await run(async () => {
+      setMessage(null);
       const response = await mqttService.setClockQualitySettings(parsed.data);
-      if (!response.success) throw new Error(response.error.message);
-      setSettings(response.data);
+      setSettings(unwrap(response));
       setMessage('Clock policy saved. Probe the Lanes again before timed commands in Required mode.');
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return (

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArchiveRestore, DatabaseBackup, FileCheck2 } from 'lucide-react';
 
 import { operationalArchivesService } from '@/renderer/services';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import type { PendingRestoreDto, RestoreCandidateDto } from '@/shared/ipc/contracts';
 
@@ -30,12 +31,12 @@ export function OperationalArchivesPanel() {
     setBusy(true);
     try {
       const response = await operationalArchivesService.createDatabaseBackup();
-      if (!response.success) throw new Error(response.error.message);
-      if (response.data.status === 'COMPLETED') {
-        addNotification('success', `Verified database backup created: ${response.data.inspection.fileName}`);
+      const receipt = unwrap(response);
+      if (receipt.status === 'COMPLETED') {
+        addNotification('success', `Verified database backup created: ${receipt.inspection.fileName}`);
       }
     } catch (error) {
-      addNotification('error', messageOf(error));
+      addNotification('error', errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -47,10 +48,10 @@ export function OperationalArchivesPanel() {
     setRestoreConfirmed(false);
     try {
       const response = await operationalArchivesService.inspectRestoreCandidate();
-      if (!response.success) throw new Error(response.error.message);
-      if (response.data.status === 'READY') setCandidate(response.data);
+      const inspected = unwrap(response);
+      if (inspected.status === 'READY') setCandidate(inspected);
     } catch (error) {
-      addNotification('error', messageOf(error));
+      addNotification('error', errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -64,13 +65,12 @@ export function OperationalArchivesPanel() {
         candidateToken: candidate.candidateToken,
         confirmation: true,
       });
-      if (!response.success) throw new Error(response.error.message);
-      setPending(response.data);
+      setPending(unwrap(response));
       setCandidate(null);
       setRestoreConfirmed(false);
       addNotification('success', 'Restore staged. Restart Director to apply it.');
     } catch (error) {
-      addNotification('error', messageOf(error));
+      addNotification('error', errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -80,11 +80,11 @@ export function OperationalArchivesPanel() {
     setBusy(true);
     try {
       const response = await operationalArchivesService.cancelPendingRestore();
-      if (!response.success) throw new Error(response.error.message);
+      const outcome = unwrap(response);
       setPending(null);
-      addNotification('success', response.data.cancelled ? 'Pending restore cancelled' : 'No restore was pending');
+      addNotification('success', outcome.cancelled ? 'Pending restore cancelled' : 'No restore was pending');
     } catch (error) {
-      addNotification('error', messageOf(error));
+      addNotification('error', errorMessage(error));
     } finally {
       setBusy(false);
     }
@@ -195,8 +195,4 @@ function formatBytes(value: number): string {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
