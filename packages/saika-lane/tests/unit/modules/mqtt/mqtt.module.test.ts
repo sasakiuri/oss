@@ -8,14 +8,21 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import { EstComplaintSignalService, SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal';
 import { MalfunctionFiringService } from '@/main/modules/malfunction-firing/application/MalfunctionFiringService';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import { mqttModule } from '@/main/modules/mqtt/mqtt.module';
+import {
+  QualificationMalfunctionSignalService,
+  SqliteQualificationMalfunctionSignalRepository,
+} from '@/main/modules/qualification-malfunction-signal';
 import type {
   IQualificationRecoveryAdjudicationControl,
   IQualificationRecoveryControl,
   IQualificationRecoverySettlementControl,
 } from '@/main/modules/qualification-recovery';
+import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
+import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
@@ -230,6 +237,40 @@ describe('mqtt.module', () => {
 
   afterEach(() => database.close());
 
+  function moduleDeps(startup = createMockStartup()) {
+    return {
+      eventBus,
+      ipcRouter,
+      storage,
+      settingsStore,
+      queryBus,
+      startup,
+      membership: new DirectorMembership(storage, eventBus),
+      commandBus,
+      competitionRepository,
+      timerService,
+      competitionInterruptionControl,
+      competitionShootOffControl,
+      qualificationRecoveryControl,
+      qualificationRecoveryAdjudicationControl,
+      qualificationRecoverySettlementControl,
+      safetyStopControl,
+      reserveTransferJournal: new SqliteReserveLaneTransferJournal(database),
+      rangeOfficerRequestService: new RangeOfficerRequestService(new SqliteRangeOfficerRequestRepository(database)),
+      qualificationMalfunctionSignalService: new QualificationMalfunctionSignalService(
+        new SqliteQualificationMalfunctionSignalRepository(database),
+      ),
+      estComplaintSignalService: new EstComplaintSignalService(new SqliteEstComplaintSignalRepository(database)),
+      timedTargetControl,
+      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
+        connection: () => null,
+        hasActiveCompetition: async () => false,
+      }),
+      sessionRepository,
+      database,
+    };
+  }
+
   it('should have correct name', () => {
     expect(mqttModule.name).toBe('mqtt');
   });
@@ -252,6 +293,10 @@ describe('mqtt.module', () => {
       'qualificationRecoveryAdjudicationControl',
       'qualificationRecoverySettlementControl',
       'safetyStopControl',
+      'reserveTransferJournal',
+      'rangeOfficerRequestService',
+      'qualificationMalfunctionSignalService',
+      'estComplaintSignalService',
       'timedTargetControl',
       'timingProfileService',
       'sessionRepository',
@@ -261,31 +306,7 @@ describe('mqtt.module', () => {
 
   it('queries persisted membership before MQTT connects', async () => {
     vi.mocked(storage.get).mockImplementation((key) => (key === 'mqtt.competitionId' ? 'competition-1' : undefined));
-    mqttModule.register({
-      eventBus,
-      ipcRouter,
-      storage,
-      settingsStore,
-      queryBus,
-      startup: createMockStartup(),
-      membership: new DirectorMembership(storage, eventBus),
-      commandBus,
-      competitionRepository,
-      timerService,
-      competitionInterruptionControl,
-      competitionShootOffControl,
-      qualificationRecoveryControl,
-      qualificationRecoveryAdjudicationControl,
-      qualificationRecoverySettlementControl,
-      safetyStopControl,
-      timedTargetControl,
-      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
-        connection: () => null,
-        hasActiveCompetition: async () => false,
-      }),
-      sessionRepository,
-      database,
-    });
+    mqttModule.register(moduleDeps(createMockStartup()));
     const handlers = vi.mocked(ipcRouter.register).mock.calls[0]![1] as unknown as {
       getDirectorMembership(): Promise<{ competitionId: string | null; revision: number }>;
     };
@@ -295,122 +316,26 @@ describe('mqtt.module', () => {
 
   it('should register without errors', () => {
     expect(() => {
-      mqttModule.register({
-        eventBus,
-        ipcRouter,
-        storage,
-        settingsStore,
-        queryBus,
-        startup: createMockStartup(),
-        membership: new DirectorMembership(storage, eventBus),
-        commandBus,
-        competitionRepository,
-        timerService,
-        competitionInterruptionControl,
-        competitionShootOffControl,
-        qualificationRecoveryControl,
-        qualificationRecoveryAdjudicationControl,
-        qualificationRecoverySettlementControl,
-        safetyStopControl,
-        timedTargetControl,
-        timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
-          connection: () => null,
-          hasActiveCompetition: async () => false,
-        }),
-        sessionRepository,
-        database,
-      });
+      mqttModule.register(moduleDeps(createMockStartup()));
     }).not.toThrow();
   });
 
   it('should register IPC handlers via ipcRouter', () => {
-    mqttModule.register({
-      eventBus,
-      ipcRouter,
-      storage,
-      settingsStore,
-      queryBus,
-      startup: createMockStartup(),
-      membership: new DirectorMembership(storage, eventBus),
-      commandBus,
-      competitionRepository,
-      timerService,
-      competitionInterruptionControl,
-      competitionShootOffControl,
-      qualificationRecoveryControl,
-      qualificationRecoveryAdjudicationControl,
-      qualificationRecoverySettlementControl,
-      safetyStopControl,
-      timedTargetControl,
-      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
-        connection: () => null,
-        hasActiveCompetition: async () => false,
-      }),
-      sessionRepository,
-      database,
-    });
+    mqttModule.register(moduleDeps(createMockStartup()));
 
     expect(ipcRouter.register).toHaveBeenCalledTimes(1);
     expect(ipcRouter.register).toHaveBeenCalledWith(expect.objectContaining({ namespace: 'mqtt' }), expect.any(Object));
   });
 
   it('should subscribe to ConnectionEstablished and ConnectionLost events', () => {
-    mqttModule.register({
-      eventBus,
-      ipcRouter,
-      storage,
-      settingsStore,
-      queryBus,
-      startup: createMockStartup(),
-      membership: new DirectorMembership(storage, eventBus),
-      commandBus,
-      competitionRepository,
-      timerService,
-      competitionInterruptionControl,
-      competitionShootOffControl,
-      qualificationRecoveryControl,
-      qualificationRecoveryAdjudicationControl,
-      qualificationRecoverySettlementControl,
-      safetyStopControl,
-      timedTargetControl,
-      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
-        connection: () => null,
-        hasActiveCompetition: async () => false,
-      }),
-      sessionRepository,
-      database,
-    });
+    mqttModule.register(moduleDeps(createMockStartup()));
 
     expect(eventBus.on).toHaveBeenCalledWith('ConnectionEstablished', expect.any(Function));
     expect(eventBus.on).toHaveBeenCalledWith('ConnectionLost', expect.any(Function));
   });
 
   it('should subscribe to ShotRecorded event', () => {
-    mqttModule.register({
-      eventBus,
-      ipcRouter,
-      storage,
-      settingsStore,
-      queryBus,
-      startup: createMockStartup(),
-      membership: new DirectorMembership(storage, eventBus),
-      commandBus,
-      competitionRepository,
-      timerService,
-      competitionInterruptionControl,
-      competitionShootOffControl,
-      qualificationRecoveryControl,
-      qualificationRecoveryAdjudicationControl,
-      qualificationRecoverySettlementControl,
-      safetyStopControl,
-      timedTargetControl,
-      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
-        connection: () => null,
-        hasActiveCompetition: async () => false,
-      }),
-      sessionRepository,
-      database,
-    });
+    mqttModule.register(moduleDeps(createMockStartup()));
 
     expect(eventBus.on).toHaveBeenCalledWith('ShotRecorded', expect.any(Function));
   });
@@ -430,31 +355,7 @@ describe('mqtt.module', () => {
         brokerUrl: 'mqtt://localhost:1883',
       });
       mockMqttClient.on.mockReset();
-      mqttModule.register({
-        eventBus,
-        ipcRouter,
-        storage,
-        settingsStore,
-        queryBus,
-        startup,
-        membership: new DirectorMembership(storage, eventBus),
-        commandBus,
-        competitionRepository,
-        timerService,
-        competitionInterruptionControl,
-        competitionShootOffControl,
-        qualificationRecoveryControl,
-        qualificationRecoveryAdjudicationControl,
-        qualificationRecoverySettlementControl,
-        safetyStopControl,
-        timedTargetControl,
-        timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
-          connection: () => null,
-          hasActiveCompetition: async () => false,
-        }),
-        sessionRepository,
-        database,
-      });
+      mqttModule.register(moduleDeps(startup));
       expect(mockMqttClient.on).not.toHaveBeenCalled();
       const afterReady = vi.mocked(startup.afterReady).mock.calls[0]![0];
       const automatic = afterReady();
@@ -479,31 +380,7 @@ describe('mqtt.module', () => {
   );
 
   function registerConnection(startup = createMockStartup()) {
-    mqttModule.register({
-      eventBus,
-      ipcRouter,
-      storage,
-      settingsStore,
-      queryBus,
-      startup,
-      membership: new DirectorMembership(storage, eventBus),
-      commandBus,
-      competitionRepository,
-      timerService,
-      competitionInterruptionControl,
-      competitionShootOffControl,
-      qualificationRecoveryControl,
-      qualificationRecoveryAdjudicationControl,
-      qualificationRecoverySettlementControl,
-      safetyStopControl,
-      timedTargetControl,
-      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
-        connection: () => null,
-        hasActiveCompetition: async () => false,
-      }),
-      sessionRepository,
-      database,
-    });
+    mqttModule.register(moduleDeps(startup));
     return vi.mocked(ipcRouter.register).mock.calls[0]![1] as unknown as {
       connectMqtt(input: { brokerUrl: string; laneAlias?: string; autoConnect?: boolean }): Promise<void>;
       disconnectMqtt(): Promise<void>;
@@ -775,31 +652,7 @@ describe('mqtt.module', () => {
     });
     mockMqttClient.subscribeAsync.mockRejectedValueOnce(new Error('subscription rejected'));
 
-    mqttModule.register({
-      eventBus,
-      ipcRouter,
-      storage,
-      settingsStore,
-      queryBus,
-      startup: createMockStartup(),
-      membership: new DirectorMembership(storage, eventBus),
-      commandBus,
-      competitionRepository,
-      timerService,
-      competitionInterruptionControl,
-      competitionShootOffControl,
-      qualificationRecoveryControl,
-      qualificationRecoveryAdjudicationControl,
-      qualificationRecoverySettlementControl,
-      safetyStopControl,
-      timedTargetControl,
-      timingProfileService: new TimingProfileService(new StoredTimingProfiles(storage), {
-        connection: () => null,
-        hasActiveCompetition: async () => false,
-      }),
-      sessionRepository,
-      database,
-    });
+    mqttModule.register(moduleDeps(createMockStartup()));
     const handlers = vi.mocked(ipcRouter.register).mock.calls[0]?.[1] as unknown as {
       connectMqtt(input: { brokerUrl: string; laneAlias?: string; autoConnect?: boolean }): Promise<void>;
       getMqttStatus(): Promise<{ status: string }>;

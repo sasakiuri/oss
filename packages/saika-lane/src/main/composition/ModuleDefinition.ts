@@ -11,14 +11,18 @@ import type { ICompetitionShootOffControl } from '@/main/modules/competition-sho
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import type { IUSBConnectionManager } from '@/main/modules/connection/infra/usb/IUSBConnectionManager';
+import type { EstComplaintSignalService } from '@/main/modules/est-complaint-signal';
 import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
+import type { QualificationMalfunctionSignalService } from '@/main/modules/qualification-malfunction-signal';
 import type {
   IQualificationRecoveryAdjudicationControl,
   IQualificationRecoveryControl,
   IQualificationRecoverySettlementControl,
 } from '@/main/modules/qualification-recovery';
+import type { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
+import type { IReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
@@ -58,6 +62,10 @@ export interface ServiceRegistry {
   qualificationRecoveryAdjudicationControl: IQualificationRecoveryAdjudicationControl;
   qualificationRecoverySettlementControl: IQualificationRecoverySettlementControl;
   safetyStopControl: ILaneSafetyStopControl;
+  reserveTransferJournal: IReserveLaneTransferJournal;
+  rangeOfficerRequestService: RangeOfficerRequestService;
+  qualificationMalfunctionSignalService: QualificationMalfunctionSignalService;
+  estComplaintSignalService: EstComplaintSignalService;
   timedTargetControl: ITimedTargetControl;
   timingProfileService: TimingProfileService;
   mainWindow: BrowserWindow;
