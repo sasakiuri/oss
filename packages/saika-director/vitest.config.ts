@@ -30,7 +30,6 @@ export default defineConfig({
       exclude: [
         'node_modules/',
         'dist/',
-        'tests/',
         '**/*.test.ts',
         '**/*.test.tsx',
         '**/types.ts',
