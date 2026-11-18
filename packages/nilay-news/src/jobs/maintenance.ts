@@ -34,9 +34,11 @@ export async function maintainNews(
       REPEATED_FAILURES,
     );
   }
+  let publicationTickSucceeded = false;
   if (publishingConfigured) {
     try {
       await publisher.tick();
+      publicationTickSucceeded = true;
     } catch {
       await notifier.report(
         "publication-runtime",
@@ -60,10 +62,11 @@ export async function maintainNews(
     }
     if (!posts.some((post) => UNRESOLVED_POST_STATUSES.has(post.status))) {
       await notifier.recover("publication", "投稿結果の確認が完了しました");
-      await notifier.recover(
-        "publication-runtime",
-        "投稿処理の状態更新を再開しました",
-      );
+      if (publicationTickSucceeded)
+        await notifier.recover(
+          "publication-runtime",
+          "投稿処理の状態更新を再開しました",
+        );
     }
   }
 }
