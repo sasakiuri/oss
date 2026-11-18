@@ -1941,6 +1941,35 @@ describe("bounded classification per invocation (production default 10 items / 4
     expect(publicationState).toHaveBeenCalledTimes(1);
   });
 
+  it("reports publication recovery only after a successful tick", async () => {
+    const notifier = notices();
+    const { repo, now } = await setup();
+    const app = new Application(
+      repo,
+      new Jev(),
+      new BufferClient("buffer-key", "channel"),
+      { clock: now, notifier: notifier as unknown as Notifier },
+    );
+    vi.spyOn(repo, "claimPostCheck").mockRejectedValueOnce(new Error("D1"));
+
+    await app.scheduled();
+    expect(notifier.report).toHaveBeenCalledWith(
+      "publication-runtime",
+      "投稿処理の状態を更新できませんでした",
+      expect.any(String),
+    );
+    expect(notifier.recover).not.toHaveBeenCalledWith(
+      "publication-runtime",
+      expect.any(String),
+    );
+
+    await app.scheduled();
+    expect(notifier.recover).toHaveBeenCalledWith(
+      "publication-runtime",
+      "投稿処理の状態更新を再開しました",
+    );
+  });
+
   it("never overlaps or pays twice with concurrent invocations", async () => {
     const directory = mkdtempSync(join(tmpdir(), "nilay-burst-"));
     cleanup.push(() => rmSync(directory, { recursive: true, force: true }));
