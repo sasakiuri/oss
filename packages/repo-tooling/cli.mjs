@@ -299,25 +299,6 @@ async function execute(script, arguments_) {
     );
     return lintInfrastructure({ root });
   }
-  if (["license-report", "license-report:check"].includes(script)) {
-    const { generateLicenseReport } = await import(
-      pathToFileURL(
-        resolve(upstreamRoot, "scripts/generate-third-party-licenses.mjs"),
-      )
-    );
-    const appDirectories = workspaceDirectories(root).filter(
-      (directory) =>
-        Object.keys(
-          readJson(resolve(root, directory, "package.json")).dependencies ?? {},
-        ).length,
-    );
-    return generateLicenseReport({
-      repositoryRoot: root,
-      appDirectories,
-      checkOnly: script.endsWith(":check"),
-      selectedWorkspace: arguments_[0],
-    });
-  }
   if (script === "labels:sync") {
     const unknown = arguments_.filter(
       (argument) => !["--dry-run", "--prune"].includes(argument),
@@ -439,6 +420,9 @@ async function sourceScriptAsync(script) {
   if (!source) throw new Error(`Upstream script missing: ${script}`);
   for (const step of source.split(/\s*&&\s*/)) {
     const task = step.match(/^npm run ([\w:-]+)$/)?.[1];
+    // Generated license reports ship with the applications of this repository;
+    // private consumers distribute none and keep the allowlist check only.
+    if (task === "license-report:check" && root !== upstreamRoot) continue;
     const status = task ? await execute(task, []) : sourceScriptStep(step);
     if (status !== 0) return status;
   }
