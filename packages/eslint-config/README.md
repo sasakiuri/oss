@@ -45,6 +45,29 @@ run by each framework, including JavaScript tests when needed. Keep Playwright
 and `node:test` files outside the Vitest scope. Existing users of the default
 configuration retain their current rule set.
 
+### Next.js
+
+Next.js applications add the `eslint-config-next` rules after the default
+configuration. Install `eslint-config-next` 16 in the application:
+
+```js
+import eslintConfig from "@sasakiuri/eslint-config";
+import next, { accessibility } from "@sasakiuri/eslint-config/next";
+
+export default [
+  ...eslintConfig,
+  ...next,
+  { ...accessibility, files: ["src/**/*.tsx"] },
+];
+```
+
+`next` contains the Core Web Vitals and TypeScript configurations of
+`eslint-config-next`. Use `coreWebVitals` instead to keep the default
+configuration's TypeScript rule levels. Both leave the TypeScript plugin to the
+default configuration, because Next.js can resolve another copy of it.
+`accessibility` enables every recommended `jsx-a11y` rule, where Next.js enables
+only a few, for `**/*.{jsx,tsx}` by default.
+
 ## Features
 
 - **TypeScript support** via `typescript-eslint`

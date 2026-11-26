@@ -5,6 +5,8 @@ import { test } from "node:test";
 import { Linter } from "eslint";
 import tseslint from "typescript-eslint";
 
+import base from "../index.js";
+import next, { accessibility, coreWebVitals } from "../next.js";
 import testingLibrary from "../testing-library.js";
 import vitest from "../vitest.js";
 
@@ -220,5 +222,66 @@ test("Testing Library rules do not mistake application helpers for library utili
       [vitest, testingLibrary],
     ),
     [],
+  );
+});
+
+function lintNext(source, presets, filename = "src/app/page.tsx") {
+  return new Linter().verify(
+    source,
+    [
+      ...base,
+      ...presets,
+      // The rule looks for a pages directory, which this package does not have.
+      { rules: { "@next/next/no-html-link-for-pages": "off" } },
+    ],
+    { filename },
+  );
+}
+
+const page = `
+  export default function Page({ onSelect }: { onSelect: () => void }) {
+    return <div onClick={onSelect}><img src="/photo.png" alt="" /></div>;
+  }
+`;
+
+test("the Next.js presets run beside the base TypeScript plugin", () => {
+  for (const config of [...next, ...coreWebVitals])
+    assert.equal(config.plugins?.["@typescript-eslint"], undefined);
+  assert.deepEqual(
+    lintNext(page, next).map(({ ruleId }) => ruleId),
+    ["@next/next/no-img-element"],
+  );
+});
+
+test("the Core Web Vitals preset leaves out the Next.js TypeScript overrides", () => {
+  const unusedVariable = (presets) =>
+    lintNext(
+      "export const value = () => { const unused = 1; };",
+      presets,
+      "src/value.ts",
+    )
+      .filter(({ ruleId }) => ruleId === "@typescript-eslint/no-unused-vars")
+      .map(({ severity }) => severity);
+  assert.deepEqual(unusedVariable(next), [1]);
+  assert.deepEqual(unusedVariable(coreWebVitals), [2]);
+});
+
+test("the accessibility preset enables the recommended jsx-a11y rules within its files", () => {
+  assert.deepEqual(
+    lintNext(page, [...next, accessibility])
+      .map(({ ruleId }) => ruleId)
+      .sort(),
+    [
+      "@next/next/no-img-element",
+      "jsx-a11y/click-events-have-key-events",
+      "jsx-a11y/no-static-element-interactions",
+    ],
+  );
+  assert.deepEqual(
+    lintNext(page, [
+      ...next,
+      { ...accessibility, files: ["src/components/**/*.tsx"] },
+    ]).map(({ ruleId }) => ruleId),
+    ["@next/next/no-img-element"],
   );
 });

@@ -9,6 +9,12 @@
       "pinVersion": "*"
     },
     {
+      "label": "The shared ESLint preset accepts each application's Next.js 16 configuration",
+      "dependencies": ["eslint-config-next"],
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    },
+    {
       "label": "Nilay Knowledge uses Tailwind 4.3-compatible class merging",
       "packages": ["@sasakiuri/nilay-knowledge"],
       "dependencies": ["tailwind-merge"]
