@@ -1,5 +1,14 @@
 # @sasakiuri/saika-vista
 
+## 0.5.0
+
+### Patch Changes
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`ada61ae`](https://github.com/sasakiuri/oss/commit/ada61aeea395358a5d7fe19a7bdaa48a18c75475) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Ask the operator and audience windows to reload only when the state they show has changed, instead of five times a second.
+
+- Updated dependencies [[`3df0e2d`](https://github.com/sasakiuri/oss/commit/3df0e2d669f01188065a1b799682e6e8276ba8bb)]:
+  - @sasakiuri/saika-protocol@0.3.0
+
 ## 0.4.1
 
 ### Patch Changes
