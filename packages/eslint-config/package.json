@@ -20,12 +20,14 @@
   "exports": {
     ".": "./index.js",
     "./vitest": "./vitest.js",
-    "./testing-library": "./testing-library.js"
+    "./testing-library": "./testing-library.js",
+    "./next": "./next.js"
   },
   "files": [
     "index.js",
     "vitest.js",
     "testing-library.js",
+    "next.js",
     "README.md",
     "LICENSE"
   ],
@@ -53,7 +55,16 @@
     "eslint-plugin-unused-imports": "^4.1.4",
     "typescript-eslint": "^8.57.2"
   },
+  "devDependencies": {
+    "eslint-config-next": "16.4.3"
+  },
   "peerDependencies": {
-    "eslint": "^9"
+    "eslint": "^9",
+    "eslint-config-next": "^16"
+  },
+  "peerDependenciesMeta": {
+    "eslint-config-next": {
+      "optional": true
+    }
   }
 }
