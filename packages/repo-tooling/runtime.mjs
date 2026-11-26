@@ -82,6 +82,7 @@ const binaryPackages = {
   lhci: "@lhci/cli",
   changeset: "@changesets/cli",
   "size-limit": "size-limit",
+  depcruise: "dependency-cruiser",
 };
 
 export function resolvePackage(packageName, cwd = process.cwd()) {
@@ -95,26 +96,15 @@ export function resolveConsumerPackage(packageName, cwd = process.cwd()) {
 function findPackage(packageName, require) {
   if (!/^(?:@[a-z0-9._-]+\/)?[a-z0-9._-]+$/i.test(packageName))
     throw new Error(`Invalid package: ${packageName}`);
-  let entry;
-  try {
-    entry = require.resolve(`${packageName}/package.json`);
-  } catch {
-    entry = require.resolve(packageName);
-  }
-  let directory = dirname(realpathSync(entry));
-  while (true) {
-    const manifestPath = resolve(directory, "package.json");
-    if (existsSync(manifestPath)) {
-      const manifest = readJson(manifestPath);
-      if (manifest.name === packageName) {
-        return directory;
-      }
-    }
-    const parent = dirname(directory);
-    if (parent === directory)
-      throw new Error(`Cannot locate package: ${packageName}`);
-    directory = parent;
-  }
+  // Follow Node's lookup paths rather than require.resolve: a package's
+  // `exports` can hide both its manifest and a CommonJS entry. The subpath
+  // also covers packages named after built-in modules, such as `buffer`.
+  const directory = require.resolve
+    .paths(`${packageName}/package.json`)
+    .map((path) => resolve(path, packageName))
+    .find((path) => existsSync(resolve(path, "package.json")));
+  if (!directory) throw new Error(`Cannot locate package: ${packageName}`);
+  return realpathSync(directory);
 }
 
 export function resolveBinary(binary, cwd = process.cwd()) {
