@@ -4,9 +4,34 @@ import {
   RecordTimedTargetUnloadCommandSchema,
   StartTimedTargetCommandSchema,
 } from '@sasakiuri/saika-protocol/commands';
+import type { TimedTargetStatePayload } from '@sasakiuri/saika-protocol/TimedTargetState';
+
 import type { CompetitionStateRegistry } from './CompetitionStateRegistry';
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type { CommandExecutionResult } from './DirectorMqttTypes';
+
+type TimedTargetLanes = Pick<CompetitionStateRegistry, 'getLane'>;
+
+/** A timed target sequence blocks another LOAD on its Lane until it completes or is cancelled. */
+export function isTimedTargetSequenceActive(state: TimedTargetStatePayload | null | undefined): boolean {
+  return !!state && state.phase !== 'COMPLETE' && state.phase !== 'CANCELLED';
+}
+
+export function lanesWithActiveTimedTarget(lanes: TimedTargetLanes, laneIds: readonly string[]): string[] {
+  return laneIds.filter((laneId) => isTimedTargetSequenceActive(lanes.getLane(laneId)?.timedTargetState));
+}
+
+/** The first LOAD time every Lane allows, never before `notBeforeMs`. */
+export function earliestTimedTargetLoadMs(
+  lanes: TimedTargetLanes,
+  laneIds: readonly string[],
+  notBeforeMs: number,
+): number {
+  return laneIds.reduce((latest, laneId) => {
+    const nextLoad = lanes.getLane(laneId)?.timedTargetState?.nextLoadAllowedAt;
+    return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
+  }, notBeforeMs);
+}
 
 export interface StartTimedTargetInput {
   competitionId: string;
@@ -88,10 +113,7 @@ export class TimedTargetCommands {
       );
     }
 
-    const stillActive = targetLaneIds.filter((laneId) => {
-      const state = this.context.getLane(laneId)?.timedTargetState;
-      return state && state.phase !== 'COMPLETE' && state.phase !== 'CANCELLED';
-    });
+    const stillActive = lanesWithActiveTimedTarget(this.context, targetLaneIds);
     if (stillActive.length > 0) {
       throw new Error(`A timed target sequence is already active on Lane(s): ${stillActive.join(', ')}`);
     }
@@ -109,10 +131,7 @@ export class TimedTargetCommands {
     this.context.assertSafetyCleared(targetLaneIds, 'start a timed target sequence');
     this.context.assertTimedCommandReadiness(targetLaneIds);
     this.context.assertTimedTargetReadiness(targetLaneIds);
-    const earliestLoadMs = targetLaneIds.reduce((latest, laneId) => {
-      const nextLoad = this.context.getLane(laneId)?.timedTargetState?.nextLoadAllowedAt;
-      return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
-    }, Date.now() + this.startDelayMs);
+    const earliestLoadMs = earliestTimedTargetLoadMs(this.context, targetLaneIds, Date.now() + this.startDelayMs);
     const command = StartTimedTargetCommandSchema.parse(
       this.commands.commandBase({
         programId: input.programId,

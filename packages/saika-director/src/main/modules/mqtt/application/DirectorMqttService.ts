@@ -38,6 +38,7 @@ import type {
   CommandExecutionResult,
   CompetitionResultLane,
   CreateCompetitionInput,
+  DirectorLaneSnapshot,
   DirectorMqttCallbacks,
   DirectorMqttOptions,
   LaneClockProbeResult,
@@ -299,6 +300,14 @@ export class DirectorMqttService {
 
   disconnect(): Promise<void> {
     return this.connection.disconnect();
+  }
+
+  getCompetition(competitionId: string): CompetitionStatePayload | undefined {
+    return this.state.getCompetition(competitionId);
+  }
+
+  getLane(laneId: string): DirectorLaneSnapshot | undefined {
+    return this.state.getLane(laneId);
   }
 
   getSnapshot(): MqttControlSnapshot {

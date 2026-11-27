@@ -15,6 +15,7 @@ import type {
   SettleQualificationRecoveryInput,
   StartQualificationRecoveryInput,
 } from './DirectorMqttTypes';
+import { isTimedTargetSequenceActive } from './TimedTargetCommands';
 
 export type QualificationRecoveryContext = Pick<
   CompetitionStateRegistry,
@@ -82,7 +83,7 @@ export class QualificationRecoveryCommands {
     const retriesCurrentRun =
       timedState?.executionContext?.owner === 'qualification-recovery' &&
       timedState.executionContext.referenceId === input.runId;
-    if (timedState && timedState.phase !== 'COMPLETE' && timedState.phase !== 'CANCELLED' && !retriesCurrentRun) {
+    if (isTimedTargetSequenceActive(timedState) && !retriesCurrentRun) {
       throw new Error(`A timed target sequence is already active on Lane ${input.laneId}`);
     }
 

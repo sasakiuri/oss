@@ -170,7 +170,7 @@ export const mqttModule = defineModule({
     });
 
     const requireCompetition = (competitionId: string) => {
-      const competition = mqttService.getSnapshot().competitions.find((state) => state.competitionId === competitionId);
+      const competition = mqttService.getCompetition(competitionId);
       if (!competition) throw new Error(`Competition not found: ${competitionId}`);
       return competition;
     };
@@ -202,7 +202,7 @@ export const mqttModule = defineModule({
             .competitions.some((competition) => !['NOT_STARTED', 'MATCH_COMPLETE'].includes(competition.phase)),
       }),
       (competitionId) => {
-        const competition = mqttService.getSnapshot().competitions.find((item) => item.competitionId === competitionId);
+        const competition = mqttService.getCompetition(competitionId);
         if (!competition || competition.phase !== 'NOT_STARTED')
           throw new Error('Select a competition that has not started before applying an operational profile');
       },

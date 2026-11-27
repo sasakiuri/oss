@@ -10,6 +10,7 @@ import { MalfunctionFiringEvidenceSchema } from '@sasakiuri/saika-protocol/Malfu
 import type { CompetitionStateRegistry } from './CompetitionStateRegistry';
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type { CommandExecutionResult, ShootOffTiming } from './DirectorMqttTypes';
+import { earliestTimedTargetLoadMs, lanesWithActiveTimedTarget } from './TimedTargetCommands';
 
 export type FinalCompetitionContext = Pick<
   CompetitionStateRegistry,
@@ -70,20 +71,14 @@ export class FinalCompetitionCommands {
     this.context.assertTimedCommandReadiness(targetLaneIds);
     if (timing.type === 'TIMED_TARGET') {
       this.context.assertTimedTargetReadiness(targetLaneIds);
-      const stillActive = targetLaneIds.filter((laneId) => {
-        const timedState = this.context.getLane(laneId)?.timedTargetState;
-        return timedState && timedState.phase !== 'COMPLETE' && timedState.phase !== 'CANCELLED';
-      });
+      const stillActive = lanesWithActiveTimedTarget(this.context, targetLaneIds);
       if (stillActive.length > 0) {
         throw new Error(`A timed target sequence is already active on shoot-off Lane(s): ${stillActive.join(', ')}`);
       }
     }
     const earliestStartMs =
       timing.type === 'TIMED_TARGET'
-        ? targetLaneIds.reduce((latest, laneId) => {
-            const nextLoad = this.context.getLane(laneId)?.timedTargetState?.nextLoadAllowedAt;
-            return nextLoad ? Math.max(latest, Date.parse(nextLoad)) : latest;
-          }, Date.now() + this.startDelayMs)
+        ? earliestTimedTargetLoadMs(this.context, targetLaneIds, Date.now() + this.startDelayMs)
         : Date.now() + this.startDelayMs;
     const command = StartShootOffCommandSchema.parse(
       this.commands.commandBase({

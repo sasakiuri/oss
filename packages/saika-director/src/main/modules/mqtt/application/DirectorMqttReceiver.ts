@@ -33,6 +33,67 @@ import type { CompetitionLaneData, DirectorLaneSnapshot, DirectorMqttCallbacks }
 type CompetitionScopedTopic = Extract<ParsedMqttTopic, { competitionId: string }>;
 type LaneScopedTopic = Exclude<ParsedMqttTopic, CompetitionScopedTopic>;
 
+interface PayloadSchema<T> {
+  safeParse(value: unknown): { success: true; data: T } | { success: false; error: Error };
+}
+
+/** A retained state topic: the payload schema, its log label and the snapshot field it fills. */
+interface StateTopic<Field extends string, State> {
+  readonly schema: PayloadSchema<State>;
+  readonly label: string;
+  readonly field: Field;
+}
+
+type LaneStateField = 'safetyState' | 'rangeOfficerRequest' | 'qualificationMalfunctionSignal' | 'estComplaintSignal';
+type CompetitionLaneStateField =
+  'competitionState' | 'assignment' | 'score' | 'timedTargetState' | 'qualificationRecoveryState';
+
+const laneStateTopic = <Field extends LaneStateField>(
+  schema: PayloadSchema<NonNullable<DirectorLaneSnapshot[Field]>>,
+  label: string,
+  field: Field,
+): StateTopic<Field, NonNullable<DirectorLaneSnapshot[Field]>> => ({ schema, label, field });
+
+const competitionLaneStateTopic = <Field extends CompetitionLaneStateField>(
+  schema: PayloadSchema<NonNullable<CompetitionLaneData[Field]>>,
+  label: string,
+  field: Field,
+): StateTopic<Field, NonNullable<CompetitionLaneData[Field]>> => ({ schema, label, field });
+
+const LANE_STATE_TOPICS = {
+  laneSafetyState: laneStateTopic(LaneSafetyStatePayloadSchema, 'Lane safety state', 'safetyState'),
+  laneRangeOfficerRequest: laneStateTopic(
+    RangeOfficerRequestPayloadSchema,
+    'Range Officer request',
+    'rangeOfficerRequest',
+  ),
+  laneQualificationMalfunctionSignal: laneStateTopic(
+    QualificationMalfunctionSignalPayloadSchema,
+    'qualification malfunction signal',
+    'qualificationMalfunctionSignal',
+  ),
+  laneEstComplaintSignal: laneStateTopic(EstComplaintSignalPayloadSchema, 'EST complaint signal', 'estComplaintSignal'),
+};
+
+/** Retained Lane states of a competition; an empty retained payload clears the field. */
+const COMPETITION_LANE_STATE_TOPICS = {
+  laneCompetitionState: competitionLaneStateTopic(LaneCompetitionStatePayloadSchema, 'lane state', 'competitionState'),
+  laneAssignment: competitionLaneStateTopic(LaneAssignmentPayloadSchema, 'lane assignment', 'assignment'),
+  laneScore: competitionLaneStateTopic(LaneScorePayloadSchema, 'lane score', 'score'),
+  timedTargetState: competitionLaneStateTopic(TimedTargetStatePayloadSchema, 'timed target state', 'timedTargetState'),
+  qualificationRecoveryState: competitionLaneStateTopic(
+    QualificationRecoveryStatePayloadSchema,
+    'Qualification recovery state',
+    'qualificationRecoveryState',
+  ),
+};
+
+type CompetitionLaneStateKind = keyof typeof COMPETITION_LANE_STATE_TOPICS;
+
+const isCompetitionLaneStateTopic = (
+  parsed: CompetitionScopedTopic,
+): parsed is ParsedMqttTopicOf<CompetitionLaneStateKind> => Object.hasOwn(COMPETITION_LANE_STATE_TOPICS, parsed.kind);
+
 interface DirectorMqttReceiverCallbacks extends Pick<
   DirectorMqttCallbacks,
   | 'onCompetitionShootOffShotObserved'
@@ -81,46 +142,12 @@ export class DirectorMqttReceiver {
         this.callbacks.onHardwareState(state);
         return;
       }
-      case 'laneSafetyState': {
-        const state = this.parsePayload(LaneSafetyStatePayloadSchema, payload, 'Lane safety state');
-        if (!state || state.laneId !== parsed.laneId) return;
-        this.callbacks.onLaneUpdate(state.laneId, {
-          safetyState: state,
-          lastSeenAt: state.publishedAt,
-        });
+      case 'laneSafetyState':
+      case 'laneRangeOfficerRequest':
+      case 'laneQualificationMalfunctionSignal':
+      case 'laneEstComplaintSignal':
+        this.receiveLaneState(LANE_STATE_TOPICS[parsed.kind], parsed.laneId, payload);
         return;
-      }
-      case 'laneRangeOfficerRequest': {
-        const state = this.parsePayload(RangeOfficerRequestPayloadSchema, payload, 'Range Officer request');
-        if (!state || state.laneId !== parsed.laneId) return;
-        this.callbacks.onLaneUpdate(state.laneId, {
-          rangeOfficerRequest: state,
-          lastSeenAt: state.publishedAt,
-        });
-        return;
-      }
-      case 'laneQualificationMalfunctionSignal': {
-        const state = this.parsePayload(
-          QualificationMalfunctionSignalPayloadSchema,
-          payload,
-          'qualification malfunction signal',
-        );
-        if (!state || state.laneId !== parsed.laneId) return;
-        this.callbacks.onLaneUpdate(state.laneId, {
-          qualificationMalfunctionSignal: state,
-          lastSeenAt: state.publishedAt,
-        });
-        return;
-      }
-      case 'laneEstComplaintSignal': {
-        const state = this.parsePayload(EstComplaintSignalPayloadSchema, payload, 'EST complaint signal');
-        if (!state || state.laneId !== parsed.laneId) return;
-        this.callbacks.onLaneUpdate(state.laneId, {
-          estComplaintSignal: state,
-          lastSeenAt: state.publishedAt,
-        });
-        return;
-      }
       case 'laneHardwareShot': {
         const shot = this.parsePayload(RawShotPayloadSchema, payload, 'raw shot');
         if (!shot || shot.laneId !== parsed.laneId) return;
@@ -163,35 +190,23 @@ export class DirectorMqttReceiver {
         this.callbacks.onCompetitionShootOffShotObserved?.(shot, payload.toString('utf8'));
         return;
       }
-      case 'timedTargetState': {
-        const state = this.parsePayload(TimedTargetStatePayloadSchema, payload, 'timed target state');
-        const { laneId } = parsed;
-        if (!state || !laneId || state.laneId !== laneId || state.competitionId !== competitionId) return;
-        this.callbacks.onCompetitionLaneUpdate(
-          state.competitionId,
-          laneId,
-          { timedTargetState: state },
-          state.publishedAt,
-        );
+      case 'laneCompetitionState':
+      case 'laneAssignment':
+      case 'laneScore':
+        if (!parsed.laneId) return;
+        this.receiveCompetitionLaneState(COMPETITION_LANE_STATE_TOPICS[parsed.kind], parsed, payload);
         return;
-      }
-      case 'qualificationRecoveryState': {
-        const state = this.parsePayload(
-          QualificationRecoveryStatePayloadSchema,
+      case 'timedTargetState':
+        this.receiveCompetitionLaneState(COMPETITION_LANE_STATE_TOPICS.timedTargetState, parsed, payload);
+        return;
+      case 'qualificationRecoveryState':
+        this.receiveCompetitionLaneState(
+          COMPETITION_LANE_STATE_TOPICS.qualificationRecoveryState,
+          parsed,
           payload,
-          'Qualification recovery state',
-        );
-        const { laneId } = parsed;
-        if (!state || !laneId || state.laneId !== laneId || state.competitionId !== competitionId) return;
-        this.callbacks.onQualificationRecoveryStateObserved?.(state, payload.toString('utf8'));
-        this.callbacks.onCompetitionLaneUpdate(
-          state.competitionId,
-          laneId,
-          { qualificationRecoveryState: state },
-          state.publishedAt,
+          (state) => this.callbacks.onQualificationRecoveryStateObserved?.(state, payload.toString('utf8')),
         );
         return;
-      }
       case 'qualificationRecoveryShot': {
         const shot = this.parsePayload(QualificationRecoveryShotPayloadSchema, payload, 'Qualification recovery shot');
         const { laneId } = parsed;
@@ -205,9 +220,6 @@ export class DirectorMqttReceiver {
         );
         return;
       }
-      case 'laneCompetitionState':
-      case 'laneAssignment':
-      case 'laneScore':
       case 'competitionShot':
       case 'competitionShotObservation':
         if (!parsed.laneId) return;
@@ -223,52 +235,11 @@ export class DirectorMqttReceiver {
   }
 
   private handleCompetitionLaneTopic(
-    parsed: ParsedMqttTopicOf<
-      'laneCompetitionState' | 'laneAssignment' | 'laneScore' | 'competitionShot' | 'competitionShotObservation'
-    >,
+    parsed: ParsedMqttTopicOf<'competitionShot' | 'competitionShotObservation'>,
     payload: Buffer,
   ): void {
     const { competitionId, laneId } = parsed;
     switch (parsed.kind) {
-      case 'laneCompetitionState': {
-        const state = this.parsePayload(LaneCompetitionStatePayloadSchema, payload, 'lane state');
-        if (!state || state.laneId !== laneId || state.competitionId !== competitionId) return;
-        this.callbacks.onCompetitionLaneUpdate(
-          state.competitionId,
-          laneId,
-          {
-            competitionState: state,
-          },
-          state.publishedAt,
-        );
-        return;
-      }
-      case 'laneAssignment': {
-        const assignment = this.parsePayload(LaneAssignmentPayloadSchema, payload, 'lane assignment');
-        if (!assignment || assignment.laneId !== laneId || assignment.competitionId !== competitionId) return;
-        this.callbacks.onCompetitionLaneUpdate(
-          assignment.competitionId,
-          laneId,
-          {
-            assignment,
-          },
-          assignment.publishedAt,
-        );
-        return;
-      }
-      case 'laneScore': {
-        const score = this.parsePayload(LaneScorePayloadSchema, payload, 'lane score');
-        if (!score || score.laneId !== laneId || score.competitionId !== competitionId) return;
-        this.callbacks.onCompetitionLaneUpdate(
-          score.competitionId,
-          laneId,
-          {
-            score,
-          },
-          score.publishedAt,
-        );
-        return;
-      }
       case 'competitionShot': {
         const shot = this.parsePayload(CompetitionShotPayloadSchema, payload, 'competition shot');
         if (!shot || shot.laneId !== laneId || shot.competitionId !== competitionId) return;
@@ -289,20 +260,39 @@ export class DirectorMqttReceiver {
       this.callbacks.onCompetitionCleared(parsed.competitionId);
       return;
     }
-    if (!('laneId' in parsed)) return;
+    if (!isCompetitionLaneStateTopic(parsed)) return;
     const { competitionId, laneId } = parsed;
     if (!laneId || !competitionId) return;
-    if (parsed.kind === 'timedTargetState') {
-      this.callbacks.onCompetitionLaneUpdate(competitionId, laneId, { timedTargetState: null });
-    } else if (parsed.kind === 'qualificationRecoveryState') {
-      this.callbacks.onCompetitionLaneUpdate(competitionId, laneId, { qualificationRecoveryState: null });
-    } else if (parsed.kind === 'laneCompetitionState') {
-      this.callbacks.onCompetitionLaneUpdate(competitionId, laneId, { competitionState: null });
-    } else if (parsed.kind === 'laneAssignment') {
-      this.callbacks.onCompetitionLaneUpdate(competitionId, laneId, { assignment: null });
-    } else if (parsed.kind === 'laneScore') {
-      this.callbacks.onCompetitionLaneUpdate(competitionId, laneId, { score: null });
-    }
+    const patch: Partial<CompetitionLaneData> = {};
+    patch[COMPETITION_LANE_STATE_TOPICS[parsed.kind].field] = null;
+    this.callbacks.onCompetitionLaneUpdate(competitionId, laneId, patch);
+  }
+
+  private receiveLaneState<Field extends LaneStateField>(
+    topic: StateTopic<Field, NonNullable<DirectorLaneSnapshot[Field]>>,
+    laneId: string,
+    payload: Buffer,
+  ): void {
+    const state = this.parsePayload(topic.schema, payload, topic.label);
+    if (!state || state.laneId !== laneId) return;
+    const patch: Partial<DirectorLaneSnapshot> = {};
+    patch[topic.field] = state;
+    patch.lastSeenAt = state.publishedAt;
+    this.callbacks.onLaneUpdate(state.laneId, patch);
+  }
+
+  private receiveCompetitionLaneState<Field extends CompetitionLaneStateField>(
+    topic: StateTopic<Field, NonNullable<CompetitionLaneData[Field]>>,
+    { competitionId, laneId }: { competitionId: string; laneId: string },
+    payload: Buffer,
+    onReceived?: (state: NonNullable<CompetitionLaneData[Field]>) => void,
+  ): void {
+    const state = this.parsePayload(topic.schema, payload, topic.label);
+    if (!state || !laneId || state.laneId !== laneId || state.competitionId !== competitionId) return;
+    onReceived?.(state);
+    const patch: Partial<CompetitionLaneData> = {};
+    patch[topic.field] = state;
+    this.callbacks.onCompetitionLaneUpdate(state.competitionId, laneId, patch, state.publishedAt);
   }
 
   private handleAcknowledgement(topic: string, payload: Buffer): void {
@@ -310,11 +300,7 @@ export class DirectorMqttReceiver {
     if (acknowledgement) this.callbacks.onAcknowledgement(topic, acknowledgement);
   }
 
-  private parsePayload<T>(
-    schema: { safeParse(value: unknown): { success: true; data: T } | { success: false; error: Error } },
-    payload: Buffer,
-    label: string,
-  ): T | null {
+  private parsePayload<T>(schema: PayloadSchema<T>, payload: Buffer, label: string): T | null {
     let value: unknown;
     try {
       value = JSON.parse(payload.toString('utf8'));
