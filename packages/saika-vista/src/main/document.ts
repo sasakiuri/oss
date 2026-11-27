@@ -3,20 +3,16 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { hostname } from 'node:os';
 
 import { VistaCatalogSchema, VistaIdentitySchema } from '@sasakiuri/saika-protocol/Vista';
+import { isVistaEndpoint } from '@sasakiuri/saika-protocol/vista-node';
 import { z } from 'zod';
 
-import { ScreenConfigSchema } from '../shared/model';
+import { PairingSecretSchema, ScreenConfigSchema, type SubjectRef } from '../shared/model';
 
 const Endpoint = z
   .string()
   .url()
-  .refine((value) => {
-    const url = new URL(value);
-    return (
-      url.protocol === 'http:' && !url.username && !url.password && url.pathname === '/' && !url.search && !url.hash
-    );
-  }, 'Use a Vista HTTP endpoint without a path, credentials or query');
-const Connection = z.object({ id: z.string().min(1), endpoint: Endpoint, secret: z.string().min(32).max(256) });
+  .refine((value) => isVistaEndpoint(new URL(value)), 'Use a Vista HTTP endpoint without a path, credentials or query');
+const Connection = z.object({ id: z.string().min(1), endpoint: Endpoint, secret: PairingSecretSchema });
 export const DocumentSchema = z.object({
   version: z.literal(1),
   id: z.string().min(1),
@@ -51,7 +47,7 @@ export const newDocument = (): Document => ({
   snapshots: [],
   loginStart: false,
 });
-export const snapshotKey = (sourceId: string, subjectId: string): string => JSON.stringify([sourceId, subjectId]);
+export const snapshotKey = (subject: SubjectRef): string => JSON.stringify([subject.sourceId, subject.subjectId]);
 export const messageOf = (error: unknown): string =>
   error instanceof Error ? error.message : 'Vista could not complete the operation';
 export { Endpoint };

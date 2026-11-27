@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
+import type { VistaNode } from '@sasakiuri/saika-protocol/Vista';
 import { useState } from 'react';
-
-import type { Discovery } from '../../shared/model';
 
 import type { Run } from './types';
 
 /** Discovery results shared by the source and display PC pairing forms. */
 export type DiscoveryProps = {
-  discovered: Discovery[];
+  discovered: VistaNode[];
   discover: () => Promise<void>;
   discovering: boolean;
   discoveryComplete: boolean;

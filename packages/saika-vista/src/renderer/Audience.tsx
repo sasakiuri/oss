@@ -3,7 +3,7 @@ import type { VistaParticipant } from '@sasakiuri/saika-protocol/Vista';
 import { useEffect, useState } from 'react';
 
 import appIcon from '../../resources/appIcon.png';
-import type { AudienceState, ScreenConfig, SnapshotEntry } from '../shared/model';
+import { findEntry, sameSubject, type AudienceState, type ScreenConfig, type SnapshotEntry } from '../shared/model';
 
 import { Target } from './Target';
 import {
@@ -162,9 +162,7 @@ function Ranking({
   now: number;
 }) {
   const selected = config.selections[0];
-  const entry = entries.find(
-    (e) => e.snapshot.sourceId === selected?.sourceId && e.snapshot.subjectId === selected?.subjectId,
-  );
+  const entry = selected && findEntry(entries, selected);
   if (!entry?.snapshot.ranking)
     return (
       <div className="audience-empty">
@@ -235,9 +233,7 @@ export function AudienceView({
   const capacity = Math.min(page.slots, slots.length);
   const columns = Math.max(1, Math.ceil(Math.sqrt(capacity)));
   const rows = Math.max(1, Math.ceil(capacity / columns));
-  const selectedEntry = entries.find((e) =>
-    config.selections.some((s) => s.sourceId === e.snapshot.sourceId && s.subjectId === e.snapshot.subjectId),
-  );
+  const selectedEntry = entries.find((e) => config.selections.some((s) => sameSubject(s, e.snapshot)));
   const resultRows = usesRankingRows(config, entries);
   const competitionResults = resultRows && selectedEntry?.snapshot.ranking?.kind === 'competition';
   return (

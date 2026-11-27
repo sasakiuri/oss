@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { VistaDefinition, VistaParticipant, VistaSnapshot } from '@sasakiuri/saika-protocol/Vista';
 
-import type { ScreenConfig, Selection, SnapshotEntry } from '../shared/model';
+import { findEntry, sameSubject, type ScreenConfig, type Selection, type SnapshotEntry } from '../shared/model';
 
 export const stateLabel: Record<SnapshotEntry['state'], string> = {
   live: 'Live',
@@ -27,19 +27,13 @@ export function usesRankingRows(config: ScreenConfig, entries: SnapshotEntry[]):
   const selected = config.selections[0];
   return (
     config.view === 'final' &&
-    entries.some(
-      ({ snapshot }) =>
-        snapshot.sourceId === selected?.sourceId &&
-        snapshot.subjectId === selected?.subjectId &&
-        snapshot.ranking?.kind === 'competition',
-    )
+    !!selected &&
+    entries.some(({ snapshot }) => sameSubject(snapshot, selected) && snapshot.ranking?.kind === 'competition')
   );
 }
 export function selectedSlots(config: ScreenConfig, entries: SnapshotEntry[]): DisplaySlot[] {
   return config.selections.flatMap((selection, index) => {
-    const entry = entries.find(
-      ({ snapshot }) => snapshot.sourceId === selection.sourceId && snapshot.subjectId === selection.subjectId,
-    );
+    const entry = findEntry(entries, selection);
     const participants = entry?.snapshot.participants ?? [];
     const keys = selection.participantIds.length
       ? selection.participantIds

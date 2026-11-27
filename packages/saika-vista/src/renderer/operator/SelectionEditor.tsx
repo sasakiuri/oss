@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, Selection, SourceView } from '../../shared/model';
+import { findEntry, type AppState, type Selection, type SourceView } from '../../shared/model';
 import { stateLabel } from '../viewModel';
 
 import type { Run } from './types';
@@ -24,14 +24,10 @@ export function SelectionEditor({
   resultRows: boolean;
 }) {
   const source = sources.find((s) => s.id === selection.sourceId);
-  const entry = state.snapshots.find(
-    (e) => e.snapshot.sourceId === selection.sourceId && e.snapshot.subjectId === selection.subjectId,
-  );
+  const entry = findEntry(state.snapshots, selection);
   const participants = entry?.snapshot.participants ?? [];
   const changeSubject = (sourceId: string, subjectId: string) => {
-    const snapshot = state.snapshots.find(
-      (e) => e.snapshot.sourceId === sourceId && e.snapshot.subjectId === subjectId,
-    )?.snapshot;
+    const snapshot = findEntry(state.snapshots, { sourceId, subjectId })?.snapshot;
     onChange({
       ...selection,
       sourceId,

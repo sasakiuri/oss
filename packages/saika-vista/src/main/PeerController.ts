@@ -1,39 +1,13 @@
 // SPDX-License-Identifier: MIT
-import { VISTA_PROTOCOL_VERSION, VistaIdentitySchema } from '@sasakiuri/saika-protocol/Vista';
+import { VISTA_PROTOCOL_VERSION } from '@sasakiuri/saika-protocol/Vista';
 import { requestVista } from '@sasakiuri/saika-protocol/vista-node';
 import { z } from 'zod';
 
 import { VISTA_DISPLAY_PATH } from '../shared/displayPaths';
-import { ScreenConfigSchema, type NodeState, type PeerView, type ScreenConfig } from '../shared/model';
+import { NodeStateSchema, type NodeState, type PeerView, type ScreenConfig } from '../shared/model';
 
 import type { DisplayState, OwnerSchema } from './DisplayState';
 import { Endpoint, messageOf, snapshotKey, type Document } from './document';
-
-const NodeStateSchema = z.object({
-  identity: VistaIdentitySchema,
-  controllerId: z.string().nullable(),
-  persistenceError: z.string().nullable(),
-  resumableSubjects: z.array(z.object({ sourceId: z.string().min(1), subjectId: z.string().min(1) })),
-  monitors: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      width: z.number().positive(),
-      height: z.number().positive(),
-      primary: z.boolean(),
-    }),
-  ),
-  screens: z.array(
-    z.object({
-      config: ScreenConfigSchema,
-      appliedRevision: z.number().int().nullable(),
-      renderedRevision: z.number().int().nullable(),
-      renderAlive: z.boolean(),
-      monitorAvailable: z.boolean(),
-      error: z.string().nullable(),
-    }),
-  ),
-});
 
 type Peer = Document['peers'][number];
 
@@ -313,14 +287,8 @@ export class PeerController {
       }
       // Failed configuration applies retain the display's previous selection.
       // Continue delivering to the configurations that are actually persisted.
-      const selected = new Set(
-        node.screens.flatMap(({ config }) =>
-          config.selections.map((selection) => snapshotKey(selection.sourceId, selection.subjectId)),
-        ),
-      );
-      const entries = this.state
-        .getEntries()
-        .filter((entry) => selected.has(snapshotKey(entry.snapshot.sourceId, entry.snapshot.subjectId)));
+      const selected = new Set(node.screens.flatMap(({ config }) => config.selections.map(snapshotKey)));
+      const entries = this.state.getEntries().filter((entry) => selected.has(snapshotKey(entry.snapshot)));
       const configs = node.screens.map(({ config }) => ({ id: config.id, revision: config.revision }));
       const signature = JSON.stringify({
         entries: entries.map((entry) => [

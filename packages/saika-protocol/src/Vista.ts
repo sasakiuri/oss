@@ -17,6 +17,11 @@ export const VistaIdentitySchema = z.object({
   name: Text,
 });
 export type VistaIdentity = z.infer<typeof VistaIdentitySchema>;
+/** A device found by LAN discovery, before pairing authenticates it. */
+export interface VistaNode {
+  identity: VistaIdentity;
+  endpoint: string;
+}
 
 /** Events a Vista definition can describe: the standard individual 10m air and beam Qualifications and Finals. */
 export const VISTA_EVENT_CODES = [

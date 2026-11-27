@@ -8,6 +8,7 @@ import {
   type AudienceState,
   type Monitor,
   type SnapshotEntry,
+  type SubjectRef,
 } from '../shared/model';
 
 import { AtomicStore, type StoreWriteResult } from './AtomicStore';
@@ -17,7 +18,7 @@ export const OwnerSchema = z.object({
   controllerId: z.string().min(1),
   controllerGeneration: z.number().int().nonnegative().safe(),
 });
-export const FrameSchema = OwnerSchema.extend({
+const FrameSchema = OwnerSchema.extend({
   sequence: z.number().int().nonnegative().safe(),
   configs: z.array(z.object({ id: z.string(), revision: z.number().int().positive() })),
   entries: z.array(z.unknown()),
@@ -31,7 +32,7 @@ function invalidSnapshot(raw: unknown, index: number, error: z.ZodError): Invali
   const issue = error.issues[0];
   return {
     raw,
-    key: subject ? snapshotKey(subject.sourceId, subject.subjectId) : null,
+    key: subject ? snapshotKey(subject) : null,
     error: `Snapshot ${subject ? `${subject.sourceId} / ${subject.subjectId}` : `entry ${index + 1} (identity unavailable)`} is invalid: ${issue?.path.join('.') || 'entry'}: ${issue?.message || 'Validation failed'}`,
   };
 }
@@ -68,7 +69,7 @@ export class DisplayState {
       }
       const entry = parsed.data;
       const saved = { ...entry, state: 'saved' as const };
-      this.entries.set(snapshotKey(entry.snapshot.sourceId, entry.snapshot.subjectId), saved);
+      this.entries.set(snapshotKey(entry.snapshot), saved);
     }
   }
 
@@ -212,17 +213,10 @@ export class DisplayState {
           if (!document.screens.some((screen) => screen.id === config.id && screen.revision === config.revision))
             throw new Error('The display frame does not match the applied configuration');
         }
-        const expected = new Set(
-          document.screens.flatMap((screen) =>
-            screen.selections.map((selection) => snapshotKey(selection.sourceId, selection.subjectId)),
-          ),
-        );
+        const expected = new Set(document.screens.flatMap((screen) => screen.selections.map(snapshotKey)));
         for (const raw of frame.entries) {
           const identity = EntryIdentitySchema.safeParse(raw);
-          if (
-            identity.success &&
-            !expected.has(snapshotKey(identity.data.snapshot.sourceId, identity.data.snapshot.subjectId))
-          )
+          if (identity.success && !expected.has(snapshotKey(identity.data.snapshot)))
             throw new Error('The frame contains an unselected subject');
         }
         next = new Map(this.entries);
@@ -236,7 +230,7 @@ export class DisplayState {
             continue;
           }
           const entry = { ...parsed.data, receivedAt };
-          const key = snapshotKey(entry.snapshot.sourceId, entry.snapshot.subjectId);
+          const key = snapshotKey(entry.snapshot);
           const previous = next.get(key);
           try {
             this.checkRevision(previous, entry);
@@ -323,7 +317,7 @@ export class DisplayState {
               continue;
             }
             const entry = parsed.data;
-            const key = snapshotKey(entry.snapshot.sourceId, entry.snapshot.subjectId);
+            const key = snapshotKey(entry.snapshot);
             const previous = next.get(key);
             try {
               this.checkRevision(previous, entry);
@@ -362,9 +356,8 @@ export class DisplayState {
     );
   }
 
-  snapshotErrors(selections?: Array<{ sourceId: string; subjectId: string }>): string | null {
-    const keys =
-      selections && new Set(selections.map((selection) => snapshotKey(selection.sourceId, selection.subjectId)));
+  snapshotErrors(selections?: SubjectRef[]): string | null {
+    const keys = selections && new Set(selections.map(snapshotKey));
     // Retain damaged/unsupported originals even after a validated version recovers
     // the subject. Unidentifiable values stay visible for operator diagnosis.
     const unresolved = this.invalidSnapshots.filter((failure) => !failure.key || !this.entries.has(failure.key));
@@ -390,12 +383,8 @@ export class DisplayState {
   audience(screenId: string): AudienceState {
     const config = this.document.screens.find((screen) => screen.id === screenId);
     if (!config) throw new Error('Screen not configured');
-    const selected = new Set(
-      config.selections.map((selection) => snapshotKey(selection.sourceId, selection.subjectId)),
-    );
-    const entries = this.getEntries().filter((entry) =>
-      selected.has(snapshotKey(entry.snapshot.sourceId, entry.snapshot.subjectId)),
-    );
+    const selected = new Set(config.selections.map(snapshotKey));
+    const entries = this.getEntries().filter((entry) => selected.has(snapshotKey(entry.snapshot)));
     return {
       config,
       entries,

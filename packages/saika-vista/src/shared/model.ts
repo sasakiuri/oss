@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: MIT
-import { VistaCatalogSchema, VistaIdentitySchema, VistaSnapshotSchema } from '@sasakiuri/saika-protocol/Vista';
+import {
+  VistaCatalogSchema,
+  VistaIdentitySchema,
+  VistaSnapshotSchema,
+  type VistaNode,
+} from '@sasakiuri/saika-protocol/Vista';
 import { z } from 'zod';
 
 const Id = z.string().min(1).max(256);
+/** A pairing secret shown on a source or display PC. */
+export const PairingSecretSchema = z.string().min(32).max(256);
 export const SelectionSchema = z.object({
   sourceId: Id,
   subjectId: Id,
@@ -36,23 +43,40 @@ export const SnapshotEntrySchema = z.object({
   error: z.string().nullable(),
 });
 export type SnapshotEntry = z.infer<typeof SnapshotEntrySchema>;
-export type Monitor = { id: string; name: string; width: number; height: number; primary: boolean };
-export type ScreenStatus = {
-  config: ScreenConfig;
-  appliedRevision: number | null;
-  renderedRevision: number | null;
-  renderAlive: boolean;
-  monitorAvailable: boolean;
-  error: string | null;
-};
-export type NodeState = {
-  identity: z.infer<typeof VistaIdentitySchema>;
-  monitors: Monitor[];
-  screens: ScreenStatus[];
-  controllerId: string | null;
-  persistenceError: string | null;
-  resumableSubjects: Array<Pick<Selection, 'sourceId' | 'subjectId'>>;
-};
+/** A competition subject of one source, as selected for a screen or received in a snapshot. */
+export type SubjectRef = Pick<Selection, 'sourceId' | 'subjectId'>;
+export const sameSubject = (a: SubjectRef, b: SubjectRef): boolean =>
+  a.sourceId === b.sourceId && a.subjectId === b.subjectId;
+/** The entry received for a subject. */
+export const findEntry = (entries: SnapshotEntry[], subject: SubjectRef): SnapshotEntry | undefined =>
+  entries.find((entry) => sameSubject(entry.snapshot, subject));
+const MonitorSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  primary: z.boolean(),
+});
+export type Monitor = z.infer<typeof MonitorSchema>;
+const ScreenStatusSchema = z.object({
+  config: ScreenConfigSchema,
+  appliedRevision: z.number().int().nullable(),
+  renderedRevision: z.number().int().nullable(),
+  renderAlive: z.boolean(),
+  monitorAvailable: z.boolean(),
+  error: z.string().nullable(),
+});
+export type ScreenStatus = z.infer<typeof ScreenStatusSchema>;
+/** The state a display PC reports to its controller. */
+export const NodeStateSchema = z.object({
+  identity: VistaIdentitySchema,
+  controllerId: z.string().nullable(),
+  persistenceError: z.string().nullable(),
+  resumableSubjects: z.array(z.object({ sourceId: z.string().min(1), subjectId: z.string().min(1) })),
+  monitors: z.array(MonitorSchema),
+  screens: z.array(ScreenStatusSchema),
+});
+export type NodeState = z.infer<typeof NodeStateSchema>;
 export type SourceView = {
   id: string;
   endpoint: string;
@@ -79,9 +103,9 @@ export type AudienceState = {
 };
 export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('inspectSubject'), sourceId: Id, subjectId: Id }),
-  z.object({ type: z.literal('connectSource'), endpoint: z.string().url(), secret: z.string().min(32).max(256) }),
+  z.object({ type: z.literal('connectSource'), endpoint: z.string().url(), secret: PairingSecretSchema }),
   z.object({ type: z.literal('removeSource'), id: Id }),
-  z.object({ type: z.literal('connectPeer'), endpoint: z.string().url(), secret: z.string().min(32).max(256) }),
+  z.object({ type: z.literal('connectPeer'), endpoint: z.string().url(), secret: PairingSecretSchema }),
   z.object({ type: z.literal('removePeer'), id: Id }),
   z.object({ type: z.literal('apply'), nodeId: Id, config: ScreenConfigSchema }),
   z.object({ type: z.literal('identify'), nodeId: Id, screenId: Id }),
@@ -92,11 +116,10 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setLoginStart'), enabled: z.boolean() }),
 ]);
 export type Command = z.infer<typeof CommandSchema>;
-export type Discovery = { identity: z.infer<typeof VistaIdentitySchema>; endpoint: string };
 export type VistaBridge = {
   getState(): Promise<AppState>;
   command(command: Command): Promise<void>;
-  discover(): Promise<Discovery[]>;
+  discover(): Promise<VistaNode[]>;
   getAudience(): Promise<AudienceState>;
   rendered(revision: number): Promise<void>;
   onChange(callback: () => void): () => void;
