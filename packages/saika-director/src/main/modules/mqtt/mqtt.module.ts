@@ -18,7 +18,7 @@ import { MqttObservationRecorder } from './application/MqttObservationRecorder';
 import { createOperationalProfileTargets } from './application/operationalProfileTargets';
 import { registerMqttTransportCommands } from './application/registerMqttTransportCommands';
 import { toFiringWindowViolationDto } from './application/toFiringWindowViolationDto';
-import { ClockQualityPolicy, type ClockQualityAssessment } from './domain/ClockQualityPolicy';
+import { ClockQualityPolicy } from './domain/ClockQualityPolicy';
 import { embeddedMqttSecurityFromEnvironment } from './domain/EmbeddedMqttAccessPolicy';
 import type { MqttCredentials } from './domain/IMqttTransport';
 import { LaneTimingEvidencePolicy } from './domain/LaneTimingEvidencePolicy';
@@ -267,7 +267,7 @@ export const mqttModule = defineModule({
           mqttService.setClockQualityPolicy(policy);
           return readClockQualitySettings();
         }),
-      getClockQuality: async () => mqttService.getClockQuality() as Record<string, ClockQualityAssessment>,
+      getClockQuality: async () => mqttService.getClockQualityByLane(),
       probeLaneClock: (input) => runWithControlLock(() => mqttService.probeLaneClock(input.laneId)),
     });
 

@@ -46,7 +46,9 @@ describe('DirectorLaneReadiness', () => {
     expect(readiness.getClockStartIssues(['lane'])).toEqual([]);
     expect(readiness.getClockStartIssues(['missing'])).toEqual([expect.objectContaining({ blocking: true })]);
     vi.setSystemTime(now.getTime() + 101);
-    expect(readiness.getClockQuality('lane')).toMatchObject({ status: 'GOOD', usableForTimedCommands: false });
+    expect(readiness.getClockQualityByLane()).toEqual({
+      lane: expect.objectContaining({ status: 'GOOD', usableForTimedCommands: false }),
+    });
     expect(() => readiness.assertTimedCommandReadiness(['lane'])).toThrow('Fresh GOOD clock-quality samples');
   });
 
@@ -55,8 +57,7 @@ describe('DirectorLaneReadiness', () => {
     readiness.recordClockProbe('lane', now, clockResult());
     if (operation === 'policy change') readiness.setClockQualityPolicy(new ClockQualityPolicy({ mode: 'REQUIRED' }));
     else readiness.reset();
-    expect(readiness.getClockQuality('lane')).toBeNull();
-    expect(readiness.getClockQuality()).toEqual({});
+    expect(readiness.getClockQualityByLane()).toEqual({});
     expect(() => readiness.assertTimedCommandReadiness(['lane'])).toThrow('Fresh GOOD clock-quality samples');
   });
 
