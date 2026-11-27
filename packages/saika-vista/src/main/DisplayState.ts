@@ -7,6 +7,7 @@ import {
   SnapshotEntrySchema,
   type AudienceState,
   type Monitor,
+  type ScreenConfig,
   type SnapshotEntry,
   type SubjectRef,
 } from '../shared/model';
@@ -125,8 +126,13 @@ export class DisplayState {
     if (this.writeFailure) throw this.writeFailure;
   }
 
+  /** Rejects control while a release is saved or still pending elsewhere. */
+  assertNotReleasing(pending = false): void {
+    if (pending || this.document.releasing) throw new Error('Display control is being released');
+  }
+
   assertOwner(owner: z.infer<typeof OwnerSchema>): void {
-    if (this.document.releasing) throw new Error('Display control is being released');
+    this.assertNotReleasing();
     const current = this.document.controller;
     if (!current || current.id !== owner.controllerId || current.generation !== owner.controllerGeneration)
       throw new Error('Display control is not registered for this controller session');
@@ -142,7 +148,7 @@ export class DisplayState {
     let reset = false;
     return this.transact(
       (document) => {
-        if (document.releasing) throw new Error('Display control is being released');
+        this.assertNotReleasing();
         this.assertSecret(secret);
         if (document.peers.length)
           throw new Error(
@@ -169,7 +175,7 @@ export class DisplayState {
   ): Promise<StoreWriteResult> {
     const config = ScreenConfigSchema.parse(configInput);
     return this.transact((document) => {
-      if (document.releasing) throw new Error('Display control is being released');
+      this.assertNotReleasing();
       this.assertSecret(secret);
       if (owner) this.assertOwner(owner);
       else if (document.controller)
@@ -241,7 +247,7 @@ export class DisplayState {
             if (previous) next.set(key, { ...previous, state: 'stale', error: messageOf(error) });
           }
         }
-        return { ...document, snapshots: [...next.values(), ...this.invalidSnapshots.map((failure) => failure.raw)] };
+        return this.withEntries(document, next);
       },
       () => {
         // Keep the cache and frame sequence consistent with the replaced file, even if its sync failed.
@@ -331,9 +337,7 @@ export class DisplayState {
             acceptedKeys.add(key);
             accepted.push(update);
           }
-          return dirty
-            ? { ...document, snapshots: [...next.values(), ...this.invalidSnapshots.map((failure) => failure.raw)] }
-            : document;
+          return dirty ? this.withEntries(document, next) : document;
         },
         () => {
           this.entries = next;
@@ -346,6 +350,11 @@ export class DisplayState {
     } catch (error) {
       for (const update of batch) update.reject(error);
     }
+  }
+
+  /** The document saving these entries, followed by the retained invalid originals. */
+  private withEntries(document: Document, entries: Map<string, SnapshotEntry>): Document {
+    return { ...document, snapshots: [...entries.values(), ...this.invalidSnapshots.map((failure) => failure.raw)] };
   }
 
   getEntries(): SnapshotEntry[] {
@@ -369,10 +378,13 @@ export class DisplayState {
     );
   }
 
-  identifyScreen(screenId: string): void {
-    if (!this.document.screens.some((screen) => screen.id === screenId)) throw new Error('Screen not found');
+  /** Shows the identification overlay of a screen for ten seconds and returns that screen. */
+  identifyScreen(screenId: string): ScreenConfig {
+    const config = this.document.screens.find((screen) => screen.id === screenId);
+    if (!config) throw new Error('Screen not found');
     this.identify.set(screenId, Date.now() + 10_000);
     this.changed();
+    return config;
   }
 
   /** When the identification overlay of a screen ends, or 0 when it was not requested. */

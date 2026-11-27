@@ -14,6 +14,15 @@ import { Endpoint, messageOf, type Document } from './document';
 
 type Source = Document['sources'][number];
 
+function sourceView(
+  source: Pick<Source, 'id' | 'endpoint'>,
+  catalog: Source['catalog'],
+  state: SourceView['state'],
+  error: string | null = null,
+): SourceView {
+  return { id: source.id, endpoint: source.endpoint, catalog, state, error };
+}
+
 /** Polls connected Lane and Director sources for the subjects that local and remote screens select. */
 export class SourceAcquisition {
   private lastCatalog = new Map<string, number>();
@@ -28,14 +37,7 @@ export class SourceAcquisition {
   /** The operator's view of each saved source; sources not yet polled are shown as connecting. */
   list(): SourceView[] {
     return this.state.document.sources.map(
-      (source) =>
-        this.views.get(source.id) ?? {
-          id: source.id,
-          endpoint: source.endpoint,
-          catalog: source.catalog,
-          state: 'connecting',
-          error: null,
-        },
+      (source) => this.views.get(source.id) ?? sourceView(source, source.catalog, 'connecting'),
     );
   }
 
@@ -59,13 +61,10 @@ export class SourceAcquisition {
         catalog.identity,
       ],
     }));
-    this.views.set(catalog.identity.sourceId, {
-      id: catalog.identity.sourceId,
-      endpoint,
-      catalog,
-      state: 'connected',
-      error: null,
-    });
+    this.views.set(
+      catalog.identity.sourceId,
+      sourceView({ id: catalog.identity.sourceId, endpoint }, catalog, 'connected'),
+    );
     this.lastCatalog.set(catalog.identity.sourceId, Date.now());
   }
 
@@ -107,13 +106,7 @@ export class SourceAcquisition {
         this.lastCatalog.set(source.id, Date.now());
       }
       if (!isCurrent()) return;
-      this.views.set(source.id, {
-        id: source.id,
-        endpoint: source.endpoint,
-        catalog,
-        state: 'connected',
-        error: null,
-      });
+      this.views.set(source.id, sourceView(source, catalog, 'connected'));
       const subjects = new Set(
         this.screens().flatMap((screen) =>
           screen.selections
@@ -129,24 +122,12 @@ export class SourceAcquisition {
           const old = findEntry(this.state.getEntries(), { sourceId: source.id, subjectId });
           if (old) await this.state.updateEntry({ ...old, state: 'stale', error: messageOf(error) }, isCurrent);
           if (!isCurrent()) return;
-          this.views.set(source.id, {
-            id: source.id,
-            endpoint: source.endpoint,
-            catalog,
-            state: 'offline',
-            error: messageOf(error),
-          });
+          this.views.set(source.id, sourceView(source, catalog, 'offline', messageOf(error)));
         }
       }
     } catch (error) {
       if (!isCurrent()) return;
-      this.views.set(source.id, {
-        id: source.id,
-        endpoint: source.endpoint,
-        catalog: source.catalog,
-        state: 'offline',
-        error: messageOf(error),
-      });
+      this.views.set(source.id, sourceView(source, source.catalog, 'offline', messageOf(error)));
     }
   }
 

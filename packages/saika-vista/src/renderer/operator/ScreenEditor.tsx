@@ -67,7 +67,7 @@ export function ScreenEditor({
   const rankView = draft.view === 'ranking' || draft.view === 'final';
   const rankAllowed =
     draft.selections.length === 1 &&
-    (state.sources.find((s) => s.id === draft.selections[0]?.sourceId)?.catalog?.identity.kind === 'director' ||
+    (state.sources.find((s) => s.id === draft.selections[0]?.sourceId)?.catalog.identity.kind === 'director' ||
       state.snapshots.some(
         (entry) => sameSubject(entry.snapshot, draft.selections[0]!) && entry.snapshot.ranking !== null,
       ) ||

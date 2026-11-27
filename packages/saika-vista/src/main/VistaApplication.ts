@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { VISTA_PROTOCOL_VERSION, type VistaIdentity, type VistaNode } from '@sasakiuri/saika-protocol/Vista';
@@ -19,7 +19,7 @@ import { AtomicStore } from './AtomicStore';
 import type { DesktopPort } from './DesktopPort';
 import { DisplayServer } from './DisplayServer';
 import { DisplayState } from './DisplayState';
-import { DocumentSchema, messageOf, newDocument } from './document';
+import { DocumentSchema, messageOf, newDocument, withoutController } from './document';
 import { PeerController } from './PeerController';
 import { SourceAcquisition } from './SourceAcquisition';
 
@@ -70,11 +70,8 @@ export class VistaApplication {
     let changed = (): void => undefined;
     const state = new DisplayState(document, store, () => changed());
     await state.transact((current) => ({
-      ...current,
+      ...(current.releasing ? withoutController(current) : current),
       generation: current.generation + 1,
-      ...(current.releasing
-        ? { controller: null, releasing: false, secret: randomBytes(32).toString('base64url') }
-        : {}),
     }));
     const application = new VistaApplication(state, desktop);
     changed = () => application.notifyIfChanged();
@@ -211,9 +208,7 @@ export class VistaApplication {
       }
       case 'identify': {
         if (command.nodeId === this.identity.sourceId) {
-          this.state.identifyScreen(command.screenId);
-          const config = this.state.document.screens.find((screen) => screen.id === command.screenId)!;
-          this.desktop.open(config);
+          this.desktop.open(this.state.identifyScreen(command.screenId));
         } else remoteWarning = await this.peers.identify(command.nodeId, command.screenId);
         break;
       }

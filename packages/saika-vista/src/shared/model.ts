@@ -80,7 +80,7 @@ export type NodeState = z.infer<typeof NodeStateSchema>;
 export type SourceView = {
   id: string;
   endpoint: string;
-  catalog: z.infer<typeof VistaCatalogSchema> | null;
+  catalog: z.infer<typeof VistaCatalogSchema>;
   state: 'connected' | 'offline' | 'connecting';
   error: string | null;
 };

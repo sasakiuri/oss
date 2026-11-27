@@ -51,14 +51,14 @@ export function SelectionEditor({
               const next = sources.find((s) => s.id === event.target.value);
               changeSubject(
                 event.target.value,
-                next?.catalog?.subjects.find((s) => s.availability === 'available')?.id ?? '',
+                next?.catalog.subjects.find((s) => s.availability === 'available')?.id ?? '',
               );
             }}
           >
             <option value="">Choose a source</option>
             {sources.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.catalog?.identity.name || s.endpoint} · {s.catalog?.identity.kind || s.state}
+                {s.catalog.identity.name || s.endpoint} · {s.catalog.identity.kind}
               </option>
             ))}
             {selection.sourceId && !source && <option value={selection.sourceId}>Unavailable source</option>}
@@ -71,13 +71,13 @@ export function SelectionEditor({
             onChange={(event) => changeSubject(selection.sourceId, event.target.value)}
           >
             <option value="">Choose a competition</option>
-            {source?.catalog?.subjects.map((s) => (
+            {source?.catalog.subjects.map((s) => (
               <option key={s.id} value={s.id} disabled={s.availability !== 'available'}>
                 {s.label} · {s.eventCode}
                 {s.availability !== 'available' ? ` · ${s.reason || 'Unsupported'}` : ''}
               </option>
             ))}
-            {selection.subjectId && !source?.catalog?.subjects.some((s) => s.id === selection.subjectId) && (
+            {selection.subjectId && !source?.catalog.subjects.some((s) => s.id === selection.subjectId) && (
               <option value={selection.subjectId}>Saved selection · unavailable</option>
             )}
           </select>
@@ -101,7 +101,7 @@ export function SelectionEditor({
             }}
           >
             <option value="lane">Fixed lanes</option>
-            <option value="athlete" disabled={source?.catalog?.identity.kind === 'lane'}>
+            <option value="athlete" disabled={source?.catalog.identity.kind === 'lane'}>
               Athletes across lane changes
             </option>
           </select>
