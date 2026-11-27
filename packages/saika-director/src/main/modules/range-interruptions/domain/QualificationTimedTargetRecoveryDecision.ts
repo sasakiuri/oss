@@ -4,6 +4,9 @@ import type {
 } from '@sasakiuri/saika-rules';
 import { requiredText, optionalText, validDate } from '@/main/domain/guards';
 
+import type { QualificationRecoveryExecutionRecord } from './QualificationRecoveryExecution';
+import type { QualificationRecoverySettlementRecord } from './QualificationRecoverySettlement';
+
 export interface QualificationTimedTargetAuthorizedRecovery {
   readonly extraSightingSeriesShots: number;
   readonly minimumPauseAfterSightingSeconds?: number;
@@ -158,4 +161,32 @@ function positiveInteger(value: number, name: string): void {
 
 function nonNegativeInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
+}
+
+/**
+ * Throws unless the latest recovery decision was carried out: its retain-series settlement applied, or its
+ * series recovery adjudicated. A Qualification timed-target interruption closes only after that.
+ */
+export function assertQualificationRecoveryCarriedOut(
+  decisions: readonly QualificationTimedTargetRecoveryDecision[],
+  executions: readonly QualificationRecoveryExecutionRecord[],
+  settlements: readonly QualificationRecoverySettlementRecord[],
+): void {
+  const decision = decisions.at(-1);
+  if (!decision) {
+    throw new Error('Record an official Qualification recovery decision before closing this interruption');
+  }
+  if (decision.authorizedRecovery.seriesRecovery.treatment === 'KEEP_RECORDED_SERIES') {
+    const settlement = settlements.find((candidate) => candidate.decisionId === decision.id);
+    if (settlement?.status !== 'APPLIED') {
+      throw new Error('Apply the Qualification retain-series settlement before closing this interruption');
+    }
+  } else {
+    const seriesExecution = executions.find(
+      (execution) => execution.decisionId === decision.id && execution.phase === 'SERIES_RECOVERY',
+    );
+    if (seriesExecution?.status !== 'ADJUDICATED') {
+      throw new Error('Adjudicate the authorized Qualification series recovery before closing this interruption');
+    }
+  }
 }
