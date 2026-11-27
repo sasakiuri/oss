@@ -2,7 +2,13 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { app } from 'electron';
-import { createVistaDiscovery, createVistaServer, loadVistaCredentials } from '@sasakiuri/saika-protocol/vista-node';
+import {
+  createVistaDiscovery,
+  createVistaServer,
+  loadVistaCredentials,
+  type VistaCredentials,
+  type VistaServer,
+} from '@sasakiuri/saika-protocol/vista-node';
 import { VISTA_PROTOCOL_VERSION, parseVistaSourcePath, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
 import { SqliteFinalControlRepository } from '@/main/modules/final-control';
 import { SqliteFinalOperationRepository } from '@/main/modules/final-operations';
@@ -33,7 +39,7 @@ export const vistaModule = defineModule({
     'finalResultsReader',
   ],
   register(ctx) {
-    let credentials: ReturnType<typeof loadVistaCredentials>;
+    let credentials: VistaCredentials;
     try {
       credentials = loadVistaCredentials(join(app.getPath('userData'), 'vista', 'credentials.json'));
     } catch (caught) {
@@ -101,7 +107,7 @@ export const vistaModule = defineModule({
         logger.error(projectionError);
       }
     });
-    let server: Awaited<ReturnType<typeof createVistaServer>> | null = null;
+    let server: VistaServer | null = null;
     let discovery: ReturnType<typeof createVistaDiscovery> | null = null;
     let error: string | null = null;
     let tail: Promise<void> = Promise.resolve();

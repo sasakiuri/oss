@@ -1,12 +1,5 @@
+import type { CompetitionDefinitionBinding } from '@sasakiuri/saika-protocol/CompetitionState';
 import { sameRulePackIdentity, type RulePackIdentity } from '@sasakiuri/saika-rules';
-
-export type CompetitionCompatibilityMode = 'DISABLED' | 'ADVISORY' | 'REQUIRED';
-
-export interface CompetitionDefinitionRequirement {
-  readonly protocolVersion: 1;
-  readonly compatibilityMode: CompetitionCompatibilityMode;
-  readonly rulePack?: RulePackIdentity;
-}
 
 export interface LaneCompetitionCapabilities {
   readonly competitionProtocolVersions: readonly number[];
@@ -22,14 +15,14 @@ export interface CompetitionCompatibilityAssessment {
 /** Pure preflight policy; MQTT transport and UI decide how to present the result. */
 export interface ICompetitionDefinitionCompatibilityPolicy {
   assess(
-    requirement: CompetitionDefinitionRequirement | undefined,
+    requirement: CompetitionDefinitionBinding | undefined,
     capabilities: LaneCompetitionCapabilities | undefined,
   ): CompetitionCompatibilityAssessment;
 }
 
 export class CompetitionDefinitionCompatibilityPolicy implements ICompetitionDefinitionCompatibilityPolicy {
   assess(
-    requirement: CompetitionDefinitionRequirement | undefined,
+    requirement: CompetitionDefinitionBinding | undefined,
     capabilities: LaneCompetitionCapabilities | undefined,
   ): CompetitionCompatibilityAssessment {
     if (!requirement) {

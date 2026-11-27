@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Handles competition membership and starts competition subscriptions after joining. */
 
+import type { ClockProbeAcknowledgementData } from '@sasakiuri/saika-protocol/Acknowledgement';
 import { commandSchemasForScope, type MqttCommandActionOf } from '@sasakiuri/saika-protocol/commands';
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
@@ -193,7 +194,7 @@ export class LaneTier1CommandHandler {
           directorSentAt: command.directorSentAt,
           laneReceivedAt: laneReceivedAt.toISOString(),
           laneSentAt: new Date().toISOString(),
-        };
+        } satisfies ClockProbeAcknowledgementData;
       }
 
       case 'activate-safety-stop': {

@@ -8,6 +8,7 @@ import {
   createVistaServer,
   loadVistaCredentials,
   rotateVistaCredentials,
+  type VistaCredentials,
   type VistaServer,
 } from '@sasakiuri/saika-protocol/vista-node';
 
@@ -63,7 +64,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
     eventBus,
     mainWindow,
   }) {
-    let credentials: ReturnType<typeof loadVistaCredentials>;
+    let credentials: VistaCredentials;
     let identity: VistaIdentity;
     let source: LaneVistaSource;
     try {
