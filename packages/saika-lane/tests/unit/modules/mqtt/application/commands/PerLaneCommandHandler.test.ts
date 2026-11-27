@@ -11,16 +11,6 @@ vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   }),
 }));
 
-vi.mock('@/shared/errors/ErrorCatalog', () => ({
-  ErrorCatalog: {
-    createError: (code: string, metadata?: Record<string, unknown>) => {
-      const err = new Error(metadata?.detail ? `${code}: ${metadata.detail}` : code);
-      (err as unknown as { code: string }).code = code;
-      return err;
-    },
-  },
-}));
-
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { IMalfunctionFiringControl, MalfunctionFiringRun } from '@/main/modules/malfunction-firing';
@@ -335,7 +325,10 @@ describe('PerLaneCommandHandler', () => {
       expect(ackCalls.length).toBe(2);
       const errorAck = JSON.parse(ackCalls[1]![1] as string);
       expect(errorAck.status).toBe('error');
-      expect(errorAck.error.code).toBe('COMPETITION_NOT_FOUND');
+      expect(errorAck.error).toEqual({
+        code: 'COMPETITION_NOT_FOUND',
+        message: `Competition state not found: ${COMPETITION_ID}`,
+      });
     });
 
     it('rejects reset after the competition has started', async () => {

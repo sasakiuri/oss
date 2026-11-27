@@ -223,10 +223,7 @@ export class PerLaneCommandHandler {
 
       case 'reset-session': {
         // ResetSession requires a sessionId. Retrieve CompetitionState from competitionId to resolve sessionId.
-        const competition = await this.deps.competitionRepository.findById(competitionId);
-        if (!competition) {
-          throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { competitionId });
-        }
+        const competition = await requireCompetition(this.deps.competitionRepository, competitionId);
         if (competition.phase !== 'IDLE') {
           throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
             detail: `reset-session is only allowed before competition start; current phase is ${competition.phase}`,
