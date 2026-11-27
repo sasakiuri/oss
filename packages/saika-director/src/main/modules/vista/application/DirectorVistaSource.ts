@@ -23,6 +23,8 @@ import {
   CanonicalSnapshotSchema,
   missingResetOperations,
   type CanonicalSnapshot,
+  type Competition,
+  type Lane,
   type CompletedTransfer,
   type DirectorVistaResultProjection,
   type SavedSource,
@@ -31,6 +33,8 @@ import {
 import type { IVistaSourceStore, VistaLinkedResult, VistaSourceRow } from './VistaSourceStore';
 
 type RankingScope = 'relay' | 'event';
+
+const unconfirmedReplacementReason = 'An unconfirmed Lane session replacement requires source synchronization';
 
 export interface DirectorVistaBoards {
   getSnapshot(eventId: string, scope: 'QUALIFICATION' | 'FINAL'): Promise<ResultBoardSnapshotDto>;
@@ -75,12 +79,11 @@ export class DirectorVistaSource {
     });
     // A persisted connection flag cannot confirm the upstream connection in a new Director process.
     this.store.transaction(() => {
-      for (const row of this.store.rows()) {
-        const source = JSON.parse(row.source_json) as SavedSource;
+      for (const { id, source } of this.store.rows()) {
         if (source.competition.finishedAt) continue;
         source.upstreamConnected = false;
         source.confirmedLaneIds = [];
-        this.store.saveSource(row.id, JSON.stringify(source));
+        this.store.saveSource(id, source);
       }
     });
   }
@@ -88,241 +91,293 @@ export class DirectorVistaSource {
   /** Synchronous event capture also retains prior competitions when physical Lanes are reused. */
   observe(snapshot: MqttControlSnapshotDto): void {
     this.store.transaction(() => {
-      for (const row of this.store.rows()) {
-        const stored = JSON.parse(row.source_json) as SavedSource;
-        if (
-          snapshot.connected &&
-          snapshot.competitions.some((competition) => competition.competitionId === stored.competition.competitionId)
-        )
-          continue;
-        if (stored.upstreamConnected && !stored.competition.finishedAt) {
-          stored.upstreamConnected = false;
-          stored.confirmedLaneIds = [];
-          this.store.saveSource(row.id, JSON.stringify(stored));
-        }
-      }
-      for (const competition of snapshot.competitions) {
-        const previousRow = this.store
-          .rows()
-          .reverse()
-          .find(
-            (row) =>
-              (JSON.parse(row.source_json) as SavedSource).competition.competitionId === competition.competitionId,
-          );
-        const previous = previousRow ? (JSON.parse(previousRow.source_json) as SavedSource) : null;
-        if (previous && Date.parse(previous.competition.publishedAt) > Date.parse(competition.publishedAt)) continue;
-        const reset =
-          previous &&
-          snapshot.lastCommand?.action === 'reset-session' &&
-          snapshot.lastCommand.competitionId === competition.competitionId &&
-          snapshot.lastCommand.success &&
-          competition.phase === 'NOT_STARTED' &&
-          competition.finishedAt === null &&
-          snapshot.lastCommand.commandId !== previous.resetCommandId &&
-          snapshot.lastCommand.lanes.some((commandLane) => {
-            const lane = snapshot.lanes.find((candidate) => candidate.laneId === commandLane.laneId);
-            return (
-              commandLane.status === 'done' &&
-              lane?.competitionState?.competitionId === competition.competitionId &&
-              lane.score?.competitionId === competition.competitionId &&
-              lane.score.sessionId === lane.competitionState.sessionId &&
-              lane.score.totalShotCount === 0
-            );
-          })
-            ? snapshot.lastCommand.commandId
-            : null;
-        const subjectId = reset
-          ? `${competition.competitionId}:reset:${reset}`
-          : (previousRow?.id ?? competition.competitionId);
-        const resetLanes = reset
-          ? snapshot.lanes.filter(
-              (lane) =>
-                lane.competitionState?.competitionId === competition.competitionId &&
-                snapshot.lastCommand!.lanes.some(
-                  (commandLane) => commandLane.laneId === lane.laneId && commandLane.status === 'done',
-                ) &&
-                lane.score?.totalShotCount === 0,
-            )
-          : [];
-        const shotWindows = { ...previous?.shotWindows };
-        if (reset && previousRow && previous) {
-          const archivedWindows = { ...previous.shotWindows };
-          for (const lane of resetLanes) {
-            const boundary = lane.score!.publishedAt;
-            archivedWindows[lane.laneId] = { after: archivedWindows[lane.laneId]?.after ?? null, before: boundary };
-            shotWindows[lane.laneId] = { after: boundary, before: null };
-          }
-          const archived = { ...previous, shotWindows: archivedWindows };
-          const frozenShotIds = [...new Set(this.observations(archived).map((shot) => shot.shotId))];
-          this.store.saveSource(
-            previousRow.id,
-            JSON.stringify({
-              ...previous,
-              shotWindows: archivedWindows,
-              frozenShotIds,
-              frozenOperations: this.operations(previous.competition.competitionId),
-              upstreamConnected: false,
-              reason:
-                previous.reason === 'An unconfirmed Lane session replacement requires source synchronization'
-                  ? null
-                  : previous.reason,
-            }),
-          );
-        }
-        const sessionHistory = { ...previous?.sessionHistory };
-        const observedSeriesCounts = { ...previous?.observedSeriesCounts };
-        for (const lane of resetLanes) {
-          const session = lane.competitionState!.sessionId;
-          sessionHistory[session] = [session];
-          for (const key of Object.keys(observedSeriesCounts))
-            if (key.startsWith(`${session}:`)) delete observedSeriesCounts[key];
-        }
-        let unconfirmedReplacement = false;
-        const lanes = new Map(
-          (previous?.lanes ?? [])
-            .filter((lane) => competition.laneIds.includes(lane.laneId))
-            .map((lane) => [lane.laneId, lane]),
-        );
-        const observedFromStart = new Set(previous?.observedFromStart ?? []);
-        const confirmedLaneIds: string[] = [];
-        const completedTransfers = this.completedTransfers(competition.competitionId);
-        for (const lane of snapshot.lanes) {
-          if (!competition.laneIds.includes(lane.laneId)) continue;
-          if (lane.competitionState?.competitionId !== competition.competitionId) continue;
-          const prior = lanes.get(lane.laneId);
-          const next = {
-            ...lane,
-            score: lane.score?.competitionId === competition.competitionId ? lane.score : null,
-            assignment: lane.assignment?.competitionId === competition.competitionId ? lane.assignment : null,
-          };
-
-          for (const key of ['competitionState', 'score', 'assignment', 'safetyState'] as const) {
-            const oldValue = prior?.[key];
-            const newValue = next[key];
-            if (oldValue && (!newValue || Date.parse(oldValue.publishedAt) > Date.parse(newValue.publishedAt))) {
-              // Each upstream retained stream has its own publication timestamp.
-              Object.assign(next, { [key]: oldValue });
-            }
-          }
-          if (
-            !reset &&
-            competition.phase === 'NOT_STARTED' &&
-            prior?.score &&
-            prior.score.totalShotCount > 0 &&
-            next.score?.totalShotCount === 0 &&
-            next.score.sessionId === prior.score.sessionId
-          ) {
-            unconfirmedReplacement = true;
-            continue;
-          }
-          const state = next.competitionState;
-          const priorState = prior?.competitionState;
-          if (state) {
-            sessionHistory[state.sessionId] ??= [state.sessionId];
-            if (priorState && priorState.sessionId !== state.sessionId) {
-              // Retirement clears the source assignment before the target publishes its state.
-              // Continuity is established by the acknowledged saved bundle, not that live assignment.
-              const confirmedTransfer = completedTransfers.some(
-                (transfer) =>
-                  transfer.destinationLaneId === lane.laneId &&
-                  transfer.sessionId === state.sessionId &&
-                  transfer.athleteId === next.assignment?.athlete?.id,
-              );
-              const forwardStage =
-                !confirmedTransfer &&
-                !priorState.currentStage.scored &&
-                state.currentStage.scored &&
-                state.currentStage.index > priorState.currentStage.index &&
-                prior?.assignment?.athlete?.id === next.assignment?.athlete?.id;
-              if (forwardStage) {
-                sessionHistory[state.sessionId] = [
-                  ...(sessionHistory[priorState.sessionId] ?? [priorState.sessionId]),
-                  state.sessionId,
-                ];
-                if (
-                  observedFromStart.has(priorState.sessionId) &&
-                  ['SIGHTING_COMPLETE', 'STAGE_COMPLETE', 'SERIES_COMPLETE'].includes(priorState.phase)
-                )
-                  observedFromStart.add(state.sessionId);
-              } else if (!reset && !confirmedTransfer) {
-                unconfirmedReplacement = true;
-                continue;
-              }
-            }
-            const key = `${state.sessionId}:${state.currentStage.index}:${state.currentSeries.index}`;
-            observedSeriesCounts[key] = Math.max(observedSeriesCounts[key] ?? 0, state.currentSeries.shotsRecorded);
-          }
-          lanes.set(lane.laneId, next);
-          // Retained state and score arrive independently after the MQTT read model is cleared.
-          // Saved streams remain displayable, but cannot substitute for either current stream.
-          if (
-            snapshot.connected &&
-            state?.sessionId === lane.competitionState.sessionId &&
-            lane.score?.competitionId === competition.competitionId &&
-            lane.score.sessionId === state.sessionId &&
-            lane.score.acc === competition.acc
-          )
-            confirmedLaneIds.push(lane.laneId);
-          if (
-            state &&
-            state.phase === 'READY' &&
-            state.currentSeries.shotsRecorded === 0 &&
-            (!next.score || next.score.totalShotCount === 0)
-          ) {
-            observedFromStart.add(state.sessionId);
-          }
-        }
-        let definition = previous?.definition ?? null;
-        let reason = previous?.reason ?? null;
-        try {
-          const current = directorVistaDefinition(competition, this.registry);
-          if (definition && current.fingerprint !== definition.fingerprint)
-            throw new Error('The definition changed within this competition');
-          definition = current;
-          reason = null;
-        } catch (error) {
-          reason = error instanceof Error ? error.message : String(error);
-        }
-        const participants = [...lanes.values()].flatMap((lane) => lane.assignment?.athlete?.id ?? []);
-        const eventIds = [...new Set(participants.flatMap((id) => this.store.participant(id)?.event_id ?? []))];
-        const eventId = eventIds.length === 1 ? eventIds[0]! : (previous?.eventId ?? null);
-        const event = eventId ? this.store.eventLabels(eventId) : undefined;
-        const relay = eventId ? this.store.resultRelay(eventId, competition.competitionId) : undefined;
-        if (unconfirmedReplacement) reason = 'An unconfirmed Lane session replacement requires source synchronization';
-        const source: SavedSource = {
-          upstreamConnected: snapshot.connected,
-          confirmedLaneIds,
-          resetCommandId: reset ?? previous?.resetCommandId ?? null,
-          sessionHistory,
-          observedSeriesCounts,
-          shotWindows,
-          frozenShotIds: null,
-          frozenOperations: null,
-          excludedResultIds:
-            reset && previous
-              ? [
-                  ...new Set([
-                    ...(previous.excludedResultIds ?? []),
-                    ...this.resultLinks(previous).map((result) => result.id),
-                  ]),
-                ]
-              : (previous?.excludedResultIds ?? []),
-          competition,
-          lanes: [...lanes.values()],
-          observedFromStart: [...observedFromStart],
-          definition,
-          reason,
-          eventId,
-          eventName: event?.name ?? previous?.eventName ?? null,
-          championship: event?.championship ?? previous?.championship ?? null,
-          relay: relay ? String(relay.relay_number) : (previous?.relay ?? null),
-        };
-        const json = JSON.stringify(source);
-        if (reset || !previous || json !== JSON.stringify(previous)) this.store.upsertSource(subjectId, json);
-      }
+      this.disconnectUnreportedSources(snapshot);
+      for (const competition of snapshot.competitions) this.observeCompetition(snapshot, competition);
     });
     this.latestControlSnapshot = structuredClone(snapshot);
     this.transferRevision = this.currentTransferRevision();
+  }
+
+  /** A running competition that the connected upstream no longer reports cannot stay confirmed. */
+  private disconnectUnreportedSources(snapshot: MqttControlSnapshotDto): void {
+    for (const { id, source } of this.store.rows()) {
+      if (
+        snapshot.connected &&
+        snapshot.competitions.some((competition) => competition.competitionId === source.competition.competitionId)
+      )
+        continue;
+      if (source.upstreamConnected && !source.competition.finishedAt) {
+        source.upstreamConnected = false;
+        source.confirmedLaneIds = [];
+        this.store.saveSource(id, source);
+      }
+    }
+  }
+
+  private observeCompetition(snapshot: MqttControlSnapshotDto, competition: Competition): void {
+    const previousRow = this.store
+      .rows()
+      .reverse()
+      .find((row) => row.source.competition.competitionId === competition.competitionId);
+    const previous = previousRow?.source ?? null;
+    if (previous && Date.parse(previous.competition.publishedAt) > Date.parse(competition.publishedAt)) return;
+    const resetCommand = previous ? this.acknowledgedReset(snapshot, competition, previous) : null;
+    const reset = resetCommand?.commandId ?? null;
+    const subjectId = reset
+      ? `${competition.competitionId}:reset:${reset}`
+      : (previousRow?.id ?? competition.competitionId);
+    const resetLanes = resetCommand
+      ? snapshot.lanes.filter(
+          (lane) =>
+            lane.competitionState?.competitionId === competition.competitionId &&
+            resetCommand.lanes.some(
+              (commandLane) => commandLane.laneId === lane.laneId && commandLane.status === 'done',
+            ) &&
+            lane.score?.totalShotCount === 0,
+        )
+      : [];
+    const shotWindows =
+      resetCommand && previousRow ? this.archiveBeforeReset(previousRow, resetLanes) : { ...previous?.shotWindows };
+    const sessionHistory = { ...previous?.sessionHistory };
+    const observedSeriesCounts = { ...previous?.observedSeriesCounts };
+    for (const lane of resetLanes) {
+      const session = lane.competitionState!.sessionId;
+      sessionHistory[session] = [session];
+      for (const key of Object.keys(observedSeriesCounts))
+        if (key.startsWith(`${session}:`)) delete observedSeriesCounts[key];
+    }
+    const { lanes, observedFromStart, confirmedLaneIds, unconfirmedReplacement } = this.mergeLanes(
+      snapshot,
+      competition,
+      previous,
+      reset !== null,
+      sessionHistory,
+      observedSeriesCounts,
+    );
+    const { definition, reason } = this.resolveDefinition(competition, previous);
+    const participants = lanes.flatMap((lane) => lane.assignment?.athlete?.id ?? []);
+    const eventIds = [...new Set(participants.flatMap((id) => this.store.participant(id)?.event_id ?? []))];
+    const eventId = eventIds.length === 1 ? eventIds[0]! : (previous?.eventId ?? null);
+    const event = eventId ? this.store.eventLabels(eventId) : undefined;
+    const relay = eventId ? this.store.resultRelay(eventId, competition.competitionId) : undefined;
+    const source: SavedSource = {
+      upstreamConnected: snapshot.connected,
+      confirmedLaneIds,
+      resetCommandId: reset ?? previous?.resetCommandId ?? null,
+      sessionHistory,
+      observedSeriesCounts,
+      shotWindows,
+      frozenShotIds: null,
+      frozenOperations: null,
+      excludedResultIds:
+        reset && previous
+          ? [
+              ...new Set([
+                ...(previous.excludedResultIds ?? []),
+                ...this.resultLinks(previous).map((result) => result.id),
+              ]),
+            ]
+          : (previous?.excludedResultIds ?? []),
+      competition,
+      lanes,
+      observedFromStart,
+      definition,
+      reason: unconfirmedReplacement ? unconfirmedReplacementReason : reason,
+      eventId,
+      eventName: event?.name ?? previous?.eventName ?? null,
+      championship: event?.championship ?? previous?.championship ?? null,
+      relay: relay ? String(relay.relay_number) : (previous?.relay ?? null),
+    };
+    if (reset || !previous || JSON.stringify(source) !== JSON.stringify(previous))
+      this.store.upsertSource(subjectId, source);
+  }
+
+  /** The reset-session command this snapshot acknowledges as starting a new run of the competition. */
+  private acknowledgedReset(
+    snapshot: MqttControlSnapshotDto,
+    competition: Competition,
+    previous: SavedSource,
+  ): NonNullable<MqttControlSnapshotDto['lastCommand']> | null {
+    const command = snapshot.lastCommand;
+    return command?.action === 'reset-session' &&
+      command.competitionId === competition.competitionId &&
+      command.success &&
+      competition.phase === 'NOT_STARTED' &&
+      competition.finishedAt === null &&
+      command.commandId !== previous.resetCommandId &&
+      command.lanes.some((commandLane) => {
+        const lane = snapshot.lanes.find((candidate) => candidate.laneId === commandLane.laneId);
+        return (
+          commandLane.status === 'done' &&
+          lane?.competitionState?.competitionId === competition.competitionId &&
+          lane.score?.competitionId === competition.competitionId &&
+          lane.score.sessionId === lane.competitionState.sessionId &&
+          lane.score.totalShotCount === 0
+        );
+      })
+      ? command
+      : null;
+  }
+
+  /**
+   * Freezes the run before a reset: the reset Lanes' shot windows close at their reset score, and the
+   * archive keeps its shots and operations. Returns the shot windows of the new run.
+   */
+  private archiveBeforeReset(row: VistaSourceRow, resetLanes: readonly Lane[]): SavedSource['shotWindows'] {
+    const previous = row.source;
+    const shotWindows = { ...previous.shotWindows };
+    const archivedWindows = { ...previous.shotWindows };
+    for (const lane of resetLanes) {
+      const boundary = lane.score!.publishedAt;
+      archivedWindows[lane.laneId] = { after: archivedWindows[lane.laneId]?.after ?? null, before: boundary };
+      shotWindows[lane.laneId] = { after: boundary, before: null };
+    }
+    const archived = { ...previous, shotWindows: archivedWindows };
+    const frozenShotIds = [...new Set(this.observations(archived).map((shot) => shot.shotId))];
+    this.store.saveSource(row.id, {
+      ...previous,
+      shotWindows: archivedWindows,
+      frozenShotIds,
+      frozenOperations: this.operations(previous.competition.competitionId),
+      upstreamConnected: false,
+      reason: previous.reason === unconfirmedReplacementReason ? null : previous.reason,
+    });
+    return shotWindows;
+  }
+
+  /**
+   * Merges each joined Lane's retained streams into the saved Lanes. A new Lane session continues the
+   * saved one only after a reset, a forward stage change or a completed reserve transfer; otherwise
+   * the Lane keeps its saved data and the source needs synchronization.
+   */
+  private mergeLanes(
+    snapshot: MqttControlSnapshotDto,
+    competition: Competition,
+    previous: SavedSource | null,
+    reset: boolean,
+    sessionHistory: SavedSource['sessionHistory'],
+    observedSeriesCounts: SavedSource['observedSeriesCounts'],
+  ): Pick<SavedSource, 'lanes' | 'observedFromStart' | 'confirmedLaneIds'> & { unconfirmedReplacement: boolean } {
+    let unconfirmedReplacement = false;
+    const lanes = new Map(
+      (previous?.lanes ?? [])
+        .filter((lane) => competition.laneIds.includes(lane.laneId))
+        .map((lane) => [lane.laneId, lane]),
+    );
+    const observedFromStart = new Set(previous?.observedFromStart ?? []);
+    const confirmedLaneIds: string[] = [];
+    const completedTransfers = this.completedTransfers(competition.competitionId);
+    for (const lane of snapshot.lanes) {
+      if (!competition.laneIds.includes(lane.laneId)) continue;
+      if (lane.competitionState?.competitionId !== competition.competitionId) continue;
+      const prior = lanes.get(lane.laneId);
+      const next = {
+        ...lane,
+        score: lane.score?.competitionId === competition.competitionId ? lane.score : null,
+        assignment: lane.assignment?.competitionId === competition.competitionId ? lane.assignment : null,
+      };
+
+      for (const key of ['competitionState', 'score', 'assignment', 'safetyState'] as const) {
+        const oldValue = prior?.[key];
+        const newValue = next[key];
+        if (oldValue && (!newValue || Date.parse(oldValue.publishedAt) > Date.parse(newValue.publishedAt))) {
+          // Each upstream retained stream has its own publication timestamp.
+          Object.assign(next, { [key]: oldValue });
+        }
+      }
+      if (
+        !reset &&
+        competition.phase === 'NOT_STARTED' &&
+        prior?.score &&
+        prior.score.totalShotCount > 0 &&
+        next.score?.totalShotCount === 0 &&
+        next.score.sessionId === prior.score.sessionId
+      ) {
+        unconfirmedReplacement = true;
+        continue;
+      }
+      const state = next.competitionState;
+      const priorState = prior?.competitionState;
+      if (state) {
+        sessionHistory[state.sessionId] ??= [state.sessionId];
+        if (priorState && priorState.sessionId !== state.sessionId) {
+          // Retirement clears the source assignment before the target publishes its state.
+          // Continuity is established by the acknowledged saved bundle, not that live assignment.
+          const confirmedTransfer = completedTransfers.some(
+            (transfer) =>
+              transfer.destinationLaneId === lane.laneId &&
+              transfer.sessionId === state.sessionId &&
+              transfer.athleteId === next.assignment?.athlete?.id,
+          );
+          const forwardStage =
+            !confirmedTransfer &&
+            !priorState.currentStage.scored &&
+            state.currentStage.scored &&
+            state.currentStage.index > priorState.currentStage.index &&
+            prior?.assignment?.athlete?.id === next.assignment?.athlete?.id;
+          if (forwardStage) {
+            sessionHistory[state.sessionId] = [
+              ...(sessionHistory[priorState.sessionId] ?? [priorState.sessionId]),
+              state.sessionId,
+            ];
+            if (
+              observedFromStart.has(priorState.sessionId) &&
+              ['SIGHTING_COMPLETE', 'STAGE_COMPLETE', 'SERIES_COMPLETE'].includes(priorState.phase)
+            )
+              observedFromStart.add(state.sessionId);
+          } else if (!reset && !confirmedTransfer) {
+            unconfirmedReplacement = true;
+            continue;
+          }
+        }
+        const key = `${state.sessionId}:${state.currentStage.index}:${state.currentSeries.index}`;
+        observedSeriesCounts[key] = Math.max(observedSeriesCounts[key] ?? 0, state.currentSeries.shotsRecorded);
+      }
+      lanes.set(lane.laneId, next);
+      // Retained state and score arrive independently after the MQTT read model is cleared.
+      // Saved streams remain displayable, but cannot substitute for either current stream.
+      if (
+        snapshot.connected &&
+        state?.sessionId === lane.competitionState.sessionId &&
+        lane.score?.competitionId === competition.competitionId &&
+        lane.score.sessionId === state.sessionId &&
+        lane.score.acc === competition.acc
+      )
+        confirmedLaneIds.push(lane.laneId);
+      if (
+        state &&
+        state.phase === 'READY' &&
+        state.currentSeries.shotsRecorded === 0 &&
+        (!next.score || next.score.totalShotCount === 0)
+      ) {
+        observedFromStart.add(state.sessionId);
+      }
+    }
+    return {
+      lanes: [...lanes.values()],
+      observedFromStart: [...observedFromStart],
+      confirmedLaneIds,
+      unconfirmedReplacement,
+    };
+  }
+
+  /** A definition change within one competition makes the subject unsupported. */
+  private resolveDefinition(
+    competition: Competition,
+    previous: SavedSource | null,
+  ): Pick<SavedSource, 'definition' | 'reason'> {
+    let definition = previous?.definition ?? null;
+    let reason = previous?.reason ?? null;
+    try {
+      const current = directorVistaDefinition(competition, this.registry);
+      if (definition && current.fingerprint !== definition.fingerprint)
+        throw new Error('The definition changed within this competition');
+      definition = current;
+      reason = null;
+    } catch (error) {
+      reason = error instanceof Error ? error.message : String(error);
+    }
+    return { definition, reason };
   }
 
   catalog(): VistaCatalog {
@@ -330,7 +385,7 @@ export class DirectorVistaSource {
     return {
       identity: this.identity,
       subjects: this.store.rows().flatMap((row) => {
-        const source = JSON.parse(row.source_json) as SavedSource;
+        const { source } = row;
         const reason =
           source.reason ??
           (source.frozenShotIds !== null && !source.frozenOperations && !this.hasPublishedArchive(row)
@@ -654,7 +709,6 @@ export class DirectorVistaSource {
   }
 
   private load(id: string): SavedSource | null {
-    const row = this.store.row(id);
-    return row ? (JSON.parse(row.source_json) as SavedSource) : null;
+    return this.store.row(id)?.source ?? null;
   }
 }

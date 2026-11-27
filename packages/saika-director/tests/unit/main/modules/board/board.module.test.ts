@@ -39,14 +39,14 @@ describe('board module', () => {
     const { handlers, windowManager } = harness();
     const laneRange = { from: 2, to: 5 };
     await expect(handlers.openTargetBoard({ laneRange })).resolves.toBe('board-window');
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('target-board', {
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({
       type: 'target-board',
       laneRange,
     });
     await handlers.openRankingBoard();
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('ranking-board', { type: 'ranking-board' });
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({ type: 'ranking-board' });
     await handlers.openFinalBoard({ eventId: 'event-1' });
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('final-board', {
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({
       type: 'final-board',
       eventId: 'event-1',
     });
@@ -58,22 +58,22 @@ describe('board module', () => {
       eventType: 'AR60',
     };
     await handlers.openScoreSheetPrint(scoreSheet);
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('score-sheet-print', {
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({
       type: 'score-sheet-print',
       ...scoreSheet,
     });
     await handlers.openIncidentReportPrint({ reportId: 'report-1' });
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('incident-report-print', {
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({
       type: 'incident-report-print',
       reportId: 'report-1',
     });
     await handlers.openProtestPrint({ protestId: 'protest-1' });
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('protest-print', {
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({
       type: 'protest-print',
       protestId: 'protest-1',
     });
     await handlers.openEstBackupSourcePrint({ sourceId: 'source-1' });
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('est-backup-source-print', {
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({
       type: 'est-backup-source-print',
       sourceId: 'source-1',
     });
@@ -94,14 +94,14 @@ describe('board module', () => {
     queryBus.register(GetEventByIdToken, findEvent);
 
     await handlers.openResultsBoard({ competitionId: 'competition-1', eventId: 'event-1' });
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('results-board', {
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({
       type: 'results-board',
       competitionId: 'competition-1',
       eventId: 'event-1',
       round: 'Final',
     });
     await handlers.openResultsListPrint({ eventId: 'event-1', eventName: 'Final results', relayNumber: 2 });
-    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith('results-list-print', {
+    expect(windowManager.createBoardWindow).toHaveBeenLastCalledWith({
       type: 'results-list-print',
       eventId: 'event-1',
       eventName: 'Final results',

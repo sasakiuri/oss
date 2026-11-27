@@ -82,7 +82,7 @@ describe('WindowManager', () => {
 
   it('loads boards from the injected renderer directory even when Electron starts from a built entry file', () => {
     const windows = new WindowManager('/suite/dist/preload/preload.mjs', '/suite/dist/renderer');
-    const id = windows.createBoardWindow('ranking-board', { type: 'ranking-board' });
+    const id = windows.createBoardWindow({ type: 'ranking-board' });
     const board = mocks.windows[0]!;
     expect(board.loadFile).toHaveBeenCalledWith(join('/suite/dist/renderer', 'board.html'), {
       query: { windowId: id, type: 'ranking-board' },
@@ -100,7 +100,7 @@ describe('WindowManager', () => {
   it('loads unpackaged boards from the configured development server', () => {
     mocks.app.isPackaged = false;
     const windows = new WindowManager('/suite/preload.mjs', '/suite/renderer');
-    const id = windows.createBoardWindow('target-board', { type: 'target-board', laneRange: { from: 1, to: 10 } });
+    const id = windows.createBoardWindow({ type: 'target-board', laneRange: { from: 1, to: 10 } });
     expect(mocks.windows[0]!.loadURL).toHaveBeenCalledWith(
       `http://localhost:5173/board.html?windowId=${id}&type=target-board`,
     );
@@ -119,21 +119,15 @@ describe('WindowManager', () => {
     ['final-board', 'Final Board'],
   ])('identifies %s windows with the corresponding user-facing title', (type, title) => {
     const windows = new WindowManager('/suite/preload.mjs', '/suite/renderer');
-    windows.createBoardWindow(type, { type });
+    windows.createBoardWindow({ type });
     expect(mocks.windows[0]!.options.title).toBe(title);
-  });
-
-  it('rejects mismatched board configuration before creating a native window', () => {
-    const windows = new WindowManager('/suite/preload.mjs', '/suite/renderer');
-    expect(() => windows.createBoardWindow('ranking-board', { type: 'target-board' })).toThrow('Board type mismatch');
-    expect(mocks.windows).toHaveLength(0);
   });
 
   it('tracks board identity and configuration, cleans up on close, and permits recreation', () => {
     const windows = new WindowManager('/suite/preload.mjs', '/suite/renderer');
     const main = mainWindow(windows);
     const config = { type: 'target-board' as const, laneRange: { from: 2, to: 8 } };
-    const id = windows.createBoardWindow(config.type, config);
+    const id = windows.createBoardWindow(config);
     const board = mocks.windows[1]!;
     expect(windows.getWindowConfig(id)).toEqual(config);
     expect(windows.getWindowConfig('main')).toBeNull();
@@ -153,7 +147,7 @@ describe('WindowManager', () => {
     expect(windows.getWindowsByType('target-board')).toEqual([]);
     expect(windows.findWindowIdByWebContents(board.webContents as unknown as Electron.WebContents)).toBeNull();
 
-    const replacement = windows.createBoardWindow(config.type, config);
+    const replacement = windows.createBoardWindow(config);
     expect(replacement).not.toBe(id);
     expect(windows.getWindowsByType('target-board')).toEqual([replacement]);
     main.finishClose();
@@ -163,8 +157,8 @@ describe('WindowManager', () => {
   it('continues broadcasting past destroyed windows and native delivery failures', () => {
     const windows = new WindowManager('/suite/preload.mjs', '/suite/renderer');
     const main = mainWindow(windows);
-    const first = windows.createBoardWindow('ranking-board', { type: 'ranking-board' });
-    windows.createBoardWindow('results-board', { type: 'results-board' });
+    const first = windows.createBoardWindow({ type: 'ranking-board' });
+    windows.createBoardWindow({ type: 'results-board' });
     const destroyed = mocks.windows[1]!;
     const healthy = mocks.windows[2]!;
     destroyed.destroyed = true;
@@ -183,9 +177,9 @@ describe('WindowManager', () => {
   it('waits for every board to release native resources while keeping the main window open', async () => {
     const windows = new WindowManager('/suite/preload.mjs', '/suite/renderer');
     const main = mainWindow(windows);
-    windows.createBoardWindow('ranking-board', { type: 'ranking-board' });
-    windows.createBoardWindow('results-board', { type: 'results-board' });
-    windows.createBoardWindow('target-board', { type: 'target-board' });
+    windows.createBoardWindow({ type: 'ranking-board' });
+    windows.createBoardWindow({ type: 'results-board' });
+    windows.createBoardWindow({ type: 'target-board' });
     const [first, second, destroyed] = mocks.windows.slice(1) as [WindowStub, WindowStub, WindowStub];
     first.closeImmediately = false;
     second.closeImmediately = false;
@@ -216,7 +210,7 @@ describe('WindowManager', () => {
     async (closed) => {
       mocks.loadError = new Error('Renderer assets could not be loaded');
       const windows = new WindowManager('/suite/preload.mjs', '/suite/renderer');
-      const id = windows.createBoardWindow('ranking-board', { type: 'ranking-board' });
+      const id = windows.createBoardWindow({ type: 'ranking-board' });
       const board = mocks.windows[0]!;
       if (closed) board.finishClose();
       await Promise.resolve();

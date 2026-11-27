@@ -13,23 +13,19 @@ import type {
 import type { IRelayReadinessRepository } from '../domain/IRelayReadinessRepository';
 import type { IRelayStartSettingsRepository, RelayStartSettings } from '../domain/IRelayStartSettingsRepository';
 import { RelayReadinessEntry, type RelayReadinessOperationalPhase } from '../domain/RelayReadinessEntry';
-import type { IRelayReadinessPolicy, RelayReadinessMode } from '../domain/RelayReadinessPolicy';
 import { IssfRelayReadinessPolicy } from '../domain/RelayReadinessPolicy';
 
 export class RelayReadinessService implements ICompetitionStartReadinessSource {
   constructor(
     private readonly repository: IRelayReadinessRepository,
-    private readonly policy: IRelayReadinessPolicy | ((mode: RelayReadinessMode) => IRelayReadinessPolicy) = (mode) =>
-      new IssfRelayReadinessPolicy(mode),
-    private readonly startSettings?: IRelayStartSettingsRepository,
+    private readonly startSettings: IRelayStartSettingsRepository,
   ) {}
 
   getStartSettings(competitionId: string): RelayStartSettings {
-    return this.startSettings?.find(competitionId) ?? { competitionId, relayNumber: 1, mode: 'ADVISORY' };
+    return this.startSettings.find(competitionId) ?? { competitionId, relayNumber: 1, mode: 'ADVISORY' };
   }
 
   setStartSettings(settings: RelayStartSettings): RelayStartSettings {
-    if (!this.startSettings) throw new Error('Relay start settings are not configured');
     this.startSettings.save(settings);
     return this.getStartSettings(settings.competitionId);
   }
@@ -75,8 +71,7 @@ export class RelayReadinessService implements ICompetitionStartReadinessSource {
     phase: RelayReadinessOperationalPhase;
     laneIds: string[];
   }): RelayReadinessAssessmentDto {
-    const policy =
-      typeof this.policy === 'function' ? this.policy(this.getStartSettings(input.competitionId).mode) : this.policy;
+    const policy = new IssfRelayReadinessPolicy(this.getStartSettings(input.competitionId).mode);
     const assessment = policy.assess({
       phase: input.phase,
       laneIds: input.laneIds,
