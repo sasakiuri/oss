@@ -66,7 +66,6 @@ export const CompetitionStatePayloadSchema = z.object({
 });
 
 export type CompetitionPhase = z.infer<typeof CompetitionPhaseSchema>;
-export type RulePackIdentityPayload = z.infer<typeof RulePackIdentitySchema>;
 export type CompetitionDefinitionBinding = z.infer<typeof CompetitionDefinitionBindingSchema>;
 export type ActiveCompetitionTimer = z.infer<typeof ActiveCompetitionTimerSchema>;
 export type CompetitionStatePayload = z.infer<typeof CompetitionStatePayloadSchema>;

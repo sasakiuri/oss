@@ -3,7 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { VISTA_PROTOCOL_VERSION, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
-import { discoverVistaNodes } from '@sasakiuri/saika-protocol/vista-node';
+import { discoverVistaNodes, type VistaNode } from '@sasakiuri/saika-protocol/vista-node';
 
 import { CommandSchema, type AppState, type Command, type NodeState, type ScreenConfig } from '../shared/model';
 
@@ -158,7 +158,7 @@ export class VistaApplication {
     };
   }
 
-  discover(): ReturnType<typeof discoverVistaNodes> {
+  discover(): Promise<VistaNode[]> {
     return discoverVistaNodes();
   }
 

@@ -9,7 +9,10 @@ import { dirname } from 'node:path';
 
 import { VistaIdentitySchema, type VistaIdentity } from './Vista';
 
+const IDENTITY_PATH = '/vista/v1/identity';
 const SECURE_PATH = '/vista/v1/secure';
+const DISCOVERY_QUERY = 'saika-vista-discover/1';
+const DISCOVERY_PROTOCOL = 'saika-vista-discovery/1';
 const DISCOVERY_PORT = 45837;
 const DISCOVERY_GROUP = '239.255.83.37';
 const MAX_BYTES = 16 * 1024 * 1024;
@@ -48,9 +51,7 @@ export function loadVistaCredentials(filePath: string): VistaCredentials {
   }
   mkdirSync(dirname(filePath), { recursive: true, mode: 0o700 });
   const value = { sourceId: randomUUID(), secret: randomBytes(32).toString('base64url') };
-  const temporary = `${filePath}.${randomUUID()}.tmp`;
-  writeFileSync(temporary, JSON.stringify(value), { mode: 0o600, flush: true });
-  renameSync(temporary, filePath);
+  writeCredentials(filePath, value);
   return value;
 }
 
@@ -58,10 +59,14 @@ export function loadVistaCredentials(filePath: string): VistaCredentials {
 export function rotateVistaCredentials(filePath: string): VistaCredentials {
   const current = loadVistaCredentials(filePath);
   const next = { sourceId: current.sourceId, secret: randomBytes(32).toString('base64url') };
-  const temporary = `${filePath}.${randomUUID()}.tmp`;
-  writeFileSync(temporary, JSON.stringify(next), { mode: 0o600, flush: true });
-  renameSync(temporary, filePath);
+  writeCredentials(filePath, next);
   return next;
+}
+
+function writeCredentials(filePath: string, value: VistaCredentials): void {
+  const temporary = `${filePath}.${randomUUID()}.tmp`;
+  writeFileSync(temporary, JSON.stringify(value), { mode: 0o600, flush: true });
+  renameSync(temporary, filePath);
 }
 
 function keyFor(secret: string): Buffer {
@@ -139,7 +144,7 @@ export async function createVistaServer(options: {
     res.on('close', () => clearTimeout(deadline));
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Type', 'application/json');
-    if (req.method === 'GET' && req.url === '/vista/v1/identity') {
+    if (req.method === 'GET' && req.url === IDENTITY_PATH) {
       res.end(JSON.stringify({ ...identity, serverSession }));
       return;
     }
@@ -261,7 +266,7 @@ export async function requestVista<T = unknown>(
   const key = keyFor(secret);
   // An unauthenticated challenge can only deny service: it is bound into the
   // authenticated request and response before any application operation runs.
-  const hello: unknown = JSON.parse(await exchange(new URL('/vista/v1/identity', url), 'GET', undefined, deadlineAt));
+  const hello: unknown = JSON.parse(await exchange(new URL(IDENTITY_PATH, url), 'GET', undefined, deadlineAt));
   const peer = VistaIdentitySchema.parse(hello);
   const serverSession = (hello as Record<string, unknown>).serverSession;
   if (typeof serverSession !== 'string' || serverSession.length < 32 || serverSession.length > 128)
@@ -344,8 +349,8 @@ export function createVistaDiscovery(identity: VistaIdentity, port: number): { c
     /* Manual endpoints remain usable when multicast is unavailable. */
   });
   socket.on('message', (message, peer) => {
-    if (message.length > 256 || message.toString() !== 'saika-vista-discover/1') return;
-    const payload = Buffer.from(JSON.stringify({ protocol: 'saika-vista-discovery/1', identity: validated, port }));
+    if (message.length > 256 || message.toString() !== DISCOVERY_QUERY) return;
+    const payload = Buffer.from(JSON.stringify({ protocol: DISCOVERY_PROTOCOL, identity: validated, port }));
     socket.send(payload, peer.port, peer.address);
   });
   socket.bind(DISCOVERY_PORT, '0.0.0.0', () => {
@@ -392,7 +397,7 @@ export async function discoverVistaNodes(timeoutMs = 1200): Promise<VistaNode[]>
       try {
         const value = JSON.parse(message.toString()) as Record<string, unknown>;
         if (
-          value.protocol !== 'saika-vista-discovery/1' ||
+          value.protocol !== DISCOVERY_PROTOCOL ||
           !Number.isInteger(value.port) ||
           (value.port as number) < 1 ||
           (value.port as number) > 65535
@@ -407,7 +412,7 @@ export async function discoverVistaNodes(timeoutMs = 1200): Promise<VistaNode[]>
     });
     socket.bind(0, '0.0.0.0', () => {
       if (finished) return;
-      const query = Buffer.from('saika-vista-discover/1');
+      const query = Buffer.from(DISCOVERY_QUERY);
       void (async () => {
         socket.setMulticastTTL(1);
         for (const address of [undefined, ...localAddresses()]) {
