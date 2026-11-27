@@ -3,6 +3,7 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import type { MqttCommandActionOf } from '../src/commands';
 import {
+  laneRetainedCompetitionTopics,
   MQTT_SINGLE_LEVEL_WILDCARD,
   mqttTopicFilters,
   mqttTopics,
@@ -168,6 +169,16 @@ describe('MQTT topic grammar', () => {
       'saika/lane/+/qualification-malfunction/signal',
       'saika/lane/+/est-complaint/signal',
       'saika/lane/+/command/+/acknowledgement',
+    ]);
+  });
+
+  it('lists every retained topic a Lane publishes in a competition', () => {
+    expect(laneRetainedCompetitionTopics(competitionId, laneId)).toEqual([
+      'saika/competition/competition-id/lane/lane-id/state',
+      'saika/competition/competition-id/lane/lane-id/score',
+      'saika/competition/competition-id/lane/lane-id/assignment',
+      'saika/competition/competition-id/lane/lane-id/timed-target/state',
+      'saika/competition/competition-id/lane/lane-id/qualification-recovery/state',
     ]);
   });
 

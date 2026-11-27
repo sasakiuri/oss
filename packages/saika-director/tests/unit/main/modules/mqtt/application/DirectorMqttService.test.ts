@@ -3233,6 +3233,8 @@ describe('DirectorMqttService', () => {
         `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/state`,
         `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/score`,
         `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/assignment`,
+        `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/timed-target/state`,
+        `saika/competition/${COMPETITION_ID}/lane/${LANE_ID}/qualification-recovery/state`,
         `saika/competition/${COMPETITION_ID}/cue`,
       ]),
     );
