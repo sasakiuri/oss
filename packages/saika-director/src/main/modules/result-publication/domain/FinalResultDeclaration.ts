@@ -1,4 +1,4 @@
-import { requiredText } from '@/main/domain/guards';
+import { requiredText, sha256Digest } from '@/main/domain/guards';
 
 export interface FinalResultDeclarationProps {
   readonly id?: string;
@@ -36,7 +36,7 @@ export class FinalResultDeclaration {
     return new FinalResultDeclaration(
       props.id ?? crypto.randomUUID(),
       requiredText(props.eventId, 'eventId'),
-      validRevision(props.snapshotRevision),
+      sha256Digest(props.snapshotRevision, 'snapshotRevision'),
       requiredText(props.approvalId, 'approvalId'),
       true,
       true,
@@ -53,11 +53,6 @@ export class FinalResultDeclaration {
   static reconstruct(props: Required<FinalResultDeclarationProps>): FinalResultDeclaration {
     return FinalResultDeclaration.create(props);
   }
-}
-
-function validRevision(value: string): string {
-  if (!/^[a-f0-9]{64}$/.test(value)) throw new Error('snapshotRevision must be a SHA-256 digest');
-  return value;
 }
 
 function validDate(value: Date): Date {

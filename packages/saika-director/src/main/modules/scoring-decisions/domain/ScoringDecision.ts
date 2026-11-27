@@ -1,3 +1,5 @@
+import { optionalText, requiredText } from '@/main/domain/guards';
+
 export const SCORING_DECISION_TYPES = [
   'DEDUCTION',
   'ANNUL_SHOT',
@@ -90,9 +92,9 @@ export class ScoringDecision {
       props.shotIndex ?? null,
       props.classificationCode ?? null,
       props.ruleReference.trim(),
-      normalizeOptional(props.incidentReportNumber),
+      optionalText(props.incidentReportNumber),
       props.publicRemark.trim(),
-      normalizeOptional(props.internalNote),
+      optionalText(props.internalNote),
       props.officialName.trim(),
       new Date((props.decidedAt ?? new Date()).getTime()),
       null,
@@ -111,7 +113,7 @@ export class ScoringDecision {
     },
   ): ScoringDecision {
     validateCommon({ ...props, publicRemark: props.reason });
-    if (props.reversesDecisionId.trim().length === 0) throw new Error('reversesDecisionId is required');
+    requiredText(props.reversesDecisionId, 'reversesDecisionId');
     return new ScoringDecision(
       crypto.randomUUID(),
       props.eventId,
@@ -127,9 +129,9 @@ export class ScoringDecision {
       null,
       null,
       props.ruleReference.trim(),
-      normalizeOptional(props.incidentReportNumber),
+      optionalText(props.incidentReportNumber),
       props.reason.trim(),
-      normalizeOptional(props.internalNote),
+      optionalText(props.internalNote),
       props.officialName.trim(),
       new Date((props.decidedAt ?? new Date()).getTime()),
       props.reversesDecisionId,
@@ -199,10 +201,10 @@ function validateCommon(props: {
   if (props.eventId.trim().length === 0 || props.participantId.trim().length === 0) {
     throw new Error('A decision target is required');
   }
-  if (props.resultIdAtDecision.trim().length === 0) throw new Error('resultIdAtDecision is required');
-  if (props.ruleReference.trim().length === 0) throw new Error('ruleReference is required');
-  if (props.publicRemark.trim().length === 0) throw new Error('publicRemark is required');
-  if (props.officialName.trim().length === 0) throw new Error('officialName is required');
+  requiredText(props.resultIdAtDecision, 'resultIdAtDecision');
+  requiredText(props.ruleReference, 'ruleReference');
+  requiredText(props.publicRemark, 'publicRemark');
+  requiredText(props.officialName, 'officialName');
   if (props.decidedAt !== undefined && !Number.isFinite(props.decidedAt.getTime())) {
     throw new Error('decidedAt must be valid');
   }
@@ -242,11 +244,6 @@ function validateApplication(props: CreateScoringDecisionProps): void {
   if (props.type !== 'DISQUALIFICATION' && props.classificationCode !== undefined) {
     throw new Error('classificationCode is only valid for disqualification');
   }
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }
 
 /** Returns current decisions without erasing the append-only revocation history. */

@@ -19,9 +19,8 @@ import {
   IrregularShotCaseEntry,
   IrregularShotEvidence,
   FINAL_SERIES_IRREGULAR_SHOT_KINDS,
-  irregularShotCaseStatus,
-  type IrregularShotCaseStatus,
 } from '../domain/IrregularShotCase';
+import { assertCaseTransition, caseStatus } from '@/main/domain/caseLifecycle';
 
 export class IrregularShotCaseService {
   private readonly publicationBlocker: IrregularShotPublicationBlocker;
@@ -96,8 +95,8 @@ export class IrregularShotCaseService {
   async appendEntry(input: AppendIrregularShotCaseEntryPayload): Promise<IrregularShotCaseDto> {
     const value = this.requireCase(input.caseId);
     const entries = this.repository.findEntries([value.id]).get(value.id) ?? [];
-    const status = irregularShotCaseStatus(entries);
-    assertTransition(status, input.type);
+    const status = caseStatus(entries);
+    assertCaseTransition(status, input.type, 'irregular shot case');
     if (input.type === 'RESOLVED') this.assertResolutionArtifacts(value, input);
     const { occurredAt, ...entryInput } = input;
     this.repository.appendEntry(
@@ -123,7 +122,7 @@ export class IrregularShotCaseService {
 
   private requireEditable(id: string): IrregularShotCase {
     const value = this.requireCase(id);
-    const status = irregularShotCaseStatus(this.repository.findEntries([id]).get(id) ?? []);
+    const status = caseStatus(this.repository.findEntries([id]).get(id) ?? []);
     if (status === 'RESOLVED' || status === 'CLOSED' || status === 'VOID') {
       throw new Error(`A ${status.toLowerCase()} irregular shot case cannot add evidence`);
     }
@@ -189,7 +188,7 @@ export class IrregularShotCaseService {
     }
     return values.map((value) => {
       const caseEntries = entries.get(value.id) ?? [];
-      const status = irregularShotCaseStatus(caseEntries);
+      const status = caseStatus(caseEntries);
       return {
         id: value.id,
         eventId: value.eventId,
@@ -258,17 +257,4 @@ export class IrregularShotCaseService {
       };
     });
   }
-}
-
-function assertTransition(status: IrregularShotCaseStatus, next: AppendIrregularShotCaseEntryPayload['type']): void {
-  if (status === 'VOID') throw new Error('A void irregular shot case cannot be changed');
-  if (next === 'REFERRED' && status !== 'OPEN') throw new Error('Only an open case can be referred');
-  if (next === 'RESOLVED' && status !== 'OPEN' && status !== 'REFERRED') {
-    throw new Error('Only an open or referred case can be resolved');
-  }
-  if (next === 'REOPENED' && status !== 'RESOLVED' && status !== 'CLOSED') {
-    throw new Error('Only a resolved or closed case can be reopened');
-  }
-  if (next === 'CLOSED' && status !== 'RESOLVED') throw new Error('Resolve the case before closing it');
-  if (next === 'VOID' && status === 'CLOSED') throw new Error('A closed case must be reopened before it can be voided');
 }

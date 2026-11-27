@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type { IRangeInterruptionRepository, RangeInterruptionScope } from '../domain/IRangeInterruptionRepository';
 import {
   createQualificationTimedTargetInterruptionContext,
@@ -174,11 +175,13 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
   }
 
   findScopesByCaseIds(caseIds: readonly string[]): Map<string, RangeInterruptionScopeLink[]> {
-    return this.findGrouped(
+    return selectGroupedBy(
+      this.db,
       caseIds,
-      `SELECT * FROM range_interruption_scope_links
-       WHERE case_id IN (__PLACEHOLDERS__)
-       ORDER BY linked_at, rowid`,
+      (placeholders) =>
+        `SELECT * FROM range_interruption_scope_links
+         WHERE case_id IN (${placeholders})
+         ORDER BY linked_at, rowid`,
       (row: ScopeRow) => row.case_id,
       toScope,
     );
@@ -208,11 +211,13 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
   }
 
   findEntriesByCaseIds(caseIds: readonly string[]): Map<string, RangeInterruptionEntry[]> {
-    return this.findGrouped(
+    return selectGroupedBy(
+      this.db,
       caseIds,
-      `SELECT * FROM range_interruption_entries
-       WHERE case_id IN (__PLACEHOLDERS__)
-       ORDER BY recorded_at, rowid`,
+      (placeholders) =>
+        `SELECT * FROM range_interruption_entries
+         WHERE case_id IN (${placeholders})
+         ORDER BY recorded_at, rowid`,
       (row: EntryRow) => row.case_id,
       toEntry,
     );
@@ -238,11 +243,13 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
   }
 
   findTargetRecoveryAssessmentsByCaseIds(caseIds: readonly string[]): Map<string, TargetRecoveryAssessment[]> {
-    return this.findGrouped(
+    return selectGroupedBy(
+      this.db,
       caseIds,
-      `SELECT * FROM target_recovery_assessments
-       WHERE case_id IN (__PLACEHOLDERS__)
-       ORDER BY assessed_at, rowid`,
+      (placeholders) =>
+        `SELECT * FROM target_recovery_assessments
+         WHERE case_id IN (${placeholders})
+         ORDER BY assessed_at, rowid`,
       (row: TargetRecoveryAssessmentRow) => row.case_id,
       toTargetRecoveryAssessment,
     );
@@ -277,11 +284,13 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
   }
 
   findCommandBatchesByCaseIds(caseIds: readonly string[]): Map<string, RangeInterruptionCommandBatch[]> {
-    return this.findGrouped(
+    return selectGroupedBy(
+      this.db,
       caseIds,
-      `SELECT * FROM range_interruption_command_batches
-       WHERE case_id IN (__PLACEHOLDERS__)
-       ORDER BY recorded_at, rowid`,
+      (placeholders) =>
+        `SELECT * FROM range_interruption_command_batches
+         WHERE case_id IN (${placeholders})
+         ORDER BY recorded_at, rowid`,
       (row: CommandBatchRow) => row.case_id,
       toCommandBatch,
     );
@@ -319,11 +328,13 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
   findQualificationTimedTargetRecoveryDecisionsByCaseIds(
     caseIds: readonly string[],
   ): Map<string, QualificationTimedTargetRecoveryDecision[]> {
-    return this.findGrouped(
+    return selectGroupedBy(
+      this.db,
       caseIds,
-      `SELECT * FROM qualification_timed_target_recovery_decisions
-       WHERE case_id IN (__PLACEHOLDERS__)
-       ORDER BY recorded_at, rowid`,
+      (placeholders) =>
+        `SELECT * FROM qualification_timed_target_recovery_decisions
+         WHERE case_id IN (${placeholders})
+         ORDER BY recorded_at, rowid`,
       (row: QualificationTimedTargetRecoveryDecisionRow) => row.case_id,
       toQualificationTimedTargetRecoveryDecision,
     );
@@ -370,22 +381,6 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
         unlimitedSightingShots: entry.unlimitedSightingShots === null ? null : entry.unlimitedSightingShots ? 1 : 0,
         recordedAt: entry.recordedAt.toISOString(),
       });
-  }
-
-  private findGrouped<TRow, TValue>(
-    ids: readonly string[],
-    sql: string,
-    getCaseId: (row: TRow) => string,
-    map: (row: TRow) => TValue,
-  ): Map<string, TValue[]> {
-    const result = new Map<string, TValue[]>();
-    for (const id of ids) result.set(id, []);
-    if (ids.length === 0) return result;
-
-    const placeholders = ids.map(() => '?').join(', ');
-    const rows = this.db.prepare(sql.replace('__PLACEHOLDERS__', placeholders)).all(...ids) as TRow[];
-    for (const row of rows) result.get(getCaseId(row))?.push(map(row));
-    return result;
   }
 }
 

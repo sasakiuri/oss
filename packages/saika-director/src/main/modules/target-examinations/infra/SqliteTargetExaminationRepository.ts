@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type { ITargetExaminationRepository, TargetExaminationScope } from '../domain/ITargetExaminationRepository';
 import { TargetExaminationCase, type TargetExaminationIssueKind } from '../domain/TargetExaminationCase';
 import {
@@ -119,11 +120,13 @@ export class SqliteTargetExaminationRepository implements ITargetExaminationRepo
   }
 
   findScopesByCaseIds(caseIds: readonly string[]): Map<string, TargetExaminationScopeLink[]> {
-    return this.findGrouped(
+    return selectGroupedBy(
+      this.db,
       caseIds,
-      `SELECT * FROM target_examination_scope_links
-       WHERE case_id IN (__PLACEHOLDERS__)
-       ORDER BY linked_at, rowid`,
+      (placeholders) =>
+        `SELECT * FROM target_examination_scope_links
+         WHERE case_id IN (${placeholders})
+         ORDER BY linked_at, rowid`,
       (row: ScopeRow) => row.case_id,
       toScope,
     );
@@ -148,11 +151,13 @@ export class SqliteTargetExaminationRepository implements ITargetExaminationRepo
   }
 
   findEvidenceByCaseIds(caseIds: readonly string[]): Map<string, TargetExaminationEvidence[]> {
-    return this.findGrouped(
+    return selectGroupedBy(
+      this.db,
       caseIds,
-      `SELECT * FROM target_examination_evidence
-       WHERE case_id IN (__PLACEHOLDERS__)
-       ORDER BY recorded_at, rowid`,
+      (placeholders) =>
+        `SELECT * FROM target_examination_evidence
+         WHERE case_id IN (${placeholders})
+         ORDER BY recorded_at, rowid`,
       (row: EvidenceRow) => row.case_id,
       toEvidence,
     );
@@ -173,11 +178,13 @@ export class SqliteTargetExaminationRepository implements ITargetExaminationRepo
   }
 
   findEntriesByCaseIds(caseIds: readonly string[]): Map<string, TargetExaminationEntry[]> {
-    return this.findGrouped(
+    return selectGroupedBy(
+      this.db,
       caseIds,
-      `SELECT * FROM target_examination_entries
-       WHERE case_id IN (__PLACEHOLDERS__)
-       ORDER BY recorded_at, rowid`,
+      (placeholders) =>
+        `SELECT * FROM target_examination_entries
+         WHERE case_id IN (${placeholders})
+         ORDER BY recorded_at, rowid`,
       (row: EntryRow) => row.case_id,
       toEntry,
     );
@@ -203,22 +210,6 @@ export class SqliteTargetExaminationRepository implements ITargetExaminationRepo
          )`,
       )
       .run({ ...scope, linkedAt: scope.linkedAt.toISOString() });
-  }
-
-  private findGrouped<TRow, TValue>(
-    ids: readonly string[],
-    sql: string,
-    getCaseId: (row: TRow) => string,
-    map: (row: TRow) => TValue,
-  ): Map<string, TValue[]> {
-    const result = new Map<string, TValue[]>();
-    for (const id of ids) result.set(id, []);
-    if (ids.length === 0) return result;
-
-    const placeholders = ids.map(() => '?').join(', ');
-    const rows = this.db.prepare(sql.replace('__PLACEHOLDERS__', placeholders)).all(...ids) as TRow[];
-    for (const row of rows) result.get(getCaseId(row))?.push(map(row));
-    return result;
   }
 }
 

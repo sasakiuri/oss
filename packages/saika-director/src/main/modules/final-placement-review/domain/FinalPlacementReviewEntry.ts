@@ -1,3 +1,5 @@
+import { requiredText, sha256Digest } from '@/main/domain/guards';
+
 export type FinalPlacementReviewEntryType = 'REVIEW' | 'REVOCATION';
 
 export interface FinalPlacementAssignment {
@@ -56,9 +58,9 @@ export class FinalPlacementReviewEntry {
     props: { ruleReference: string; reason: string; officialName: string; recordedAt?: Date },
   ): FinalPlacementReviewEntry {
     if (review.type !== 'REVIEW') throw new Error('Only a Final placement review can be revoked');
-    validateText(props.ruleReference, 'ruleReference');
-    validateText(props.reason, 'reason');
-    validateText(props.officialName, 'officialName');
+    requiredText(props.ruleReference, 'ruleReference');
+    requiredText(props.reason, 'reason');
+    requiredText(props.officialName, 'officialName');
     return new FinalPlacementReviewEntry(
       crypto.randomUUID(),
       review.eventId,
@@ -113,19 +115,17 @@ export function getCurrentFinalPlacementReview(
 }
 
 function validateReview(props: CreateFinalPlacementReviewProps): void {
-  validateText(props.eventId, 'eventId');
-  if (!/^[a-f0-9]{64}$/.test(props.scoringRevision)) {
-    throw new Error('scoringRevision must be a SHA-256 digest');
-  }
-  validateText(props.ruleReference, 'ruleReference');
-  validateText(props.statement, 'statement');
-  validateText(props.officialName, 'officialName');
+  requiredText(props.eventId, 'eventId');
+  sha256Digest(props.scoringRevision, 'scoringRevision');
+  requiredText(props.ruleReference, 'ruleReference');
+  requiredText(props.statement, 'statement');
+  requiredText(props.officialName, 'officialName');
   const resultIds = new Set<string>();
   const participantIds = new Set<string>();
   const ranks = new Set<number>();
   for (const placement of props.placements) {
-    validateText(placement.resultId, 'placement.resultId');
-    validateText(placement.participantId, 'placement.participantId');
+    requiredText(placement.resultId, 'placement.resultId');
+    requiredText(placement.participantId, 'placement.participantId');
     if (!Number.isInteger(placement.rank) || placement.rank < 1) {
       throw new Error('Placement ranks must be positive integers');
     }
@@ -138,10 +138,6 @@ function validateReview(props: CreateFinalPlacementReviewProps): void {
     ranks.add(placement.rank);
   }
   validDate(props.recordedAt);
-}
-
-function validateText(value: string, name: string): void {
-  if (value.trim().length === 0) throw new Error(`${name} is required`);
 }
 
 function validDate(value: Date | undefined): Date {

@@ -1,3 +1,5 @@
+import { requiredText } from '@/main/domain/guards';
+
 export const INCIDENT_REPORT_OFFICIAL_ROLES = [
   'RANGE_OFFICER',
   'COMPETITION_JURY_MEMBER',
@@ -44,7 +46,7 @@ export class RangeIncidentReportEntry {
   }
 
   static createForwarding(props: CreateEntryBase & { destination: string }): RangeIncidentReportEntry {
-    validateText(props.destination, 'destination');
+    requiredText(props.destination, 'destination');
     return this.createEntry('FORWARDED', props, null, props.destination.trim());
   }
 
@@ -84,9 +86,9 @@ export class RangeIncidentReportEntry {
     officialRole: IncidentReportOfficialRole | null,
     destination: string | null,
   ): RangeIncidentReportEntry {
-    validateText(props.reportId, 'reportId');
-    validateText(props.statement, 'statement');
-    validateText(props.officialName, 'officialName');
+    requiredText(props.reportId, 'reportId');
+    requiredText(props.statement, 'statement');
+    requiredText(props.officialName, 'officialName');
     const recordedAt = props.recordedAt ?? new Date();
     if (!Number.isFinite(recordedAt.getTime())) throw new Error('recordedAt must be valid');
     return new RangeIncidentReportEntry(
@@ -104,8 +106,4 @@ export class RangeIncidentReportEntry {
 
 export function isRangeIncidentReportVoided(entries: readonly RangeIncidentReportEntry[]): boolean {
   return entries.some((entry) => entry.type === 'VOID');
-}
-
-function validateText(value: string, name: string): void {
-  if (value.trim().length === 0) throw new Error(`${name} is required`);
 }

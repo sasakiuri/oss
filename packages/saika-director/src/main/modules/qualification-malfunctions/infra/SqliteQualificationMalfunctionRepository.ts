@@ -1,4 +1,6 @@
 import type Database from 'better-sqlite3';
+
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type {
   QualificationMalfunctionCapability,
   QualificationMalfunctionClaimAssessment,
@@ -156,17 +158,16 @@ export class SqliteQualificationMalfunctionRepository implements IQualificationM
   }
 
   findEntries(caseIds: readonly string[]): Map<string, QualificationMalfunctionEntry[]> {
-    const result = new Map(caseIds.map((id) => [id, [] as QualificationMalfunctionEntry[]]));
-    if (caseIds.length === 0) return result;
-    const rows = this.db
-      .prepare(
+    return selectGroupedBy(
+      this.db,
+      caseIds,
+      (placeholders) =>
         `SELECT * FROM qualification_malfunction_entries
-         WHERE case_id IN (${caseIds.map(() => '?').join(',')})
+         WHERE case_id IN (${placeholders})
          ORDER BY recorded_at, rowid`,
-      )
-      .all(...caseIds) as EntryRow[];
-    for (const row of rows) result.get(row.case_id)?.push(toEntry(row));
-    return result;
+      (row: EntryRow) => row.case_id,
+      toEntry,
+    );
   }
 
   executeInTransaction<T>(work: () => T): T {

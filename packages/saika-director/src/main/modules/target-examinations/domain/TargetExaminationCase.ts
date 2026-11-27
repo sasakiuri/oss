@@ -1,4 +1,4 @@
-import { requiredText, validDate } from '@/main/domain/guards';
+import { requiredText, validDate, optionalText } from '@/main/domain/guards';
 
 export const TARGET_EXAMINATION_ISSUE_KINDS = [
   'SIGHTING_COMPLAINT',
@@ -59,11 +59,11 @@ export class TargetExaminationCase {
       crypto.randomUUID(),
       props.issueKind,
       occurredAt,
-      normalizeOptional(props.laneId),
+      optionalText(props.laneId),
       props.firingPointNumber ?? null,
       props.relayNumber ?? null,
-      normalizeOptional(props.athleteName),
-      normalizeOptional(props.shotId),
+      optionalText(props.athleteName),
+      optionalText(props.shotId),
       requiredText(props.summary, 'summary'),
       requiredText(props.details, 'details'),
       requiredText(props.ruleReferences, 'ruleReferences'),
@@ -114,9 +114,4 @@ function validPositiveInteger(value: number | undefined, name: string): void {
   if (value !== undefined && (!Number.isInteger(value) || value < 1)) {
     throw new Error(`${name} must be positive`);
   }
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

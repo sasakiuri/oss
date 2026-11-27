@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { optionalText, requiredText, validDate } from '@/main/domain/guards';
+import { optionalText, requiredText, sha256Digest, validDate } from '@/main/domain/guards';
 
 describe('domain guards', () => {
   it('trims required text and names the missing field', () => {
@@ -20,5 +20,15 @@ describe('domain guards', () => {
     expect(copy).toEqual(source);
     expect(copy).not.toBe(source);
     expect(() => validDate(new Date('invalid'), 'recordedAt')).toThrow(new Error('recordedAt must be valid'));
+  });
+
+  it('accepts lowercase SHA-256 digests and names an invalid one', () => {
+    const digest = 'a'.repeat(64);
+    expect(sha256Digest(digest, 'snapshotRevision')).toBe(digest);
+    for (const value of ['A'.repeat(64), 'a'.repeat(63), '']) {
+      expect(() => sha256Digest(value, 'snapshotRevision')).toThrow(
+        new Error('snapshotRevision must be a SHA-256 digest'),
+      );
+    }
   });
 });

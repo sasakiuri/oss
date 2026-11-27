@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type { IRangeIncidentReportRepository } from '../domain/IRangeIncidentReportRepository';
 import { RangeIncidentReport } from '../domain/RangeIncidentReport';
 import {
@@ -100,20 +101,16 @@ export class SqliteRangeIncidentReportRepository implements IRangeIncidentReport
   }
 
   findEntriesByReportIds(reportIds: readonly string[]): Map<string, RangeIncidentReportEntry[]> {
-    const result = new Map<string, RangeIncidentReportEntry[]>();
-    for (const reportId of reportIds) result.set(reportId, []);
-    if (reportIds.length === 0) return result;
-
-    const placeholders = reportIds.map(() => '?').join(', ');
-    const rows = this.db
-      .prepare(
+    return selectGroupedBy(
+      this.db,
+      reportIds,
+      (placeholders) =>
         `SELECT * FROM range_incident_report_entries
          WHERE report_id IN (${placeholders})
          ORDER BY recorded_at, rowid`,
-      )
-      .all(...reportIds) as EntryRow[];
-    for (const row of rows) result.get(row.report_id)?.push(toEntry(row));
-    return result;
+      (row: EntryRow) => row.report_id,
+      toEntry,
+    );
   }
 }
 

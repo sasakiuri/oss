@@ -1,4 +1,4 @@
-import { requiredText, validDate } from '@/main/domain/guards';
+import { requiredText, validDate, optionalText } from '@/main/domain/guards';
 
 export const RANGE_INTERRUPTION_SCOPE_TYPES = ['COMPETITION', 'EVENT'] as const;
 
@@ -35,7 +35,7 @@ export class RangeInterruptionScopeLink {
       props.scopeType,
       requiredText(props.scopeId, 'scopeId'),
       requiredText(props.linkedBy, 'linkedBy'),
-      normalizeOptional(props.note),
+      optionalText(props.note),
       validDate(props.linkedAt ?? new Date(), 'linkedAt'),
     );
   }
@@ -59,9 +59,4 @@ export class RangeInterruptionScopeLink {
       validDate(props.linkedAt, 'linkedAt'),
     );
   }
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

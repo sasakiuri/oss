@@ -1,4 +1,4 @@
-import { requiredText } from '@/main/domain/guards';
+import { requiredText, optionalText } from '@/main/domain/guards';
 
 export const TARGET_EXAMINATION_ENTRY_TYPES = [
   'NOTE',
@@ -38,7 +38,7 @@ export class TargetExaminationEntry {
 
   static create(props: CreateTargetExaminationEntryProps): TargetExaminationEntry {
     if (!TARGET_EXAMINATION_ENTRY_TYPES.includes(props.type)) throw new Error('entry type is invalid');
-    const ruleReference = normalizeOptional(props.ruleReference);
+    const ruleReference = optionalText(props.ruleReference);
     if (props.type === 'DECISION' && ruleReference === null) {
       throw new Error('ruleReference is required for a decision');
     }
@@ -112,9 +112,4 @@ export function getTargetExaminationState(entries: readonly TargetExaminationEnt
   }
 
   return { status, evidenceHoldActive };
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

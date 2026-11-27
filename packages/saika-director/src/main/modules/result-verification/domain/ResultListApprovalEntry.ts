@@ -1,3 +1,4 @@
+import { requiredText, sha256Digest } from '@/main/domain/guards';
 import type { OfficialSigningEvidence } from '../../official-signing';
 
 export type ResultApprovalEntryType = 'APPROVAL' | 'REVOCATION';
@@ -42,8 +43,8 @@ export class ResultListApprovalEntry {
     },
   ): ResultListApprovalEntry {
     validateTarget(target);
-    validateText(target.statement, 'statement');
-    validateText(target.officialName, 'officialName');
+    requiredText(target.statement, 'statement');
+    requiredText(target.officialName, 'officialName');
     return new ResultListApprovalEntry(
       crypto.randomUUID(),
       target.eventId,
@@ -66,8 +67,8 @@ export class ResultListApprovalEntry {
     props: { reason: string; officialName: string; recordedAt?: Date; signingEvidence?: OfficialSigningEvidence },
   ): ResultListApprovalEntry {
     if (approval.type !== 'APPROVAL') throw new Error('Only an approval can be revoked');
-    validateText(props.reason, 'reason');
-    validateText(props.officialName, 'officialName');
+    requiredText(props.reason, 'reason');
+    requiredText(props.officialName, 'officialName');
     return new ResultListApprovalEntry(
       crypto.randomUUID(),
       approval.eventId,
@@ -128,10 +129,8 @@ export function getActiveResultListApprovals(entries: readonly ResultListApprova
 }
 
 function validateTarget(target: ResultListApprovalTarget): void {
-  validateText(target.eventId, 'eventId');
-  if (!/^[a-f0-9]{64}$/.test(target.snapshotRevision)) {
-    throw new Error('snapshotRevision must be a SHA-256 digest');
-  }
+  requiredText(target.eventId, 'eventId');
+  sha256Digest(target.snapshotRevision, 'snapshotRevision');
   if (!Number.isInteger(target.requiredIndividualChecks) || target.requiredIndividualChecks < 0) {
     throw new Error('requiredIndividualChecks must be non-negative');
   }
@@ -144,10 +143,6 @@ function validateTarget(target: ResultListApprovalTarget): void {
   ) {
     throw new Error('checkIds must be unique and non-empty');
   }
-}
-
-function validateText(value: string, name: string): void {
-  if (value.trim().length === 0) throw new Error(`${name} is required`);
 }
 
 function validDate(value: Date | undefined): Date {

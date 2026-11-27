@@ -13,9 +13,8 @@ import {
   AdjudicationCaseEntry,
   AdjudicationCaseLink,
   activeAdjudicationLinks,
-  adjudicationCaseStatus,
-  type AdjudicationCaseStatus,
 } from '../domain/AdjudicationCase';
+import { assertCaseTransition, caseStatus } from '@/main/domain/caseLifecycle';
 
 export class AdjudicationCaseService {
   constructor(private readonly repository: IAdjudicationCaseRepository) {}
@@ -41,7 +40,7 @@ export class AdjudicationCaseService {
   appendEntry(input: AppendAdjudicationCaseEntryPayload): AdjudicationCaseDto {
     const value = this.requireCase(input.caseId);
     const entries = this.repository.findEntries([value.id]).get(value.id) ?? [];
-    assertEntryTransition(adjudicationCaseStatus(entries), input.type);
+    assertCaseTransition(caseStatus(entries), input.type, 'adjudication case');
     this.repository.appendEntry(
       AdjudicationCaseEntry.create({
         caseId: input.caseId,
@@ -95,7 +94,7 @@ export class AdjudicationCaseService {
 
   private assertLinksEditable(caseId: string): void {
     const entries = this.repository.findEntries([caseId]).get(caseId) ?? [];
-    const status = adjudicationCaseStatus(entries);
+    const status = caseStatus(entries);
     if (status === 'CLOSED' || status === 'VOID') {
       throw new Error(`A ${status.toLowerCase()} adjudication case cannot change artifact links`);
     }
@@ -118,26 +117,13 @@ export class AdjudicationCaseService {
         openedBy: value.openedBy,
         openedAt: value.openedAt.toISOString(),
         createdAt: value.createdAt.toISOString(),
-        status: adjudicationCaseStatus(entries),
+        status: caseStatus(entries),
         entries: entries.map(toEntryDto),
         links: activeAdjudicationLinks(linkHistory).map(toLinkDto),
         linkHistory: linkHistory.map(toLinkDto),
       };
     });
   }
-}
-
-function assertEntryTransition(status: AdjudicationCaseStatus, next: AppendAdjudicationCaseEntryPayload['type']): void {
-  if (status === 'VOID') throw new Error('A void adjudication case cannot be changed');
-  if (next === 'REFERRED' && status !== 'OPEN') throw new Error('Only an open case can be referred');
-  if (next === 'RESOLVED' && status !== 'OPEN' && status !== 'REFERRED') {
-    throw new Error('Only an open or referred case can be resolved');
-  }
-  if (next === 'REOPENED' && status !== 'RESOLVED' && status !== 'CLOSED') {
-    throw new Error('Only a resolved or closed case can be reopened');
-  }
-  if (next === 'CLOSED' && status !== 'RESOLVED') throw new Error('Resolve the case before closing it');
-  if (next === 'VOID' && status === 'CLOSED') throw new Error('A closed case must be reopened before it can be voided');
 }
 
 function toEntryDto(value: AdjudicationCaseEntry): AdjudicationCaseDto['entries'][number] {

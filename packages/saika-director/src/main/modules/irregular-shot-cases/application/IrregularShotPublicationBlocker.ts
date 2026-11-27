@@ -1,9 +1,9 @@
 import { isRangeIncidentReportVoided, type IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import { getActiveScoringDecisions, type IScoringDecisionRepository } from '@/main/modules/scoring-decisions';
 import type { IResultPublicationBlocker } from '@/main/modules/result-publication';
+import { caseStatus } from '@/main/domain/caseLifecycle';
 
 import type { IIrregularShotCaseRepository } from '../domain/IIrregularShotCaseRepository';
-import { irregularShotCaseStatus } from '../domain/IrregularShotCase';
 
 export class IrregularShotPublicationBlocker implements IResultPublicationBlocker {
   constructor(
@@ -27,7 +27,7 @@ export class IrregularShotPublicationBlocker implements IResultPublicationBlocke
     for (const value of values) {
       const caseIssues: string[] = [];
       const history = entries.get(value.id) ?? [];
-      const status = irregularShotCaseStatus(history);
+      const status = caseStatus(history);
       if (status === 'OPEN' || status === 'REFERRED') {
         caseIssues.push(`Irregular shot case ${value.id} is unresolved`);
         issues.set(value.id, caseIssues);

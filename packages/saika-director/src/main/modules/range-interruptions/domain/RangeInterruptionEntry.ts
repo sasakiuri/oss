@@ -1,4 +1,4 @@
-import { requiredText, validDate } from '@/main/domain/guards';
+import { requiredText, validDate, optionalText } from '@/main/domain/guards';
 
 export const RANGE_INTERRUPTION_ENTRY_TYPES = [
   'PAUSE_APPLIED',
@@ -62,13 +62,13 @@ export class RangeInterruptionEntry {
       validDate(props.occurredAt, 'occurredAt'),
       requiredText(props.statement, 'statement'),
       requiredText(props.officialName, 'officialName'),
-      normalizeOptional(props.ruleReference),
+      optionalText(props.ruleReference),
       props.lostTimeSeconds ?? null,
       props.extensionSeconds ?? null,
       props.authorizedRemainingSeconds ?? null,
       props.unlimitedSightingShots ?? null,
-      normalizeOptional(props.incidentReportReference),
-      normalizeOptional(props.commandId),
+      optionalText(props.incidentReportReference),
+      optionalText(props.commandId),
       validDate(props.recordedAt ?? new Date(), 'recordedAt'),
     );
   }
@@ -176,20 +176,15 @@ function validateStructuredFields(props: CreateRangeInterruptionEntryProps): voi
     if (props.unlimitedSightingShots === undefined) {
       throw new Error('A time grant must state whether unlimited sighting shots are authorized');
     }
-    if (!normalizeOptional(props.incidentReportReference)) {
+    if (!optionalText(props.incidentReportReference)) {
       throw new Error('A Range Incident Report reference is required for a time grant');
     }
-    if (!normalizeOptional(props.ruleReference)) throw new Error('A time grant requires a rule reference');
+    if (!optionalText(props.ruleReference)) throw new Error('A time grant requires a rule reference');
   }
   if (
     (props.type === 'PAUSE_APPLIED' || props.type === 'RESUME_APPLIED' || props.type === 'MATCH_RESUMED') &&
-    !normalizeOptional(props.commandId)
+    !optionalText(props.commandId)
   ) {
     throw new Error('commandId is required when recording an applied Lane command');
   }
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type {
   IStartListRepository,
   StartListEntryRecord,
@@ -107,13 +108,15 @@ export class SqliteStartListRepository implements IStartListRepository {
   }
 
   private hydrate(rows: VersionRow[]): StartListVersionRecord[] {
-    if (rows.length === 0) return [];
-    const entryRows = this.db
-      .prepare(
-        `SELECT * FROM start_list_entries WHERE version_id IN (${rows.map(() => '?').join(',')})
+    const entries = selectGroupedBy(
+      this.db,
+      rows.map((row) => row.id),
+      (placeholders) =>
+        `SELECT * FROM start_list_entries WHERE version_id IN (${placeholders})
          ORDER BY recorded_at, rowid`,
-      )
-      .all(...rows.map((row) => row.id)) as EntryRow[];
+      (entry: EntryRow) => entry.version_id,
+      toEntry,
+    );
     return rows.map((row) => ({
       id: row.id,
       eventId: row.event_id,
@@ -129,7 +132,7 @@ export class SqliteStartListRepository implements IStartListRepository {
       findings: JSON.parse(row.findings_json) as StartListFindingDto[],
       createdBy: row.created_by,
       createdAt: row.created_at,
-      entries: entryRows.filter((entry) => entry.version_id === row.id).map(toEntry),
+      entries: entries.get(row.id)!,
     }));
   }
 }
