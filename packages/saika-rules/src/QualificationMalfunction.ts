@@ -1,3 +1,5 @@
+import { validateNonNegativeInteger, validatePositiveInteger } from './validation/primitives';
+
 export type QualificationMalfunctionClassification = 'ALLOWABLE' | 'NON_ALLOWABLE';
 
 export interface QualificationMalfunctionCauseRule {
@@ -136,9 +138,9 @@ export function assessQualificationMalfunctionClaim(
   capability: QualificationMalfunctionCapability,
   facts: QualificationMalfunctionClaimFacts,
 ): QualificationMalfunctionClaimAssessment {
-  nonNegativeInteger(facts.existingClaimsInScope, 'existingClaimsInScope');
+  validateNonNegativeInteger(facts.existingClaimsInScope, 'existingClaimsInScope');
   if (facts.exceptionalPart) {
-    nonNegativeInteger(facts.exceptionalPart.existingClaimsInPart, 'exceptionalPart.existingClaimsInPart');
+    validateNonNegativeInteger(facts.exceptionalPart.existingClaimsInPart, 'exceptionalPart.existingClaimsInPart');
   }
   const limit = capability.claimLimit;
   if (!limit) {
@@ -293,9 +295,9 @@ export function validateQualificationMalfunctionCapability(
 
   const claimLimit = capability.claimLimit;
   if (claimLimit) {
-    positiveInteger(claimLimit.maximum, 'qualificationMalfunction.claimLimit.maximum');
+    validatePositiveInteger(claimLimit.maximum, 'qualificationMalfunction.claimLimit.maximum');
     if (claimLimit.exceptionalTwoPartMaximumPerPart !== undefined) {
-      positiveInteger(
+      validatePositiveInteger(
         claimLimit.exceptionalTwoPartMaximumPerPart,
         'qualificationMalfunction.claimLimit.exceptionalTwoPartMaximumPerPart',
       );
@@ -307,10 +309,13 @@ export function validateQualificationMalfunctionCapability(
 
   const repair = capability.repair;
   if (repair.maximumSeconds !== null) {
-    positiveInteger(repair.maximumSeconds, 'qualificationMalfunction.repair.maximumSeconds');
+    validatePositiveInteger(repair.maximumSeconds, 'qualificationMalfunction.repair.maximumSeconds');
   }
   if (repair.additionalSighting.policy === 'JURY_MUST_ALLOW_SERIES') {
-    positiveInteger(repair.additionalSighting.shots, 'qualificationMalfunction.repair.additionalSighting.shots');
+    validatePositiveInteger(
+      repair.additionalSighting.shots,
+      'qualificationMalfunction.repair.additionalSighting.shots',
+    );
   }
   requireReferences(repair.ruleReferences, 'qualificationMalfunction.repair.ruleReferences');
 
@@ -331,10 +336,10 @@ export function validateQualificationMalfunctionCapability(
         throw new Error(`Qualification malfunction stage ${stageRule.stageId} requires a timed-target series`);
       }
       if (treatment.type === 'REPEAT_FULL_SERIES') {
-        positiveInteger(treatment.shots, `qualificationMalfunction stage ${stageRule.stageId} shots`);
-        positiveInteger(treatment.scoreCount, `qualificationMalfunction stage ${stageRule.stageId} scoreCount`);
+        validatePositiveInteger(treatment.shots, `qualificationMalfunction stage ${stageRule.stageId} shots`);
+        validatePositiveInteger(treatment.scoreCount, `qualificationMalfunction stage ${stageRule.stageId} scoreCount`);
       } else if (treatment.execution.mode === 'SECONDS_PER_SHOT') {
-        positiveInteger(
+        validatePositiveInteger(
           treatment.execution.secondsPerShot,
           `qualificationMalfunction stage ${stageRule.stageId} secondsPerShot`,
         );
@@ -359,14 +364,6 @@ function text(value: string, name: string): void {
   if (value.trim().length === 0) throw new Error(`${name} must not be empty`);
 }
 
-function positiveInteger(value: number, name: string): void {
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`${name} must be a positive integer`);
-}
-
-function nonNegativeInteger(value: number, name: string): void {
-  if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer`);
-}
-
 function validateSeriesRow(
   row: QualificationMalfunctionSeriesRow,
   treatment: Extract<QualificationMalfunctionAllowableTreatment, { type: 'REPEAT_FULL_SERIES' }>,
@@ -378,7 +375,7 @@ function validateSeriesRow(
     text(shot.shotId, `${row.row} shotId`);
     if (ids.has(shot.shotId)) throw new Error(`${row.row} shot IDs must be unique`);
     ids.add(shot.shotId);
-    nonNegativeInteger(shot.scoreX10, `${row.row} scoreX10`);
+    validateNonNegativeInteger(shot.scoreX10, `${row.row} scoreX10`);
     if (treatment.scoreCombination === 'LOWEST_PER_TARGET') {
       if (
         shot.targetIndex === undefined ||
