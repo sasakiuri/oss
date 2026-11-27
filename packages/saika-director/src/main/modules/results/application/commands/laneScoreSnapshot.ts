@@ -18,7 +18,7 @@ export function flattenShots(score: LaneScorePayload): number[] {
     );
 }
 
-/** Adds the shot values without rounding. */
+/** Adds score values and rounds the sum to tenths, the precision that scores are kept in. */
 export function sumShots(values: readonly number[]): number {
-  return values.reduce((total, value) => total + value, 0);
+  return Math.round(values.reduce((total, value) => total + value, 0) * 10) / 10;
 }
