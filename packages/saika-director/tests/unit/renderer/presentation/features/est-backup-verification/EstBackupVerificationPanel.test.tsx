@@ -12,9 +12,8 @@ const { list, captureRecords, verify } = vi.hoisted(() => ({
 }));
 vi.mock('@/renderer/services', () => ({
   estBackupVerificationService: {
-    getCapture: vi.fn(async ({ eventId }: { eventId: string }) => ({
-      success: true,
-      data: {
+    getCapture: vi.fn(async ({ eventId }: { eventId: string }) =>
+      ok({
         eventId,
         runId: null,
         state: 'STOPPED',
@@ -28,20 +27,20 @@ vi.mock('@/renderer/services', () => ({
         retainedSourceCheckedAt: null,
         sourceId: null,
         error: null,
-      },
-    })),
+      }),
+    ),
     list,
     captureRecords,
     verify,
-    listSources: vi.fn(async () => ({ success: true, data: [] })),
+    listSources: vi.fn(async () => ok([])),
   },
 }));
 
 describe('EST backup import preview', () => {
   beforeEach(() => vi.clearAllMocks());
   it('keeps Final comparisons separate and submits Mixed Team identity and scope', async () => {
-    list.mockResolvedValue({ success: true, data: [] });
-    verify.mockResolvedValue({ success: true, data: {} });
+    list.mockResolvedValue(ok([]));
+    verify.mockResolvedValue(ok({}));
     render(
       <EstBackupVerificationPanel eventId="event" resultScope="FINAL" initialKind="MIXED_TEAM" onClose={() => {}} />,
     );
@@ -65,10 +64,9 @@ describe('EST backup import preview', () => {
     );
   });
   it('sends explicit mappings, retains provenance only for unedited records, and requires a separate comparison action', async () => {
-    list.mockResolvedValue({ success: true, data: [] });
-    captureRecords.mockResolvedValue({
-      success: true,
-      data: {
+    list.mockResolvedValue(ok([]));
+    captureRecords.mockResolvedValue(
+      ok({
         status: 'IMPORTED',
         sourceId: 'retained-source',
         fileName: 'export.csv',
@@ -78,9 +76,9 @@ describe('EST backup import preview', () => {
         sourceName: 'export.csv',
         sourceReference: 'File hash and column mapping',
         records: [{ key: '001', rank: 1, totalScore: 630.1 }],
-      },
-    });
-    verify.mockResolvedValue({ success: true, data: {} });
+      }),
+    );
+    verify.mockResolvedValue(ok({}));
     render(<EstBackupVerificationPanel eventId="event" onClose={() => {}} />);
     fireEvent.change(screen.getByLabelText('File layout'), { target: { value: 'MAPPED' } });
     fireEvent.change(screen.getByLabelText('Decimal separator'), { target: { value: ',' } });

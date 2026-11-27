@@ -33,8 +33,8 @@ const status = {
 };
 describe('Preliminary posting confirmation', () => {
   it('binds an earlier posting to the displayed revision and keeps failed confirmation visible', async () => {
-    getStatus.mockResolvedValue({ success: true, data: status });
-    publishPreliminary.mockResolvedValue({ success: false, error: { message: 'Result revision changed' } });
+    getStatus.mockResolvedValue(ok(status));
+    publishPreliminary.mockResolvedValue(fail('Result revision changed'));
     render(<ResultPublicationPanel eventId="event" onClose={() => undefined} />);
     const button = await screen.findByRole('button', { name: 'Record preliminary posting' });
     expect(button).toBeDisabled();

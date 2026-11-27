@@ -4,36 +4,33 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublishedResultsSummary } from '@/renderer/presentation/features/boards/PublishedResultsSummary';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { getBoardSnapshot } = vi.hoisted(() => ({ getBoardSnapshot: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ resultPublicationService: { getBoardSnapshot } }));
 
 function response(patch: Partial<ResultBoardSnapshotDto> = {}) {
-  return {
-    success: true as const,
-    data: {
-      eventId: 'event',
-      resultScope: 'QUALIFICATION' as const,
-      snapshotRevision: 'a'.repeat(64),
-      checkedAt: '2026-09-09T03:00:00.000Z',
-      state: 'OFFICIAL' as const,
-      postedAt: '2026-09-09T01:00:00.000Z',
-      protestEndsAt: '2026-09-09T01:10:00.000Z',
-      results: [
-        {
-          resultId: 'result',
-          rank: 1,
-          playerName: 'Athlete',
-          affiliation: 'Team',
-          totalScore: 625.4,
-          entryStatus: 'COMPETING' as const,
-          classificationCode: null,
-        },
-      ],
-      ...patch,
-    },
-  };
+  return ok({
+    eventId: 'event',
+    resultScope: 'QUALIFICATION' as const,
+    snapshotRevision: 'a'.repeat(64),
+    checkedAt: '2026-09-09T03:00:00.000Z',
+    state: 'OFFICIAL' as const,
+    postedAt: '2026-09-09T01:00:00.000Z',
+    protestEndsAt: '2026-09-09T01:10:00.000Z',
+    results: [
+      {
+        resultId: 'result',
+        rank: 1,
+        playerName: 'Athlete',
+        affiliation: 'Team',
+        totalScore: 625.4,
+        entryStatus: 'COMPETING' as const,
+        classificationCode: null,
+      },
+    ],
+    ...patch,
+  });
 }
 async function flush() {
   await act(async () => {});

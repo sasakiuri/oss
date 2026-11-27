@@ -5,7 +5,7 @@ import { BackupCaptureReadinessPanel } from '@/renderer/presentation/features/ba
 import { backupCaptureReadinessService } from '@/renderer/services';
 import type { BackupCaptureReadinessDto } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 vi.mock('@/renderer/services', () => ({
   backupCaptureReadinessService: { get: vi.fn(), save: vi.fn(), sources: vi.fn() },
@@ -19,10 +19,9 @@ beforeEach(() => {
     health: { state: 'DISABLED', issues: [] },
   };
   vi.mocked(backupCaptureReadinessService.get).mockImplementation(async () => ({ success: true, data }));
-  vi.mocked(backupCaptureReadinessService.sources).mockResolvedValue({
-    success: true,
-    data: [{ eventId: 'event', label: 'Air Rifle · backup.csv' }],
-  });
+  vi.mocked(backupCaptureReadinessService.sources).mockResolvedValue(
+    ok([{ eventId: 'event', label: 'Air Rifle · backup.csv' }]),
+  );
 });
 describe('backup capture readiness controls', () => {
   it('saves the selected event, independent enforcement mode and freshness interval', async () => {

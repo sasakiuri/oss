@@ -30,26 +30,24 @@ describe('ScoreCorrectionPanel', () => {
         { scoreX10: 90, ranking: { shotId: null, ringScore: 9, decimalScore: null, innerTen: null, seriesIndex: 0 } },
       ],
     };
-    workspace.mockResolvedValue({
-      success: true,
-      data: {
+    workspace.mockResolvedValue(
+      ok({
         basis,
         scoring: 'RING',
         history: [],
         cases: [{ id: 'case', summary: 'Missing shot', decisionId: 'decision', decision: 'Use independent record' }],
         projection: { shots: basis.shots, revision: '', ids: [], remarks: [], issues: [] },
-      },
-    });
-    preview.mockImplementation(async (request) => ({
-      success: true,
-      data: {
+      }),
+    );
+    preview.mockImplementation(async (request) =>
+      ok({
         request,
         basis,
         shots: [{ ...basis.shots[0], scoreX10: 100 }],
         digest: 'digest',
         caseRevision: 'case-revision',
-      },
-    }));
+      }),
+    );
     apply.mockResolvedValue({ success: true });
     const onChanged = vi.fn();
     render(<ScoreCorrectionPanel resultId="result" resultScope="QUALIFICATION" onChanged={onChanged} />);

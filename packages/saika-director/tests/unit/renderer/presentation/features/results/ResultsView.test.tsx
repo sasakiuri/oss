@@ -154,10 +154,9 @@ const finalResult: FinalRankedResultDto = {
 describe('ResultsView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listBackupRuns.mockResolvedValue({ success: true, data: [] });
-    listBackupSources.mockResolvedValue({
-      success: true,
-      data: [
+    listBackupRuns.mockResolvedValue(ok([]));
+    listBackupSources.mockResolvedValue(
+      ok([
         {
           id: 'source-1',
           eventId: 'event-1',
@@ -165,14 +164,13 @@ describe('ResultsView', () => {
           recordCount: 2,
           importedAt: '2026-09-09T00:00:00.000Z',
         },
-      ],
-    });
+      ]),
+    );
     openEstBackupSourcePrint.mockResolvedValue({ success: true });
-    listByResult.mockResolvedValue({ success: true, data: { decisions: [] } });
-    add.mockResolvedValue({ success: true, data: {} });
-    getVerificationStatus.mockResolvedValue({
-      success: true,
-      data: {
+    listByResult.mockResolvedValue(ok({ decisions: [] }));
+    add.mockResolvedValue(ok({}));
+    getVerificationStatus.mockResolvedValue(
+      ok({
         eventId: 'event-1',
         snapshotRevision: 'b'.repeat(64),
         configuredIndividualChecks: 10,
@@ -206,34 +204,31 @@ describe('ResultsView', () => {
         })),
         currentApproval: null,
         approvalHistory: [],
-      },
-    });
-    getByEvent.mockImplementation(({ eventId }: { eventId: string }) =>
-      Promise.resolve({
-        success: true,
-        data: {
-          eventId,
-          results: eventId === 'event-1' ? eventOneResults : [createResult('result-3', 1, 'New Event Athlete')],
-        },
       }),
     );
+    getByEvent.mockImplementation(({ eventId }: { eventId: string }) =>
+      Promise.resolve(
+        ok({
+          eventId,
+          results: eventId === 'event-1' ? eventOneResults : [createResult('result-3', 1, 'New Event Athlete')],
+        }),
+      ),
+    );
     getByRelay.mockImplementation(({ eventId, relayNumber }: { eventId: string; relayNumber: number }) =>
-      Promise.resolve({
-        success: true,
-        data: {
+      Promise.resolve(
+        ok({
           eventId,
           relayNumber,
           results: eventId === 'event-1' ? eventOneResults.filter((result) => result.relayNumber === relayNumber) : [],
-        },
-      }),
+        }),
+      ),
     );
     getFinalByEvent.mockImplementation(({ eventId }: { eventId: string }) =>
-      Promise.resolve({ success: true, data: { eventId, results: [finalResult] } }),
+      Promise.resolve(ok({ eventId, results: [finalResult] })),
     );
-    getMixedFinal.mockResolvedValue({ success: true, data: [] });
-    getPlacementReviewStatus.mockResolvedValue({
-      success: true,
-      data: {
+    getMixedFinal.mockResolvedValue(ok([]));
+    getPlacementReviewStatus.mockResolvedValue(
+      ok({
         eventId: 'event-final',
         scoringRevision: 'e'.repeat(64),
         reviewRequired: true,
@@ -241,13 +236,12 @@ describe('ResultsView', () => {
         results: [finalResult],
         currentReview: null,
         reviewHistory: [],
-      },
-    });
-    recordPlacementReview.mockResolvedValue({ success: true, data: {} });
-    revokePlacementReview.mockResolvedValue({ success: true, data: {} });
-    getPublicationStatus.mockResolvedValue({
-      success: true,
-      data: {
+      }),
+    );
+    recordPlacementReview.mockResolvedValue(ok({}));
+    revokePlacementReview.mockResolvedValue(ok({}));
+    getPublicationStatus.mockResolvedValue(
+      ok({
         eventId: 'event-1',
         resultScope: 'QUALIFICATION',
         status: 'DRAFT',
@@ -264,16 +258,12 @@ describe('ResultsView', () => {
         canPublishOfficial: false,
         issues: ['Preliminary results have not been published'],
         history: [],
-      },
-    });
+      }),
+    );
   });
 
   it.each(['empty', 'failed'] as const)('prints retained sources when result loading is %s', async (state) => {
-    getByEvent.mockResolvedValueOnce(
-      state === 'empty'
-        ? { success: true, data: { results: [] } }
-        : { success: false, error: { message: 'Results unavailable' } },
-    );
+    getByEvent.mockResolvedValueOnce(state === 'empty' ? ok({ results: [] }) : fail('Results unavailable'));
     const { rerender } = render(<ResultsView eventId="event-1" />);
     await screen.findByText(state === 'empty' ? 'No results' : 'Results unavailable');
     fireEvent.click(screen.getByRole('button', { name: 'EST backup verification' }));
@@ -289,10 +279,9 @@ describe('ResultsView', () => {
   it.each(['RPO', 'MQS', 'OOC'] as const)(
     'shows %s and its score in the saved qualification result table',
     async (entryStatus) => {
-      getByEvent.mockResolvedValue({
-        success: true,
-        data: { eventId: 'event-1', results: [{ ...eventOneResults[0]!, rank: 0, entryStatus }] },
-      });
+      getByEvent.mockResolvedValue(
+        ok({ eventId: 'event-1', results: [{ ...eventOneResults[0]!, rank: 0, entryStatus }] }),
+      );
       render(<ResultsView eventId="event-1" />);
       expect(await screen.findByText(entryStatus)).toBeInTheDocument();
       expect(screen.getAllByText('100.0').length).toBeGreaterThan(0);

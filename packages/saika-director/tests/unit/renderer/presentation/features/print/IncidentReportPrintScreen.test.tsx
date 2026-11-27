@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { IncidentReportPrintScreen } from '@/renderer/presentation/features/print/IncidentReportPrintScreen';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const REPORT_ID = '11111111-1111-4111-8111-111111111111';
 const { getById } = vi.hoisted(() => ({ getById: vi.fn() }));
@@ -13,9 +13,8 @@ vi.mock('@/renderer/services', () => ({ incidentReportsService: { getById } }));
 describe('IncidentReportPrintScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getById.mockResolvedValue({
-      success: true,
-      data: {
+    getById.mockResolvedValue(
+      ok({
         id: REPORT_ID,
         eventId: '22222222-2222-4222-8222-222222222222',
         serialNumber: 'IR-42',
@@ -40,8 +39,8 @@ describe('IncidentReportPrintScreen', () => {
         missingSignatureRoles: [],
         forwarded: false,
         voided: false,
-      },
-    });
+      }),
+    );
   });
 
   it('loads the immutable report projection into a printable operational copy', async () => {

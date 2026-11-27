@@ -83,31 +83,21 @@ describe('SettingsScreen', () => {
       value: { writeText: writeClipboardText },
     });
     writeClipboardText.mockResolvedValue(undefined);
-    getBrokerConfig.mockResolvedValue({
-      success: true,
-      data: { mode: 'embedded', url: 'mqtt://localhost:1883', port: 1883 },
-    });
-    getBrokerStatus.mockResolvedValue({
-      success: true,
-      data: {
+    getBrokerConfig.mockResolvedValue(ok({ mode: 'embedded', url: 'mqtt://localhost:1883', port: 1883 }));
+    getBrokerStatus.mockResolvedValue(
+      ok({
         brokerRunning: true,
         clientConnected: true,
         brokerPort: 1883,
         localAddresses: ['192.0.2.10'],
-      },
-    });
-    getAnnouncementSettings.mockResolvedValue({ success: true, data: { enabled: true } });
-    setAnnouncementSettings.mockImplementation(async ({ enabled }: { enabled: boolean }) => ({
-      success: true,
-      data: { enabled },
-    }));
+      }),
+    );
+    getAnnouncementSettings.mockResolvedValue(ok({ enabled: true }));
+    setAnnouncementSettings.mockImplementation(async ({ enabled }: { enabled: boolean }) => ok({ enabled }));
   });
 
   it('restores the configured mode when an external broker connection fails', async () => {
-    setBrokerConfig.mockResolvedValue({
-      success: false,
-      error: { code: 'INTERNAL_ERROR', message: 'Connection refused' },
-    });
+    setBrokerConfig.mockResolvedValue(fail('Connection refused', 'INTERNAL_ERROR'));
     render(<SettingsScreen />);
 
     const externalButton = await screen.findByRole('button', { name: 'External' });
@@ -245,10 +235,7 @@ describe('SettingsScreen', () => {
     expect(screen.getByLabelText('Broker URL')).toHaveValue('mqtt://broker.example:1883');
     expect(screen.queryByText('Lane connection URLs')).not.toBeInTheDocument();
 
-    setBrokerConfig.mockResolvedValueOnce({
-      success: false,
-      error: { code: 'INTERNAL_ERROR', message: 'Port in use' },
-    });
+    setBrokerConfig.mockResolvedValueOnce(fail('Port in use', 'INTERNAL_ERROR'));
     fireEvent.click(embedded);
     expect(embedded).toHaveAttribute('aria-pressed', 'true');
     expect(embedded).toBeDisabled();

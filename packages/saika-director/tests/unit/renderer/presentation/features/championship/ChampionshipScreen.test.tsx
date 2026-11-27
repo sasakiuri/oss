@@ -228,10 +228,7 @@ describe('ChampionshipScreen', () => {
   });
 
   it('keeps the form open when championship creation fails', async () => {
-    createChampionship.mockResolvedValue({
-      success: false,
-      error: { code: 'INTERNAL_ERROR', message: 'Failed to save' },
-    });
+    createChampionship.mockResolvedValue(fail('Failed to save', 'INTERNAL_ERROR'));
     render(<ChampionshipScreen />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Create New Test' }));
@@ -247,8 +244,8 @@ describe('ChampionshipScreen', () => {
       selectedEventId: EVENT_ID,
       participants: [participant],
     });
-    loadChampionshipDetail.mockResolvedValue({ success: true, data: selectedChampionship });
-    saveParticipants.mockResolvedValue({ success: true, data: { participants: [] } });
+    loadChampionshipDetail.mockResolvedValue(ok(selectedChampionship));
+    saveParticipants.mockResolvedValue(ok({ participants: [] }));
     render(<ChampionshipScreen />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Select Championship Test' }));
@@ -280,7 +277,7 @@ describe('ChampionshipScreen', () => {
       selectedEventId: EVENT_ID,
       participants: [participant],
     });
-    loadChampionshipDetail.mockResolvedValue({ success: true, data: selectedChampionship });
+    loadChampionshipDetail.mockResolvedValue(ok(selectedChampionship));
     render(<ChampionshipScreen />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Select Championship Test' }));
@@ -295,7 +292,7 @@ describe('ChampionshipScreen', () => {
       selectedEventId: EVENT_ID,
       participants: [participant],
     });
-    loadChampionshipDetail.mockResolvedValue({ success: true, data: selectedChampionship });
+    loadChampionshipDetail.mockResolvedValue(ok(selectedChampionship));
     render(<ChampionshipScreen />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Select Championship Test' }));

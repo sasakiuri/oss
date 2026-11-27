@@ -6,6 +6,7 @@ import type { ProtestCaseDto } from '@/shared/ipc/contracts';
 import { ProtestsPanel } from '@/renderer/presentation/features/protests/ProtestsPanel';
 
 import { APPEAL_ID, PROTEST_ID, protestFixture } from '../../../../../helpers/protestFixture';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { list, create, recordEntry, openProtestPrint } = vi.hoisted(() => ({
   list: vi.fn(),
@@ -35,8 +36,8 @@ async function openWrittenForm() {
 describe('ProtestsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    list.mockResolvedValue({ success: true, data: [] });
-    create.mockResolvedValue({ success: true, data: protestFixture() });
+    list.mockResolvedValue(ok([]));
+    create.mockResolvedValue(ok(protestFixture()));
   });
 
   it('records the actual fee and original receipt time for a late paper filing', async () => {
@@ -87,16 +88,16 @@ describe('ProtestsPanel', () => {
     expect(screen.getByRole('button', { name: 'Record' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Record' }));
     expect(create).toHaveBeenCalledTimes(1);
-    complete({ success: false, error: { message: 'Receipt could not be saved' } });
+    complete(fail('Receipt could not be saved'));
     expect(await screen.findByRole('alert')).toHaveTextContent('Receipt could not be saved');
     expect(screen.getByLabelText('Statement')).toHaveValue('Review requested');
     expect(screen.getByRole('button', { name: 'Record' })).toBeEnabled();
   });
 
   it('opens the selected record for printing and retains a failed historical decision for retry', async () => {
-    list.mockResolvedValue({ success: true, data: [protestFixture()] });
+    list.mockResolvedValue(ok([protestFixture()]));
     recordEntry.mockRejectedValue(new Error('Connection lost'));
-    openProtestPrint.mockResolvedValue({ success: true, data: 'window-1' });
+    openProtestPrint.mockResolvedValue(ok('window-1'));
     render(<ProtestsPanel scopeId="event-a" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Print operational copy' }));
     await waitFor(() => expect(openProtestPrint).toHaveBeenCalledWith({ protestId: PROTEST_ID }));
@@ -134,7 +135,7 @@ const banner = () => document.querySelector('p.border-l-2.border-vscode-error');
 describe('ProtestsPanel records', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    list.mockResolvedValue({ success: true, data: [older(), protestFixture()] });
+    list.mockResolvedValue(ok([older(), protestFixture()]));
   });
 
   afterEach(() => {
@@ -174,29 +175,25 @@ describe('ProtestsPanel records', () => {
 
     expect(screen.getByText('No protest records.')).toHaveClass('p-3 text-xs text-vscode-text-muted');
     expect(screen.getByRole('button', { name: 'Refresh' })).toBeEnabled();
-    await act(async () => pending.resolve({ success: true, data: [] }));
+    await act(async () => pending.resolve(ok([])));
     expect(screen.getByText('No protest records.')).toBeInTheDocument();
   });
 
   it('keeps the newest list when an older request finishes last', async () => {
     const first = deferred<{ success: true; data: ProtestCaseDto[] }>();
-    list.mockReturnValueOnce(first.promise).mockResolvedValueOnce({ success: true, data: [older()] });
+    list.mockReturnValueOnce(first.promise).mockResolvedValueOnce(ok([older()]));
     render(<ProtestsPanel scopeId="event-a" />);
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     expect(await screen.findByRole('heading', { name: 'Older protest' })).toBeInTheDocument();
 
-    await act(async () => first.resolve({ success: true, data: [protestFixture()] }));
+    await act(async () => first.resolve(ok([protestFixture()])));
 
     expect(screen.getByRole('heading', { name: 'Older protest' })).toBeInTheDocument();
     expect(screen.queryByText('Interruption decision')).not.toBeInTheDocument();
   });
 
   it.each([
-    [
-      'a failed response',
-      () => list.mockResolvedValue({ success: false, data: null, error: { code: 'X', message: 'Ledger unavailable' } }),
-      'Ledger unavailable',
-    ],
+    ['a failed response', () => list.mockResolvedValue(fail('Ledger unavailable', 'X')), 'Ledger unavailable'],
     ['a rejected non-error value', () => list.mockRejectedValue('bridge closed'), 'Failed to load protest records'],
   ])('shows %s of the list in the panel alert', async (_name, failQuery, message) => {
     failQuery();
@@ -209,8 +206,7 @@ describe('ProtestsPanel records', () => {
   it.each([
     [
       'a failed response',
-      () =>
-        openProtestPrint.mockResolvedValue({ success: false, error: { code: 'X', message: 'Print window blocked' } }),
+      () => openProtestPrint.mockResolvedValue(fail('Print window blocked', 'X')),
       'Print window blocked',
     ],
     [
@@ -228,7 +224,7 @@ describe('ProtestsPanel records', () => {
   });
 
   it('clears a print error when the list reloads', async () => {
-    openProtestPrint.mockResolvedValue({ success: false, error: { code: 'X', message: 'Print window blocked' } });
+    openProtestPrint.mockResolvedValue(fail('Print window blocked', 'X'));
     render(<ProtestsPanel scopeId="event-a" />);
     fireEvent.click(await screen.findByRole('button', { name: 'Print operational copy' }));
     await screen.findByRole('alert');
@@ -240,7 +236,7 @@ describe('ProtestsPanel records', () => {
 
   it('closes the lodging form after saving, selects the new record and reloads the list', async () => {
     const appeal = protestFixture({ id: APPEAL_ID, subject: 'Appeal against the decision', kind: 'APPEAL' });
-    create.mockResolvedValue({ success: true, data: appeal });
+    create.mockResolvedValue(ok(appeal));
     render(<ProtestsPanel scopeId="event-a" />);
     await screen.findByRole('heading', { name: 'Interruption decision' });
     fireEvent.click(screen.getByRole('button', { name: 'Lodge' }));
@@ -256,7 +252,7 @@ describe('ProtestsPanel records', () => {
     fill('Receiving official', 'Range official');
     fill('Subject', 'Appeal against the decision');
     fill('Statement', 'Appeal requested');
-    list.mockResolvedValue({ success: true, data: [older(), protestFixture(), appeal] });
+    list.mockResolvedValue(ok([older(), protestFixture(), appeal]));
     fireEvent.click(screen.getByRole('button', { name: 'Record' }));
 
     expect(await screen.findByRole('heading', { name: 'Appeal against the decision' })).toBeInTheDocument();
@@ -266,9 +262,8 @@ describe('ProtestsPanel records', () => {
   });
 
   it('offers only appealable, non-void protests as appeal parents', async () => {
-    list.mockResolvedValue({
-      success: true,
-      data: [
+    list.mockResolvedValue(
+      ok([
         protestFixture(),
         protestFixture({ id: OLDER_ID, subject: 'Void protest', status: 'VOID' }),
         protestFixture({
@@ -276,8 +271,8 @@ describe('ProtestsPanel records', () => {
           subject: 'Expired protest',
           compliance: { ...protestFixture().compliance, appealPermitted: false },
         }),
-      ],
-    });
+      ]),
+    );
     render(<ProtestsPanel scopeId="event-a" />);
     await screen.findByRole('heading', { name: 'Expired protest' });
     fireEvent.click(screen.getByRole('button', { name: 'Lodge' }));
@@ -305,7 +300,7 @@ describe('ProtestsPanel records', () => {
   it('records an action, clears the note, resets the time and reloads the list', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-09-08T09:00:07.000Z'));
-    recordEntry.mockResolvedValue({ success: true, data: protestFixture() });
+    recordEntry.mockResolvedValue(ok(protestFixture()));
     render(<ProtestsPanel scopeId="event-a" />);
     await screen.findByRole('heading', { name: 'Interruption decision' });
     const initialTime = (screen.getByLabelText(/Action time/) as HTMLInputElement).value;
@@ -335,11 +330,7 @@ describe('ProtestsPanel records', () => {
   });
 
   it.each([
-    [
-      'a failed response',
-      () => recordEntry.mockResolvedValue({ success: false, error: { code: 'X', message: 'Case is closed' } }),
-      'Case is closed',
-    ],
+    ['a failed response', () => recordEntry.mockResolvedValue(fail('Case is closed', 'X')), 'Case is closed'],
     ['a rejected non-error value', () => recordEntry.mockRejectedValue('bridge closed'), 'Failed to record the action'],
   ])('shows %s of an action in the action form', async (_name, failCommand, message) => {
     failCommand();
@@ -368,7 +359,7 @@ describe('ProtestsPanel records', () => {
   });
 
   it.each(['CLOSED', 'VOID'] as const)('offers no action form on a %s record', async (status) => {
-    list.mockResolvedValue({ success: true, data: [protestFixture({ status })] });
+    list.mockResolvedValue(ok([protestFixture({ status })]));
     render(<ProtestsPanel scopeId="event-a" />);
     await screen.findByRole('heading', { name: 'Interruption decision' });
 

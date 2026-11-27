@@ -8,7 +8,7 @@ import {
 } from '@/renderer/presentation/features/range-interruptions/rangeInterruptionLaneWorkflow';
 import type { RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const LANE_ID = '22222222-2222-4222-8222-222222222222';
@@ -46,9 +46,8 @@ function fixture(): RangeInterruptionCaseDto {
 function ports(): RangeInterruptionLaneWorkflowPorts {
   return {
     lane: {
-      pauseLaneTimer: vi.fn().mockResolvedValue({
-        success: true,
-        data: {
+      pauseLaneTimer: vi.fn().mockResolvedValue(
+        ok({
           commandId: COMMAND_ID,
           action: 'pause-timer',
           success: true,
@@ -64,21 +63,20 @@ function ports(): RangeInterruptionLaneWorkflowPorts {
               },
             },
           ],
-        },
-      }),
-      resumeLaneTimer: vi.fn().mockResolvedValue({
-        success: true,
-        data: {
+        }),
+      ),
+      resumeLaneTimer: vi.fn().mockResolvedValue(
+        ok({
           commandId: COMMAND_ID,
           action: 'resume-timer',
           success: true,
           lanes: [{ laneId: LANE_ID, status: 'done', acknowledgedAt: '2026-08-31T01:05:00.000Z' }],
-        },
-      }),
+        }),
+      ),
       resumeLaneMatch: vi.fn(),
     },
     ledger: {
-      appendEntry: vi.fn().mockResolvedValue({ success: true, data: fixture() }),
+      appendEntry: vi.fn().mockResolvedValue(ok(fixture())),
     },
   };
 }
@@ -110,9 +108,8 @@ describe('rangeInterruptionLaneWorkflow', () => {
 
   it('does not write a resume entry when the Lane rejects the command', async () => {
     const workflowPorts = ports();
-    vi.mocked(workflowPorts.lane.resumeLaneTimer).mockResolvedValue({
-      success: true,
-      data: {
+    vi.mocked(workflowPorts.lane.resumeLaneTimer).mockResolvedValue(
+      ok({
         commandId: COMMAND_ID,
         action: 'resume-timer',
         success: false,
@@ -123,8 +120,8 @@ describe('rangeInterruptionLaneWorkflow', () => {
             error: { code: 'REJECTED', message: 'No matching interruption' },
           },
         ],
-      },
-    });
+      }),
+    );
 
     await expect(
       applyLaneResume(

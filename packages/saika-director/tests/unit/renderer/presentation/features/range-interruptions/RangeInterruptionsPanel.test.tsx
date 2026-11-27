@@ -8,7 +8,7 @@ import type {
   RangeInterruptionCaseDto,
 } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
@@ -225,26 +225,19 @@ function retainSeriesFixture(
 describe('RangeInterruptionsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listByScope.mockResolvedValue({ success: true, data: [fixture()] });
-    listAll.mockResolvedValue({ success: true, data: [fixture()] });
-    create.mockResolvedValue({ success: true, data: fixture() });
-    linkScope.mockResolvedValue({ success: true, data: fixture() });
-    appendEntry.mockResolvedValue({ success: true, data: fixture() });
-    recordTargetRecovery.mockResolvedValue({ success: true, data: fixture() });
-    recordQualificationTimedTargetRecoveryDecision.mockResolvedValue({ success: true, data: fixture() });
-    startQualificationRecoveryExecution.mockResolvedValue({ success: true, data: qualificationFixture('ACCEPTED') });
-    cancelQualificationRecoveryExecution.mockResolvedValue({ success: true, data: qualificationFixture('CANCELLED') });
-    adjudicateQualificationRecoveryExecution.mockResolvedValue({
-      success: true,
-      data: qualificationFixture('ADJUDICATED'),
-    });
-    applyQualificationRecoverySettlement.mockResolvedValue({
-      success: true,
-      data: retainSeriesFixture('APPLIED'),
-    });
-    pauseLaneTimer.mockResolvedValue({
-      success: true,
-      data: {
+    listByScope.mockResolvedValue(ok([fixture()]));
+    listAll.mockResolvedValue(ok([fixture()]));
+    create.mockResolvedValue(ok(fixture()));
+    linkScope.mockResolvedValue(ok(fixture()));
+    appendEntry.mockResolvedValue(ok(fixture()));
+    recordTargetRecovery.mockResolvedValue(ok(fixture()));
+    recordQualificationTimedTargetRecoveryDecision.mockResolvedValue(ok(fixture()));
+    startQualificationRecoveryExecution.mockResolvedValue(ok(qualificationFixture('ACCEPTED')));
+    cancelQualificationRecoveryExecution.mockResolvedValue(ok(qualificationFixture('CANCELLED')));
+    adjudicateQualificationRecoveryExecution.mockResolvedValue(ok(qualificationFixture('ADJUDICATED')));
+    applyQualificationRecoverySettlement.mockResolvedValue(ok(retainSeriesFixture('APPLIED')));
+    pauseLaneTimer.mockResolvedValue(
+      ok({
         commandId: '66666666-6666-4666-8666-666666666666',
         action: 'pause-timer',
         success: true,
@@ -260,12 +253,12 @@ describe('RangeInterruptionsPanel', () => {
             },
           },
         ],
-      },
-    });
+      }),
+    );
   });
 
   it('opens an append-only record without implicitly stopping a Lane', async () => {
-    listByScope.mockResolvedValueOnce({ success: true, data: [] });
+    listByScope.mockResolvedValueOnce(ok([]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -301,7 +294,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('captures the current Lane series for a 25m Qualification policy snapshot', async () => {
-    listByScope.mockResolvedValueOnce({ success: true, data: [] });
+    listByScope.mockResolvedValueOnce(ok([]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -381,7 +374,7 @@ describe('RangeInterruptionsPanel', () => {
         explanation: 'Recommendation only.',
       },
     });
-    listByScope.mockResolvedValue({ success: true, data: [ended] });
+    listByScope.mockResolvedValue(ok([ended]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -472,7 +465,7 @@ describe('RangeInterruptionsPanel', () => {
         explanation: 'Complete the three remaining shots.',
       },
     });
-    listByScope.mockResolvedValue({ success: true, data: [ended] });
+    listByScope.mockResolvedValue(ok([ended]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -512,7 +505,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('starts an authorized series recovery only after a separate firing confirmation', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture()] });
+    listByScope.mockResolvedValue(ok([qualificationFixture()]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -538,7 +531,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('cancels an active recovery through the high-level interruption workflow', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture('RUNNING')] });
+    listByScope.mockResolvedValue(ok([qualificationFixture('RUNNING')]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -562,7 +555,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('keeps score application separate and requires an explicit evidence confirmation', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture('COMPLETED')] });
+    listByScope.mockResolvedValue(ok([qualificationFixture('COMPLETED')]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -591,7 +584,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('offers record closure only after the authorized series recovery is adjudicated', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture('ADJUDICATED')] });
+    listByScope.mockResolvedValue(ok([qualificationFixture('ADJUDICATED')]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -606,7 +599,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('settles a fully recorded series explicitly without starting recovery firing', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [retainSeriesFixture()] });
+    listByScope.mockResolvedValue(ok([retainSeriesFixture()]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -639,7 +632,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('offers closure for a retain-series decision only after Lane settlement is applied', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [retainSeriesFixture('APPLIED')] });
+    listByScope.mockResolvedValue(ok([retainSeriesFixture('APPLIED')]));
     render(
       <RangeInterruptionsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -726,10 +719,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('shows a failed time grant and a failed target recovery record as the response message', async () => {
-    listByScope.mockResolvedValue({
-      success: true,
-      data: [fixture({ status: 'ENDED', cause: 'SINGLE_TARGET_FAILURE' })],
-    });
+    listByScope.mockResolvedValue(ok([fixture({ status: 'ENDED', cause: 'SINGLE_TARGET_FAILURE' })]));
     appendEntry.mockResolvedValue(fail('The grant exceeds the recorded lost time'));
     recordTargetRecovery.mockResolvedValue(fail('The reserve firing point is occupied'));
     render(
@@ -754,7 +744,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('shows a failed 25m decision and a failed recovery start as the response message', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture()] });
+    listByScope.mockResolvedValue(ok([qualificationFixture()]));
     recordQualificationTimedTargetRecoveryDecision.mockResolvedValue(fail('The decision was superseded'));
     startQualificationRecoveryExecution.mockResolvedValue(fail('The Lane is not paused'));
     render(
@@ -779,7 +769,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('shows a failed recovery cancellation as the response message', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture('RUNNING')] });
+    listByScope.mockResolvedValue(ok([qualificationFixture('RUNNING')]));
     cancelQualificationRecoveryExecution.mockResolvedValue(fail('The run already completed'));
     render(
       <RangeInterruptionsPanel
@@ -795,7 +785,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('shows a failed recovery score application as the response message', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [qualificationFixture('COMPLETED')] });
+    listByScope.mockResolvedValue(ok([qualificationFixture('COMPLETED')]));
     adjudicateQualificationRecoveryExecution.mockResolvedValue(fail('The Lane evidence changed'));
     render(
       <RangeInterruptionsPanel
@@ -813,7 +803,7 @@ describe('RangeInterruptionsPanel', () => {
   });
 
   it('shows a failed retain-series settlement as the response message', async () => {
-    listByScope.mockResolvedValue({ success: true, data: [retainSeriesFixture()] });
+    listByScope.mockResolvedValue(ok([retainSeriesFixture()]));
     applyQualificationRecoverySettlement.mockResolvedValue(fail('The series is incomplete'));
     render(
       <RangeInterruptionsPanel

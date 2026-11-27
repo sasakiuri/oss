@@ -18,6 +18,7 @@ import { OperationalProfilePanel } from '../operational-profiles/OperationalProf
 import { ProductionOperationsPanel } from '../production-operations';
 import { QualificationMalfunctionPanel } from '../qualification-malfunctions';
 import { RangeInterruptionsPanel } from '../range-interruptions';
+import { interruptionLaneOption } from '../range-interruptions/interruptionLaneOptions';
 import { ReserveLaneTransferPanel } from '../range-interruptions/ReserveLaneTransferPanel';
 import { SafetyStopPanel } from '../range-safety';
 import { RelayAthleteLifecyclePanel, RelayReadinessPanel } from '../relay-readiness';
@@ -160,7 +161,7 @@ export function CompetitionControlScreen() {
                 open={activeCompetition.phase === 'NOT_STARTED'}
               >
                 <summary>Start checks & attendance</summary>
-                {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+                {activeCompetition.phase !== 'MATCH_COMPLETE' && (
                   <Card>
                     <ProductionOperationsPanel
                       key={activeCompetition.competitionId}
@@ -172,33 +173,31 @@ export function CompetitionControlScreen() {
                   </Card>
                 )}
 
-                {activeCompetition && (
-                  <Card>
-                    <RelayAthleteLifecyclePanel
-                      key={`athlete-lifecycle:${activeCompetition.competitionId}`}
-                      competitionId={activeCompetition.competitionId}
-                      relayNumber={resultContext?.relayNumber ?? 1}
-                      preferredPhase={activeCompetition.phase === 'MATCH_COMPLETE' ? 'POST_RELAY' : 'PRE_RELAY'}
-                      athletes={competitionLanes.flatMap((lane) => {
-                        const athlete = lane.assignment?.athlete;
-                        if (!athlete) return [];
-                        return [
-                          {
-                            laneId: lane.laneId,
-                            laneLabel: lane.firingPointNumber
-                              ? `Firing point ${lane.firingPointNumber}`
-                              : lane.laneAlias || lane.laneId.slice(0, 8),
-                            athleteId: athlete.id,
-                            athleteName: athlete.name,
-                            athleteStartNumber: athlete.startNumber,
-                          },
-                        ];
-                      })}
-                    />
-                  </Card>
-                )}
+                <Card>
+                  <RelayAthleteLifecyclePanel
+                    key={`athlete-lifecycle:${activeCompetition.competitionId}`}
+                    competitionId={activeCompetition.competitionId}
+                    relayNumber={resultContext?.relayNumber ?? 1}
+                    preferredPhase={activeCompetition.phase === 'MATCH_COMPLETE' ? 'POST_RELAY' : 'PRE_RELAY'}
+                    athletes={competitionLanes.flatMap((lane) => {
+                      const athlete = lane.assignment?.athlete;
+                      if (!athlete) return [];
+                      return [
+                        {
+                          laneId: lane.laneId,
+                          laneLabel: lane.firingPointNumber
+                            ? `Firing point ${lane.firingPointNumber}`
+                            : lane.laneAlias || lane.laneId.slice(0, 8),
+                          athleteId: athlete.id,
+                          athleteName: athlete.name,
+                          athleteStartNumber: athlete.startNumber,
+                        },
+                      ];
+                    })}
+                  />
+                </Card>
 
-                {activeCompetition?.phase === 'NOT_STARTED' && (
+                {activeCompetition.phase === 'NOT_STARTED' && (
                   <Card>
                     <OperationalProfilePanel
                       key={activeCompetition.competitionId}
@@ -208,7 +207,7 @@ export function CompetitionControlScreen() {
                   </Card>
                 )}
 
-                {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+                {activeCompetition.phase !== 'MATCH_COMPLETE' && (
                   <Card>
                     <RelayReadinessPanel
                       key={`${activeCompetition.competitionId}:${activeCompetition.phase}:${operationalSettingsRevision}`}
@@ -224,7 +223,7 @@ export function CompetitionControlScreen() {
                   </Card>
                 )}
 
-                {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+                {activeCompetition.phase !== 'MATCH_COMPLETE' && (
                   <Card>
                     <EstInspectionStartPanel
                       key={`inspection:${activeCompetition.competitionId}:${operationalSettingsRevision}`}
@@ -237,7 +236,7 @@ export function CompetitionControlScreen() {
                   </Card>
                 )}
 
-                {activeCompetition && activeCompetition.phase !== 'MATCH_COMPLETE' && (
+                {activeCompetition.phase !== 'MATCH_COMPLETE' && (
                   <Card>
                     <BackupCaptureReadinessPanel
                       key={`backup:${activeCompetition.competitionId}:${operationalSettingsRevision}`}
@@ -264,39 +263,34 @@ export function CompetitionControlScreen() {
             {activeCompetition && resultContext?.eventId && (
               <details key={`scoring:${activeCompetition.competitionId}`} className="operation-section">
                 <summary>Shot incidents & malfunctions</summary>
-                {activeCompetition && resultContext?.eventId && (
+                <Card>
+                  <IrregularShotCasesPanel
+                    key={`irregular-shots:${activeCompetition.competitionId}:${resultContext.eventId}`}
+                    eventId={resultContext.eventId}
+                    competitionId={activeCompetition.competitionId}
+                    resultScope={activeCompetition.roundName === 'Final' ? 'FINAL' : 'QUALIFICATION'}
+                    adjudication={activeCompetitionDefinition?.finalSeriesAdjudication}
+                    lanes={laneOptions}
+                    disabled={baseControlsDisabled}
+                  />
+                </Card>
+
+                {activeCompetition.roundName !== 'Final' && activeCompetitionDefinition?.qualificationMalfunction && (
                   <Card>
-                    <IrregularShotCasesPanel
-                      key={`irregular-shots:${activeCompetition.competitionId}:${resultContext.eventId}`}
-                      eventId={resultContext.eventId}
+                    <QualificationMalfunctionPanel
+                      key={`qualification-malfunctions:${activeCompetition.competitionId}:${resultContext.eventId}`}
                       competitionId={activeCompetition.competitionId}
-                      resultScope={activeCompetition.roundName === 'Final' ? 'FINAL' : 'QUALIFICATION'}
-                      adjudication={activeCompetitionDefinition?.finalSeriesAdjudication}
-                      lanes={laneOptions}
-                      disabled={baseControlsDisabled}
+                      eventId={resultContext.eventId}
+                      relayNumber={resultContext.relayNumber}
+                      lanes={competitionLanes}
+                      supportsExceptionalMatchParts={
+                        activeCompetitionDefinition.qualificationMalfunction.claimLimit
+                          ?.exceptionalTwoPartMaximumPerPart !== undefined
+                      }
+                      disabled={busyAction !== null}
                     />
                   </Card>
                 )}
-
-                {activeCompetition &&
-                  activeCompetition.roundName !== 'Final' &&
-                  resultContext?.eventId &&
-                  activeCompetitionDefinition?.qualificationMalfunction && (
-                    <Card>
-                      <QualificationMalfunctionPanel
-                        key={`qualification-malfunctions:${activeCompetition.competitionId}:${resultContext.eventId}`}
-                        competitionId={activeCompetition.competitionId}
-                        eventId={resultContext.eventId}
-                        relayNumber={resultContext.relayNumber}
-                        lanes={competitionLanes}
-                        supportsExceptionalMatchParts={
-                          activeCompetitionDefinition.qualificationMalfunction.claimLimit
-                            ?.exceptionalTwoPartMaximumPerPart !== undefined
-                        }
-                        disabled={busyAction !== null}
-                      />
-                    </Card>
-                  )}
               </details>
             )}
 
@@ -393,27 +387,7 @@ export function CompetitionControlScreen() {
                       ? activeCompetition.competitionTypeId
                       : undefined
                   }
-                  lanes={competitionLanes.map((lane) => ({
-                    laneId: lane.laneId,
-                    label: laneOptionLabel(lane),
-                    firingPointNumber: lane.firingPointNumber,
-                    ...(lane.assignment?.athlete ? { athleteName: lane.assignment.athlete.name } : {}),
-                    ...(lane.competitionState?.interruption
-                      ? { interruption: lane.competitionState.interruption }
-                      : {}),
-                    ...(lane.competitionState
-                      ? {
-                          seriesSnapshot: {
-                            stageIndex: lane.competitionState.currentStage.index,
-                            seriesIndex: lane.competitionState.currentSeries.index,
-                            recordedShots: lane.competitionState.currentSeries.shotsRecorded,
-                            maxShots: lane.competitionState.currentSeries.maxShots,
-                            seriesComplete: lane.competitionState.phase === 'SERIES_COMPLETE',
-                            capturedAt: lane.competitionState.publishedAt,
-                          },
-                        }
-                      : {}),
-                  }))}
+                  lanes={competitionLanes.map((lane) => interruptionLaneOption(lane, laneOptionLabel(lane)))}
                 />
               </details>
             )}

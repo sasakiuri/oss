@@ -15,6 +15,7 @@ import {
   RULE_PACK_TARGET_RESET_REQUIREMENT_ID,
 } from '@/shared/competitionTypes';
 import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const {
   assignAthlete,
@@ -53,10 +54,9 @@ vi.mock('@/renderer/presentation/features/backup-capture-readiness/BackupCapture
 vi.mock('@/renderer/services', () => ({
   mqttService: {
     getControlState,
-    getStartReadiness: vi.fn(async (scope) => ({
-      success: true,
-      data: { ...scope, checkedAt: new Date().toISOString(), laneIds: [], issues: [] },
-    })),
+    getStartReadiness: vi.fn(async (scope) =>
+      ok({ ...scope, checkedAt: new Date().toISOString(), laneIds: [], issues: [] }),
+    ),
     getFiringWindowViolations,
     getShotObservationEvidence,
     createCompetition,
@@ -189,12 +189,11 @@ describe('CompetitionControlScreen', () => {
     useCompetitionControlStore.getState().reset();
     useNotificationStore.setState({ notifications: [] });
     if (useConfirmDialogStore.getState().isOpen) useConfirmDialogStore.getState().handleCancel();
-    getControlState.mockResolvedValue({ success: true, data: completedSnapshot });
-    getFiringWindowViolations.mockResolvedValue({ success: true, data: [] });
-    getShotObservationEvidence.mockResolvedValue({ success: true, data: [] });
-    getParticipants.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(ok(completedSnapshot));
+    getFiringWindowViolations.mockResolvedValue(ok([]));
+    getShotObservationEvidence.mockResolvedValue(ok([]));
+    getParticipants.mockResolvedValue(
+      ok({
         participants: [
           {
             id: PARTICIPANT_ID,
@@ -204,41 +203,37 @@ describe('CompetitionControlScreen', () => {
             sortOrder: 0,
           },
         ],
-      },
-    });
-    assignAthlete.mockResolvedValue({
-      success: true,
-      data: {
+      }),
+    );
+    assignAthlete.mockResolvedValue(
+      ok({
         commandId: '55555555-5555-4555-8555-555555555555',
         action: 'assign-athlete',
         success: true,
         lanes: [{ laneId: LANE_ID, status: 'done' }],
-      },
-    });
-    resetSession.mockResolvedValue({
-      success: true,
-      data: {
+      }),
+    );
+    resetSession.mockResolvedValue(
+      ok({
         commandId: '77777777-7777-4777-8777-777777777777',
         action: 'reset-session',
         success: true,
         lanes: [{ laneId: LANE_ID, status: 'done' }],
-      },
-    });
-    finishCompetition.mockResolvedValue({
-      success: true,
-      data: {
+      }),
+    );
+    finishCompetition.mockResolvedValue(
+      ok({
         commandId: '88888888-8888-4888-8888-888888888888',
         action: 'finish-competition',
         success: true,
         lanes: [{ laneId: LANE_ID, status: 'done' }],
-      },
-    });
+      }),
+    );
   });
 
   it('shows a Lane malfunction declaration as unclassified review information', async () => {
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(
+      ok({
         ...completedSnapshot,
         lanes: [
           {
@@ -270,8 +265,8 @@ describe('CompetitionControlScreen', () => {
             },
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -285,9 +280,8 @@ describe('CompetitionControlScreen', () => {
   });
 
   it('shows a Lane EST complaint as unadjudicated review information', async () => {
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(
+      ok({
         ...completedSnapshot,
         lanes: [
           {
@@ -326,8 +320,8 @@ describe('CompetitionControlScreen', () => {
             },
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -341,9 +335,8 @@ describe('CompetitionControlScreen', () => {
   });
 
   it('shows persisted firing-window evidence as review-only information', async () => {
-    getFiringWindowViolations.mockResolvedValue({
-      success: true,
-      data: [
+    getFiringWindowViolations.mockResolvedValue(
+      ok([
         {
           id: '99999999-9999-4999-8999-999999999999',
           competitionId: COMPETITION_ID,
@@ -365,8 +358,8 @@ describe('CompetitionControlScreen', () => {
           decisiveBoundaryId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
           detectedAt: '2026-08-30T01:00:02.030Z',
         },
-      ],
-    });
+      ]),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -380,9 +373,8 @@ describe('CompetitionControlScreen', () => {
   });
 
   it('warns and confirms before finishing a competition without result publication', async () => {
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(
+      ok({
         ...completedSnapshot,
         competitions: [
           {
@@ -392,8 +384,8 @@ describe('CompetitionControlScreen', () => {
             publishedAt: null,
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -426,9 +418,8 @@ describe('CompetitionControlScreen', () => {
   });
 
   it('confirms the result publication destination before finishing a linked competition', async () => {
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(
+      ok({
         ...completedSnapshot,
         competitions: [
           {
@@ -438,8 +429,8 @@ describe('CompetitionControlScreen', () => {
             publishedAt: null,
           },
         ],
-      },
-    });
+      }),
+    );
     useCompetitionControlStore.getState().setResultContext(COMPETITION_ID, {
       eventId: EVENT_ID,
       relayNumber: 1,
@@ -474,9 +465,8 @@ describe('CompetitionControlScreen', () => {
   });
 
   it('confirms and permits session reset only before competition start', async () => {
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(
+      ok({
         ...completedSnapshot,
         competitions: [
           {
@@ -486,8 +476,8 @@ describe('CompetitionControlScreen', () => {
             finishedAt: null,
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -517,13 +507,9 @@ describe('CompetitionControlScreen', () => {
   });
 
   it('abandons a linked pre-match competition without publishing a zero-score result', async () => {
-    finishCompetition.mockResolvedValueOnce({
-      success: false,
-      error: { message: 'MQTT cleanup failed' },
-    });
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    finishCompetition.mockResolvedValueOnce(fail('MQTT cleanup failed'));
+    getControlState.mockResolvedValue(
+      ok({
         ...completedSnapshot,
         competitions: [
           {
@@ -533,8 +519,8 @@ describe('CompetitionControlScreen', () => {
             finishedAt: null,
           },
         ],
-      },
-    });
+      }),
+    );
     useCompetitionControlStore.getState().setResultContext(COMPETITION_ID, {
       eventId: EVENT_ID,
       relayNumber: 1,
@@ -578,9 +564,8 @@ describe('CompetitionControlScreen', () => {
   });
 
   it('locks athlete assignments during active competition and after result publication', async () => {
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(
+      ok({
         ...completedSnapshot,
         competitions: [
           {
@@ -589,8 +574,8 @@ describe('CompetitionControlScreen', () => {
             finishedAt: null,
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -643,7 +628,7 @@ describe('CompetitionControlScreen', () => {
     expect(screen.getByText('Disconnected')).toBeInTheDocument();
 
     await act(async () => {
-      resolveInitial({ success: true, data: completedSnapshot });
+      resolveInitial(ok(completedSnapshot));
       await initialRequest;
     });
 
@@ -683,7 +668,7 @@ describe('CompetitionControlScreen', () => {
         },
       ],
     };
-    getControlState.mockResolvedValue({ success: true, data: snapshot });
+    getControlState.mockResolvedValue(ok(snapshot));
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -736,11 +721,10 @@ describe('CompetitionControlScreen', () => {
       laneIds: [],
       publishedAt: '2026-08-26T02:00:00.000Z',
     };
-    getControlState.mockResolvedValue({ success: true, data: snapshot });
-    createCompetition.mockResolvedValue({ success: true, data: brCompetition });
-    joinCompetition.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(ok(snapshot));
+    createCompetition.mockResolvedValue(ok(brCompetition));
+    joinCompetition.mockResolvedValue(
+      ok({
         success: true,
         commands: [
           {
@@ -750,8 +734,8 @@ describe('CompetitionControlScreen', () => {
             lanes: [{ laneId: SECOND_LANE_ID, status: 'done' }],
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -810,16 +794,15 @@ describe('CompetitionControlScreen', () => {
         ],
       },
     };
-    getControlState.mockResolvedValue({ success: true, data: partialSightingSnapshot });
-    startSighting.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(ok(partialSightingSnapshot));
+    startSighting.mockResolvedValue(
+      ok({
         commandId: '77777777-7777-4777-8777-777777777777',
         action: 'start-sighting',
         success: true,
         lanes: [{ laneId: SECOND_LANE_ID, status: 'done' }],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -859,16 +842,15 @@ describe('CompetitionControlScreen', () => {
       ],
       lastCommand: null,
     };
-    getControlState.mockResolvedValue({ success: true, data: readySnapshot });
-    startSighting.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(ok(readySnapshot));
+    startSighting.mockResolvedValue(
+      ok({
         commandId: '77777777-7777-4777-8777-777777777777',
         action: 'start-sighting',
         success: true,
         lanes: [{ laneId: LANE_ID, status: 'done' }],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -920,16 +902,15 @@ describe('CompetitionControlScreen', () => {
       ],
       lastCommand: null,
     };
-    getControlState.mockResolvedValue({ success: true, data: readySnapshot });
-    startMatch.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(ok(readySnapshot));
+    startMatch.mockResolvedValue(
+      ok({
         commandId: '99999999-9999-4999-8999-999999999999',
         action: 'start-match',
         success: true,
         lanes: [{ laneId: LANE_ID, status: 'done' }],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -972,10 +953,9 @@ describe('CompetitionControlScreen', () => {
       ],
       lastCommand: null,
     };
-    getControlState.mockResolvedValue({ success: true, data: pendingJoinSnapshot });
-    joinCompetition.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(ok(pendingJoinSnapshot));
+    joinCompetition.mockResolvedValue(
+      ok({
         success: true,
         commands: [
           {
@@ -985,8 +965,8 @@ describe('CompetitionControlScreen', () => {
             lanes: [{ laneId: LANE_ID, status: 'done' }],
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -1031,9 +1011,9 @@ describe('CompetitionControlScreen', () => {
       lanes: [{ laneId: LANE_ID, status: 'done' as const, warning: 'clock_drift_detected' }],
     };
     getControlState
-      .mockResolvedValueOnce({ success: true, data: readySnapshot })
-      .mockResolvedValue({ success: true, data: { ...readySnapshot, lastCommand: warningResult } });
-    startSighting.mockResolvedValue({ success: true, data: warningResult });
+      .mockResolvedValueOnce(ok(readySnapshot))
+      .mockResolvedValue(ok({ ...readySnapshot, lastCommand: warningResult }));
+    startSighting.mockResolvedValue(ok(warningResult));
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -1082,10 +1062,9 @@ describe('CompetitionControlScreen', () => {
         },
       ],
     };
-    getControlState.mockResolvedValue({ success: true, data: partialSightingSnapshot });
-    leaveCompetition.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(ok(partialSightingSnapshot));
+    leaveCompetition.mockResolvedValue(
+      ok({
         success: true,
         commands: [
           {
@@ -1095,8 +1074,8 @@ describe('CompetitionControlScreen', () => {
             lanes: [{ laneId: SECOND_LANE_ID, status: 'done' }],
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>
@@ -1161,9 +1140,8 @@ describe('CompetitionControlScreen', () => {
       eventId: EVENT_ID,
       relayNumber: 1,
     });
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(
+      ok({
         ...completedSnapshot,
         competitions: [
           {
@@ -1175,8 +1153,8 @@ describe('CompetitionControlScreen', () => {
             finishedAt: null,
           },
         ],
-      },
-    });
+      }),
+    );
 
     render(
       <EventBusProvider bus={eventBus}>

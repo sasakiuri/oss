@@ -14,6 +14,7 @@ vi.mock('@/renderer/services', () => ({
 }));
 
 import { useResults } from '@/renderer/presentation/hooks/useResults';
+import { fail, ok } from '../../../../helpers/renderer/serviceResponses';
 
 describe('useResults', () => {
   beforeEach(() => {
@@ -39,7 +40,7 @@ describe('useResults', () => {
 
   describe('getEventResults', () => {
     it('should fetch and set results', async () => {
-      mockGetByEvent.mockResolvedValue({ success: true, data: { results: [{ id: 'r1', rank: 1 }] } });
+      mockGetByEvent.mockResolvedValue(ok({ results: [{ id: 'r1', rank: 1 }] }));
 
       const { result } = renderHook(() => useResults());
 
@@ -80,7 +81,7 @@ describe('useResults', () => {
 
   describe('getRelayResults', () => {
     it('should fetch relay results', async () => {
-      mockGetByRelay.mockResolvedValue({ success: true, data: { results: [{ id: 'r1' }] } });
+      mockGetByRelay.mockResolvedValue(ok({ results: [{ id: 'r1' }] }));
 
       const { result } = renderHook(() => useResults());
 
@@ -118,13 +119,13 @@ describe('useResults', () => {
       });
 
       await act(async () => {
-        resolveNewer({ success: true, data: { results: [{ id: 'newer' }] } });
+        resolveNewer(ok({ results: [{ id: 'newer' }] }));
         await newerRequest;
       });
       expect(result.current.results).toEqual([{ id: 'newer' }]);
 
       await act(async () => {
-        resolveOlder({ success: true, data: { results: [{ id: 'older' }] } });
+        resolveOlder(ok({ results: [{ id: 'older' }] }));
         await olderRequest;
       });
       expect(result.current.results).toEqual([{ id: 'newer' }]);
@@ -162,10 +163,7 @@ describe('useResults', () => {
     });
 
     it('should handle an unsuccessful confirm response', async () => {
-      mockConfirm.mockResolvedValue({
-        success: false,
-        error: { message: 'Result no longer exists' },
-      });
+      mockConfirm.mockResolvedValue(fail('Result no longer exists'));
 
       const { result } = renderHook(() => useResults());
       let response: Awaited<ReturnType<typeof result.current.confirmResults>>;
@@ -183,7 +181,7 @@ describe('useResults', () => {
     it('does not let an older confirmation change state after a newer results request', async () => {
       let resolveConfirm!: (value: unknown) => void;
       mockConfirm.mockReturnValue(new Promise((resolve) => (resolveConfirm = resolve)));
-      mockGetByEvent.mockResolvedValue({ success: true, data: { results: [{ id: 'newer' }] } });
+      mockGetByEvent.mockResolvedValue(ok({ results: [{ id: 'newer' }] }));
       const { result } = renderHook(() => useResults());
       let confirmRequest!: Promise<unknown>;
 
@@ -206,8 +204,8 @@ describe('useResults', () => {
 
   describe('a failed confirmation', () => {
     it('keeps the loaded results and is cleared by the next request', async () => {
-      mockGetByEvent.mockResolvedValue({ success: true, data: { results: [{ id: 'r1' }] } });
-      mockConfirm.mockResolvedValue({ success: false, error: { message: 'Refused' } });
+      mockGetByEvent.mockResolvedValue(ok({ results: [{ id: 'r1' }] }));
+      mockConfirm.mockResolvedValue(fail('Refused'));
       const { result } = renderHook(() => useResults());
       await act(async () => {
         await result.current.getEventResults('event-1');
@@ -229,7 +227,7 @@ describe('useResults', () => {
 
   describe('clearResults', () => {
     it('should clear all results state', async () => {
-      mockGetByEvent.mockResolvedValue({ success: true, data: { results: [{ id: 'r1' }] } });
+      mockGetByEvent.mockResolvedValue(ok({ results: [{ id: 'r1' }] }));
 
       const { result } = renderHook(() => useResults());
 
@@ -268,7 +266,7 @@ describe('useResults', () => {
         const { result } = renderHook(() => useResults());
 
         for (const [response, message] of [
-          [{ success: false, error: { message: 'Request refused' } }, 'Request refused'],
+          [fail('Request refused'), 'Request refused'],
           [{ success: false }, fallback],
         ] as const) {
           mock.mockResolvedValueOnce(response);
@@ -301,7 +299,7 @@ describe('useResults', () => {
     );
 
     it.each(['getEventResults', 'getRelayResults'] as const)('%s resolves the loaded data', async (query) => {
-      const response = { success: true, data: { results: [{ id: 'r1' }] } };
+      const response = ok({ results: [{ id: 'r1' }] });
       queries[query].mock.mockResolvedValueOnce(response);
       const { result } = renderHook(() => useResults());
       let returned: unknown;
@@ -314,7 +312,7 @@ describe('useResults', () => {
     });
 
     it('confirmResults resolves the successful response itself', async () => {
-      const response = { success: true, data: { results: [{ id: 'r1' }] } };
+      const response = ok({ results: [{ id: 'r1' }] });
       mockConfirm.mockResolvedValueOnce(response);
       const { result } = renderHook(() => useResults());
       let returned: unknown;
@@ -327,8 +325,8 @@ describe('useResults', () => {
     });
 
     it('keeps the loaded results when a later request fails', async () => {
-      mockGetByEvent.mockResolvedValueOnce({ success: true, data: { results: [{ id: 'r1' }] } });
-      mockGetByRelay.mockResolvedValueOnce({ success: false, error: { message: 'Relay refused' } });
+      mockGetByEvent.mockResolvedValueOnce(ok({ results: [{ id: 'r1' }] }));
+      mockGetByRelay.mockResolvedValueOnce(fail('Relay refused'));
       const { result } = renderHook(() => useResults());
 
       await act(async () => {
@@ -343,7 +341,7 @@ describe('useResults', () => {
     });
 
     it('keeps the loaded results and clears the error after a confirmation', async () => {
-      mockGetByEvent.mockResolvedValueOnce({ success: false, error: { message: 'Results refused' } });
+      mockGetByEvent.mockResolvedValueOnce(fail('Results refused'));
       mockConfirm.mockResolvedValueOnce({ success: true });
       const { result } = renderHook(() => useResults());
 

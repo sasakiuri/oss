@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChampionshipAssignmentPanel } from '@/renderer/presentation/features/competition-control/components/ChampionshipAssignmentPanel';
 import { useChampionshipStore } from '@/renderer/presentation/stores/domain/championship.store';
 import type { DirectorLaneSnapshotDto } from '@/shared/ipc/contracts';
+import { ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { getChampionships, getChampionshipDetail, getParticipants, getFiringPointAssignments } = vi.hoisted(() => ({
   getChampionships: vi.fn(),
@@ -46,9 +47,8 @@ describe('ChampionshipAssignmentPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     useChampionshipStore.getState().reset();
-    getChampionships.mockResolvedValue({
-      success: true,
-      data: {
+    getChampionships.mockResolvedValue(
+      ok({
         championships: [
           {
             id: CHAMPIONSHIP_ID,
@@ -58,11 +58,10 @@ describe('ChampionshipAssignmentPanel', () => {
             createdAt: '2026-08-01T00:00:00.000Z',
           },
         ],
-      },
-    });
-    getChampionshipDetail.mockResolvedValue({
-      success: true,
-      data: {
+      }),
+    );
+    getChampionshipDetail.mockResolvedValue(
+      ok({
         id: CHAMPIONSHIP_ID,
         name: 'Test Championship',
         date: '2026-08-26',
@@ -77,11 +76,10 @@ describe('ChampionshipAssignmentPanel', () => {
             sortOrder: 0,
           },
         ],
-      },
-    });
-    getParticipants.mockResolvedValue({
-      success: true,
-      data: {
+      }),
+    );
+    getParticipants.mockResolvedValue(
+      ok({
         participants: [
           {
             id: PARTICIPANT_ID,
@@ -91,11 +89,10 @@ describe('ChampionshipAssignmentPanel', () => {
             sortOrder: 0,
           },
         ],
-      },
-    });
-    getFiringPointAssignments.mockResolvedValue({
-      success: true,
-      data: {
+      }),
+    );
+    getFiringPointAssignments.mockResolvedValue(
+      ok({
         assignments: [
           {
             id: '55555555-5555-4555-8555-555555555555',
@@ -104,8 +101,8 @@ describe('ChampionshipAssignmentPanel', () => {
             participantId: PARTICIPANT_ID,
           },
         ],
-      },
-    });
+      }),
+    );
   });
 
   it('loads championship assignments and passes a plan for applying them to Lanes', async () => {

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PublicationReviewPolicyPanel } from '@/renderer/presentation/features/result-publication/PublicationReviewPolicyPanel';
 import type { PublicationReviewPolicyStatus } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { get, save } = vi.hoisted(() => ({ get: vi.fn(), save: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ publicationReviewPolicyService: { get, save } }));
@@ -26,15 +26,14 @@ const status: PublicationReviewPolicyStatus = {
 };
 beforeEach(() => {
   vi.resetAllMocks();
-  get.mockResolvedValue({ success: true, data: status });
+  get.mockResolvedValue(ok(status));
 });
 describe('Event review settings', () => {
   it('pins independently selected reviews and refreshes the approval after saving', async () => {
     const onChanged = vi.fn(async () => undefined);
-    save.mockResolvedValue({
-      success: true,
-      data: { ...status, mode: 'PINNED', effectiveSettings: { ...defaults, requireIncidentReports: false } },
-    });
+    save.mockResolvedValue(
+      ok({ ...status, mode: 'PINNED', effectiveSettings: { ...defaults, requireIncidentReports: false } }),
+    );
     render(<PublicationReviewPolicyPanel eventId="event" resultScope="FINAL" onChanged={onChanged} />);
     const incidents = await screen.findByLabelText('Complete incident reports');
     expect(incidents).toBeChecked();
@@ -63,7 +62,7 @@ describe('Event review settings', () => {
 
   it('retains failed edits and offers reload when another operator changed the policy', async () => {
     const onChanged = vi.fn(async () => undefined);
-    save.mockResolvedValue({ success: false, error: { message: 'The event policy changed; reload before saving' } });
+    save.mockResolvedValue(fail('The event policy changed; reload before saving'));
     render(<PublicationReviewPolicyPanel eventId="event" resultScope="FINAL" onChanged={onChanged} />);
     fireEvent.change(await screen.findByLabelText('Responsible official'), { target: { value: 'RTS' } });
     fireEvent.change(screen.getByLabelText('Reason for these event settings'), {
@@ -78,9 +77,8 @@ describe('Event review settings', () => {
   });
 
   it('shows the historical reason and signer while preventing edits to an official event', async () => {
-    get.mockResolvedValue({
-      success: true,
-      data: {
+    get.mockResolvedValue(
+      ok({
         ...status,
         editable: false,
         history: [
@@ -100,8 +98,8 @@ describe('Event review settings', () => {
             },
           },
         ],
-      },
-    });
+      }),
+    );
     render(<PublicationReviewPolicyPanel eventId="event" resultScope="FINAL" onChanged={async () => undefined} />);
     expect(await screen.findByLabelText('Settings source')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save event settings' })).toBeDisabled();

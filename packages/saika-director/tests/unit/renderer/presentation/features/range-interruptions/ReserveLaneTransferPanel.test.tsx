@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ReserveLaneTransferPanel } from '@/renderer/presentation/features/range-interruptions/ReserveLaneTransferPanel';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { workspace, prepare, cancel, complete, resume, resumeMatch } = vi.hoisted(() => ({
   workspace: vi.fn(),
@@ -61,10 +61,7 @@ describe('ReserveLaneTransferPanel', () => {
   });
 
   it('shows the frozen evidence and requires confirmation before completing a prepared transfer', async () => {
-    workspace.mockResolvedValue({
-      success: true,
-      data: [{ request, entries: [{ operation: 'SOURCE_PREPARED' }], bundle }],
-    });
+    workspace.mockResolvedValue(ok([{ request, entries: [{ operation: 'SOURCE_PREPARED' }], bundle }]));
     complete.mockResolvedValue({ success: true });
     renderOpen();
     const apply = await screen.findByRole('button', { name: 'Complete or retry transfer' });
@@ -95,10 +92,7 @@ describe('ReserveLaneTransferPanel', () => {
   });
 
   it('shows a failed preparation, retry and cancellation as the response message', async () => {
-    workspace.mockResolvedValue({
-      success: true,
-      data: [{ request, entries: [{ operation: 'FAILED' }], bundle: null }],
-    });
+    workspace.mockResolvedValue(ok([{ request, entries: [{ operation: 'FAILED' }], bundle: null }]));
     prepare.mockResolvedValue(fail('The source Lane is not under safety STOP'));
     cancel.mockResolvedValue(fail('The transfer is already retired'));
     renderOpen();
@@ -125,10 +119,7 @@ describe('ReserveLaneTransferPanel', () => {
   });
 
   it('shows a failed completion as the response message, the response fallback or the command fallback', async () => {
-    workspace.mockResolvedValue({
-      success: true,
-      data: [{ request, entries: [{ operation: 'SOURCE_PREPARED' }], bundle }],
-    });
+    workspace.mockResolvedValue(ok([{ request, entries: [{ operation: 'SOURCE_PREPARED' }], bundle }]));
     complete.mockResolvedValue(fail('The snapshot digest changed'));
     renderOpen();
     const apply = await screen.findByRole('button', { name: 'Complete or retry transfer' });
@@ -148,16 +139,15 @@ describe('ReserveLaneTransferPanel', () => {
   });
 
   it('shows a failed resume as the response message', async () => {
-    workspace.mockResolvedValue({
-      success: true,
-      data: [
+    workspace.mockResolvedValue(
+      ok([
         {
           request,
           entries: [{ operation: 'TARGET_ACTIVE' }, { operation: 'RESUME_AUTHORIZED', detail: grant }],
           bundle,
         },
-      ],
-    });
+      ]),
+    );
     resume.mockResolvedValue(fail('The reserve Lane is not ready'));
     renderOpen();
     const apply = await screen.findByRole('button', { name: 'Apply or retry recorded resume grant' });
@@ -168,9 +158,8 @@ describe('ReserveLaneTransferPanel', () => {
   });
 
   it('shows a failed MATCH resume as the response message', async () => {
-    workspace.mockResolvedValue({
-      success: true,
-      data: [
+    workspace.mockResolvedValue(
+      ok([
         {
           request,
           entries: [
@@ -180,8 +169,8 @@ describe('ReserveLaneTransferPanel', () => {
           ],
           bundle,
         },
-      ],
-    });
+      ]),
+    );
     resumeMatch.mockResolvedValue(fail('The sighting period is still running'));
     renderOpen();
     fireEvent.click(await screen.findByRole('button', { name: 'End extra sighting and resume MATCH' }));

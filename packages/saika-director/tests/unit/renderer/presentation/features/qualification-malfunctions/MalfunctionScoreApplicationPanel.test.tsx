@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MalfunctionScoreApplicationPanel } from '@/renderer/presentation/features/qualification-malfunctions/MalfunctionScoreApplicationPanel';
 import type { MalfunctionScoreSheetDto, QualificationMalfunctionCaseDto } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 const api = vi.hoisted(() => ({
   list: vi.fn(),
   preview: vi.fn(),
@@ -28,10 +28,9 @@ const sheet = {
 } as MalfunctionScoreSheetDto;
 beforeEach(() => {
   vi.clearAllMocks();
-  api.list.mockResolvedValue({ success: true, data: [] });
-  api.preview.mockImplementation(async (request) => ({
-    success: true,
-    data: {
+  api.list.mockResolvedValue(ok([]));
+  api.preview.mockImplementation(async (request) =>
+    ok({
       request,
       caseId: 'case',
       seriesIndex: 11,
@@ -39,11 +38,11 @@ beforeEach(() => {
       originalScoresX10: [90, 100, 0, 0, 0],
       replacement: { shotsX10: [90, 80, 90, 70, 100] },
       digest: 'a'.repeat(64),
-    },
-  }));
-  api.apply.mockResolvedValue({ success: true, data: {} });
-  api.withdraw.mockResolvedValue({ success: true, data: {} });
-  api.getById.mockResolvedValue({ success: true, data: { ...value, status: 'SETTLED' } });
+    }),
+  );
+  api.apply.mockResolvedValue(ok({}));
+  api.withdraw.mockResolvedValue(ok({}));
+  api.getById.mockResolvedValue(ok({ ...value, status: 'SETTLED' }));
 });
 function identify() {
   fireEvent.change(screen.getByLabelText('Applying official'), { target: { value: 'RTS' } });
@@ -85,9 +84,8 @@ describe('Malfunction score application UI', () => {
   });
 
   it('requires an official withdrawal statement and binds withdrawal to the saved application', async () => {
-    api.list.mockResolvedValue({
-      success: true,
-      data: [
+    api.list.mockResolvedValue(
+      ok([
         {
           application: {
             id: 'application',
@@ -96,8 +94,8 @@ describe('Malfunction score application UI', () => {
           },
           withdrawal: null,
         },
-      ],
-    });
+      ]),
+    );
     render(
       <MalfunctionScoreApplicationPanel
         value={{ ...value, status: 'SETTLED' }}
@@ -162,9 +160,8 @@ describe('Malfunction score application UI', () => {
   });
 
   it('shows a failed withdrawal as the response message', async () => {
-    api.list.mockResolvedValue({
-      success: true,
-      data: [
+    api.list.mockResolvedValue(
+      ok([
         {
           application: {
             id: 'application',
@@ -173,8 +170,8 @@ describe('Malfunction score application UI', () => {
           },
           withdrawal: null,
         },
-      ],
-    });
+      ]),
+    );
     api.withdraw.mockResolvedValue(fail('The application was already withdrawn'));
     render(
       <MalfunctionScoreApplicationPanel

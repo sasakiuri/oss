@@ -66,11 +66,10 @@ describe('ResultsBookPanel signing', () => {
         },
       ],
     };
-    getWorkspace.mockResolvedValue({ success: true, data: workspace });
-    getSigningAccounts.mockResolvedValue({ success: true, data: [] });
-    signBook.mockImplementation(async () => ({
-      success: true,
-      data: {
+    getWorkspace.mockResolvedValue(ok(workspace));
+    getSigningAccounts.mockResolvedValue(ok([]));
+    signBook.mockImplementation(async () =>
+      ok({
         ...workspace,
         books: [
           {
@@ -91,8 +90,8 @@ describe('ResultsBookPanel signing', () => {
             ],
           },
         ],
-      },
-    }));
+      }),
+    );
     render(<ResultsBookPanel championshipId="championship" />);
     await screen.findByRole('button', { name: 'Sign' });
     fireEvent.change(screen.getByLabelText('Signature method'), { target: { value: 'EXTERNAL' } });

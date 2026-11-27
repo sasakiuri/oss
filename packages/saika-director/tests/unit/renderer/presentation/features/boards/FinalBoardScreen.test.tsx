@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
 import { TestEventBus } from '../../../../../helpers/renderer/TestEventBus';
 import { FinalBoardScreen } from '@/renderer/presentation/features/boards/FinalBoardScreen';
+import { ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { getAll, getControlState } = vi.hoisted(() => ({ getAll: vi.fn(), getControlState: vi.fn() }));
 
@@ -36,24 +37,22 @@ function createLane(roundType: 'Qualification' | 'Final', playerName: string, ch
 describe('FinalBoardScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getControlState.mockResolvedValue({
-      success: true,
-      data: {
+    getControlState.mockResolvedValue(
+      ok({
         connected: false,
         brokerUrl: null,
         activeCompetitionId: null,
         lanes: [],
         competitions: [],
         lastCommand: null,
-      },
-    });
+      }),
+    );
   });
 
   it('does not include qualification lanes in the final scoreboard', async () => {
-    getAll.mockResolvedValue({
-      success: true,
-      data: [createLane('Qualification', 'Qualification Athlete', 1), createLane('Final', 'Final Athlete', 2)],
-    });
+    getAll.mockResolvedValue(
+      ok([createLane('Qualification', 'Qualification Athlete', 1), createLane('Final', 'Final Athlete', 2)]),
+    );
 
     render(
       <EventBusProvider bus={new TestEventBus()}>

@@ -60,11 +60,10 @@ const preview = {
 };
 describe('EST individual check handoff', () => {
   it('requires explicit source and intervention review, sends only the selected preview, and displays partial outcomes', async () => {
-    previewChecks.mockResolvedValue({ success: true, data: preview });
-    applyChecks.mockResolvedValue({
-      success: true,
-      data: { items: [{ resultId: 'result1', state: 'FAILED', checkId: null, issue: 'Concurrent result change' }] },
-    });
+    previewChecks.mockResolvedValue(ok(preview));
+    applyChecks.mockResolvedValue(
+      ok({ items: [{ resultId: 'result1', state: 'FAILED', checkId: null, issue: 'Concurrent result change' }] }),
+    );
     render(<EstBackupResultChecksPanel run={run} />);
     expect(previewChecks).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Preview individual RTS checks' }));

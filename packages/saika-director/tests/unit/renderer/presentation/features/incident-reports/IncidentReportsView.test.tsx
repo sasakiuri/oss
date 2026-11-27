@@ -87,11 +87,10 @@ function statusFixture(reports: RangeIncidentReportDto[] = [reportFixture()]): I
 describe('IncidentReportsView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listByEvent.mockResolvedValue({ success: true, data: statusFixture() });
-    create.mockResolvedValue({ success: true, data: reportFixture() });
-    appendEntry.mockResolvedValue({
-      success: true,
-      data: {
+    listByEvent.mockResolvedValue(ok(statusFixture()));
+    create.mockResolvedValue(ok(reportFixture()));
+    appendEntry.mockResolvedValue(
+      ok({
         id: '55555555-5555-4555-8555-555555555555',
         reportId: REPORT_ID,
         type: 'FORWARDED',
@@ -100,9 +99,9 @@ describe('IncidentReportsView', () => {
         statement: 'Copy forwarded',
         officialName: 'Range Officer A',
         recordedAt: '2026-08-29T01:06:00.000Z',
-      },
-    });
-    openIncidentReportPrint.mockResolvedValue({ success: true, data: 'window-1' });
+      }),
+    );
+    openIncidentReportPrint.mockResolvedValue(ok('window-1'));
   });
 
   it('shows decision coverage, report facts, append actions, and print routing', async () => {
@@ -144,7 +143,7 @@ describe('IncidentReportsView', () => {
   });
 
   it('creates a report from the event-level workspace without requiring an athlete', async () => {
-    listByEvent.mockResolvedValueOnce({ success: true, data: statusFixture([]) });
+    listByEvent.mockResolvedValueOnce(ok(statusFixture([])));
     render(<IncidentReportsView eventId={EVENT_ID} eventName="10m Air Rifle" participants={[]} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'New incident report' }));
@@ -187,22 +186,21 @@ describe('IncidentReportsView', () => {
     listByEvent
       .mockReset()
       .mockReturnValueOnce(firstRequest)
-      .mockResolvedValueOnce({
-        success: true,
-        data: {
+      .mockResolvedValueOnce(
+        ok({
           ...statusFixture([secondReport]),
           eventId: EVENT_TWO_ID,
           requiredDecisionCount: 0,
           coveredDecisionCount: 0,
           uncoveredDecisions: [],
-        },
-      });
+        }),
+      );
     const { rerender } = render(<IncidentReportsView eventId={EVENT_ID} eventName="10m Air Rifle" participants={[]} />);
 
     rerender(<IncidentReportsView eventId={EVENT_TWO_ID} eventName="10m Air Pistol" participants={[]} />);
     expect((await screen.findAllByText('IR IR-99')).length).toBeGreaterThan(0);
 
-    await act(async () => resolveFirst({ success: true, data: statusFixture() }));
+    await act(async () => resolveFirst(ok(statusFixture())));
 
     await waitFor(() => expect(screen.queryAllByText('IR IR-42')).toHaveLength(0));
     expect(screen.getAllByText('IR IR-99').length).toBeGreaterThan(0);

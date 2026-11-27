@@ -87,6 +87,7 @@ vi.mock('@/renderer/services', () => ({
 
 import { useChampionshipActions } from '@/renderer/presentation/hooks/useChampionshipActions';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import { fail, ok } from '../../../../helpers/renderer/serviceResponses';
 
 describe('useChampionshipActions', () => {
   beforeEach(() => {
@@ -101,7 +102,7 @@ describe('useChampionshipActions', () => {
 
   describe('refresh after a successful command', () => {
     it('returns the created championship when reloading the list is rejected', async () => {
-      const created = { success: true, data: 'c-new' };
+      const created = ok('c-new');
       mockCreateChampionship.mockResolvedValue(created);
       mockGetChampionships.mockRejectedValue(new Error('Director database is busy'));
       const { result } = renderHook(() => useChampionshipActions());
@@ -123,12 +124,8 @@ describe('useChampionshipActions', () => {
     it('reports an unsuccessful reload of the updated championship', async () => {
       mockStoreState.selectedChampionship = { id: 'c-1' };
       mockUpdateChampionship.mockResolvedValue({ success: true });
-      mockGetChampionships.mockResolvedValue({ success: true, data: { championships: [] } });
-      mockGetChampionshipDetail.mockResolvedValue({
-        success: false,
-        data: null,
-        error: { code: 'E', message: 'Gone' },
-      });
+      mockGetChampionships.mockResolvedValue(ok({ championships: [] }));
+      mockGetChampionshipDetail.mockResolvedValue(fail('Gone', 'E'));
       const { result } = renderHook(() => useChampionshipActions());
 
       let response: unknown;
@@ -168,8 +165,8 @@ describe('useChampionshipActions', () => {
     });
 
     it('reports nothing extra when the reload succeeds', async () => {
-      mockCreateChampionship.mockResolvedValue({ success: true, data: 'c-new' });
-      mockGetChampionships.mockResolvedValue({ success: true, data: { championships: [] } });
+      mockCreateChampionship.mockResolvedValue(ok('c-new'));
+      mockGetChampionships.mockResolvedValue(ok({ championships: [] }));
       const { result } = renderHook(() => useChampionshipActions());
 
       await act(async () => {
@@ -183,7 +180,7 @@ describe('useChampionshipActions', () => {
   describe('loadChampionships', () => {
     it('calls the service and updates the store', async () => {
       const championships = [{ id: 'c-1', name: 'National Championship' }];
-      mockGetChampionships.mockResolvedValue({ success: true, data: { championships } });
+      mockGetChampionships.mockResolvedValue(ok({ championships }));
 
       const { result } = renderHook(() => useChampionshipActions());
 
@@ -199,7 +196,7 @@ describe('useChampionshipActions', () => {
   describe('loadChampionshipDetail', () => {
     it('calls the service by ID and updates the store', async () => {
       const detail = { id: 'c-1', name: 'National Championship', events: [] };
-      mockGetChampionshipDetail.mockResolvedValue({ success: true, data: detail });
+      mockGetChampionshipDetail.mockResolvedValue(ok(detail));
 
       const { result } = renderHook(() => useChampionshipActions());
 
@@ -223,7 +220,7 @@ describe('useChampionshipActions', () => {
 
       act(() => result.current.setSelectedChampionship(null));
       await act(async () => {
-        resolveRequest({ success: true, data: { id: 'c-1', name: 'Stale Championship', events: [] } });
+        resolveRequest(ok({ id: 'c-1', name: 'Stale Championship', events: [] }));
         await request;
       });
 
@@ -242,7 +239,7 @@ describe('useChampionshipActions', () => {
 
       unmount();
       await act(async () => {
-        resolveRequest({ success: true, data: { id: 'c-1', name: 'Stale Championship', events: [] } });
+        resolveRequest(ok({ id: 'c-1', name: 'Stale Championship', events: [] }));
         await request;
       });
 
@@ -253,7 +250,7 @@ describe('useChampionshipActions', () => {
   describe('loadParticipants', () => {
     it('calls the service by eventId and updates the store', async () => {
       const participants = [{ id: 'p-1', name: 'Alex Smith' }];
-      mockGetParticipants.mockResolvedValue({ success: true, data: { participants } });
+      mockGetParticipants.mockResolvedValue(ok({ participants }));
       mockStoreState.selectedEventId = 'event-1';
 
       const { result } = renderHook(() => useChampionshipActions());
@@ -279,7 +276,7 @@ describe('useChampionshipActions', () => {
 
       mockStoreState.selectedEventId = 'event-2';
       await act(async () => {
-        resolveRequest({ success: true, data: { participants: [{ id: 'old' }] } });
+        resolveRequest(ok({ participants: [{ id: 'old' }] }));
         await request;
       });
 
@@ -301,7 +298,7 @@ describe('useChampionshipActions', () => {
 
       mockStoreState.selectedEventId = 'event-2';
       await act(async () => {
-        resolveRequest({ success: true, data: { assignments: [{ id: 'old' }] } });
+        resolveRequest(ok({ assignments: [{ id: 'old' }] }));
         await request;
       });
 
@@ -312,7 +309,7 @@ describe('useChampionshipActions', () => {
   describe('createChampionship', () => {
     it('calls loadChampionships after success', async () => {
       mockCreateChampionship.mockResolvedValue({ success: true, id: 'c-new' });
-      mockGetChampionships.mockResolvedValue({ success: true, data: { championships: [] } });
+      mockGetChampionships.mockResolvedValue(ok({ championships: [] }));
 
       const payload = { name: 'New Championship', venue: 'Tokyo', date: '2026-03-01' };
       const { result } = renderHook(() => useChampionshipActions());
@@ -344,8 +341,8 @@ describe('useChampionshipActions', () => {
     it('calls loadChampionships and loadDetail after success', async () => {
       mockStoreState.selectedChampionship = { id: 'c-1' };
       mockUpdateChampionship.mockResolvedValue({ success: true });
-      mockGetChampionships.mockResolvedValue({ success: true, data: { championships: [] } });
-      mockGetChampionshipDetail.mockResolvedValue({ success: true, data: { id: 'c-1', name: 'Updated' } });
+      mockGetChampionships.mockResolvedValue(ok({ championships: [] }));
+      mockGetChampionshipDetail.mockResolvedValue(ok({ id: 'c-1', name: 'Updated' }));
 
       const payload = { id: 'c-1', name: 'Updated' };
       const { result } = renderHook(() => useChampionshipActions());
@@ -364,7 +361,7 @@ describe('useChampionshipActions', () => {
     it('calls loadChampionships and clears the selection after success', async () => {
       mockStoreState.selectedChampionship = { id: 'c-1' };
       mockDeleteChampionship.mockResolvedValue({ success: true });
-      mockGetChampionships.mockResolvedValue({ success: true, data: { championships: [] } });
+      mockGetChampionships.mockResolvedValue(ok({ championships: [] }));
 
       const { result } = renderHook(() => useChampionshipActions());
 
@@ -381,7 +378,7 @@ describe('useChampionshipActions', () => {
   describe('createEvent', () => {
     it('calls loadChampionshipDetail after success', async () => {
       mockCreateEvent.mockResolvedValue({ success: true, id: 'e-new' });
-      mockGetChampionshipDetail.mockResolvedValue({ success: true, data: { id: 'c-1', events: [] } });
+      mockGetChampionshipDetail.mockResolvedValue(ok({ id: 'c-1', events: [] }));
 
       const payload = { championshipId: 'c-1', name: 'BR60S', type: 'BR60S' };
       const { result } = renderHook(() => useChampionshipActions());
@@ -399,7 +396,7 @@ describe('useChampionshipActions', () => {
     it('reloads the current championship details after success', async () => {
       mockStoreState.selectedChampionship = { id: 'c-1' };
       mockDeleteEvent.mockResolvedValue({ success: true });
-      mockGetChampionshipDetail.mockResolvedValue({ success: true, data: { id: 'c-1', events: [] } });
+      mockGetChampionshipDetail.mockResolvedValue(ok({ id: 'c-1', events: [] }));
 
       const { result } = renderHook(() => useChampionshipActions());
 
@@ -416,7 +413,7 @@ describe('useChampionshipActions', () => {
     it('stores participants returned by a successful command', async () => {
       const participants = [{ id: 'p-1', playerName: 'Alex Smith' }];
       mockStoreState.selectedEventId = 'event-1';
-      mockSaveParticipants.mockResolvedValue({ success: true, data: { participants } });
+      mockSaveParticipants.mockResolvedValue(ok({ participants }));
 
       const payload = { eventId: 'event-1', participants: [{ name: 'Alex Smith' }] };
       const { result } = renderHook(() => useChampionshipActions());
@@ -435,7 +432,7 @@ describe('useChampionshipActions', () => {
     it('stores firing-point assignments returned by a successful command', async () => {
       const assignments = [{ id: 'a-1', relayNumber: 1, firingPointNumber: 1, participantId: 'p-1' }];
       mockStoreState.selectedEventId = 'event-1';
-      mockSaveFiringPointAssignments.mockResolvedValue({ success: true, data: { assignments } });
+      mockSaveFiringPointAssignments.mockResolvedValue(ok({ assignments }));
 
       const payload = { eventId: 'event-1', assignments: [{ channel: 1, participantId: 'p-1' }] };
       const { result } = renderHook(() => useChampionshipActions());
