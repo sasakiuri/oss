@@ -38,7 +38,7 @@ import {
 import type { FiringBoundarySignal } from '../domain/IFiringWindowJournal';
 import type { IMqttTransport } from '../domain/IMqttTransport';
 import type { LaneTimingEvidencePolicy } from '../domain/LaneTimingEvidencePolicy';
-import { TimedTargetReadinessPolicy, type ITimedTargetReadinessPolicy } from '../domain/TimedTargetReadinessPolicy';
+import type { ITimedTargetReadinessPolicy } from '../domain/TimedTargetReadinessPolicy';
 
 import { CompetitionExpiryScheduler } from './CompetitionExpiryScheduler';
 import { createLaneCommandFailure } from './createLaneCommandFailure';
@@ -97,7 +97,9 @@ export class DirectorMqttService {
   private readonly directorId: string;
   private readonly commandTimeoutMs: number;
   private readonly startDelayMs: number;
-  private callbacks: DirectorMqttCallbacks;
+  private readonly callbacks: DirectorMqttCallbacks;
+  private readonly definitionCompatibilityPolicy: ICompetitionDefinitionCompatibilityPolicy =
+    new CompetitionDefinitionCompatibilityPolicy();
   private activeCompetitionId: string | null = null;
   private competitionCleanupLaneIds = new Map<string, string[]>();
   private readonly connection: DirectorMqttConnection;
@@ -121,8 +123,6 @@ export class DirectorMqttService {
     callbacks: DirectorMqttCallbacks = {},
     transport: IMqttTransport,
     clockQualityPolicy: IClockQualityPolicy = new ClockQualityPolicy(),
-    private readonly definitionCompatibilityPolicy: ICompetitionDefinitionCompatibilityPolicy = new CompetitionDefinitionCompatibilityPolicy(),
-    timedTargetReadinessPolicy: ITimedTargetReadinessPolicy = new TimedTargetReadinessPolicy(),
   ) {
     this.directorId = options.directorId;
     this.commandTimeoutMs = options.commandTimeoutMs ?? 10_000;
@@ -162,7 +162,6 @@ export class DirectorMqttService {
     this.readiness = new DirectorLaneReadiness(
       { isReady: () => this.connection.ready, getHardware: (laneId) => this.state.getLane(laneId)?.hardware },
       clockQualityPolicy,
-      timedTargetReadinessPolicy,
     );
     const commands: DirectorCommandPort = {
       commandBase: (fields) => this.commandBase(fields),
@@ -263,7 +262,8 @@ export class DirectorMqttService {
         this.state.removeCompetition(competitionId);
         this.competitionCleanupLaneIds.delete(competitionId);
         this.expiry.clear(competitionId);
-        if (this.activeCompetitionId === competitionId) this.activeCompetitionId = this.getMostRecentCompetitionId();
+        if (this.activeCompetitionId === competitionId)
+          this.activeCompetitionId = this.state.getMostRecentCompetitionId();
         this.state.projectCompetitionLaneData();
         this.emitStateChanged();
       },
@@ -315,8 +315,8 @@ export class DirectorMqttService {
     return this.readiness.getTimedTargetStartIssues(laneIds);
   }
 
-  getClockQuality(laneId?: string): Readonly<Record<string, ClockQualityAssessment>> | ClockQualityAssessment | null {
-    return this.readiness.getClockQuality(laneId);
+  getClockQualityByLane(): Readonly<Record<string, ClockQualityAssessment>> {
+    return this.readiness.getClockQualityByLane();
   }
 
   async publishCompetitionCue(payload: CompetitionCuePayload): Promise<CompetitionCuePayload> {
@@ -371,10 +371,6 @@ export class DirectorMqttService {
     return this.runSafetyOperation(() =>
       this.safety.clearSafetyStop(laneIds, safetyStopId, clearanceReason, officialName),
     );
-  }
-
-  setCallbacks(callbacks: DirectorMqttCallbacks): void {
-    this.callbacks = callbacks;
   }
 
   connect(brokerUrl: string): Promise<void> {
@@ -1456,7 +1452,7 @@ export class DirectorMqttService {
 
     this.state.removeCompetition(competitionId);
     this.competitionCleanupLaneIds.delete(competitionId);
-    if (this.activeCompetitionId === competitionId) this.activeCompetitionId = this.getMostRecentCompetitionId();
+    if (this.activeCompetitionId === competitionId) this.activeCompetitionId = this.state.getMostRecentCompetitionId();
     this.expiry.clear(competitionId);
     this.state.projectCompetitionLaneData();
     this.emitStateChanged();
@@ -1532,17 +1528,6 @@ export class DirectorMqttService {
         `Cannot change athlete assignments while competition ${competitionId} is in phase ${state.phase}`,
       );
     }
-  }
-
-  private getMostRecentCompetitionId(): string | null {
-    return (
-      this.state
-        .getCompetitions()
-        .sort(
-          (a, b) =>
-            Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || a.competitionId.localeCompare(b.competitionId),
-        )[0]?.competitionId ?? null
-    );
   }
 
   private requireCompetitionLane(competitionId: string, laneId: string): void {

@@ -212,28 +212,10 @@ export class DirectorMqttState {
     baseline: Map<string, CompetitionLaneSnapshotRevision>,
     finalSnapshotCommandId: string,
   ): Promise<Map<string, string>> {
-    return new Promise((resolve) => {
-      let settled = false;
-      let timer: ReturnType<typeof setTimeout> | null = null;
-      const finish = (errors: Map<string, string>): void => {
-        if (settled) return;
-        settled = true;
-        if (timer) clearTimeout(timer);
-        this.competitionLaneSnapshotListeners.delete(check);
-        resolve(errors);
-      };
-      const check = (): void => {
-        const errors = this.getFinalLaneSnapshotErrors(competitionId, laneIds, baseline, finalSnapshotCommandId);
-        if (errors.size === 0) finish(errors);
-      };
-
-      this.competitionLaneSnapshotListeners.add(check);
-      timer = setTimeout(
-        () => finish(this.getFinalLaneSnapshotErrors(competitionId, laneIds, baseline, finalSnapshotCommandId)),
-        this.commandTimeoutMs,
-      );
-      check();
-    });
+    return this.waitForLaneSnapshots(
+      () => this.getFinalLaneSnapshotErrors(competitionId, laneIds, baseline, finalSnapshotCommandId),
+      (errors) => errors.size === 0,
+    );
   }
 
   /**
@@ -259,25 +241,31 @@ export class DirectorMqttState {
         );
       });
 
-    const initial = findNotReady();
-    if (initial.length === 0) return Promise.resolve([]);
+    return this.waitForLaneSnapshots(findNotReady, (notReady) => notReady.length === 0);
+  }
+
+  /**
+   * Re-evaluates on every competition Lane update until the result is complete, or returns the last
+   * evaluation when the command timeout ends the wait.
+   */
+  private waitForLaneSnapshots<T>(evaluate: () => T, isComplete: (result: T) => boolean): Promise<T> {
     return new Promise((resolve) => {
       let settled = false;
       let timer: ReturnType<typeof setTimeout> | null = null;
-      const finish = (remaining: string[]): void => {
+      const finish = (result: T): void => {
         if (settled) return;
         settled = true;
         if (timer) clearTimeout(timer);
         this.competitionLaneSnapshotListeners.delete(check);
-        resolve(remaining);
+        resolve(result);
       };
       const check = (): void => {
-        const remaining = findNotReady();
-        if (remaining.length === 0) finish(remaining);
+        const result = evaluate();
+        if (isComplete(result)) finish(result);
       };
 
       this.competitionLaneSnapshotListeners.add(check);
-      timer = setTimeout(() => finish(findNotReady()), this.commandTimeoutMs);
+      timer = setTimeout(() => finish(evaluate()), this.commandTimeoutMs);
       check();
     });
   }
@@ -313,9 +301,14 @@ export class DirectorMqttState {
   }
 
   getCompetitionIdForLane(laneId: string): string | null {
+    return this.getMostRecentCompetitionId((competition) => competition.laneIds.includes(laneId));
+  }
+
+  /** Latest published matching competition; equal publication times are ordered by competition ID. */
+  getMostRecentCompetitionId(predicate: (competition: CompetitionStatePayload) => boolean = () => true): string | null {
     return (
       [...this.competitions.values()]
-        .filter((competition) => competition.laneIds.includes(laneId))
+        .filter(predicate)
         .sort(
           (a, b) =>
             Date.parse(b.publishedAt) - Date.parse(a.publishedAt) || a.competitionId.localeCompare(b.competitionId),

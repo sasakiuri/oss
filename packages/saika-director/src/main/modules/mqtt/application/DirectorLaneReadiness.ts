@@ -77,16 +77,13 @@ export class DirectorLaneReadiness {
     if (issues.length) throw new Error(`Timed target readiness: ${issues.map((issue) => issue.message).join('; ')}`);
   }
 
-  getClockQuality(laneId?: string): Readonly<Record<string, ClockQualityAssessment>> | ClockQualityAssessment | null {
-    const current = (assessment: ClockQualityAssessment): ClockQualityAssessment => ({
-      ...assessment,
-      usableForTimedCommands: this.clockQualityPolicy.isUsable(assessment),
-    });
-    if (laneId !== undefined) {
-      const assessment = this.clockQualityByLaneId.get(laneId);
-      return assessment ? current(assessment) : null;
-    }
-    return Object.fromEntries([...this.clockQualityByLaneId].map(([id, assessment]) => [id, current(assessment)]));
+  getClockQualityByLane(): Readonly<Record<string, ClockQualityAssessment>> {
+    return Object.fromEntries(
+      [...this.clockQualityByLaneId].map(([laneId, assessment]) => [
+        laneId,
+        { ...assessment, usableForTimedCommands: this.clockQualityPolicy.isUsable(assessment) },
+      ]),
+    );
   }
 
   getClockStartIssues(laneIds: readonly string[]): CompetitionStartIssue[] {
