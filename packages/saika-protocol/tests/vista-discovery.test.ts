@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createVistaDiscovery, discoverVistaNodes } from '../src/vista-node';
+import { createVistaDiscovery, createVistaHost, createVistaServer, discoverVistaNodes } from '../src/vista-node';
 
 const network = vi.hoisted(() => ({ createSocket: vi.fn(), networkInterfaces: vi.fn() }));
 vi.mock('node:dgram', () => ({ createSocket: network.createSocket }));
@@ -123,5 +123,35 @@ describe('Vista discovery across network interfaces', () => {
     expect((await result).map((node) => node.endpoint)).toEqual([`http://${wifi}:45831`]);
     expect(socket.transmissions).toHaveLength(1);
     expect(socket.closed).toBe(true);
+  });
+});
+
+describe('Vista host', () => {
+  const secret = 'a'.repeat(43);
+  const handle = () => null;
+
+  it('advertises the bound port until the server closes', async () => {
+    const host = await createVistaHost({ identity, secret, handle });
+    await vi.advanceTimersByTimeAsync(0);
+    socket.emit('message', Buffer.from('saika-vista-discover/1'), { address: wifi, port: 12345 });
+    await vi.advanceTimersByTimeAsync(20);
+    expect(JSON.parse(socket.transmissions[0]!.payload.toString())).toMatchObject({ port: host.port });
+    expect(host.endpoints).toContain(`http://127.0.0.1:${host.port}`);
+
+    await host.close();
+    expect(socket.closed).toBe(true);
+    const replacement = await createVistaServer({ identity, secret, port: host.port, handle });
+    await replacement.close();
+  });
+
+  it('closes the server when discovery cannot start', async () => {
+    const probe = await createVistaServer({ identity, secret, handle });
+    await probe.close();
+    network.createSocket.mockImplementation(() => {
+      throw new Error('UDP unavailable');
+    });
+    await expect(createVistaHost({ identity, secret, port: probe.port, handle })).rejects.toThrow('UDP unavailable');
+    const replacement = await createVistaServer({ identity, secret, port: probe.port, handle });
+    await replacement.close();
   });
 });

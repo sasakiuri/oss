@@ -2,7 +2,7 @@
 import { randomBytes } from 'node:crypto';
 
 import type { VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
-import { createVistaDiscovery, createVistaServer, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
+import { createVistaHost, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
 import { z } from 'zod';
 
 import { VISTA_DISPLAY_PATH } from '../shared/displayPaths';
@@ -18,7 +18,6 @@ import { messageOf } from './document';
  */
 export class DisplayServer {
   private server: VistaServer | null = null;
-  private discovery: { close(): void } | null = null;
   private releaseTask: Promise<void> | null = null;
   private listenerError: string | null = null;
   private stopped = false;
@@ -46,7 +45,7 @@ export class DisplayServer {
 
   async listen(): Promise<void> {
     try {
-      this.server = await createVistaServer({
+      this.server = await createVistaHost({
         identity: this.identity,
         secret: () => this.state.document.secret,
         port: this.state.document.port,
@@ -63,7 +62,6 @@ export class DisplayServer {
     try {
       if (this.state.document.port !== this.server.port)
         await this.state.transact((document) => ({ ...document, port: this.server!.port }));
-      this.discovery = createVistaDiscovery(this.identity, this.server.port);
     } catch (error) {
       const failed = this.server;
       this.server = null;
@@ -76,14 +74,12 @@ export class DisplayServer {
   async stop(): Promise<void> {
     this.stopped = true;
     await this.releaseTask;
-    this.discovery?.close();
     await this.server?.close();
   }
 
   /** Revokes the controller locally with a new pairing secret and restarts the listener. */
   async revoke(): Promise<void> {
     await this.releaseTask;
-    this.discovery?.close();
     await this.server?.close();
     await this.state.transact((document) => ({
       ...document,
@@ -131,7 +127,6 @@ export class DisplayServer {
       this.releaseTask = persisted
         .then(() => new Promise<void>((resolve) => setTimeout(resolve, 50)))
         .then(async () => {
-          this.discovery?.close();
           await this.server?.close();
           this.server = null;
           await this.state.transact((document) => ({
