@@ -49,6 +49,13 @@ export interface UpdaterServiceOptions {
 
 const DEFAULT_UNSUPPORTED_MESSAGE = 'Auto-update is available only in packaged releases.';
 
+const NO_DOWNLOAD_PROGRESS = {
+  downloadPercent: null,
+  transferredBytes: null,
+  totalBytes: null,
+  bytesPerSecond: null,
+} as const;
+
 function createInitialState(currentVersion: string, isPackaged: boolean): AppUpdateStateDto {
   return {
     status: isPackaged ? 'idle' : 'unsupported',
@@ -57,10 +64,7 @@ function createInitialState(currentVersion: string, isPackaged: boolean): AppUpd
     releaseName: null,
     releaseDate: null,
     releaseNotes: null,
-    downloadPercent: null,
-    transferredBytes: null,
-    totalBytes: null,
-    bytesPerSecond: null,
+    ...NO_DOWNLOAD_PROGRESS,
     lastCheckedAt: null,
     errorMessage: isPackaged ? null : DEFAULT_UNSUPPORTED_MESSAGE,
     canCheckForUpdates: isPackaged,
@@ -204,10 +208,7 @@ export class UpdaterService {
         errorMessage: null,
         canCheckForUpdates: false,
         canInstallUpdate: false,
-        downloadPercent: null,
-        transferredBytes: null,
-        totalBytes: null,
-        bytesPerSecond: null,
+        ...NO_DOWNLOAD_PROGRESS,
       });
 
       try {
@@ -344,10 +345,7 @@ export class UpdaterService {
         releaseName: info.releaseName ?? null,
         releaseDate: toIsoString(info.releaseDate),
         releaseNotes: normalizeReleaseNotes(info.releaseNotes),
-        downloadPercent: null,
-        transferredBytes: null,
-        totalBytes: null,
-        bytesPerSecond: null,
+        ...NO_DOWNLOAD_PROGRESS,
         lastCheckedAt: new Date().toISOString(),
         errorMessage: null,
         canCheckForUpdates: false,
@@ -414,10 +412,7 @@ export class UpdaterService {
     this.setState({
       ...this.state,
       status: 'error',
-      downloadPercent: null,
-      transferredBytes: null,
-      totalBytes: null,
-      bytesPerSecond: null,
+      ...NO_DOWNLOAD_PROGRESS,
       lastCheckedAt: new Date().toISOString(),
       errorMessage: message,
       canCheckForUpdates: this.isPackaged && !canRetryInstall,
