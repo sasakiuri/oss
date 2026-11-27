@@ -2,9 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { InferHandlers } from '@sasakiuri/saika-ipc';
 import { vistaContract } from '@/shared/ipc/contracts';
-const { createServer, createDiscovery, loadCredentials, sourceCatalog, sourceSnapshot } = vi.hoisted(() => ({
-  createServer: vi.fn(),
-  createDiscovery: vi.fn(),
+const { createHost, loadCredentials, sourceCatalog, sourceSnapshot } = vi.hoisted(() => ({
+  createHost: vi.fn(),
   loadCredentials: vi.fn(),
   sourceCatalog: vi.fn(),
   sourceSnapshot: vi.fn(),
@@ -12,8 +11,7 @@ const { createServer, createDiscovery, loadCredentials, sourceCatalog, sourceSna
 vi.mock('electron', () => ({ app: { getPath: () => '/unused' } }));
 vi.mock('@sasakiuri/saika-protocol/vista-node', () => ({
   loadVistaCredentials: loadCredentials,
-  createVistaServer: createServer,
-  createVistaDiscovery: createDiscovery,
+  createVistaHost: createHost,
 }));
 vi.mock('@/main/modules/vista/application/DirectorVistaSource', () => ({
   DirectorVistaSource: class {
@@ -44,14 +42,13 @@ describe('Vista failure isolation', () => {
     await expect(handlers!.setSettings({ enabled: true, port: 45832 })).rejects.toThrow(
       'Vista credentials are unavailable',
     );
-    expect(createServer).not.toHaveBeenCalled();
+    expect(createHost).not.toHaveBeenCalled();
   });
 
   it.each([false, true])('closes a new listener if saving settings fails (previous sharing=%s)', async (enabled) => {
     loadCredentials.mockReturnValue({ sourceId: 'director', secret: 'a'.repeat(43) });
     const activePorts = new Set<number>();
-    const advertisedPorts = new Set<number>();
-    createServer.mockImplementation(async ({ port }: { port: number }) => {
+    createHost.mockImplementation(async ({ port }: { port: number }) => {
       if (activePorts.has(port)) throw new Error('Port is already listening');
       activePorts.add(port);
       return {
@@ -61,10 +58,6 @@ describe('Vista failure isolation', () => {
           activePorts.delete(port);
         },
       };
-    });
-    createDiscovery.mockImplementation((_, port: number) => {
-      advertisedPorts.add(port);
-      return { close: () => advertisedPorts.delete(port) };
     });
     const saved: Record<string, boolean | number> = { 'vista.enabled': enabled, 'vista.port': 45832 };
     let failSave = true;
@@ -90,7 +83,6 @@ describe('Vista failure isolation', () => {
     try {
       await expect(handlers!.setSettings({ enabled: true, port: 45833 })).rejects.toThrow('SQLITE_FULL');
       expect([...activePorts]).toEqual(enabled ? [45832] : []);
-      expect([...advertisedPorts]).toEqual(enabled ? [45832] : []);
       expect(await handlers!.getSettings()).toMatchObject({
         enabled,
         running: enabled,
@@ -102,7 +94,6 @@ describe('Vista failure isolation', () => {
       await handlers!.setSettings({ enabled: false, port: 45832 });
       expect(await handlers!.getSettings()).toMatchObject({ enabled: false, running: false, error: null });
       expect([...activePorts]).toEqual([]);
-      expect([...advertisedPorts]).toEqual([]);
     } finally {
       await lifecycle.stop?.();
     }
@@ -114,12 +105,11 @@ describe('Vista read endpoints', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     loadCredentials.mockReturnValue({ sourceId: 'director', secret: 'a'.repeat(43) });
-    createServer.mockImplementation(async ({ port }: { port: number }) => ({
+    createHost.mockImplementation(async ({ port }: { port: number }) => ({
       port,
       endpoints: [`http://127.0.0.1:${port}`],
       close: async () => undefined,
     }));
-    createDiscovery.mockReturnValue({ close: () => undefined });
   });
 
   it('serves the catalog and decoded snapshot subjects to GET requests only', async () => {
@@ -131,7 +121,7 @@ describe('Vista read endpoints', () => {
     const lifecycle = vistaModule.register(context)!.lifecycle![0]!;
     await lifecycle.start();
     try {
-      const { handle, identity } = createServer.mock.calls[0]![0] as {
+      const { handle, identity } = createHost.mock.calls[0]![0] as {
         handle: (method: string, path: string) => unknown;
         identity: Record<string, unknown>;
       };

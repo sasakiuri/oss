@@ -3,8 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { app } from 'electron';
 import {
-  createVistaDiscovery,
-  createVistaServer,
+  createVistaHost,
   loadVistaCredentials,
   type VistaCredentials,
   type VistaServer,
@@ -108,18 +107,15 @@ export const vistaModule = defineModule({
       }
     });
     let server: VistaServer | null = null;
-    let discovery: ReturnType<typeof createVistaDiscovery> | null = null;
     let error: string | null = null;
     let tail: Promise<void> = Promise.resolve();
     const stop = async () => {
-      discovery?.close();
-      discovery = null;
       const closing = server;
       server = null;
       await closing?.close();
     };
     const start = async (port: number) => {
-      server = await createVistaServer({
+      server = await createVistaHost({
         identity,
         secret: credentials.secret,
         port,
@@ -132,7 +128,6 @@ export const vistaModule = defineModule({
           throw new Error('Unknown Vista read endpoint');
         },
       });
-      discovery = createVistaDiscovery(identity, server.port);
       error = null;
     };
     const settings = () => ({

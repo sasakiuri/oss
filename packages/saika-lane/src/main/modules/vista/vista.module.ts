@@ -4,8 +4,7 @@ import { join } from 'node:path';
 
 import { VISTA_PROTOCOL_VERSION, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
 import {
-  createVistaDiscovery,
-  createVistaServer,
+  createVistaHost,
   loadVistaCredentials,
   rotateVistaCredentials,
   type VistaCredentials,
@@ -108,42 +107,38 @@ export const vistaModule: ModuleDefinition<Deps> = {
       });
       return;
     }
-    let server: VistaServer | null = null;
-    let discovery: { close(): void } | null = null;
+    let host: VistaServer | null = null;
     let error: string | null = null;
     let disposed = false;
     const changes = new SerialQueue();
     const status = () => ({
-      enabled: server !== null,
+      enabled: host !== null,
       sourceId: identity.sourceId,
       secret: credentials.secret,
-      endpoints: server?.endpoints ?? [],
+      endpoints: host?.endpoints ?? [],
       error: error ?? source.getError(),
     });
     const configure = (enabled: boolean, resetPairing = false): Promise<void> => {
       const next = changes.run(async () => {
         if (disposed) return;
         error = null;
-        discovery?.close();
-        discovery = null;
-        if (server) {
-          await server.close();
-          server = null;
+        if (host) {
+          await host.close();
+          host = null;
         }
         if (resetPairing) credentials = rotateVistaCredentials(join(userDataPath, 'vista', 'credentials.json'));
         if (enabled) {
-          server = await createVistaServer({
+          host = await createVistaHost({
             identity,
             secret: () => credentials.secret,
             port: 45831,
             handle: (method, path) => source.handle(method, path),
           });
           if (disposed) {
-            await server.close();
-            server = null;
+            await host.close();
+            host = null;
             return;
           }
-          discovery = createVistaDiscovery(identity, server.port);
         }
         storage.set('vista.enabled', enabled);
       });
@@ -156,7 +151,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
     ipcRouter.register(vistaContract, {
       getStatus: async () => status(),
       resetPairing: async () => {
-        await configure(server !== null, true);
+        await configure(host !== null, true);
         return status();
       },
       setEnabled: async ({ enabled }) => {
@@ -196,8 +191,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
     mainWindow.once('closed', () => {
       disposed = true;
       for (const stop of unsubscribe) stop();
-      discovery?.close();
-      void server?.close();
+      void host?.close();
     });
   },
 };

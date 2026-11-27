@@ -123,12 +123,14 @@ function localAddresses(): string[] {
     .map((entry) => entry.address);
 }
 
-export async function createVistaServer(options: {
+interface VistaServerOptions {
   identity: VistaIdentity;
   secret: string | (() => string);
   port?: number;
   handle: (method: string, path: string, body: unknown) => unknown | Promise<unknown>;
-}): Promise<VistaServer> {
+}
+
+export async function createVistaServer(options: VistaServerOptions): Promise<VistaServer> {
   const identity = VistaIdentitySchema.parse(options.identity);
   const readSecret = typeof options.secret === 'function' ? options.secret : () => options.secret as string;
   keyFor(readSecret());
@@ -239,6 +241,29 @@ export async function createVistaServer(options: {
       closed = true;
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+    },
+  };
+}
+
+/**
+ * Starts a Vista server and advertises it for discovery until it is closed. A server whose
+ * discovery cannot start is closed again, so discovery never outlives its server.
+ */
+export async function createVistaHost(options: VistaServerOptions): Promise<VistaServer> {
+  const server = await createVistaServer(options);
+  let discovery: { close(): void };
+  try {
+    discovery = createVistaDiscovery(options.identity, server.port);
+  } catch (error) {
+    await server.close();
+    throw error;
+  }
+  return {
+    port: server.port,
+    endpoints: server.endpoints,
+    close: async () => {
+      discovery.close();
+      await server.close();
     },
   };
 }
