@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
 import { scoringDecisionsService } from '@/renderer/services';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { AddScoringDecisionPayload, ScoringDecisionDto } from '@/shared/ipc/contracts';
 
@@ -43,8 +44,7 @@ const DECISION_OPTIONS: Array<{ value: AddDecisionType; label: string }> = [
 export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }: ScoringDecisionPanelProps) {
   const [decisions, setDecisions] = useState<ScoringDecisionDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, setError, run } = useAsyncAction();
   const [type, setType] = useState<AddDecisionType>('DEDUCTION');
   const [policy, setPolicy] = useState<'SPECIFIC_SHOT' | 'LOWEST_SHOT_IN_SERIES'>('LOWEST_SHOT_IN_SERIES');
   const [points, setPoints] = useState('2.0');
@@ -69,7 +69,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
     } finally {
       setLoading(false);
     }
-  }, [result.id, resultScope]);
+  }, [result.id, resultScope, setError]);
 
   useEffect(() => {
     void loadDecisions();
@@ -87,9 +87,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
   const handleSubmit = useCallback(
     async (event: FormEvent) => {
       event.preventDefault();
-      setSaving(true);
-      setError(null);
-      try {
+      await run(async () => {
         const parsedSeries = Number.parseInt(seriesNumber, 10) - 1;
         const parsedShot = Number.parseInt(shotNumber, 10) - 1;
         const payload: AddScoringDecisionPayload = {
@@ -111,11 +109,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
         setInternalNote('');
         await loadDecisions();
         onChanged();
-      } catch (caught) {
-        setError(errorMessage(caught, 'Failed to append scoring decision'));
-      } finally {
-        setSaving(false);
-      }
+      }, 'Failed to append scoring decision');
     },
     [
       effectivePolicy,
@@ -129,6 +123,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
       result.id,
       resultScope,
       ruleReference,
+      run,
       seriesNumber,
       shotNumber,
       showSeries,
@@ -139,9 +134,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
 
   const handleRevoke = useCallback(async () => {
     if (!revokeTargetId) return;
-    setSaving(true);
-    setError(null);
-    try {
+    await run(async () => {
       const response = await scoringDecisionsService.revoke({
         decisionId: revokeTargetId,
         ruleReference,
@@ -155,11 +148,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
       setRevokeReason('');
       await loadDecisions();
       onChanged();
-    } catch (caught) {
-      setError(errorMessage(caught, 'Failed to revoke scoring decision'));
-    } finally {
-      setSaving(false);
-    }
+    }, 'Failed to revoke scoring decision');
   }, [
     incidentReportNumber,
     internalNote,
@@ -169,6 +158,7 @@ export function ScoringDecisionPanel({ result, resultScope, onClose, onChanged }
     revokeReason,
     revokeTargetId,
     ruleReference,
+    run,
   ]);
 
   return (

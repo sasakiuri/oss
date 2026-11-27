@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { BadgeCheck, Download } from 'lucide-react';
 
-import type { ResultsBookDto } from '@/shared/ipc/contracts';
+import type { OfficialSigningMethod, ResultsBookDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 import { inputClass, stackedLabelClass } from '../shared/common/formClasses';
+import { officialSigningRequest } from '../shared/common/officialSigningRequest';
 
 import { ResultsBookField } from './ResultsBookField';
 import { roleLabel } from './resultsBookPresentation';
@@ -20,7 +21,7 @@ interface ResultsBookVersionsFormProps {
 export function ResultsBookVersionsForm({ books, busy, commands }: ResultsBookVersionsFormProps) {
   const [bookCreatedBy, setBookCreatedBy] = useState('');
   const [signatureStatement, setSignatureStatement] = useState('I certify this Results Book version');
-  const [signatureMethod, setSignatureMethod] = useState<'SELF' | 'EXTERNAL'>('SELF');
+  const [signatureMethod, setSignatureMethod] = useState<OfficialSigningMethod>('SELF');
   const [signatureRecorder, setSignatureRecorder] = useState('');
   const [signatureEvidence, setSignatureEvidence] = useState('');
   const [finalizedBy, setFinalizedBy] = useState('');
@@ -35,13 +36,7 @@ export function ResultsBookVersionsForm({ books, busy, commands }: ResultsBookVe
       bookId,
       appointmentId,
       statement: signatureStatement.trim(),
-      method: signatureMethod,
-      ...(signatureMethod === 'EXTERNAL'
-        ? {
-            ...(signatureRecorder.trim() ? { recordedBy: signatureRecorder.trim() } : {}),
-            evidenceReference: signatureEvidence.trim(),
-          }
-        : {}),
+      ...officialSigningRequest(signatureMethod, signatureRecorder, signatureEvidence),
     });
 
   const finalizeBook = (bookId: string) =>
@@ -69,7 +64,7 @@ export function ResultsBookVersionsForm({ books, busy, commands }: ResultsBookVe
           <select
             className={inputClass}
             value={signatureMethod}
-            onChange={(event) => setSignatureMethod(event.target.value as 'SELF' | 'EXTERNAL')}
+            onChange={(event) => setSignatureMethod(event.target.value as OfficialSigningMethod)}
           >
             <option value="SELF">Personal signature</option>
             <option value="EXTERNAL">Record an external signature</option>

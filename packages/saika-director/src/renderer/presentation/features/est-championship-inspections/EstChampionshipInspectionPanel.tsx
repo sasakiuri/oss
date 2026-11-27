@@ -9,6 +9,7 @@ import type { EstChampionshipInspectionAssessmentDto } from '@/shared/ipc/contra
 import { Button } from '../shared/common/Button';
 import { inputClass, stackedLabelClass } from '@/renderer/presentation/features/shared/common/formClasses';
 import { InlineError } from '../shared/common/InlineError';
+import { parseListItems } from '../shared/common/parseListItems';
 
 export function EstChampionshipInspectionPanel({ championshipId }: { championshipId: string }) {
   const [assessment, setAssessment] = useState<EstChampionshipInspectionAssessmentDto | null>(null);
@@ -39,7 +40,7 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
   }, [load]);
 
   const createPlan = async () => {
-    const targetIdentifiers = parseTargets(targetText);
+    const targetIdentifiers = parseListItems(targetText);
     if (targetIdentifiers.length === 0 || !createdBy.trim() || !methodStatement.trim()) return;
     await run(async () => {
       const response = await estChampionshipInspectionsService.createPlan({
@@ -132,7 +133,7 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
         <Button
           className="mt-3"
           size="sm"
-          disabled={busy || parseTargets(targetText).length === 0 || !createdBy.trim() || !methodStatement.trim()}
+          disabled={busy || parseListItems(targetText).length === 0 || !createdBy.trim() || !methodStatement.trim()}
           onClick={() => void createPlan()}
         >
           {assessment?.plan ? 'Create revised plan' : 'Create plan'}
@@ -216,15 +217,4 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
       <input className={inputClass} value={value} onChange={(event) => onChange(event.target.value)} />
     </label>
   );
-}
-
-function parseTargets(value: string): string[] {
-  return [
-    ...new Set(
-      value
-        .split(/[\n,]/)
-        .map((item) => item.trim())
-        .filter(Boolean),
-    ),
-  ];
 }

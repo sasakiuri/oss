@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Medal, RefreshCw } from 'lucide-react';
 
 import { finalControlService, mqttService } from '@/renderer/services';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type {
   DirectorLaneSnapshotDto,
@@ -37,8 +38,7 @@ export function FinalControlPanel({
   >('CLEAR_LOWEST');
   const [statement, setStatement] = useState('');
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, setError, run } = useAsyncAction();
 
   const laneSnapshots = useMemo<FinalControlLaneSnapshotDto[]>(
     () =>
@@ -96,7 +96,7 @@ export function FinalControlPanel({
     } finally {
       setLoading(false);
     }
-  }, [competitionId, input]);
+  }, [competitionId, input, setError]);
 
   useEffect(() => {
     void load();
@@ -106,61 +106,57 @@ export function FinalControlPanel({
     [...decisions].reverse().find((decision) => !decision.voided && !decision.commandCompleted) ?? null;
   const canDecide = assessment?.status === 'READY' || assessment?.status === 'TIE';
 
-  const executeRetirement = async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      let decision = pendingDecision;
-      if (!decision) {
-        if (!canDecide || !selectedLaneId) throw new Error('No Final checkpoint is ready');
-        const recorded = await finalControlService.recordDecision({
-          ...input,
-          ...(eventId ? { eventId } : {}),
-          selectedLaneId,
-          resolution,
-          ...(statement.trim() ? { resolutionStatement: statement.trim() } : {}),
+  const executeRetirement = () =>
+    run(async () => {
+      try {
+        let decision = pendingDecision;
+        if (!decision) {
+          if (!canDecide || !selectedLaneId) throw new Error('No Final checkpoint is ready');
+          const recorded = await finalControlService.recordDecision({
+            ...input,
+            ...(eventId ? { eventId } : {}),
+            selectedLaneId,
+            resolution,
+            ...(statement.trim() ? { resolutionStatement: statement.trim() } : {}),
+            officialName: officialName.trim(),
+          });
+          decision = unwrap(recorded);
+        }
+        const retirement = await mqttService.retireFinalist({
+          competitionId,
+          laneId: decision.selectedLaneId,
+          checkpointId: decision.id,
+          rank: decision.rank,
+          afterShot: decision.afterShot,
+        });
+        const command = unwrap(retirement);
+        const laneResult = command.lanes.find((lane) => lane.laneId === decision!.selectedLaneId);
+        const status = laneResult?.status === 'done' ? 'DONE' : laneResult?.status === 'error' ? 'ERROR' : 'TIMEOUT';
+        const detail =
+          laneResult?.error?.message ??
+          (status === 'DONE'
+            ? `Lane retired as rank ${decision.rank} after shot ${decision.afterShot}`
+            : `Lane command ended with ${status.toLowerCase()}`);
+        const recordedResult = await finalControlService.recordCommandResult({
+          decisionId: decision.id,
+          commandId: command.commandId,
+          status,
+          statement: detail,
           officialName: officialName.trim(),
         });
-        decision = unwrap(recorded);
+        unwrap(recordedResult);
+        setStatement('');
+        await load();
+      } catch (caught) {
+        // The retirement may be recorded although a later step failed; show the reloaded state with the error.
+        await load();
+        throw caught;
       }
-      const retirement = await mqttService.retireFinalist({
-        competitionId,
-        laneId: decision.selectedLaneId,
-        checkpointId: decision.id,
-        rank: decision.rank,
-        afterShot: decision.afterShot,
-      });
-      const command = unwrap(retirement);
-      const laneResult = command.lanes.find((lane) => lane.laneId === decision!.selectedLaneId);
-      const status = laneResult?.status === 'done' ? 'DONE' : laneResult?.status === 'error' ? 'ERROR' : 'TIMEOUT';
-      const detail =
-        laneResult?.error?.message ??
-        (status === 'DONE'
-          ? `Lane retired as rank ${decision.rank} after shot ${decision.afterShot}`
-          : `Lane command ended with ${status.toLowerCase()}`);
-      const recordedResult = await finalControlService.recordCommandResult({
-        decisionId: decision.id,
-        commandId: command.commandId,
-        status,
-        statement: detail,
-        officialName: officialName.trim(),
-      });
-      unwrap(recordedResult);
-      setStatement('');
-      await load();
-    } catch (caught) {
-      await load();
-      setError(errorMessage(caught));
-    } finally {
-      setSaving(false);
-    }
-  };
+    });
 
   const voidPending = async () => {
     if (!pendingDecision || !statement.trim() || !officialName.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
+    await run(async () => {
       const response = await finalControlService.voidDecision({
         decisionId: pendingDecision.id,
         reason: statement.trim(),
@@ -169,11 +165,7 @@ export function FinalControlPanel({
       unwrap(response);
       setStatement('');
       await load();
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   return (

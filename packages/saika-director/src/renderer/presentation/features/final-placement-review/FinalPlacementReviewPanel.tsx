@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 
 import { finalPlacementReviewService } from '@/renderer/services';
+import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { FinalPlacementReviewStatusDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
@@ -24,8 +25,7 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
   const [revokeReason, setRevokeReason] = useState('');
   const [showRevocation, setShowRevocation] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy: saving, error, setError, run } = useAsyncAction();
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -45,7 +45,7 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, setError]);
 
   useEffect(() => {
     void loadStatus();
@@ -66,9 +66,7 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
     async (event: FormEvent) => {
       event.preventDefault();
       if (!status) return;
-      setSaving(true);
-      setError(null);
-      try {
+      await run(async () => {
         const placements = status.results
           .filter((result) => result.classificationCode === null)
           .map((result) => ({
@@ -87,22 +85,17 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
         unwrap(response);
         await loadStatus();
         onChanged();
-      } catch (caught) {
-        setError(errorMessage(caught, 'Failed to record Final placement review'));
-      } finally {
-        setSaving(false);
-      }
+      }, 'Failed to record Final placement review');
     },
-    [eventId, loadStatus, officialName, onChanged, ranks, ruleReference, statement, status],
+    [eventId, loadStatus, officialName, onChanged, ranks, ruleReference, run, statement, status],
   );
 
   const handleRevoke = useCallback(async () => {
-    if (!status?.currentReview) return;
-    setSaving(true);
-    setError(null);
-    try {
+    const currentReview = status?.currentReview;
+    if (!currentReview) return;
+    await run(async () => {
       const response = await finalPlacementReviewService.revoke({
-        reviewId: status.currentReview.id,
+        reviewId: currentReview.id,
         ruleReference,
         reason: revokeReason,
         officialName,
@@ -112,12 +105,8 @@ export function FinalPlacementReviewPanel({ eventId, eventName, onClose, onChang
       setRevokeReason('');
       await loadStatus();
       onChanged();
-    } catch (caught) {
-      setError(errorMessage(caught, 'Failed to revoke Final placement review'));
-    } finally {
-      setSaving(false);
-    }
-  }, [loadStatus, officialName, onChanged, revokeReason, ruleReference, status?.currentReview]);
+    }, 'Failed to revoke Final placement review');
+  }, [loadStatus, officialName, onChanged, revokeReason, ruleReference, run, status?.currentReview]);
 
   return (
     <Modal isOpen onClose={onClose} title={`Final placement review — ${eventName ?? 'Final'}`}>
