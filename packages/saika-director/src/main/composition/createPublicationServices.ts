@@ -141,7 +141,6 @@ export function createPublicationServices({
   );
   const relayReadinessService = new RelayReadinessService(
     new SqliteRelayReadinessRepository(database),
-    undefined,
     new SqliteRelayStartSettingsRepository(database),
   );
   const estInspectionStartService = new EstInspectionStartService(

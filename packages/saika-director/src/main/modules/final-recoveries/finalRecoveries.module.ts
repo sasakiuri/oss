@@ -11,7 +11,6 @@ export const finalRecoveriesModule = defineModule({
   register({ database, ipcRouter, laneControlRepository, participantRepository }) {
     const service = new FinalRecoveryService(
       new SqliteFinalRecoveryRepository(database),
-      undefined,
       new AssignedFinalRecoverySubjectSource(participantRepository, laneControlRepository),
     );
     ipcRouter.register(finalRecoveriesContract, {

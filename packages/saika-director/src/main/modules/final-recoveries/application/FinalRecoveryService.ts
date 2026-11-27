@@ -7,7 +7,6 @@ import type {
 import {
   type FinalRecoveryAllowanceSubject,
   IssfFinalRecoveryAuthorizationPolicy,
-  type IFinalRecoveryAuthorizationPolicy,
 } from '../domain/FinalRecoveryAuthorizationPolicy';
 import {
   FinalRecoveryCase,
@@ -20,9 +19,10 @@ import type { IFinalRecoverySubjectSource } from '../domain/IFinalRecoverySubjec
 import { getIssfFinalRecoveryGuidance } from '../domain/IssfFinalRecoveryPolicy';
 
 export class FinalRecoveryService {
+  private readonly authorizationPolicy = new IssfFinalRecoveryAuthorizationPolicy();
+
   constructor(
     private readonly repository: IFinalRecoveryRepository,
-    private readonly authorizationPolicy: IFinalRecoveryAuthorizationPolicy = new IssfFinalRecoveryAuthorizationPolicy(),
     private readonly subjects?: IFinalRecoverySubjectSource,
   ) {}
 

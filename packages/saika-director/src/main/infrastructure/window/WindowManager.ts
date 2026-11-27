@@ -52,17 +52,12 @@ export class WindowManager {
   }
 
   /**
-   * Creates a board window.
-   * @param type Board type.
+   * Creates a board window of `config.type`.
    * @param config Board configuration.
    * @returns Window ID (UUID).
    */
-  createBoardWindow(type: BoardType, config: BoardWindowConfig): string {
-    // Ensure the requested type matches config.type.
-    if (config.type !== type) {
-      throw new Error(`Board type mismatch: ${type} !== ${config.type}`);
-    }
-
+  createBoardWindow(config: BoardWindowConfig): string {
+    const { type } = config;
     const windowId = crypto.randomUUID();
 
     const boardWindow = new BrowserWindow({

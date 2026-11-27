@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
+import type { SavedSource } from './VistaSourceModel';
 
 export interface VistaSourceRow {
   id: string;
-  source_json: string;
+  source: SavedSource;
   snapshot_json: string | null;
   revision: number;
 }
@@ -29,9 +30,9 @@ export interface IVistaSourceStore {
   transaction(operation: () => void): void;
   rows(): VistaSourceRow[];
   row(id: string): VistaSourceRow | null;
-  saveSource(id: string, sourceJson: string): void;
+  saveSource(id: string, source: SavedSource): void;
   /** Inserts the subject or replaces its saved source, keeping a saved snapshot. */
-  upsertSource(id: string, sourceJson: string): void;
+  upsertSource(id: string, source: SavedSource): void;
   saveSnapshot(id: string, snapshotJson: string, revision: number): void;
   participant(id: string): VistaParticipantRecord | null;
   eventLabels(eventId: string): { name: string; championship: string } | undefined;

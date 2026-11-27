@@ -1,12 +1,20 @@
 // SPDX-License-Identifier: MIT
 import type Database from 'better-sqlite3';
 
+import type { SavedSource } from '../application/VistaSourceModel';
 import type {
   IVistaSourceStore,
   VistaLinkedResult,
   VistaParticipantRecord,
   VistaSourceRow,
 } from '../application/VistaSourceStore';
+
+type StoredSourceRow = Omit<VistaSourceRow, 'source'> & { source_json: string };
+
+const toSourceRow = ({ source_json, ...row }: StoredSourceRow): VistaSourceRow => ({
+  ...row,
+  source: JSON.parse(source_json) as SavedSource,
+});
 
 export class SqliteVistaSourceStore implements IVistaSourceStore {
   constructor(private readonly db: Database.Database) {}
@@ -16,26 +24,29 @@ export class SqliteVistaSourceStore implements IVistaSourceStore {
   }
 
   rows(): VistaSourceRow[] {
-    return this.db.prepare('SELECT * FROM vista_competition_sources ORDER BY rowid').all() as VistaSourceRow[];
-  }
-
-  row(id: string): VistaSourceRow | null {
-    return (
-      (this.db.prepare('SELECT * FROM vista_competition_sources WHERE id = ?').get(id) as VistaSourceRow | undefined) ??
-      null
+    return (this.db.prepare('SELECT * FROM vista_competition_sources ORDER BY rowid').all() as StoredSourceRow[]).map(
+      toSourceRow,
     );
   }
 
-  saveSource(id: string, sourceJson: string): void {
-    this.db.prepare('UPDATE vista_competition_sources SET source_json = ? WHERE id = ?').run(sourceJson, id);
+  row(id: string): VistaSourceRow | null {
+    const row = this.db.prepare('SELECT * FROM vista_competition_sources WHERE id = ?').get(id) as
+      StoredSourceRow | undefined;
+    return row ? toSourceRow(row) : null;
   }
 
-  upsertSource(id: string, sourceJson: string): void {
+  saveSource(id: string, source: SavedSource): void {
+    this.db
+      .prepare('UPDATE vista_competition_sources SET source_json = ? WHERE id = ?')
+      .run(JSON.stringify(source), id);
+  }
+
+  upsertSource(id: string, source: SavedSource): void {
     this.db
       .prepare(
         `INSERT INTO vista_competition_sources (id, source_json) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET source_json = excluded.source_json`,
       )
-      .run(id, sourceJson);
+      .run(id, JSON.stringify(source));
   }
 
   saveSnapshot(id: string, snapshotJson: string, revision: number): void {

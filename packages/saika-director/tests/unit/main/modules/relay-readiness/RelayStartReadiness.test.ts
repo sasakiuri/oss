@@ -19,7 +19,6 @@ describe('Relay start enforcement', () => {
   const connect = () => {
     service = new RelayReadinessService(
       new SqliteRelayReadinessRepository(db),
-      undefined,
       new SqliteRelayStartSettingsRepository(db),
     );
     guard = new CompetitionStartReadiness([service]);
