@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { mqttTopicFilters, mqttTopics } from '@sasakiuri/saika-protocol/topics';
+import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopic } from '@sasakiuri/saika-protocol/topics';
 
 export type MqttPrincipalRole = 'DIRECTOR' | 'LANE';
 
@@ -45,18 +45,8 @@ export class EmbeddedMqttAccessPolicy {
     if (principal.role === 'DIRECTOR') return true;
     const laneId = laneIdFromClientId(clientId);
     if (!laneId) return false;
-    const parts = topic.split('/');
-    if (parts[1] === 'lane' && parts[2] === laneId) {
-      return parts[3] !== 'command' || parts.at(-1) === 'acknowledgement';
-    }
-    if (parts[1] !== 'competition') return false;
-    if (parts[3] === 'command') {
-      return parts[5] === 'acknowledgement' && parts[6] === laneId;
-    }
-    if (parts[3] === 'lane' && parts[4] === laneId) {
-      return parts[5] !== 'command' || parts.at(-1) === 'acknowledgement';
-    }
-    return false;
+    const parsed = parseMqttTopic(topic);
+    return parsed !== null && LANE_PUBLISHES[parsed.kind] && 'laneId' in parsed && parsed.laneId === laneId;
   }
 
   canSubscribe(principal: MqttPrincipal, clientId: string, topic: string): boolean {
@@ -98,6 +88,36 @@ function account(
   if (!username || !password) throw new Error(`Required MQTT authentication is missing ${usernameKey}/${passwordKey}`);
   return { username, password, role };
 }
+
+/** Whether a Lane publishes each topic kind; a Lane may publish only under its own Lane ID. */
+const LANE_PUBLISHES: Readonly<Record<ParsedMqttTopic['kind'], boolean>> = {
+  laneHardwareState: true,
+  laneHardwareShot: true,
+  laneHardwareObservation: true,
+  laneSafetyState: true,
+  laneRangeOfficerRequest: true,
+  laneQualificationMalfunctionSignal: true,
+  laneEstComplaintSignal: true,
+  laneCommand: false,
+  laneCommandAcknowledgement: true,
+  competitionState: false,
+  competitionCue: false,
+  laneCompetitionState: true,
+  laneAssignment: true,
+  laneScore: true,
+  competitionShot: true,
+  competitionShotObservation: true,
+  timedTargetState: true,
+  competitionShootOffShot: true,
+  qualificationRecoveryState: true,
+  qualificationRecoveryShot: true,
+  competitionCommand: false,
+  competitionCommandAcknowledgement: true,
+  laneCompetitionCommand: false,
+  laneCompetitionCommandAcknowledgement: true,
+  laneQueryRequest: false,
+  laneQueryResponse: true,
+};
 
 /** Every competition topic a Lane subscribes to; the competition ID may be any single level, including `+`. */
 function laneCompetitionSubscriptions(competitionId: string, laneId: string): string[] {
