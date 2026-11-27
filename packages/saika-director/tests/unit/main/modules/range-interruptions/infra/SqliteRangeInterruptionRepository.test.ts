@@ -1,17 +1,16 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
 import { identifyRulePack, ISSF_2026_P25, recommendQualificationTimedTargetInterruption } from '@sasakiuri/saika-rules';
 
-import { migration020RangeInterruptions } from '@/main/infrastructure/database/migrations/020_range_interruptions';
-import { migration021TargetRecoveryAssessments } from '@/main/infrastructure/database/migrations/021_target_recovery_assessments';
-import { migration053QualificationTimedTargetInterruptions } from '@/main/infrastructure/database/migrations/053_qualification_timed_target_interruptions';
-import { migration054QualificationTimedTargetRecoveryDecisions } from '@/main/infrastructure/database/migrations/054_qualification_timed_target_recovery_decisions';
 import { RangeInterruptionCase } from '@/main/modules/range-interruptions/domain/RangeInterruptionCase';
 import { QualificationTimedTargetRecoveryDecision } from '@/main/modules/range-interruptions/domain/QualificationTimedTargetRecoveryDecision';
 import { RangeInterruptionEntry } from '@/main/modules/range-interruptions/domain/RangeInterruptionEntry';
 import { RangeInterruptionScopeLink } from '@/main/modules/range-interruptions/domain/RangeInterruptionScopeLink';
 import { TargetRecoveryAssessment } from '@/main/modules/range-interruptions/domain/TargetRecoveryAssessment';
 import { SqliteRangeInterruptionRepository } from '@/main/modules/range-interruptions/infra/SqliteRangeInterruptionRepository';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const LANE_ID = '33333333-3333-4333-8333-333333333333';
@@ -21,12 +20,8 @@ describe('SqliteRangeInterruptionRepository', () => {
   let repository: SqliteRangeInterruptionRepository;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration020RangeInterruptions.up(database);
-    migration021TargetRecoveryAssessments.up(database);
-    migration053QualificationTimedTargetInterruptions.up(database);
-    migration054QualificationTimedTargetRecoveryDecisions.up(database);
     repository = new SqliteRangeInterruptionRepository(database);
   });
 

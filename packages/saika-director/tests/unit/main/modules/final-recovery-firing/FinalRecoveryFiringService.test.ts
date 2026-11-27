@@ -1,7 +1,6 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { migration071FinalRecoveryFiring } from '@/main/infrastructure/database/migrations/071_final_recovery_firing';
 import { FinalRecoveryCase, FinalRecoveryEntry, type IFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import { AuthorizedFinalFiringSource } from '@/main/modules/final-recovery-firing/application/AuthorizedFinalFiringSource';
 import { FinalRecoveryFiringService } from '@/main/modules/final-recovery-firing/application/FinalRecoveryFiringService';
@@ -12,6 +11,8 @@ import type {
   MalfunctionFiringRequestPayload,
   MalfunctionFiringEvidencePayload,
 } from '@sasakiuri/saika-protocol/MalfunctionFiring';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const databases: Database.Database[] = [];
 afterEach(() => {
@@ -57,9 +58,8 @@ function evidence(status: 'RUNNING' | 'COMPLETED' | 'CANCELLED' = 'RUNNING'): Ma
 }
 describe('Final recovery firing', () => {
   it('persists exact instructions before transmission, survives lost ACK, and reads/cancels after a ruling is voided', async () => {
-    const db = new Database(':memory:');
+    const db = migratedDatabase();
     databases.push(db);
-    migration071FinalRecoveryFiring.up(db);
     const repository = new SqliteFinalFiringRepository(db);
     const source: IFinalFiringAuthorizationSource = { assertAuthorized: vi.fn(), prepare: vi.fn(async () => request) };
     const transport = vi.fn(async () => evidence());

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { migration070ReserveLaneTransfers } from '@/main/infrastructure/database/migrations/070_reserve_lane_transfers';
 import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfers/application/ReserveLaneTransferService';
 import { ReserveTransferDataGuard } from '@/main/modules/reserve-lane-transfers/application/ReserveTransferDataGuard';
 import type { IReserveTransferTransport } from '@/main/modules/reserve-lane-transfers/domain/IReserveTransferTransport';
@@ -11,6 +10,8 @@ import type {
   ReserveLaneTransferBundle,
   ReserveLaneTransferRequest,
 } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const request: ReserveLaneTransferRequest = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -43,9 +44,8 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
 function fixture() {
-  const db = new Database(':memory:');
+  const db = migratedDatabase();
   databases.push(db);
-  migration070ReserveLaneTransfers.up(db);
   const repository = new SqliteReserveTransferRepository(db);
   const transport: IReserveTransferTransport = {
     transfer: vi.fn(async () => bundle),

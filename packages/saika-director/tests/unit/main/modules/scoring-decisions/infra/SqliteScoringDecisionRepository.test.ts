@@ -1,18 +1,18 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration011ScoringDecisions } from '@/main/infrastructure/database/migrations/011_scoring_decisions';
 import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/ScoringDecision';
 import { SqliteScoringDecisionRepository } from '@/main/modules/scoring-decisions/infra/SqliteScoringDecisionRepository';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 describe('SqliteScoringDecisionRepository', () => {
   let database: Database.Database;
   let repository: SqliteScoringDecisionRepository;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration011ScoringDecisions.up(database);
     repository = new SqliteScoringDecisionRepository(database);
   });
 

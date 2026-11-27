@@ -1,12 +1,6 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration022ShotObservationEvidence } from '@/main/infrastructure/database/migrations/022_shot_observation_evidence';
-import { migration035RangeSafetyStop } from '@/main/infrastructure/database/migrations/035_range_safety_stop';
-import { migration048TimedTargetObservationOutcome } from '@/main/infrastructure/database/migrations/048_timed_target_observation_outcome';
-import { migration078ShotTimingReviewOutcome } from '@/main/infrastructure/database/migrations/078_shot_timing_review_outcome';
-import { migration079ObservationReviews } from '@/main/infrastructure/database/migrations/079_observation_reviews';
-import { migration090NullifiedPositionExtra } from '@/main/infrastructure/database/migrations/090_nullified_position_extra';
 import { StoredReviewSubjects } from '@/main/modules/observation-reviews/application/StoredReviewSubjects';
 import { ObservationReviewService } from '@/main/modules/observation-reviews/application/ObservationReviewService';
 import { ObservationReviewPublicationBlocker } from '@/main/modules/observation-reviews/application/ObservationReviewPublicationBlocker';
@@ -17,6 +11,8 @@ import {
   ShotObservationEvidencePayloadSchema,
   type ShotObservationEvidencePayload,
 } from '@sasakiuri/saika-protocol/Shots';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 const evidence: ShotObservationEvidencePayload = {
   evidenceVersion: 1,
@@ -50,8 +46,7 @@ describe('SqliteShotObservationEvidenceJournal', () => {
   let journal: SqliteShotObservationEvidenceJournal;
 
   beforeEach(() => {
-    database = new Database(':memory:');
-    migration022ShotObservationEvidence.up(database);
+    database = migratedDatabase();
     journal = new SqliteShotObservationEvidenceJournal(database);
   });
 
@@ -72,14 +67,6 @@ describe('SqliteShotObservationEvidenceJournal', () => {
   it.each(['QUALIFICATION', 'FINAL'] as const)(
     'admits extras and holds %s publication until official review without a scoring change',
     async (scope) => {
-      for (const migration of [
-        migration035RangeSafetyStop,
-        migration048TimedTargetObservationOutcome,
-        migration078ShotTimingReviewOutcome,
-        migration079ObservationReviews,
-        migration090NullifiedPositionExtra,
-      ])
-        migration.up(database);
       const extra = ShotObservationEvidencePayloadSchema.parse({
         ...evidence,
         outcome: 'NULLIFIED_POSITION_EXTRA',

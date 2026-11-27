@@ -1,21 +1,19 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration013ResultVerification } from '@/main/infrastructure/database/migrations/013_result_verification';
-import { migration077ResultApprovalSigningIdentity } from '@/main/infrastructure/database/migrations/077_result_approval_signing_identity';
 import { ResultListApprovalEntry } from '@/main/modules/result-verification/domain/ResultListApprovalEntry';
 import { ResultVerificationCheck } from '@/main/modules/result-verification/domain/ResultVerificationCheck';
 import { SqliteResultVerificationRepository } from '@/main/modules/result-verification/infra/SqliteResultVerificationRepository';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 describe('SqliteResultVerificationRepository', () => {
   let database: Database.Database;
   let repository: SqliteResultVerificationRepository;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration013ResultVerification.up(database);
-    migration077ResultApprovalSigningIdentity.up(database);
     repository = new SqliteResultVerificationRepository(database);
   });
 

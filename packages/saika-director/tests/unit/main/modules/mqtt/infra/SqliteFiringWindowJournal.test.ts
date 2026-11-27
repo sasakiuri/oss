@@ -1,18 +1,18 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration018FiringWindowReview } from '@/main/infrastructure/database/migrations/018_firing_window_review';
 import type { FiringCommandBoundary, FiringWindowViolation } from '@/main/modules/mqtt/domain/IFiringWindowJournal';
 import { SqliteFiringWindowJournal } from '@/main/modules/mqtt/infra/SqliteFiringWindowJournal';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 describe('SqliteFiringWindowJournal', () => {
   let database: Database.Database;
   let journal: SqliteFiringWindowJournal;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration018FiringWindowReview.up(database);
     journal = new SqliteFiringWindowJournal(database);
   });
 
