@@ -2,6 +2,7 @@ import type { ILaneControlRepository } from '../../domain/ILaneControlRepository
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { AdvanceToNextStageCommand } from './LaneCommands';
 import { emitLaneControlUpdated } from './helpers/emitLaneControlUpdated';
+import { emitLanePhaseChanged } from './helpers/emitLanePhaseChanged';
 
 export class AdvanceToNextStageHandler {
   constructor(
@@ -17,15 +18,7 @@ export class AdvanceToNextStageHandler {
       const updated = lane.advanceToNextStage();
       this.repository.save(updated);
 
-      this.eventBus.emit({
-        type: 'LanePhaseChanged',
-        timestamp: Date.now(),
-        laneId,
-        phase: updated.phase,
-        stageIndex: updated.stageIndex,
-        seriesIndex: updated.seriesIndex,
-        remainingTime: updated.remainingTime,
-      });
+      emitLanePhaseChanged(this.eventBus, updated);
 
       emitLaneControlUpdated(this.eventBus, updated);
     }

@@ -2,7 +2,7 @@
 import type { UpdaterService } from '@sasakiuri/saika-updater/main';
 import { BrowserWindow, dialog } from 'electron';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
-import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
+import { ipcInvokeEvent, type IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { updaterContract } from '@/shared/ipc/contracts';
 import { Logger } from '@/shared/logging';
 
@@ -11,7 +11,7 @@ const logger = Logger.create('Updater');
 export function registerUpdater(router: IpcRouter, updater: UpdaterService, windowManager: WindowManager): void {
   let installRequested = false;
   const mainWindow = (event: unknown): BrowserWindow => {
-    const { sender, senderFrame } = event as Electron.IpcMainInvokeEvent;
+    const { sender, senderFrame } = ipcInvokeEvent(event);
     if (windowManager.findWindowIdByWebContents(sender) !== 'main' || senderFrame !== sender.mainFrame) {
       throw new Error('Application updates are available only from the main window');
     }
