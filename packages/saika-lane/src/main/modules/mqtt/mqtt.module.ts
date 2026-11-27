@@ -5,7 +5,6 @@ import { app } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
-import { MalfunctionFiringService, SqliteMalfunctionFiringRepository } from '@/main/modules/malfunction-firing';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import { mqttContract } from '@/shared/ipc/contracts';
@@ -63,17 +62,16 @@ type MqttDeps =
   | 'qualificationRecoverySettlementControl'
   | 'safetyStopControl'
   | 'createReserveTransferControl'
+  | 'createMalfunctionFiringControl'
   | 'rangeOfficerRequestService'
   | 'qualificationMalfunctionSignalService'
   | 'estComplaintSignalService'
   | 'timingProfileService'
   | 'timedTargetControl'
-  | 'timedTargetSequenceRepository'
   | 'qualificationRecoveryShotOutbox'
   | 'competitionShootOffShotOutbox'
   | 'shotObservationEvidenceOutbox'
-  | 'sessionRepository'
-  | 'database';
+  | 'sessionRepository';
 
 function mqttCredentialsFromEnvironment(
   environment: Readonly<Record<string, string | undefined>>,
@@ -107,17 +105,16 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'qualificationRecoverySettlementControl',
     'safetyStopControl',
     'createReserveTransferControl',
+    'createMalfunctionFiringControl',
     'rangeOfficerRequestService',
     'qualificationMalfunctionSignalService',
     'estComplaintSignalService',
     'timedTargetControl',
-    'timedTargetSequenceRepository',
     'qualificationRecoveryShotOutbox',
     'competitionShootOffShotOutbox',
     'shotObservationEvidenceOutbox',
     'timingProfileService',
     'sessionRepository',
-    'database',
   ] as const,
   register({
     membership,
@@ -137,17 +134,16 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     qualificationRecoverySettlementControl,
     safetyStopControl,
     createReserveTransferControl,
+    createMalfunctionFiringControl,
     rangeOfficerRequestService,
     qualificationMalfunctionSignalService,
     estComplaintSignalService,
     timedTargetControl,
-    timedTargetSequenceRepository,
     qualificationRecoveryShotOutbox,
     competitionShootOffShotOutbox,
     shotObservationEvidenceOutbox,
     timingProfileService,
     sessionRepository,
-    database,
   }) {
     const mqttClient = new MqttClientService();
     const appVersion = app.getVersion();
@@ -240,20 +236,12 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       assignmentPublisher,
       mayFire,
     );
-    const malfunctionFiringControl = new MalfunctionFiringService(
-      new SqliteMalfunctionFiringRepository(database),
-      {
-        prepare: (request) =>
-          request.workflow === 'FINAL_RECOVERY'
-            ? finalRecoveryFiringContext.prepare(request)
-            : malfunctionFiringContext.prepare(request),
-      },
-      timedTargetControl,
-      eventBus,
-      undefined,
-      (runId) =>
-        timedTargetSequenceRepository.findBySequenceId(runId)?.acceptedShots.map((shot) => shot.observationId) ?? [],
-    );
+    const malfunctionFiringControl = createMalfunctionFiringControl({
+      prepare: (request) =>
+        request.workflow === 'FINAL_RECOVERY'
+          ? finalRecoveryFiringContext.prepare(request)
+          : malfunctionFiringContext.prepare(request),
+    });
     eventBus.on('MqttConnected', (event) => {
       if (startup.isReady() && !event.error) malfunctionFiringControl.restore();
     });

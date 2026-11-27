@@ -2,6 +2,7 @@
 import type { QualificationRecoveryShotPayload } from '@sasakiuri/saika-protocol/QualificationRecovery';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
+import { OutboxDrainer } from '@/main/modules/mqtt/application/OutboxDrainer';
 import { toShotMqttEvidencePayload } from '@/main/modules/mqtt/application/ShotMqttPayloadMapper';
 import type {
   IQualificationRecoveryControl,
@@ -12,18 +13,16 @@ import { readMirroredLaneId } from '@/main/modules/settings/application/Mirrored
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
-import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
 export class QualificationRecoveryShotPublisher {
-  private readonly drains = new SerialQueue();
-  private unregisterReconnectDrain: (() => void) | null = null;
+  private readonly drainer: OutboxDrainer<QualificationRecoveryShotPayload>;
 
   constructor(
-    private readonly mqttClient: IMqttClientService,
+    mqttClient: IMqttClientService,
     eventBus: IEventBus,
     private readonly storage: ILocalStorage,
     private readonly control: Pick<IQualificationRecoveryControl, 'get'>,
@@ -37,21 +36,19 @@ export class QualificationRecoveryShotPublisher {
         });
       });
     });
-    eventBus.on('MqttConnected', () => {
-      this.unregisterReconnectDrain?.();
-      this.unregisterReconnectDrain = mqttClient.onConnect(() => void this.requestDrain());
-      void this.requestDrain();
+    this.drainer = new OutboxDrainer(mqttClient, eventBus, {
+      findPending: () => outbox.findPending(),
+      toMessage: (payload) => ({
+        topic: mqttTopics.qualificationRecoveryShot(payload.competitionId, payload.laneId),
+        payload: JSON.stringify({ ...payload, publishedAt: new Date().toISOString() }),
+      }),
+      markPublished: (payload, publishedAt) => outbox.markPublished(payload.shotId, publishedAt),
+      drainFailureMessage: '[QualificationRecoveryShotPublisher] Failed to drain outbox',
     });
   }
 
   requestDrain(): Promise<void> {
-    return this.drains
-      .run(() => this.drain())
-      .catch((error: unknown) => {
-        getLogger().error('[QualificationRecoveryShotPublisher] Failed to drain outbox', 'mqtt', {
-          error: errorMessage(error),
-        });
-      });
+    return this.drainer.requestDrain();
   }
 
   private async capture(event: ShotRecordedEvent): Promise<void> {
@@ -81,21 +78,5 @@ export class QualificationRecoveryShotPublisher {
     };
     this.outbox.enqueue(payload);
     await this.requestDrain();
-  }
-
-  private async drain(): Promise<void> {
-    while (this.mqttClient.isConnected()) {
-      const pending = this.outbox.findPending();
-      if (pending.length === 0) return;
-      for (const payload of pending) {
-        if (!this.mqttClient.isConnected()) return;
-        await this.mqttClient.publish(
-          mqttTopics.qualificationRecoveryShot(payload.competitionId, payload.laneId),
-          JSON.stringify({ ...payload, publishedAt: new Date().toISOString() }),
-          { qos: 1, retain: false },
-        );
-        this.outbox.markPublished(payload.shotId, new Date());
-      }
-    }
   }
 }

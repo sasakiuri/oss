@@ -2,10 +2,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  QualificationMalfunctionSignalService,
-  SqliteQualificationMalfunctionSignalRepository,
-} from '@/main/modules/qualification-malfunction-signal';
+import { QualificationMalfunctionSignalService } from '@/main/modules/qualification-malfunction-signal';
+import { SqliteQualificationMalfunctionSignalRepository } from '@/main/modules/qualification-malfunction-signal/infra/SqliteQualificationMalfunctionSignalRepository';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 const context = {

@@ -9,10 +9,10 @@ import { LaneInterruptionRecord } from '@/main/modules/competition-interruption'
 import {
   createQualificationRecoveryRunStart,
   QualificationRecoveryAdjudicationService,
-  SqliteQualificationRecoveryAdjudicationRepository,
-  SqliteQualificationRecoveryRepository,
-  SqliteQualificationRecoveryShotOutbox,
 } from '@/main/modules/qualification-recovery';
+import { SqliteQualificationRecoveryAdjudicationRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryAdjudicationRepository';
+import { SqliteQualificationRecoveryRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryRepository';
+import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryShotOutbox';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';

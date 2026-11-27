@@ -10,33 +10,31 @@ import {
 import { SqliteCommandObservationRepository } from '@/main/modules/command-observations/infra/SqliteCommandObservationRepository';
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
-import {
-  CompetitionInterruptionService,
-  LocalCompetitionInterruptionRepository,
-} from '@/main/modules/competition-interruption';
-import {
-  LocalCompetitionShootOffControl,
-  SqliteCompetitionShootOffShotOutbox,
-} from '@/main/modules/competition-shoot-off';
+import { CompetitionInterruptionService } from '@/main/modules/competition-interruption';
+import { LocalCompetitionInterruptionRepository } from '@/main/modules/competition-interruption/infra/LocalCompetitionInterruptionRepository';
+import { LocalCompetitionShootOffControl } from '@/main/modules/competition-shoot-off/infra/LocalCompetitionShootOffControl';
+import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off/infra/SqliteCompetitionShootOffShotOutbox';
 import { ConnectionRepositoryImpl } from '@/main/modules/connection/infra/ConnectionRepositoryImpl';
 import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { USBConnectionManager } from '@/main/modules/connection/infra/usb/USBConnectionManager';
-import { EstComplaintSignalService, SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal';
+import { EstComplaintSignalService } from '@/main/modules/est-complaint-signal';
+import { SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal/infra/SqliteEstComplaintSignalRepository';
+import { MalfunctionFiringService, type IMalfunctionFiringContextSource } from '@/main/modules/malfunction-firing';
+import { SqliteMalfunctionFiringRepository } from '@/main/modules/malfunction-firing/infra/SqliteMalfunctionFiringRepository';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
-import {
-  QualificationMalfunctionSignalService,
-  SqliteQualificationMalfunctionSignalRepository,
-} from '@/main/modules/qualification-malfunction-signal';
+import { QualificationMalfunctionSignalService } from '@/main/modules/qualification-malfunction-signal';
+import { SqliteQualificationMalfunctionSignalRepository } from '@/main/modules/qualification-malfunction-signal/infra/SqliteQualificationMalfunctionSignalRepository';
 import {
   QualificationRecoveryAdjudicationService,
   QualificationRecoveryService,
   QualificationRecoverySettlementService,
-  SqliteQualificationRecoveryAdjudicationRepository,
-  SqliteQualificationRecoveryRepository,
-  SqliteQualificationRecoverySettlementRepository,
-  SqliteQualificationRecoveryShotOutbox,
 } from '@/main/modules/qualification-recovery';
-import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
+import { SqliteQualificationRecoveryAdjudicationRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryAdjudicationRepository';
+import { SqliteQualificationRecoveryRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryRepository';
+import { SqliteQualificationRecoverySettlementRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoverySettlementRepository';
+import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryShotOutbox';
+import { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
+import { SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request/infra/SqliteRangeOfficerRequestRepository';
 import { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
 import { ReserveTransferCommandGuard } from '@/main/modules/reserve-lane-transfer/infra/ReserveTransferCommandGuard';
@@ -45,11 +43,9 @@ import {
   StoredReserveLaneTransferState,
   type ITransferAssignmentPort,
 } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
-import {
-  CompetitionSafetyTimerFreezer,
-  LaneSafetyStopService,
-  SqliteLaneSafetyStopRepository,
-} from '@/main/modules/safety-stop';
+import { LaneSafetyStopService } from '@/main/modules/safety-stop';
+import { CompetitionSafetyTimerFreezer } from '@/main/modules/safety-stop/infra/CompetitionSafetyTimerFreezer';
+import { SqliteLaneSafetyStopRepository } from '@/main/modules/safety-stop/infra/SqliteLaneSafetyStopRepository';
 import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
 import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore';
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
@@ -60,11 +56,12 @@ import { DataConversionService } from '@/main/modules/target/infra/DataConversio
 import { SerialDataParser } from '@/main/modules/target/infra/SerialDataParser';
 import {
   BoundedShotTimingPolicy,
-  SqliteTimedTargetSequenceRepository,
   timedTargetEnforcementModeFromEnvironment,
   TimedTargetSequenceService,
 } from '@/main/modules/timed-target';
-import { StoredTimingProfiles, TimingProfileService } from '@/main/modules/timing-profiles';
+import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target/infra/SqliteTimedTargetSequenceRepository';
+import { TimingProfileService } from '@/main/modules/timing-profiles';
+import { StoredTimingProfiles } from '@/main/modules/timing-profiles/infra/StoredTimingProfiles';
 import { CommandBus, CommandLoggingMiddleware, QueryBus, QueryLoggingMiddleware } from '@/main/shared-infra/cqrs';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
@@ -277,11 +274,20 @@ export function createLaneServices(
         ),
         () => settingsStore.getLaneId(),
       ),
+    createMalfunctionFiringControl: (source: IMalfunctionFiringContextSource) =>
+      new MalfunctionFiringService(
+        new SqliteMalfunctionFiringRepository(db),
+        source,
+        timedTargetControl,
+        eventBus,
+        undefined,
+        (runId) =>
+          timedTargetSequenceRepository.findBySequenceId(runId)?.acceptedShots.map((shot) => shot.observationId) ?? [],
+      ),
     rangeOfficerRequestService,
     qualificationMalfunctionSignalService,
     estComplaintSignalService,
     timedTargetControl,
-    timedTargetSequenceRepository,
     qualificationRecoveryShotOutbox,
     competitionShootOffShotOutbox,
     shotObservationEvidenceOutbox,

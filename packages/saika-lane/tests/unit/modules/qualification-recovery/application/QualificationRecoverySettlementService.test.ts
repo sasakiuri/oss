@@ -9,9 +9,9 @@ import { LaneInterruptionRecord } from '@/main/modules/competition-interruption'
 import {
   createQualificationRecoverySettlement,
   QualificationRecoverySettlementService,
-  SqliteQualificationRecoverySettlementRepository,
   type QualificationRecoveryRunRecord,
 } from '@/main/modules/qualification-recovery';
+import { SqliteQualificationRecoverySettlementRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoverySettlementRepository';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';

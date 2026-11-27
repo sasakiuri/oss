@@ -6,18 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { P25, P25_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import {
-  MalfunctionFiringService,
-  SqliteMalfunctionFiringRepository,
-  type MalfunctionFiringRequest,
-} from '@/main/modules/malfunction-firing';
+import { MalfunctionFiringService, type MalfunctionFiringRequest } from '@/main/modules/malfunction-firing';
+import { SqliteMalfunctionFiringRepository } from '@/main/modules/malfunction-firing/infra/SqliteMalfunctionFiringRepository';
 import { AssignedFinalRecoveryFiringContextSource } from '@/main/modules/mqtt/application/AssignedFinalRecoveryFiringContextSource';
 import { AssignedMalfunctionFiringContextSource } from '@/main/modules/mqtt/application/AssignedMalfunctionFiringContextSource';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
-import { TimedTargetSequenceService, SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target';
+import { TimedTargetSequenceService } from '@/main/modules/timed-target';
+import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target/infra/SqliteTimedTargetSequenceRepository';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 

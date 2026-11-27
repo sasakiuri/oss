@@ -4,8 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { timedTargetModule } from '@/main/modules/timed-target/timedTarget.module';
-import { TimingProfileService, StoredTimingProfiles } from '@/main/modules/timing-profiles';
+import { TimingProfileService } from '@/main/modules/timing-profiles';
 import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
+import { StoredTimingProfiles } from '@/main/modules/timing-profiles/infra/StoredTimingProfiles';
 import type { timedTargetContract } from '@/shared/ipc/contracts/timedTarget.contract';
 
 import {

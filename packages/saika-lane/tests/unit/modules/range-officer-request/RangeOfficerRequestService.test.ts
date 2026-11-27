@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { RangeOfficerRequestService, SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request';
+import { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
+import { SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request/infra/SqliteRangeOfficerRequestRepository';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 describe('RangeOfficerRequestService', () => {

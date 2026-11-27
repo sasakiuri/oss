@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { QualificationRecoveryShotPayload } from '@sasakiuri/saika-protocol/QualificationRecovery';
 
-import { emitPhaseChanged } from '@/main/modules/competition/application/emitPhaseChanged';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
@@ -32,8 +31,16 @@ import {
   type QualificationRecoveryAdjudicationRecord,
   type QualificationRecoveryAdjudicationShot,
 } from '../domain/QualificationRecoveryAdjudication';
-import { compareRecordedShots, resolveQualificationRecoveryPlacement } from '../domain/QualificationRecoveryPlacement';
+import type { InterruptedSeriesWording } from '../domain/QualificationRecoveryPlacement';
 import type { QualificationRecoveryRunRecord } from '../domain/QualificationRecoveryRun';
+
+import { findBoundCompetition, readInterruptedSeriesShots, reconcileRecoveredSeries } from './InterruptedSeries';
+
+const ADJUDICATION_WORDING: InterruptedSeriesWording = {
+  decision: 'recovery authorization',
+  expectedBy: 'recovery',
+  action: 'adjudicated',
+};
 
 /** Applies completed firing evidence to score only after a distinct official command. */
 export class QualificationRecoveryAdjudicationService implements IQualificationRecoveryAdjudicationControl {
@@ -79,20 +86,12 @@ export class QualificationRecoveryAdjudicationService implements IQualificationR
     if (!interruption || interruption.interruptionId !== run.interruptionId || interruption.status !== 'PAUSED') {
       throw new Error(`Qualification recovery run ${run.runId} no longer matches the paused Lane interruption`);
     }
-    const competition = await this.requireBoundCompetition(run);
-    const session = await this.sessionRepository.findById(competition.sessionId);
-    if (!session) throw new Error(`Session not found: ${competition.sessionId}`);
-    if (session.isFinished) throw new Error(`Session ${session.id} is already finished`);
-
-    const placement = resolveQualificationRecoveryPlacement(competition);
-    const matchShots = [...session.matchShots].sort(compareRecordedShots);
-    const expectedVisibleShots = placement.priorShots + run.expectedRecordedShots;
-    if (matchShots.length !== expectedVisibleShots) {
-      throw new Error(
-        `Session has ${matchShots.length} MATCH shot(s), but ${expectedVisibleShots} are required at the interrupted position`,
-      );
-    }
-    const originalShots = matchShots.slice(placement.priorShots);
+    const competition = await findBoundCompetition(this.competitionRepository, run, ADJUDICATION_WORDING);
+    const {
+      session,
+      placement,
+      recordedShots: originalShots,
+    } = await readInterruptedSeriesShots(this.sessionRepository, competition, run.expectedRecordedShots);
     if (originalShots.length !== run.expectedRecordedShots) {
       throw new Error('The interrupted series no longer matches its immutable recorded-shot count');
     }
@@ -199,30 +198,6 @@ export class QualificationRecoveryAdjudicationService implements IQualificationR
     };
   }
 
-  private async requireBoundCompetition(run: QualificationRecoveryRunRecord): Promise<CompetitionState> {
-    const competition = await this.competitionRepository.findById(run.competitionId);
-    if (!competition) throw new Error(`Competition not found: ${run.competitionId}`);
-    if (competition.sessionId.length === 0) throw new Error('Qualification recovery competition has no session');
-    if (competition.currentStageIndex !== run.stageIndex || competition.currentSeriesIndex !== run.seriesIndex) {
-      throw new Error(`Competition ${run.competitionId} has moved away from the interrupted series`);
-    }
-    if (competition.currentSeriesConfig.timedTargetProgramId !== run.expectedMatchProgramId) {
-      throw new Error(`Competition ${run.competitionId} no longer uses ${run.expectedMatchProgramId}`);
-    }
-    if (competition.currentSeriesConfig.maxShots !== run.expectedSeriesShotLimit) {
-      throw new Error('The current series shot limit no longer matches the recovery authorization');
-    }
-    if (competition.seriesShotCount !== run.expectedRecordedShots) {
-      throw new Error(
-        `Competition has ${competition.seriesShotCount} recorded shot(s), but the recovery expects ${run.expectedRecordedShots}`,
-      );
-    }
-    if (competition.phase !== 'ACTIVE' && competition.phase !== 'SERIES_COMPLETE') {
-      throw new Error(`Competition ${run.competitionId} cannot be adjudicated from phase ${competition.phase}`);
-    }
-    return competition;
-  }
-
   private requireBoundEvidence(run: QualificationRecoveryRunRecord): QualificationRecoveryShotPayload[] {
     const evidence = this.evidenceReader.findByRunId(run.runId).sort((left, right) => {
       const time = Date.parse(left.firedAt) - Date.parse(right.firedAt);
@@ -260,37 +235,20 @@ export class QualificationRecoveryAdjudicationService implements IQualificationR
     return evidence;
   }
 
-  private async reconcileCompetition(adjudication: QualificationRecoveryAdjudicationRecord): Promise<void> {
-    const state = await this.competitionRepository.findById(adjudication.competitionId);
-    if (!state) throw new Error(`Competition not found: ${adjudication.competitionId}`);
-    const comparison = state.comparePosition(adjudication.stageIndex, adjudication.seriesIndex);
-    if (state.phase !== 'FINISHED' && comparison < 0) {
-      throw new Error(`Competition ${state.id} is behind the adjudicated recovery position`);
-    }
-    if (state.phase !== 'FINISHED' && comparison === 0) {
-      const updated = state.applyQualificationRecovery({
-        programId: state.currentSeriesConfig.timedTargetProgramId ?? '',
-        treatment: adjudication.treatment,
-        expectedRecordedShots: adjudication.expectedRecordedShots,
-        authorizedShots: adjudication.authorizedShots,
-      });
-      if (updated !== state) {
-        await this.competitionRepository.save(updated);
-        if (updated.phase !== state.phase) emitPhaseChanged(this.eventBus, updated, state.phase);
-        this.eventBus.emit({
-          type: 'SeriesCompleted',
-          timestamp: Date.now(),
-          aggregateId: updated.id,
-          stageIndex: updated.currentStageIndex,
-          seriesIndex: updated.currentSeriesIndex,
-          shotCount: updated.seriesShotCount,
-        });
-      }
-    }
-    const interruption = this.interruptionControl.get(adjudication.competitionId);
-    if (interruption?.interruptionId === adjudication.interruptionId) {
-      this.interruptionControl.clear(adjudication.competitionId);
-    }
+  private reconcileCompetition(adjudication: QualificationRecoveryAdjudicationRecord): Promise<void> {
+    const { competitionRepository, interruptionControl, eventBus } = this;
+    return reconcileRecoveredSeries(
+      { competitionRepository, interruptionControl, eventBus },
+      adjudication,
+      ADJUDICATION_WORDING,
+      (state) =>
+        state.applyQualificationRecovery({
+          programId: state.currentSeriesConfig.timedTargetProgramId ?? '',
+          treatment: adjudication.treatment,
+          expectedRecordedShots: adjudication.expectedRecordedShots,
+          authorizedShots: adjudication.authorizedShots,
+        }),
+    );
   }
 }
 

@@ -2,7 +2,7 @@
 import type { CompetitionShootOffShotPayload } from '@sasakiuri/saika-protocol/CompetitionShootOffShot';
 import { describe, expect, it } from 'vitest';
 
-import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off';
+import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off/infra/SqliteCompetitionShootOffShotOutbox';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 const competitionId = '11111111-1111-4111-8111-111111111111';

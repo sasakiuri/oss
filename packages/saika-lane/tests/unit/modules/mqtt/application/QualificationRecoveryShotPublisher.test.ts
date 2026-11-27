@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { QualificationRecoveryShotPublisher } from '@/main/modules/mqtt/application/QualificationRecoveryShotPublisher';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery';
+import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryShotOutbox';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';

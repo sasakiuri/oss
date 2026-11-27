@@ -32,10 +32,6 @@ export {
   type QualificationRecoveryRunStatus,
   type StartQualificationRecoveryRunInput,
 } from './domain/QualificationRecoveryRun';
-export { SqliteQualificationRecoveryRepository } from './infra/SqliteQualificationRecoveryRepository';
-export { SqliteQualificationRecoveryAdjudicationRepository } from './infra/SqliteQualificationRecoveryAdjudicationRepository';
-export { SqliteQualificationRecoverySettlementRepository } from './infra/SqliteQualificationRecoverySettlementRepository';
-export { SqliteQualificationRecoveryShotOutbox } from './infra/SqliteQualificationRecoveryShotOutbox';
 export {
   createQualificationRecoveryAdjudication,
   type QualificationRecoveryAdjudicationRecord,

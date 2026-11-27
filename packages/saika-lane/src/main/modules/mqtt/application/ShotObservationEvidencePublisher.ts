@@ -2,64 +2,39 @@
 
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
+import { OutboxDrainer } from '@/main/modules/mqtt/application/OutboxDrainer';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
 import type { ShotObservationEvidence } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import { getLogger } from '@/main/shared-infra/logging/createLogger';
-import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
-import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
 /** Publishes the transactional shot-evidence outbox without affecting scoring. */
 export class ShotObservationEvidencePublisher {
-  private readonly drains = new SerialQueue();
-  private unregisterReconnectDrain: (() => void) | null = null;
+  private readonly drainer: OutboxDrainer<ShotObservationEvidence>;
 
   constructor(
-    private readonly mqttClient: IMqttClientService,
+    mqttClient: IMqttClientService,
     eventBus: IEventBus,
     private readonly storage: ILocalStorage,
-    private readonly outbox: IShotObservationEvidenceOutbox,
+    outbox: IShotObservationEvidenceOutbox,
   ) {
     eventBus.on('ShotObservationRouted', () => this.requestDrain());
-    // MqttClientService has no underlying client until connectMqtt succeeds.
-    // Use the application-level connection event for the initial drain, then
-    // attach to mqtt.js reconnects while that client is alive.
-    eventBus.on('MqttConnected', () => {
-      this.unregisterReconnectDrain?.();
-      this.unregisterReconnectDrain = mqttClient.onConnect(() => {
-        void this.requestDrain();
-      });
-      void this.requestDrain();
+    this.drainer = new OutboxDrainer(mqttClient, eventBus, {
+      findPending: () => outbox.findPending(100),
+      toMessage: (evidence) => this.toMessage(evidence),
+      markPublished: (evidence, publishedAt) => outbox.markPublished(evidence.evidenceId, publishedAt),
+      drainFailureMessage: '[ShotObservationEvidencePublisher] Failed to drain evidence outbox',
     });
   }
 
   requestDrain(): Promise<void> {
-    return this.drains
-      .run(() => this.drain())
-      .catch((error: unknown) => {
-        getLogger().error('[ShotObservationEvidencePublisher] Failed to drain evidence outbox', 'mqtt', {
-          error: errorMessage(error),
-        });
-      });
+    return this.drainer.requestDrain();
   }
 
-  private async drain(): Promise<void> {
-    while (this.mqttClient.isConnected()) {
-      const pending = await this.outbox.findPending(100);
-      if (pending.length === 0) return;
-      for (const evidence of pending) {
-        if (!this.mqttClient.isConnected()) return;
-        await this.publish(evidence);
-        await this.outbox.markPublished(evidence.evidenceId, new Date());
-      }
-    }
-  }
-
-  private async publish(evidence: ShotObservationEvidence): Promise<void> {
+  private toMessage(evidence: ShotObservationEvidence): { topic: string; payload: string } {
     const laneId = readMirroredLaneId(this.storage);
     const competition = evidence.competition;
     const topic = competition
@@ -95,6 +70,6 @@ export class ShotObservationEvidencePublisher {
             },
       publishedAt: new Date().toISOString(),
     });
-    await this.mqttClient.publish(topic, payload, { qos: 1, retain: false });
+    return { topic, payload };
   }
 }

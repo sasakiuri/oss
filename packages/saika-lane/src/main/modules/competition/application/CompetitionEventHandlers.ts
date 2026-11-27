@@ -10,6 +10,7 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 
 import { emitPhaseChanged } from './emitPhaseChanged';
+import { emitSeriesCompleted } from './emitSeriesCompleted';
 
 /**
  * Awaited shot-progress hook factory
@@ -36,14 +37,7 @@ export function createShotRecordedHandler(deps: {
     await competitionRepository.save(newState);
 
     if (newState.phase === 'SERIES_COMPLETE') {
-      eventBus.emit({
-        type: 'SeriesCompleted',
-        timestamp: Date.now(),
-        aggregateId: newState.id,
-        stageIndex: newState.currentStageIndex,
-        seriesIndex: newState.currentSeriesIndex,
-        shotCount: newState.seriesShotCount,
-      });
+      emitSeriesCompleted(eventBus, newState);
     } else {
       // Publish only after the authoritative counter has been saved.
       eventBus.emit({
@@ -140,14 +134,7 @@ export function createTimedTargetSequenceChangedHandler(deps: {
         const completed = state.completeTimedTargetSeries(event.state.programId);
         await competitionRepository.save(completed);
         emitPhaseChanged(eventBus, completed, state.phase);
-        eventBus.emit({
-          type: 'SeriesCompleted',
-          timestamp: Date.now(),
-          aggregateId: completed.id,
-          stageIndex: completed.currentStageIndex,
-          seriesIndex: completed.currentSeriesIndex,
-          shotCount: completed.seriesShotCount,
-        });
+        emitSeriesCompleted(eventBus, completed);
       } catch (error) {
         getLogger().error(
           'Failed to complete timed target series',

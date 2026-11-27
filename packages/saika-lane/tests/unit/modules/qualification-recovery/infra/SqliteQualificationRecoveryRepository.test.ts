@@ -2,10 +2,8 @@
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  createQualificationRecoveryRunStart,
-  SqliteQualificationRecoveryRepository,
-} from '@/main/modules/qualification-recovery';
+import { createQualificationRecoveryRunStart } from '@/main/modules/qualification-recovery';
+import { SqliteQualificationRecoveryRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryRepository';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 describe('SqliteQualificationRecoveryRepository', () => {

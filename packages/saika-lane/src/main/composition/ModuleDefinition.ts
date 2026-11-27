@@ -15,6 +15,7 @@ import type { IConnectionRepository } from '@/main/modules/connection/domain/ICo
 import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import type { EstComplaintSignalService } from '@/main/modules/est-complaint-signal';
+import type { IMalfunctionFiringContextSource, MalfunctionFiringService } from '@/main/modules/malfunction-firing';
 import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { QualificationMalfunctionSignalService } from '@/main/modules/qualification-malfunction-signal';
@@ -34,7 +35,7 @@ import type { IAppSettingsStore } from '@/main/modules/settings/application/IApp
 import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
 import type { IShotObservationRepository } from '@/main/modules/shot-observation/domain/IShotObservationRepository';
 import type { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
-import type { ITimedTargetControl, ITimedTargetSequenceRepository } from '@/main/modules/timed-target';
+import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import type { TimingProfileService } from '@/main/modules/timing-profiles';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
@@ -73,11 +74,12 @@ export interface ServiceRegistry {
   safetyStopControl: ILaneSafetyStopControl;
   /** Builds the reserve-lane transfer control over the Lane assignment, which the MQTT module owns. */
   createReserveTransferControl: (assignments: ITransferAssignmentPort) => IReserveLaneTransferControl;
+  /** Builds the malfunction firing control over the firing context, which the MQTT module assembles from the Lane assignment. */
+  createMalfunctionFiringControl: (source: IMalfunctionFiringContextSource) => MalfunctionFiringService;
   rangeOfficerRequestService: RangeOfficerRequestService;
   qualificationMalfunctionSignalService: QualificationMalfunctionSignalService;
   estComplaintSignalService: EstComplaintSignalService;
   timedTargetControl: ITimedTargetControl;
-  timedTargetSequenceRepository: ITimedTargetSequenceRepository;
   qualificationRecoveryShotOutbox: IQualificationRecoveryShotOutbox;
   competitionShootOffShotOutbox: ICompetitionShootOffShotOutbox;
   shotObservationEvidenceOutbox: IShotObservationEvidenceOutbox;

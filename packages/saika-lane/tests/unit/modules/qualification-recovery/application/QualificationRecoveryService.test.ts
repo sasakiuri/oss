@@ -7,24 +7,22 @@ import { CompetitionState } from '@/main/modules/competition/domain/CompetitionS
 import { P25 } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
-import {
-  CompetitionInterruptionService,
-  LocalCompetitionInterruptionRepository,
-  LaneInterruptionRecord,
-} from '@/main/modules/competition-interruption';
+import { CompetitionInterruptionService, LaneInterruptionRecord } from '@/main/modules/competition-interruption';
+import { LocalCompetitionInterruptionRepository } from '@/main/modules/competition-interruption/infra/LocalCompetitionInterruptionRepository';
 import { SessionContextCache } from '@/main/modules/connection/infra/SessionContextCache';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import {
   QualificationRecoveryService,
-  SqliteQualificationRecoveryRepository,
   type StartQualificationRecoveryRunInput,
 } from '@/main/modules/qualification-recovery';
+import { SqliteQualificationRecoveryRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryRepository';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
-import { SqliteTimedTargetSequenceRepository, TimedTargetSequenceService } from '@/main/modules/timed-target';
+import { TimedTargetSequenceService } from '@/main/modules/timed-target';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
+import { SqliteTimedTargetSequenceRepository } from '@/main/modules/timed-target/infra/SqliteTimedTargetSequenceRepository';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { ActiveRunStartup } from '@/main/startup/restoreActiveRun';
