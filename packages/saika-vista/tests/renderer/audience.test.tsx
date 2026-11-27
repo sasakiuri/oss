@@ -106,3 +106,36 @@ it.each([-2000, 2000])('requires fresh confirmation after a %d ms wall-clock jum
   await act(async () => receive());
   expect(screen.getByText('Competition ranking · Official')).toBeInTheDocument();
 });
+
+it('pauses live data when a scheduled refresh fails and shows it again once a refresh succeeds', async () => {
+  // Monotonic time follows the wall clock, so only the failed refresh can leave the publication unconfirmed.
+  vi.mocked(performance.now).mockImplementation(() => Date.now());
+  await act(async () => {
+    render(<Audience />);
+  });
+  expect(screen.getByText('Competition ranking · Official')).toBeInTheDocument();
+  vi.mocked(window.vista.getAudience).mockRejectedValueOnce(new Error('Vista main process is busy'));
+
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+
+  expect(window.vista.getAudience).toHaveBeenCalledTimes(2);
+  expect(screen.queryByText('Competition ranking · Official')).not.toBeInTheDocument();
+  expect(screen.getByText('Updates paused · publication unconfirmed')).toBeInTheDocument();
+
+  await act(async () => receive());
+
+  expect(screen.getByText('Competition ranking · Official')).toBeInTheDocument();
+  expect(screen.queryByText(/publication unconfirmed/)).not.toBeInTheDocument();
+});
+
+it('keeps the standby screen when the first refresh fails', async () => {
+  vi.mocked(window.vista.getAudience).mockRejectedValueOnce(new Error('Vista main process is busy'));
+  await act(async () => {
+    render(<Audience />);
+  });
+
+  expect(screen.getByRole('heading', { name: 'Preparing the display' })).toBeInTheDocument();
+  expect(window.vista.rendered).not.toHaveBeenCalled();
+});

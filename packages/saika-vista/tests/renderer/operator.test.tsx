@@ -614,6 +614,39 @@ describe('operator workflows', () => {
     );
     expect(state.local.screens[0]!.config.pageSeconds).toBe(1.5);
   });
+  it('applies the edited layout, appearance and startup options together', async () => {
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: /North stand/ }));
+
+    fireEvent.change(screen.getByLabelText('Targets per page'), { target: { value: '1' } });
+    expect(screen.getByLabelText('Targets per page')).toHaveValue(1);
+    fireEvent.click(screen.getByLabelText('Rotate pages automatically'));
+    expect(screen.getByLabelText('Seconds per page')).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Target zoom'), { target: { value: '4' } });
+    expect(screen.getByLabelText('Recent shot count')).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Shot display'), { target: { value: 'recent' } });
+    fireEvent.change(screen.getByLabelText('Recent shot count'), { target: { value: '3' } });
+    fireEvent.click(screen.getByLabelText('Open this audience screen automatically when Vista starts'));
+    expect(bridge.command).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to screen' }));
+
+    await waitFor(() =>
+      expect(bridge.command).toHaveBeenCalledExactlyOnceWith({
+        type: 'apply',
+        nodeId: 'display-one',
+        config: {
+          ...screenConfig(2),
+          slots: 1,
+          page: 0,
+          autoRotate: false,
+          zoom: 4,
+          shotFilter: 'recent',
+          recentShots: 3,
+          autoStart: false,
+        },
+      }),
+    );
+  });
   it.each([false, true])(
     'distinguishes unavailable ranking rows from a confirmed empty ranking: %s',
     async (available) => {

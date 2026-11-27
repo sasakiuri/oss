@@ -50,3 +50,45 @@ it('keeps a sequence pushed while the initial query is still pending', async () 
 
   expect(result.current.sequence).toEqual(firing);
 });
+
+it('shows no sequence when the initial query fails', async () => {
+  vi.mocked(timedTargetService.getState).mockRejectedValue(new Error('Main process is restarting'));
+  const { result } = renderHook(() => useTimedTargetSequence());
+
+  await act(async () => {});
+
+  expect(result.current.sequence).toBeNull();
+  expect(result.current.remaining).toBeNull();
+  expect(result.current.cancelError).toBeNull();
+});
+
+it('cancels the running sequence for an emergency and clears the failure on the next state', async () => {
+  vi.mocked(timedTargetService.getState).mockResolvedValue(firing);
+  vi.mocked(timedTargetService.cancel).mockRejectedValue(new Error('The sequence already completed'));
+  const { result } = renderHook(() => useTimedTargetSequence());
+  await act(async () => {});
+  expect(result.current.sequence).toEqual(firing);
+
+  await act(async () => result.current.cancel());
+
+  expect(timedTargetService.cancel).toHaveBeenCalledExactlyOnceWith({
+    sequenceId: firing.sequenceId,
+    reason: 'Emergency local cancellation',
+  });
+  expect(result.current.cancelError).toBe('The sequence already completed');
+
+  act(() => emit('timedTargetSequenceChanged', { ...firing, phase: 'CANCELLED', shotWindowOpen: false }));
+
+  expect(result.current.cancelError).toBeNull();
+  expect(result.current.sequence).toBeNull();
+});
+
+it('does not cancel when no sequence is running', async () => {
+  vi.mocked(timedTargetService.getState).mockResolvedValue(null);
+  const { result } = renderHook(() => useTimedTargetSequence());
+  await act(async () => {});
+
+  act(() => result.current.cancel());
+
+  expect(timedTargetService.cancel).not.toHaveBeenCalled();
+});
