@@ -13,6 +13,7 @@ import {
 } from '@sasakiuri/saika-protocol/vista-node';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
+import { readMirroredLaneNumber } from '@/main/modules/settings/application/MirroredSettings';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import { vistaContract } from '@/shared/ipc/contracts/vista.contract';
@@ -75,9 +76,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
         sourceId: credentials.sourceId,
         bootId: randomUUID(),
         kind: 'lane',
-        name:
-          readVistaLaneAlias(storage) ??
-          `Saika Lane ${storage.get<{ laneNumber?: number }>('userPreferences')?.laneNumber ?? 1}`,
+        name: readVistaLaneAlias(storage) ?? `Saika Lane ${readMirroredLaneNumber(storage) ?? 1}`,
       };
       const shotContexts = new LaneVistaShotContextReader(database);
       source = new LaneVistaSource({

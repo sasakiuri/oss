@@ -27,6 +27,7 @@ import {
   createMockEventBus,
   createMockCompetitionRepository,
   createMockSessionRepository,
+  createIdleShotRoutingReaders,
   createMockShotObservationRepository,
 } from '../../../../helpers/mockDependencies';
 
@@ -50,6 +51,7 @@ describe('ShotIngestionHandler', () => {
       sessionRepository,
       competitionRepository,
       shotObservationRepository,
+      ...createIdleShotRoutingReaders(),
     };
 
     shotData = {
@@ -923,8 +925,13 @@ describe('ShotIngestionHandler', () => {
       );
     });
 
-    it('fails processing for a timed-target series without the enforcement service', async () => {
+    it('fails processing for a timed-target series when the enforcement service cannot assess the shot', async () => {
       timedTargetCompetition();
+      deps.timedTargetReader = {
+        tryAcceptShot: vi.fn(() => {
+          throw new Error('Timed target enforcement service is unavailable');
+        }),
+      };
 
       await createShotIngestionHandler(deps)(shotData);
 

@@ -10,7 +10,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { Shot } from '@/main/modules/session/domain/Shot';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';

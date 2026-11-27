@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ConnectToTargetInput } from '@/main/composition/tokens';
+import type { ConnectToTargetInput, ConnectToTargetResult } from '@/main/composition/tokens';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { Mode } from '@/main/modules/session/domain/Mode';
@@ -11,7 +11,7 @@ export function createConnectToTargetHandler(
   usbManager: IUSBConnectionManager,
   eventBus: IEventBus,
   getCurrentMode: () => Mode,
-): CommandHandler<ConnectToTargetInput> {
+): CommandHandler<ConnectToTargetInput, ConnectToTargetResult> {
   return async (input) => {
     const connection = await usbManager.connect({
       portName: input.portName,
@@ -34,5 +34,6 @@ export function createConnectToTargetHandler(
       portPath: connection.portPath,
       deviceId: connection.deviceId,
     });
+    return { connectionId: connection.id };
   };
 }

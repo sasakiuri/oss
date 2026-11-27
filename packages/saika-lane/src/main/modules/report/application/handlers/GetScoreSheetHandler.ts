@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import type { GetScoreSheetInput } from '@/main/composition/tokens';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
+import { readMirroredLaneNumber } from '@/main/modules/settings/application/MirroredSettings';
 import type { QueryHandler } from '@/main/shared-infra/cqrs';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import type { Discipline } from '@/shared/ipc/contracts';
@@ -29,8 +30,7 @@ export function createGetScoreSheetHandler(
     }
 
     // Retrieve lane number from user preferences
-    const prefs = storage.get<{ laneNumber?: number }>('userPreferences');
-    const laneNumber = prefs?.laneNumber ?? 1;
+    const laneNumber = readMirroredLaneNumber(storage) ?? 1;
 
     // Score sheets normally use match shots. Before the match stage starts,
     // preparation shots are the only recorded shots, so include them instead.

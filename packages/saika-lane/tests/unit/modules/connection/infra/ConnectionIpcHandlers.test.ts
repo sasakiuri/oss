@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({
@@ -20,26 +20,19 @@ import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConn
 import { AdapterRegistry } from '@/main/modules/target/infra/AdapterRegistry';
 import { targetModule } from '@/main/modules/target/target.module';
 
-import { createMockCommandBus, createMockEventBus, createMockUSBManager } from '../../../../helpers/mockDependencies';
+import { createMockCommandBus, createMockUSBManager } from '../../../../helpers/mockDependencies';
 
 describe('ConnectionIpcHandlers', () => {
   let commandBus: ReturnType<typeof createMockCommandBus>;
-  let eventBus: ReturnType<typeof createMockEventBus>;
   let usbManager: ReturnType<typeof createMockUSBManager>;
   let deps: ConnectionIpcHandlersDeps;
 
   beforeEach(() => {
-    vi.useFakeTimers();
     commandBus = createMockCommandBus();
-    eventBus = createMockEventBus();
     usbManager = createMockUSBManager();
     const adapterRegistry = new AdapterRegistry();
     targetModule.register({ adapterRegistry });
-    deps = { commandBus, eventBus, usbManager, targetConnectionSupport: new TargetConnectionSupport(adapterRegistry) };
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
+    deps = { commandBus, usbManager, targetConnectionSupport: new TargetConnectionSupport(adapterRegistry) };
   });
 
   describe('createConnectionIpcHandlers', () => {
@@ -54,17 +47,8 @@ describe('ConnectionIpcHandlers', () => {
   });
 
   describe('connect handler', () => {
-    it('should execute ConnectToTarget command', async () => {
-      (commandBus.execute as Mock).mockImplementation(async () => {
-        // Simulate ConnectionEstablished event
-        (eventBus.emit as Mock)({
-          type: 'ConnectionEstablished',
-          aggregateId: 'conn-123',
-          manufacturer: { value: 'KOHTO' },
-          portPath: '/dev/ttyUSB0',
-          timestamp: Date.now(),
-        });
-      });
+    it('should return the connection ID from the ConnectToTarget command', async () => {
+      (commandBus.execute as Mock).mockResolvedValue({ connectionId: 'conn-123' });
 
       const handlers = createConnectionIpcHandlers(deps);
       const result = await handlers.connect({
@@ -77,16 +61,7 @@ describe('ConnectionIpcHandlers', () => {
     });
 
     it('should pass baudRate and deviceId to command', async () => {
-      (commandBus.execute as Mock).mockImplementation(async () => {
-        (eventBus.emit as Mock)({
-          type: 'ConnectionEstablished',
-          aggregateId: 'conn-456',
-          manufacturer: { value: 'KOHTO' },
-          portPath: 'COM3',
-          deviceId: 'MT201',
-          timestamp: Date.now(),
-        });
-      });
+      (commandBus.execute as Mock).mockResolvedValue({ connectionId: 'conn-456' });
 
       const handlers = createConnectionIpcHandlers(deps);
       await handlers.connect({
@@ -104,81 +79,6 @@ describe('ConnectionIpcHandlers', () => {
           deviceId: 'MT201',
         }),
       );
-    });
-
-    it('should timeout after 10 seconds', async () => {
-      (commandBus.execute as Mock).mockResolvedValue(undefined);
-
-      const handlers = createConnectionIpcHandlers(deps);
-      const promise = handlers.connect({
-        portName: '/dev/ttyUSB0',
-        manufacturer: 'KOHTO',
-      });
-
-      vi.advanceTimersByTime(10000);
-
-      await expect(promise).rejects.toThrow();
-    });
-
-    it('should clean up event listener on success', async () => {
-      const unsubscribe = vi.fn();
-      const originalOn = eventBus.on as Mock;
-      const originalImpl = originalOn.getMockImplementation();
-      originalOn.mockImplementation((eventType: string, handler: Function) => {
-        const unsub = originalImpl?.(eventType, handler) ?? vi.fn();
-        if (eventType === 'ConnectionEstablished') {
-          return () => {
-            unsubscribe();
-            unsub();
-          };
-        }
-        return unsub;
-      });
-
-      (commandBus.execute as Mock).mockImplementation(async () => {
-        (eventBus.emit as Mock)({
-          type: 'ConnectionEstablished',
-          aggregateId: 'conn-789',
-          manufacturer: { value: 'KOHTO' },
-          portPath: '/dev/ttyUSB0',
-          timestamp: Date.now(),
-        });
-      });
-
-      const handlers = createConnectionIpcHandlers(deps);
-      await handlers.connect({
-        portName: '/dev/ttyUSB0',
-        manufacturer: 'KOHTO',
-      });
-
-      expect(unsubscribe).toHaveBeenCalled();
-    });
-
-    it('should ignore unrelated ConnectionEstablished events while waiting for the requested connection', async () => {
-      (commandBus.execute as Mock).mockImplementation(async () => {
-        (eventBus.emit as Mock)({
-          type: 'ConnectionEstablished',
-          aggregateId: 'auto-reconnect-conn',
-          manufacturer: { value: 'KOHTO' },
-          portPath: '/dev/ttyUSB9',
-          timestamp: Date.now(),
-        });
-        (eventBus.emit as Mock)({
-          type: 'ConnectionEstablished',
-          aggregateId: 'manual-connect-conn',
-          manufacturer: { value: 'KOHTO' },
-          portPath: '/dev/ttyUSB0',
-          timestamp: Date.now(),
-        });
-      });
-
-      const handlers = createConnectionIpcHandlers(deps);
-      const result = await handlers.connect({
-        portName: '/dev/ttyUSB0',
-        manufacturer: 'KOHTO',
-      });
-
-      expect(result).toEqual({ connectionId: 'manual-connect-conn' });
     });
   });
 

@@ -4,7 +4,7 @@ import type { LaneSafetyStatePayload } from '@sasakiuri/saika-protocol/LaneState
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import { toLaneSafetyStateDto, type ILaneSafetyStopControl } from '@/main/modules/safety-stop';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';

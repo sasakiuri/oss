@@ -65,6 +65,11 @@ export interface ConnectToTargetInput {
   deviceId?: string;
 }
 
+/** Return value of the target connection command */
+export interface ConnectToTargetResult {
+  connectionId: string;
+}
+
 /** Input for the target disconnection command */
 export interface DisconnectFromTargetInput {
   connectionId: string;
@@ -101,7 +106,7 @@ export const SwitchModeToken = defineCommand<SwitchModeInput>('SwitchMode');
 
 export const ResetSessionToken = defineCommand<ResetSessionInput>('ResetSession');
 
-export const ConnectToTargetToken = defineCommand<ConnectToTargetInput>('ConnectToTarget');
+export const ConnectToTargetToken = defineCommand<ConnectToTargetInput, ConnectToTargetResult>('ConnectToTarget');
 
 export const DisconnectFromTargetToken = defineCommand<DisconnectFromTargetInput>('DisconnectFromTarget');
 

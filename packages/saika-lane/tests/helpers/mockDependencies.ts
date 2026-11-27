@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ShotRoutingDeps } from '@/main/modules/connection/application/ShotRoutingService';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
@@ -84,6 +85,23 @@ export function createMockShotObservationRepository(): IShotObservationRepositor
     findById: vi.fn().mockResolvedValue(null),
     findOutcomes: vi.fn().mockResolvedValue([]),
     findBySessionAndOutcome: vi.fn().mockResolvedValue([]),
+  };
+}
+
+/** Shot routing readers of a Lane without an interruption, safety stop, open shoot-off window or timed target. */
+export function createIdleShotRoutingReaders(): Pick<
+  ShotRoutingDeps,
+  'interruptionReader' | 'safetyStopReader' | 'shootOffReader' | 'timedTargetReader'
+> {
+  return {
+    interruptionReader: { get: () => null },
+    safetyStopReader: { isStopped: () => false, getState: () => null },
+    shootOffReader: { canAcceptShot: () => false, getState: () => null },
+    timedTargetReader: {
+      tryAcceptShot: vi.fn(() => {
+        throw new Error('No timed-target sequence is running');
+      }),
+    },
   };
 }
 

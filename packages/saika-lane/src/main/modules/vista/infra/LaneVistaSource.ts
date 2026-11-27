@@ -22,6 +22,7 @@ import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompe
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
+import { readMirroredLaneNumber } from '@/main/modules/settings/application/MirroredSettings';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
@@ -204,8 +205,7 @@ export class LaneVistaSource {
           for (const archive of this.unconfirmedArchives(id)) await this.persist(archive);
       }
     }
-    const preferences = storage.get<{ laneNumber?: number }>('userPreferences');
-    const laneName = readVistaLaneAlias(storage) ?? `Lane ${preferences?.laneNumber ?? 1}`;
+    const laneName = readVistaLaneAlias(storage) ?? `Lane ${readMirroredLaneNumber(storage) ?? 1}`;
     for (const id of ids) {
       await setImmediate();
       if (this.blockedCompetitions.has(id)) continue;

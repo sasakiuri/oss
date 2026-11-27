@@ -5,7 +5,7 @@ import type { HardwareStatePayload } from '@sasakiuri/saika-protocol/LaneState';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneAlias, readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { ConnectionEstablishedEvent, ConnectionLostEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -64,8 +64,7 @@ export class HardwareStatePublisher {
 
   private getLaneAlias(): string {
     if (this.runtimeLaneAlias !== null) return this.runtimeLaneAlias;
-    const settings = this.storage.get<{ laneAlias?: string }>('mqtt.settings');
-    return settings?.laneAlias ?? '';
+    return readMirroredLaneAlias(this.storage) ?? '';
   }
 
   setRuntimeLaneAlias(laneAlias: string | null): void {

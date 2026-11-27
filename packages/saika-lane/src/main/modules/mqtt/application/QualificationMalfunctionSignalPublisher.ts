@@ -10,34 +10,18 @@ import type {
   QualificationMalfunctionSignalService,
   QualificationMalfunctionSignalState,
 } from '@/main/modules/qualification-malfunction-signal';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
-import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
 
+import { RetainedSignalPublisher } from './RetainedSignalPublisher';
+
 /** Publishes the Lane-owned declaration without issuing a competition-control command. */
-export class QualificationMalfunctionSignalPublisher {
-  private readonly publications = new SerialQueue();
-
-  constructor(
-    private readonly mqttClient: IMqttClientService,
-    private readonly storage: ILocalStorage,
-    private readonly service: QualificationMalfunctionSignalService,
-  ) {}
-
-  publishCurrentState(): Promise<void> {
-    return this.publications.run(() => this.publishCurrentStateNow());
-  }
-
-  private async publishCurrentStateNow(): Promise<void> {
-    if (!this.mqttClient.isConnected()) return;
-    const laneId = readMirroredLaneId(this.storage);
-    const payload = toQualificationMalfunctionSignalPayload(laneId, this.service.getState());
-    await this.mqttClient.publish(mqttTopics.laneQualificationMalfunctionSignal(laneId), JSON.stringify(payload), {
-      qos: 1,
-      retain: true,
-    });
+export class QualificationMalfunctionSignalPublisher extends RetainedSignalPublisher {
+  constructor(mqttClient: IMqttClientService, storage: ILocalStorage, service: QualificationMalfunctionSignalService) {
+    super(mqttClient, storage, mqttTopics.laneQualificationMalfunctionSignal, (laneId) =>
+      toQualificationMalfunctionSignalPayload(laneId, service.getState()),
+    );
   }
 }
 
