@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { LocalCompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
+import { LocalCompetitionShootOffControl } from '@/main/modules/competition-shoot-off/infra/LocalCompetitionShootOffControl';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 const competitionId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

@@ -12,4 +12,3 @@ export {
 } from './domain/EstComplaintSignalState';
 export type { IEstComplaintSignalContextSource } from './domain/IEstComplaintSignalContextSource';
 export type { IEstComplaintSignalRepository } from './domain/IEstComplaintSignalRepository';
-export { SqliteEstComplaintSignalRepository } from './infra/SqliteEstComplaintSignalRepository';

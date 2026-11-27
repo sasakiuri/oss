@@ -5,4 +5,3 @@ export type {
   TimingProfileState,
   ITimingProfileEnvironment,
 } from './application/TimingProfileService';
-export { StoredTimingProfiles } from './infra/StoredTimingProfiles';

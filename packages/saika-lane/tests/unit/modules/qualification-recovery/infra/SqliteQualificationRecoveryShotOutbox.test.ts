@@ -2,7 +2,7 @@
 import type { QualificationRecoveryShotPayload } from '@sasakiuri/saika-protocol/QualificationRecovery';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery';
+import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryShotOutbox';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 const RUN_ID = '22222222-2222-4222-8222-222222222222';

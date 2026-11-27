@@ -32,5 +32,4 @@ export type {
   TimedTargetSequencePhase,
   TimedTargetSignal,
 } from './domain/TimedTargetSchedule';
-export { SqliteTimedTargetSequenceRepository } from './infra/SqliteTimedTargetSequenceRepository';
 export { timedTargetModule } from './timedTarget.module';

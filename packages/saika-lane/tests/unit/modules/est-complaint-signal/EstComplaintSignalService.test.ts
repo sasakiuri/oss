@@ -2,7 +2,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { EstComplaintSignalService, SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal';
+import { EstComplaintSignalService } from '@/main/modules/est-complaint-signal';
+import { SqliteEstComplaintSignalRepository } from '@/main/modules/est-complaint-signal/infra/SqliteEstComplaintSignalRepository';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 const context = {

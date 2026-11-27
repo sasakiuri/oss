@@ -2,10 +2,8 @@
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  createQualificationRecoveryAdjudication,
-  SqliteQualificationRecoveryAdjudicationRepository,
-} from '@/main/modules/qualification-recovery';
+import { createQualificationRecoveryAdjudication } from '@/main/modules/qualification-recovery';
+import { SqliteQualificationRecoveryAdjudicationRepository } from '@/main/modules/qualification-recovery/infra/SqliteQualificationRecoveryAdjudicationRepository';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
