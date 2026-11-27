@@ -44,14 +44,13 @@ export function useResults() {
 
       try {
         const data = unwrap(await request(), failure);
-        if (requestId === latestResultsRequestIdRef.current) {
-          setState({
-            results: data.results,
-            loading: false,
-            error: null,
-            confirmError: null,
-          });
-        }
+        if (requestId !== latestResultsRequestIdRef.current) return null;
+        setState({
+          results: data.results,
+          loading: false,
+          error: null,
+          confirmError: null,
+        });
         return data;
       } catch (err) {
         if (requestId === latestResultsRequestIdRef.current) {
