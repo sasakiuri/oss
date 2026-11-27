@@ -80,7 +80,7 @@ export function retryableRecoveryStart(status: QualificationRecoveryExecutionDto
   return status === 'REQUESTED' || status === 'COMMAND_FAILED';
 }
 
-export function adjudicableRecoveryRun(
+export function canAdjudicateRecoveryRun(
   execution: QualificationRecoveryExecutionDto | null,
 ): execution is QualificationRecoveryExecutionDto {
   return Boolean(execution && ['COMPLETED', 'ADJUDICATING', 'ADJUDICATION_FAILED'].includes(execution.status));
