@@ -320,6 +320,7 @@ describe('QualificationRecoveryService', () => {
       cancel: vi.fn(),
       getState: vi.fn().mockReturnValue(null),
       tryAcceptShot: vi.fn(),
+      recordUnload: vi.fn(),
       restore: vi.fn(),
       dispose: vi.fn(),
       enforcementMode: 'REQUIRED',

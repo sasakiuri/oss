@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import type { ShotObservationEvidencePayload } from '@sasakiuri/saika-protocol/Shots';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import { OutboxDrainer } from '@/main/modules/mqtt/application/OutboxDrainer';
@@ -69,7 +70,7 @@ export class ShotObservationEvidencePublisher {
               stageScored: competition.stageScored,
             },
       publishedAt: new Date().toISOString(),
-    });
+    } satisfies ShotObservationEvidencePayload);
     return { topic, payload };
   }
 }

@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
-import type { ITimedTargetControl, TimedTargetState } from '@/main/modules/timed-target';
+import {
+  isTerminalTimedTargetPhase,
+  type ITimedTargetControl,
+  type TimedTargetState,
+} from '@/main/modules/timed-target';
 import type { ShotRecordedEvent, TimedTargetSequenceChangedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { errorMessage } from '@/shared/errors/errorMessage';
@@ -183,11 +187,7 @@ export class QualificationRecoveryService implements IQualificationRecoveryContr
     if (current.status === 'COMPLETED') throw new Error('A completed Qualification recovery run cannot be cancelled');
     const reason = requiredText(input.reason, 'Cancellation reason');
     const timedState = this.timedTargetControl.getState(current.competitionId);
-    if (
-      timedState?.sequenceId === current.sequenceId &&
-      timedState.phase !== 'COMPLETE' &&
-      timedState.phase !== 'CANCELLED'
-    ) {
+    if (timedState?.sequenceId === current.sequenceId && !isTerminalTimedTargetPhase(timedState.phase)) {
       this.timedTargetControl.cancel({
         sequenceId: current.sequenceId,
         reason,

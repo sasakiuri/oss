@@ -5,6 +5,7 @@ import { app } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
+import { toLaneSafetyStateDto } from '@/main/modules/safety-stop';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import { mqttContract } from '@/shared/ipc/contracts';
@@ -397,7 +398,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
 
       getDirectorMembership: async () => membership.snapshot,
 
-      getSafetyState: async () => toSafetyStateDto(safetyStopControl.getState()),
+      getSafetyState: async () => toLaneSafetyStateDto(safetyStopControl.getState()),
 
       getRangeOfficerRequest: async () =>
         toRangeOfficerRequestPayload(getLaneId(), rangeOfficerRequestService.getState()),
@@ -486,25 +487,4 @@ function publishRetainedOrWarn(publisher: { publishCurrentState(): Promise<void>
   return publisher.publishCurrentState().catch((error: unknown) => {
     getLogger().warn(message, 'mqtt', { error: errorMessage(error) });
   });
-}
-
-function toSafetyStateDto(state: ReturnType<import('@/main/modules/safety-stop').ILaneSafetyStopControl['getState']>) {
-  return {
-    status: state?.status ?? ('CLEAR' as const),
-    safetyStopId: state?.safetyStopId ?? null,
-    reason: state?.reason ?? null,
-    stoppedBy: state?.stoppedBy ?? null,
-    stoppedAt: state?.stoppedAt.toISOString() ?? null,
-    timerSnapshot: state?.timerSnapshot
-      ? {
-          competitionId: state.timerSnapshot.competitionId,
-          remainingSeconds: state.timerSnapshot.remainingSeconds,
-          totalSeconds: state.timerSnapshot.totalSeconds,
-          frozenAt: state.timerSnapshot.frozenAt.toISOString(),
-        }
-      : null,
-    clearedBy: state?.clearedBy ?? null,
-    clearanceReason: state?.clearanceReason ?? null,
-    clearedAt: state?.clearedAt?.toISOString() ?? null,
-  };
 }

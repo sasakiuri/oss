@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Publishes raw shot events at QoS 1 without retention. */
 
+import type { RawShotPayload } from '@sasakiuri/saika-protocol/Shots';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
@@ -43,7 +44,7 @@ export class RawShotPublisher {
       innerTen: shot.innerTen,
       mode: shot.mode.value,
       timestamp: shot.timestamp.toISOString(),
-    });
+    } satisfies RawShotPayload);
 
     const topic = mqttTopics.laneHardwareShot(laneId);
 

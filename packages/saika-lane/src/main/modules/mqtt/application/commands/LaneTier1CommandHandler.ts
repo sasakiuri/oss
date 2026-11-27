@@ -15,8 +15,12 @@ import type { RpcRequestHandler } from '@/main/modules/mqtt/application/RpcReque
 import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { laneCommandSchemas } from '@/main/modules/mqtt/domain/MqttCommandSchemas';
-import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
-import type { ITimedTargetControl } from '@/main/modules/timed-target';
+import {
+  toLaneSafetyStateDto,
+  type ILaneSafetyStopControl,
+  type LaneSafetyStopState,
+} from '@/main/modules/safety-stop';
+import { cancelActiveTimedTarget, type ITimedTargetControl } from '@/main/modules/timed-target';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { errorMessage } from '@/shared/errors/errorMessage';
@@ -173,7 +177,7 @@ export class LaneTier1CommandHandler {
           });
         }
 
-        this.cancelTimedTarget(competitionId, 'Lane left the competition');
+        cancelActiveTimedTarget(this.deps.timedTargetControl, 'Lane left the competition', competitionId);
         const shootOff = this.deps.competitionShootOffControl.getState();
         if (shootOff?.competitionId === competitionId) {
           this.deps.competitionShootOffControl.close(competitionId, shootOff.runId, shootOff.iteration);
@@ -209,7 +213,7 @@ export class LaneTier1CommandHandler {
         if (shootOff) {
           this.deps.competitionShootOffControl.close(shootOff.competitionId, shootOff.runId, shootOff.iteration);
         }
-        this.cancelTimedTarget(undefined, `Safety stop activated: ${state.reason}`);
+        cancelActiveTimedTarget(this.deps.timedTargetControl, `Safety stop activated: ${state.reason}`);
         // A completed ACK means the retained state has also reached the broker.
         await this.deps.safetyStatePublisher.publishCurrentState();
         return toSafetyCommandData(state);
@@ -227,12 +231,6 @@ export class LaneTier1CommandHandler {
         return toSafetyCommandData(state);
       }
     }
-  }
-
-  private cancelTimedTarget(competitionId: string | undefined, reason: string): void {
-    const timedState = this.deps.timedTargetControl.getState(competitionId);
-    if (!timedState || timedState.phase === 'COMPLETE' || timedState.phase === 'CANCELLED') return;
-    this.deps.timedTargetControl.cancel({ sequenceId: timedState.sequenceId, reason });
   }
 
   private async activateCompetitionSubscriptions(competitionId: string): Promise<void> {
@@ -256,18 +254,7 @@ export class LaneTier1CommandHandler {
   }
 }
 
-function toSafetyCommandData(state: ReturnType<ILaneSafetyStopControl['getState']> & object): Record<string, unknown> {
-  return {
-    safetyStopId: state.safetyStopId,
-    status: state.status,
-    ...(state.timerSnapshot
-      ? {
-          competitionId: state.timerSnapshot.competitionId,
-          remainingSeconds: state.timerSnapshot.remainingSeconds,
-          totalSeconds: state.timerSnapshot.totalSeconds,
-          frozenAt: state.timerSnapshot.frozenAt.toISOString(),
-        }
-      : {}),
-    timerRestarted: false,
-  };
+function toSafetyCommandData(state: LaneSafetyStopState): Record<string, unknown> {
+  const { safetyStopId, status, timerSnapshot } = toLaneSafetyStateDto(state);
+  return { safetyStopId, status, ...timerSnapshot, timerRestarted: false };
 }

@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 /** Publishes connection changes and a hardware heartbeat every 60 seconds. */
 
-import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
-import type { TimingEvidenceReport } from '@sasakiuri/saika-protocol/TimingEvidenceReport';
+import type { HardwareStatePayload } from '@sasakiuri/saika-protocol/LaneState';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
-import type { RulePackIdentity } from '@sasakiuri/saika-rules';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
@@ -14,39 +12,15 @@ import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
-interface HardwareState {
-  status: 'connected' | 'disconnected' | 'offline';
-  manufacturer?: string;
-  deviceId?: string | null;
-  portPath?: string;
-  connectionId?: string;
-}
-
-export interface LaneTargetIntegrationCapabilities {
-  readonly schemaVersion: 1;
-  readonly timedTarget: {
-    readonly actuation: 'INTEGRATED' | 'NOT_INTEGRATED';
-    readonly feedback: 'INTEGRATED' | 'NOT_INTEGRATED';
-  };
-}
-
-export interface LaneRuntimeCapabilities {
-  readonly competitionProtocolVersions: readonly [1];
-  readonly rulePacks: readonly RulePackIdentity[];
-  readonly timingEvidence?: TimingEvidenceReport;
-  readonly targetIntegration?: LaneTargetIntegrationCapabilities;
-  readonly timedTargetPolicy?: {
-    readonly enforcementMode: 'DISABLED' | 'ADVISORY' | 'REQUIRED';
-    readonly shotTiming?: ShotTimingSettings;
-  };
-}
+type HardwareConnectionState = HardwareStatePayload['connection'];
+type LaneRuntimeCapabilities = NonNullable<HardwareStatePayload['capabilities']>;
 
 export class HardwareStatePublisher {
   private readonly mqttClient: IMqttClientService;
   private readonly storage: ILocalStorage;
   private readonly appVersion: string;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  private currentState: HardwareState = { status: 'disconnected' };
+  private currentState: HardwareConnectionState = { status: 'disconnected' };
   private publishingEnabled = true;
   private runtimeLaneAlias: string | null = null;
 
@@ -98,7 +72,7 @@ export class HardwareStatePublisher {
     this.runtimeLaneAlias = laneAlias;
   }
 
-  private buildPayload(connection: HardwareState = this.currentState): string {
+  private buildPayload(connection: HardwareConnectionState = this.currentState): string {
     const capabilities = typeof this.capabilities === 'function' ? this.capabilities() : this.capabilities;
     return JSON.stringify({
       laneId: this.getLaneId(),
@@ -107,7 +81,7 @@ export class HardwareStatePublisher {
       appVersion: this.appVersion,
       ...(capabilities ? { capabilities } : {}),
       publishedAt: new Date().toISOString(),
-    });
+    } satisfies HardwareStatePayload);
   }
 
   /** Publishes the current state; without a Lane ID it waits for the next change or heartbeat after the ID is set. */

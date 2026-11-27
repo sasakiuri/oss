@@ -6,7 +6,11 @@ import type { ShotTimestampSource } from '@/shared/types/ShotTimestampSource';
 
 import type { CommandPauseAssessment, UnloadObservationInput } from './ITimedTargetCommandPause';
 import type { TimedTargetExecutionContext } from './TimedTargetExecutionContext';
-import type { TimedTargetSequencePhase, TimedTargetSignal } from './TimedTargetSchedule';
+import {
+  isTerminalTimedTargetPhase,
+  type TimedTargetSequencePhase,
+  type TimedTargetSignal,
+} from './TimedTargetSchedule';
 
 export type TimedTargetEnforcementMode = 'DISABLED' | 'ADVISORY' | 'REQUIRED';
 
@@ -78,11 +82,22 @@ export interface ITimedTargetControl {
     firedAt: Date;
     timestampSource?: ShotTimestampSource;
   }): TimedTargetShotDecision;
-  recordUnload?(input: UnloadObservationInput): TimedTargetState;
+  recordUnload(input: UnloadObservationInput): TimedTargetState;
   restore(): void;
   dispose(): void;
 }
 
 export interface ITimedTargetStateSink {
   publish(state: TimedTargetState): void;
+}
+
+/** Cancels the competition's sequence, or the latest one without a competition, unless it already ended. */
+export function cancelActiveTimedTarget(
+  control: Pick<ITimedTargetControl, 'getState' | 'cancel'>,
+  reason: string,
+  competitionId?: string,
+): void {
+  const state = control.getState(competitionId);
+  if (!state || isTerminalTimedTargetPhase(state.phase)) return;
+  control.cancel({ sequenceId: state.sequenceId, reason });
 }

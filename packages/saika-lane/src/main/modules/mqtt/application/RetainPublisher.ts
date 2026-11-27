@@ -22,7 +22,7 @@ import type { QualificationMalfunctionSignalPublisher } from './QualificationMal
 import type { QualificationRecoveryStatePublisher } from './QualificationRecoveryStatePublisher';
 import type { RangeOfficerRequestPublisher } from './RangeOfficerRequestPublisher';
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
-import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
+import { toCompetitionShotPayload } from './ShotMqttPayloadMapper';
 import type { TimedTargetStatePublisher } from './TimedTargetStatePublisher';
 
 export interface RetainPublisherDeps {
@@ -171,28 +171,17 @@ export class RetainPublisher {
 
     for (const shot of backlogShots) {
       const placement = resolveCompetitionShotPlacement(shot, session.allShots, competition);
-      const stage = competition.config.stages[placement.stageIndex];
-      const scored = stage?.scored ?? true;
-
-      const payload = JSON.stringify({
-        laneId,
-        shotId: shot.id,
-        x: shot.impactPoint?.x ?? null,
-        y: shot.impactPoint?.y ?? null,
-        ...toShotMqttEvidencePayload(shot),
-        innerTen: shot.innerTen,
-        mode: shot.mode.value,
-        timestamp: shot.timestamp.toISOString(),
-        competitionId,
-        sessionId,
-        stageIndex: placement.stageIndex,
-        scored,
-        seriesIndex: placement.seriesIndex,
-        shotNumberInSeries: placement.shotNumberInSeries,
-        isRecorded: shot.mode.isMatch() && scored,
-        isReplay: true,
-        publishedAt: new Date().toISOString(),
-      });
+      const payload = JSON.stringify(
+        toCompetitionShotPayload({
+          laneId,
+          shot,
+          competitionId,
+          sessionId,
+          placement,
+          scored: competition.config.stages[placement.stageIndex]!.scored,
+          isReplay: true,
+        }),
+      );
 
       await this.deps.mqttClient.publish(topic, payload, { qos: 1, retain: false });
     }

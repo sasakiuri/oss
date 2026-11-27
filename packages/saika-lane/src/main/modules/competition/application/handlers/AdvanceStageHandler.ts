@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { AdvanceStageInput } from '@/main/composition/tokens';
 import { emitPhaseChanged } from '@/main/modules/competition/application/emitPhaseChanged';
+import { requireCompetition } from '@/main/modules/competition/application/requireCompetition';
 import type { SessionLifecycleService } from '@/main/modules/competition/application/SessionLifecycleService';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 /** Advances from SERIES_COMPLETE. Entering the match stage rotates the session and clears shot data. */
 export function createAdvanceStageHandler(
@@ -14,10 +14,7 @@ export function createAdvanceStageHandler(
   eventBus: IEventBus,
 ): CommandHandler<AdvanceStageInput> {
   return async (input) => {
-    let state = await competitionRepository.findById(input.competitionId);
-    if (!state) {
-      throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: input.competitionId });
-    }
+    let state = await requireCompetition(competitionRepository, input.competitionId);
 
     const previousPhase = state.phase;
 

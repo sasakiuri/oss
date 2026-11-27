@@ -15,7 +15,7 @@ import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
-import { toShotMqttEvidencePayload } from './ShotMqttPayloadMapper';
+import { toCompetitionShotPayload } from './ShotMqttPayloadMapper';
 
 export class CompetitionShotPublisher {
   private readonly mqttClient: IMqttClientService;
@@ -72,31 +72,18 @@ export class CompetitionShotPublisher {
     const session = await this.sessionRepository.findById(event.aggregateId);
     if (!session) throw new Error(`Session ${event.aggregateId} is unavailable for shot publication`);
     const placement = resolveCompetitionShotPlacement(shot, session.allShots, competition);
-    const shotStage = competition.config.stages[placement.stageIndex]!;
 
-    const isRecorded = shot.mode.value === 'MATCH' && shotStage.scored;
-
-    const payload = JSON.stringify({
-      laneId,
-      shotId: shot.id,
-      x: shot.impactPoint?.x ?? null,
-      y: shot.impactPoint?.y ?? null,
-      ...toShotMqttEvidencePayload(shot),
-      innerTen: shot.innerTen,
-      mode: shot.mode.value,
-      timestamp: shot.timestamp.toISOString(),
-
-      // Competition context
-      competitionId: competition.id,
-      sessionId: event.aggregateId,
-      stageIndex: placement.stageIndex,
-      scored: shotStage.scored,
-      seriesIndex: placement.seriesIndex,
-      shotNumberInSeries: placement.shotNumberInSeries,
-      isRecorded,
-      isReplay: false,
-      publishedAt: new Date().toISOString(),
-    });
+    const payload = JSON.stringify(
+      toCompetitionShotPayload({
+        laneId,
+        shot,
+        competitionId: competition.id,
+        sessionId: event.aggregateId,
+        placement,
+        scored: competition.config.stages[placement.stageIndex]!.scored,
+        isReplay: false,
+      }),
+    );
 
     const topic = mqttTopics.competitionShot(competition.id, laneId);
 

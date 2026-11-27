@@ -31,3 +31,13 @@ export interface ISafetyTimerFreezer {
     frozenAt: Date;
   } | null>;
 }
+
+/** Throws a plain error naming the blocked action while the Lane safety stop is active. */
+export function assertSafetyStopCleared(
+  control: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>,
+  action: string,
+): void {
+  if (!control.isStopped()) return;
+  const safetyStopId = control.getState()?.safetyStopId ?? 'unknown';
+  throw new Error(`Safety stop ${safetyStopId} is active; ${action} is blocked`);
+}

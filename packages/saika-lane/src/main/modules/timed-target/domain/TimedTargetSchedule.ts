@@ -9,6 +9,11 @@ export type TimedTargetSignal = 'RED' | 'GREEN';
 export type TimedTargetSequencePhase =
   'ARMED' | 'LOAD' | 'ATTENTION' | 'FIRING' | 'AFTER_TIME' | 'BETWEEN_EXPOSURES' | 'COMPLETE' | 'CANCELLED';
 
+/** A completed or cancelled sequence no longer runs. */
+export function isTerminalTimedTargetPhase(phase: TimedTargetSequencePhase): boolean {
+  return phase === 'COMPLETE' || phase === 'CANCELLED';
+}
+
 export interface ScheduledTimedTargetExposure {
   readonly index: number;
   readonly greenAt: Date;
