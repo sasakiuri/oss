@@ -17,14 +17,12 @@ vi.mock('@/renderer/services', () => ({
 describe('OperatorAccessPanel', () => {
   beforeEach(() => vi.clearAllMocks());
   it('retains an authentication failure and does not report that the operator signed in', async () => {
-    vi.mocked(operatorAccessService.status).mockResolvedValue({
-      success: true,
-      data: { enabled: true, setupRequired: false, actor: null, expiresAt: null },
-    });
-    vi.mocked(operatorAccessService.signIn).mockResolvedValue({
-      success: false,
-      error: { code: 'COMMAND_ERROR', message: 'Invalid operator name or password' },
-    });
+    vi.mocked(operatorAccessService.status).mockResolvedValue(
+      ok({ enabled: true, setupRequired: false, actor: null, expiresAt: null }),
+    );
+    vi.mocked(operatorAccessService.signIn).mockResolvedValue(
+      fail('Invalid operator name or password', 'COMMAND_ERROR'),
+    );
     render(<OperatorAccessPanel />);
     fireEvent.click(await screen.findByRole('button', { name: /Signed out/ }));
     fireEvent.change(screen.getByLabelText('Operator name'), { target: { value: 'Range A' } });
@@ -34,14 +32,12 @@ describe('OperatorAccessPanel', () => {
     expect(screen.queryByText('Signed in: Range A')).not.toBeInTheDocument();
   });
   it('creates the first administrator without automatically requiring sign-in for operations', async () => {
-    vi.mocked(operatorAccessService.status).mockResolvedValue({
-      success: true,
-      data: { enabled: false, setupRequired: true, actor: null, expiresAt: null },
-    });
-    vi.mocked(operatorAccessService.saveAccount).mockResolvedValue({
-      success: true,
-      data: { enabled: false, setupRequired: true, actor: null, expiresAt: null },
-    });
+    vi.mocked(operatorAccessService.status).mockResolvedValue(
+      ok({ enabled: false, setupRequired: true, actor: null, expiresAt: null }),
+    );
+    vi.mocked(operatorAccessService.saveAccount).mockResolvedValue(
+      ok({ enabled: false, setupRequired: true, actor: null, expiresAt: null }),
+    );
     render(<OperatorAccessPanel />);
     fireEvent.click(await screen.findByRole('button', { name: /Manual operation/ }));
     expect(screen.getByText('Create the first administrator')).toBeInTheDocument();

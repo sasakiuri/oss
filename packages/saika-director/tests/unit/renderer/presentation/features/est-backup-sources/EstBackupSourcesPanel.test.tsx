@@ -22,9 +22,9 @@ describe('retained source selection', () => {
       recordCount: 1,
       importedAt: '2026-09-09T00:00:00Z',
     };
-    listSources.mockResolvedValue({ success: true, data: [source] });
-    getSource.mockResolvedValue({ success: true, data: { ...source, eventId: 'other' } });
-    print.mockResolvedValue({ success: true, data: 'window' });
+    listSources.mockResolvedValue(ok([source]));
+    getSource.mockResolvedValue(ok({ ...source, eventId: 'other' }));
+    print.mockResolvedValue(ok('window'));
     const selected = vi.fn();
     render(<EstBackupSourcesPanel eventId="event" generation={0} onSelected={selected} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Print source' }));
@@ -33,7 +33,7 @@ describe('retained source selection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Use source records' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('another event');
     expect(selected).not.toHaveBeenCalled();
-    getSource.mockResolvedValue({ success: true, data: source });
+    getSource.mockResolvedValue(ok(source));
     fireEvent.click(screen.getByRole('button', { name: 'Use source records' }));
     await waitFor(() => expect(selected).toHaveBeenCalledWith(source));
   });

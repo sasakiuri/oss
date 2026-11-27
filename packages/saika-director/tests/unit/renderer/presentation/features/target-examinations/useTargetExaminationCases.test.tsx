@@ -6,6 +6,7 @@ import { useTargetExaminationCases } from '@/renderer/presentation/features/targ
 import type { TargetExaminationCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { CASE_ID, caseFixture, deferred } from './fixtures';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { listAll, listByScope, appendEntry } = vi.hoisted(() => ({
   listAll: vi.fn(),
@@ -15,7 +16,7 @@ const { listAll, listByScope, appendEntry } = vi.hoisted(() => ({
 vi.mock('@/renderer/services', () => ({ targetExaminationsService: { listAll, listByScope, appendEntry } }));
 
 const response = (...data: TargetExaminationCaseDto[]) => ({ success: true as const, data });
-const updated = () => ({ success: true as const, data: caseFixture() });
+const updated = () => ok(caseFixture());
 const scope = (scopeId: string): CaseScopePayload => ({ scopeType: 'COMPETITION', scopeId });
 const entry = { caseId: CASE_ID, type: 'NOTE' as const, statement: 'Examined records', officialName: 'RTS Officer' };
 
@@ -123,7 +124,7 @@ describe('useTargetExaminationCases', () => {
   it('preserves a command error when the recovery query also fails', async () => {
     const { result } = renderHook(() => useTargetExaminationCases());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    appendEntry.mockResolvedValueOnce({ success: false, error: { message: 'Case is closed' } });
+    appendEntry.mockResolvedValueOnce(fail('Case is closed'));
     listAll.mockRejectedValueOnce(new Error('Query failed'));
     await act(async () => {
       expect(await result.current.commands.appendEntry(entry)).toBe(false);
@@ -209,7 +210,7 @@ describe('useTargetExaminationCases', () => {
   });
 
   it('shows the message of a failed load response', async () => {
-    listAll.mockResolvedValueOnce({ success: false, error: { code: 'UNKNOWN_ERROR', message: 'Ledger unavailable' } });
+    listAll.mockResolvedValueOnce(fail('Ledger unavailable'));
     const { result } = renderHook(() => useTargetExaminationCases());
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe('Ledger unavailable');

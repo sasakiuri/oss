@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { OperationalProfilePanel } from '@/renderer/presentation/features/operational-profiles/OperationalProfilePanel';
 import { operationalProfilesService } from '@/renderer/services';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 vi.mock('@/renderer/services', () => ({ operationalProfilesService: { preview: vi.fn(), apply: vi.fn() } }));
 vi.mock('@/renderer/presentation/features/operational-profiles/OperationalTemplatePanel', () => ({
@@ -72,9 +73,8 @@ describe('OperationalProfilePanel', () => {
     expect(operationalProfilesService.apply).not.toHaveBeenCalled();
   });
   it('discards proposed settings and pending results when changing competitions', async () => {
-    vi.mocked(operationalProfilesService.preview).mockImplementation(async (input) => ({
-      success: true,
-      data: {
+    vi.mocked(operationalProfilesService.preview).mockImplementation(async (input) =>
+      ok({
         competitionId: input.competitionId,
         fingerprint: 'a'.repeat(64),
         changes: [
@@ -87,8 +87,8 @@ describe('OperationalProfilePanel', () => {
             context: '',
           },
         ],
-      },
-    }));
+      }),
+    );
     let complete!: (value: Awaited<ReturnType<typeof operationalProfilesService.apply>>) => void;
     vi.mocked(operationalProfilesService.apply).mockReturnValue(
       new Promise((resolve) => {
@@ -104,15 +104,14 @@ describe('OperationalProfilePanel', () => {
     view.rerender(<OperationalProfilePanel competitionId="second" onApplied={onApplied} />);
     await waitFor(() => expect(screen.getByLabelText('Clock quality mode')).toHaveValue('ADVISORY'));
     expect(operationalProfilesService.preview).toHaveBeenLastCalledWith({ competitionId: 'second', modes: {} });
-    await act(async () => complete({ success: true, data: { complete: true, results: [] } }));
+    await act(async () => complete(ok({ complete: true, results: [] })));
     expect(onApplied).not.toHaveBeenCalled();
     expect(screen.queryByText('Settings confirmed.')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Apply reviewed settings' })).toBeDisabled();
   });
   it('keeps authentication required when selecting advisory checks and offers only supported modes', async () => {
-    vi.mocked(operationalProfilesService.preview).mockImplementation(async (input) => ({
-      success: true,
-      data: {
+    vi.mocked(operationalProfilesService.preview).mockImplementation(async (input) =>
+      ok({
         competitionId: input.competitionId,
         fingerprint: 'a'.repeat(64),
         changes: [
@@ -134,8 +133,8 @@ describe('OperationalProfilePanel', () => {
             context: '',
           },
         ],
-      },
-    }));
+      }),
+    );
     render(<OperationalProfilePanel competitionId="competition" onApplied={() => {}} />);
     const access = await screen.findByLabelText('Authentication mode');
     expect(within(access).queryByRole('option', { name: 'Advisory' })).not.toBeInTheDocument();
@@ -144,9 +143,8 @@ describe('OperationalProfilePanel', () => {
     expect(screen.getByLabelText('Authentication mode')).toHaveValue('REQUIRED');
   });
   it('previews mode changes before applying and displays an individual failure', async () => {
-    vi.mocked(operationalProfilesService.preview).mockImplementation(async (input) => ({
-      success: true,
-      data: {
+    vi.mocked(operationalProfilesService.preview).mockImplementation(async (input) =>
+      ok({
         competitionId: input.competitionId,
         fingerprint: 'a'.repeat(64),
         changes: [
@@ -159,12 +157,11 @@ describe('OperationalProfilePanel', () => {
             context: 'existing thresholds',
           },
         ],
-      },
-    }));
-    vi.mocked(operationalProfilesService.apply).mockResolvedValue({
-      success: true,
-      data: { complete: false, results: [{ id: 'clock', status: 'FAILED', message: 'Another competition is active' }] },
-    });
+      }),
+    );
+    vi.mocked(operationalProfilesService.apply).mockResolvedValue(
+      ok({ complete: false, results: [{ id: 'clock', status: 'FAILED', message: 'Another competition is active' }] }),
+    );
     const applied = vi.fn();
     render(<OperationalProfilePanel competitionId="11111111-1111-4111-8111-111111111111" onApplied={applied} />);
     expect(await screen.findByText('All competitions')).toBeInTheDocument();
@@ -180,18 +177,13 @@ describe('OperationalProfilePanel', () => {
   });
 
   it('shows a failed preview as error text and a failed application as its message', async () => {
-    vi.mocked(operationalProfilesService.preview).mockResolvedValueOnce({
-      success: false,
-      data: null,
-      error: { code: 'NOT_FOUND', message: 'Competition not found' },
-    });
+    vi.mocked(operationalProfilesService.preview).mockResolvedValueOnce(fail('Competition not found', 'NOT_FOUND'));
     const { unmount } = render(<OperationalProfilePanel competitionId="competition" onApplied={() => {}} />);
     expect(await screen.findByRole('alert')).toHaveTextContent(/^Error: Competition not found$/);
     unmount();
 
-    vi.mocked(operationalProfilesService.preview).mockResolvedValue({
-      success: true,
-      data: {
+    vi.mocked(operationalProfilesService.preview).mockResolvedValue(
+      ok({
         competitionId: 'competition',
         fingerprint: 'a'.repeat(64),
         changes: [
@@ -204,12 +196,11 @@ describe('OperationalProfilePanel', () => {
             context: '',
           },
         ],
-      },
-    });
-    vi.mocked(operationalProfilesService.apply).mockResolvedValue({
-      success: false,
-      error: { code: 'CONFLICT', message: 'The settings changed; review them again' },
-    });
+      }),
+    );
+    vi.mocked(operationalProfilesService.apply).mockResolvedValue(
+      fail('The settings changed; review them again', 'CONFLICT'),
+    );
     const applied = vi.fn();
     render(<OperationalProfilePanel competitionId="competition" onApplied={applied} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Require all listed checks' }));

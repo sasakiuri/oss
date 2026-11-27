@@ -12,6 +12,7 @@ vi.mock('@/renderer/services', () => ({
   estChampionshipInspectionsService: { get, getStartSettings, setStartSettings },
 }));
 import { EstInspectionStartPanel } from '@/renderer/presentation/features/est-championship-inspections/EstInspectionStartPanel';
+import { ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const settings = { competitionId: 'competition', championshipId: 'championship', mode: 'ADVISORY', laneTargets: [] };
 const failure = (message: string) => ({ success: false, error: { code: 'UNKNOWN_ERROR', message } });
@@ -23,12 +24,9 @@ function renderPanel() {
 describe('EstInspectionStartPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getAll.mockResolvedValue({
-      success: true,
-      data: { championships: [{ id: 'championship', name: 'Championship' }] },
-    });
-    getStartSettings.mockResolvedValue({ success: true, data: settings });
-    get.mockResolvedValue({ success: true, data: { ready: true, plan: { versionNumber: 1 }, targets: [] } });
+    getAll.mockResolvedValue(ok({ championships: [{ id: 'championship', name: 'Championship' }] }));
+    getStartSettings.mockResolvedValue(ok(settings));
+    get.mockResolvedValue(ok({ ready: true, plan: { versionNumber: 1 }, targets: [] }));
   });
 
   it('shows a failed settings load with the Error prefix and renders no form', async () => {
@@ -64,18 +62,16 @@ describe('EstInspectionStartPanel', () => {
   });
 
   it('saves multiple physical targets for one Lane and the chosen enforcement mode', async () => {
-    getStartSettings.mockResolvedValue({
-      success: true,
-      data: { competitionId: 'competition', championshipId: 'championship', mode: 'ADVISORY', laneTargets: [] },
-    });
-    get.mockResolvedValue({
-      success: true,
-      data: {
+    getStartSettings.mockResolvedValue(
+      ok({ competitionId: 'competition', championshipId: 'championship', mode: 'ADVISORY', laneTargets: [] }),
+    );
+    get.mockResolvedValue(
+      ok({
         ready: true,
         plan: { versionNumber: 1 },
         targets: ['EST-1', 'EST-2'].map((targetIdentifier) => ({ targetIdentifier, status: 'PASSED' })),
-      },
-    });
+      }),
+    );
     setStartSettings.mockImplementation(async (data) => ({ success: true, data }));
     render(<EstInspectionStartPanel competitionId="competition" lanes={[{ laneId: 'lane', label: 'Lane A' }]} />);
     const targets = (await screen.findByLabelText('Targets · Lane A')) as HTMLSelectElement;

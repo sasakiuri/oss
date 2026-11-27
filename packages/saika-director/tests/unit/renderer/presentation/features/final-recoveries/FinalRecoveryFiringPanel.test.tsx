@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { FinalRecoveryFiringPanel } from '@/renderer/presentation/features/final-recoveries/FinalRecoveryFiringPanel';
 import type { FinalRecoveryCaseDto } from '@/shared/ipc/contracts';
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 const { list, start, read, cancel } = vi.hoisted(() => ({
   list: vi.fn(),
   start: vi.fn(),
@@ -20,7 +20,7 @@ const value = {
 } as FinalRecoveryCaseDto;
 describe('FinalRecoveryFiringPanel', () => {
   it('requires readiness confirmation and does not start firing while reading the ledger', async () => {
-    list.mockResolvedValue({ success: true, data: [] });
+    list.mockResolvedValue(ok([]));
     start.mockResolvedValue({ success: true });
     render(<FinalRecoveryFiringPanel value={value} disabled={false} />);
     await waitFor(() => expect(list).toHaveBeenCalledWith({ caseId: 'case' }));
@@ -49,7 +49,7 @@ describe('FinalRecoveryFiringPanel', () => {
       request: { shotsToFire: 2 },
       evidence: null,
     };
-    list.mockResolvedValue({ success: true, data: [run] });
+    list.mockResolvedValue(ok([run]));
     start.mockResolvedValue(fail('The Lane is not under safety STOP'));
     read.mockResolvedValue({ success: false });
     render(<FinalRecoveryFiringPanel value={value} disabled={false} />);

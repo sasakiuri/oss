@@ -36,7 +36,7 @@ describe('ResultVerificationPanel signing', () => {
       currentApproval: null,
       approvalHistory: [],
     };
-    getStatus.mockImplementation(async () => ({ success: true, data: { ...status } }));
+    getStatus.mockImplementation(async () => ok({ ...status }));
     approve.mockImplementation(async () => {
       const entry = {
         id: 'approval',
@@ -62,7 +62,7 @@ describe('ResultVerificationPanel signing', () => {
       };
       status.currentApproval = entry;
       status.approvalHistory = [entry];
-      return { success: true, data: entry };
+      return ok(entry);
     });
     render(<ResultVerificationPanel eventId="event" resultScope="QUALIFICATION" onClose={() => {}} />);
     fireEvent.change(await screen.findByLabelText('Approving RTS Jury member'), { target: { value: 'External Jury' } });

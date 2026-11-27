@@ -9,20 +9,18 @@ vi.mock('@/renderer/services', () => ({ equipmentRegistryService: { getWorkspace
 describe('EquipmentRegistryPanel', () => {
   it('requires attribution and retains form input on a stale-record failure', async () => {
     const athleteId = '22222222-2222-4222-8222-222222222222';
-    vi.mocked(equipmentRegistryService.getWorkspace).mockResolvedValue({
-      success: true,
-      data: {
+    vi.mocked(equipmentRegistryService.getWorkspace).mockResolvedValue(
+      ok({
         revision: 3,
         athletes: [{ id: athleteId, name: 'Athlete A', issfId: null }],
         equipment: [],
         entries: [],
         activeCalibrationIds: [],
-      },
-    });
-    vi.mocked(equipmentRegistryService.saveEquipment).mockResolvedValue({
-      success: false,
-      error: { code: 'COMMAND_ERROR', message: 'Equipment records changed; reload before saving' },
-    });
+      }),
+    );
+    vi.mocked(equipmentRegistryService.saveEquipment).mockResolvedValue(
+      fail('Equipment records changed; reload before saving', 'COMMAND_ERROR'),
+    );
     render(<EquipmentRegistryPanel championshipId="11111111-1111-4111-8111-111111111111" />);
     fireEvent.click(screen.getByText('Register or amend equipment'));
     await screen.findByRole('option', { name: 'Athlete A' });

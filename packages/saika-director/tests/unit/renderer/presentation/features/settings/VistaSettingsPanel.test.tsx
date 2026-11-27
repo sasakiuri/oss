@@ -17,11 +17,10 @@ const settings = {
 afterEach(cleanup);
 describe('Vista settings', () => {
   it('applies sharing settings and exposes the pairing secret only on request', async () => {
-    getSettings.mockResolvedValue({ success: true, data: settings });
-    setSettings.mockResolvedValue({
-      success: true,
-      data: { ...settings, enabled: true, running: true, endpoints: ['http://192.168.1.10:45832'] },
-    });
+    getSettings.mockResolvedValue(ok(settings));
+    setSettings.mockResolvedValue(
+      ok({ ...settings, enabled: true, running: true, endpoints: ['http://192.168.1.10:45832'] }),
+    );
     render(<VistaSettingsPanel />);
     const secret = await screen.findByLabelText('Vista pairing secret');
     expect(secret).toHaveAttribute('type', 'password');

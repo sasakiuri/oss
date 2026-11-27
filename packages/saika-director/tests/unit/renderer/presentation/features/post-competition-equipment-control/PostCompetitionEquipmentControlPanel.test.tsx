@@ -56,12 +56,12 @@ function checkFixture(overrides: Partial<PostCompetitionEquipmentCheckDto> = {})
 describe('PostCompetitionEquipmentControlPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    list.mockResolvedValue({ success: true, data: [] });
+    list.mockResolvedValue(ok([]));
   });
 
   it('records an explicit athlete selection and its ISSF basis', async () => {
     const selected = checkFixture();
-    select.mockResolvedValue({ success: true, data: [selected] });
+    select.mockResolvedValue(ok([selected]));
     render(
       <PostCompetitionEquipmentControlPanel
         championshipId={CHAMPIONSHIP_ID}
@@ -125,8 +125,8 @@ describe('PostCompetitionEquipmentControlPanel', () => {
       status: 'FAILED_CONFIRMED',
       separateDisqualificationActionRequired: true,
     });
-    list.mockResolvedValue({ success: true, data: [pending] });
-    confirmFailure.mockResolvedValue({ success: true, data: confirmed });
+    list.mockResolvedValue(ok([pending]));
+    confirmFailure.mockResolvedValue(ok(confirmed));
     render(
       <PostCompetitionEquipmentControlPanel championshipId={CHAMPIONSHIP_ID} eventId={EVENT_ID} participants={[]} />,
     );
@@ -151,15 +151,14 @@ describe('PostCompetitionEquipmentControlPanel', () => {
   });
 
   it('exposes a confirmed failure as evidence for a separate sanction action', async () => {
-    list.mockResolvedValue({
-      success: true,
-      data: [
+    list.mockResolvedValue(
+      ok([
         checkFixture({
           status: 'FAILED_CONFIRMED',
           separateDisqualificationActionRequired: true,
         }),
-      ],
-    });
+      ]),
+    );
     render(
       <PostCompetitionEquipmentControlPanel championshipId={CHAMPIONSHIP_ID} eventId={EVENT_ID} participants={[]} />,
     );

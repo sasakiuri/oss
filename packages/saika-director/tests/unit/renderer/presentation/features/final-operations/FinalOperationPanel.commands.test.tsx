@@ -712,7 +712,7 @@ describe('FinalOperationPanel abort', () => {
 
   it.each([
     {
-      response: { success: false, error: { code: 'MQTT', message: 'Broker offline' } },
+      response: fail('Broker offline', 'MQTT'),
       text: 'Final run was aborted, but the retained Lane cue could not be cleared: Broker offline',
     },
     {
@@ -768,7 +768,7 @@ describe('FinalOperationPanel aborted run cleanup', () => {
   });
 
   it.each([
-    { response: { success: false, error: { code: 'MQTT', message: 'Broker offline' } }, text: 'Broker offline' },
+    { response: fail('Broker offline', 'MQTT'), text: 'Broker offline' },
     { response: { success: false }, text: 'Failed to clear the retained Lane cue' },
   ])('shows a failed cue cleanup: $text', async ({ response, text }) => {
     clearFinalCue.mockResolvedValue(response);

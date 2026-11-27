@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { ObservationReviewsPanel } from '@/renderer/presentation/features/observation-reviews/ObservationReviewsPanel';
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 const api = vi.hoisted(() => ({ list: vi.fn(), listEvent: vi.fn(), record: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ observationReviewsService: api }));
 const subject = {
@@ -16,10 +16,7 @@ const subject = {
 };
 beforeEach(() => {
   vi.clearAllMocks();
-  const response = {
-    success: true,
-    data: [{ subject, reviews: [], latest: null, resolved: false, issue: 'Awaiting official review' }],
-  };
+  const response = ok([{ subject, reviews: [], latest: null, resolved: false, issue: 'Awaiting official review' }]);
   api.list.mockResolvedValue(response);
   api.listEvent.mockResolvedValue(response);
   api.record.mockResolvedValue(response);

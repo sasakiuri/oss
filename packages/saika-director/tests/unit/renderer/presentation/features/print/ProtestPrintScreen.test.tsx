@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProtestPrintScreen } from '@/renderer/presentation/features/print/ProtestPrintScreen';
 
 import { APPEAL_ID, PROTEST_ID, protestFixture } from '../../../../../helpers/protestFixture';
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { getById } = vi.hoisted(() => ({ getById: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ protestsService: { getById } }));
@@ -33,10 +33,9 @@ describe('ProtestPrintScreen', () => {
         },
       ],
     });
-    getById.mockImplementation(async ({ caseId }: { caseId: string }) => ({
-      success: true,
-      data: caseId === APPEAL_ID ? appeal : protestFixture(),
-    }));
+    getById.mockImplementation(async ({ caseId }: { caseId: string }) =>
+      ok(caseId === APPEAL_ID ? appeal : protestFixture()),
+    );
     const { container } = render(<ProtestPrintScreen config={{ type: 'protest-print', protestId: APPEAL_ID }} />);
     expect(await screen.findByRole('heading', { name: 'Appeal record' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Written protest record' })).toBeInTheDocument();
@@ -52,28 +51,25 @@ describe('ProtestPrintScreen', () => {
 
   it('disables printing when the original record cannot be loaded and retries the whole preview', async () => {
     getById
-      .mockResolvedValueOnce({
-        success: true,
-        data: protestFixture({ id: APPEAL_ID, kind: 'APPEAL', parentProtestId: PROTEST_ID }),
-      })
-      .mockResolvedValueOnce({ success: false, error: { message: 'Record unavailable' } });
+      .mockResolvedValueOnce(ok(protestFixture({ id: APPEAL_ID, kind: 'APPEAL', parentProtestId: PROTEST_ID })))
+      .mockResolvedValueOnce(fail('Record unavailable'));
     render(<ProtestPrintScreen config={{ type: 'protest-print', protestId: APPEAL_ID }} />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Cannot load the original protest');
     expect(screen.getByRole('button', { name: 'Print' })).toBeDisabled();
-    getById.mockImplementation(async ({ caseId }: { caseId: string }) => ({
-      success: true,
-      data:
+    getById.mockImplementation(async ({ caseId }: { caseId: string }) =>
+      ok(
         caseId === APPEAL_ID
           ? protestFixture({ id: APPEAL_ID, kind: 'APPEAL', parentProtestId: PROTEST_ID, status: 'CLOSED' })
           : protestFixture(),
-    }));
+      ),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     expect(await screen.findByText('Status: CLOSED')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Print' })).toBeEnabled();
   });
 
   it('removes an earlier preview while another record loads and never prints it after a failure', async () => {
-    getById.mockResolvedValueOnce({ success: true, data: protestFixture() });
+    getById.mockResolvedValueOnce(ok(protestFixture()));
     const { rerender } = render(<ProtestPrintScreen config={{ type: 'protest-print', protestId: PROTEST_ID }} />);
     await screen.findByRole('heading', { name: 'Written protest record' });
     getById.mockRejectedValueOnce(new Error('Connection lost'));
@@ -84,14 +80,14 @@ describe('ProtestPrintScreen', () => {
   });
 
   it('discards temporary transfer entries on refresh and refuses a mismatched record', async () => {
-    getById.mockResolvedValue({ success: true, data: protestFixture() });
+    getById.mockResolvedValue(ok(protestFixture()));
     render(<ProtestPrintScreen config={{ type: 'protest-print', protestId: PROTEST_ID }} />);
     fireEvent.click(await screen.findByText('Transfer values to a protest or appeal form'));
     fireEvent.change(screen.getByLabelText('Event for transfer'), { target: { value: 'Rifle' } });
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     fireEvent.click(await screen.findByText('Transfer values to a protest or appeal form'));
     expect(screen.getByLabelText('Event for transfer')).toHaveValue('');
-    getById.mockResolvedValue({ success: true, data: protestFixture({ id: APPEAL_ID }) });
+    getById.mockResolvedValue(ok(protestFixture({ id: APPEAL_ID })));
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('does not match');
     expect(screen.queryByText('Transfer values to a protest or appeal form')).not.toBeInTheDocument();
@@ -103,10 +99,7 @@ describe('ProtestPrintScreen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/^Protest record not found$/);
 
     getById
-      .mockResolvedValueOnce({
-        success: true,
-        data: protestFixture({ id: APPEAL_ID, kind: 'APPEAL', parentProtestId: PROTEST_ID }),
-      })
+      .mockResolvedValueOnce(ok(protestFixture({ id: APPEAL_ID, kind: 'APPEAL', parentProtestId: PROTEST_ID })))
       .mockResolvedValueOnce(fail('Record unavailable'));
     rerender(<ProtestPrintScreen config={{ type: 'protest-print', protestId: APPEAL_ID }} />);
     expect(await screen.findByRole('alert')).toHaveTextContent(

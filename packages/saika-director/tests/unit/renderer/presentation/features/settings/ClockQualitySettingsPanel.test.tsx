@@ -11,15 +11,14 @@ import { ClockQualitySettingsPanel } from '@/renderer/presentation/features/sett
 
 describe('ClockQualitySettingsPanel', () => {
   it('loads the saved policy and sends independent edited tolerances', async () => {
-    getSettings.mockResolvedValue({
-      success: true,
-      data: {
+    getSettings.mockResolvedValue(
+      ok({
         mode: 'ADVISORY',
         maxAbsoluteOffsetMilliseconds: 250,
         maxUncertaintyMilliseconds: 100,
         maxSampleAgeMilliseconds: 300000,
-      },
-    });
+      }),
+    );
     setSettings.mockImplementation(async (data) => ({ success: true, data }));
     render(<ClockQualitySettingsPanel />);
     fireEvent.change(await screen.findByLabelText('Clock policy'), { target: { value: 'REQUIRED' } });

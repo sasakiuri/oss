@@ -4,6 +4,7 @@ import { ISSF_2026_RFPM } from '@sasakiuri/saika-rules';
 
 import { QualificationMalfunctionPanel } from '@/renderer/presentation/features/qualification-malfunctions';
 import type { DirectorLaneSnapshotDto, QualificationMalfunctionCaseDto } from '@/shared/ipc/contracts';
+import { ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { appendEntry, create, listByCompetition, listScoreSheets, previewScoreSheet, saveScoreSheet, getById } =
   vi.hoisted(() => ({
@@ -37,17 +38,16 @@ const sourceSignalId = '77777777-7777-4777-8777-777777777777';
 describe('QualificationMalfunctionPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listScoreSheets.mockResolvedValue({ success: true, data: [] });
-    listByCompetition.mockResolvedValue({ success: true, data: [] });
-    create.mockResolvedValue({ success: true, data: malfunctionCase() });
+    listScoreSheets.mockResolvedValue(ok([]));
+    listByCompetition.mockResolvedValue(ok([]));
+    create.mockResolvedValue(ok(malfunctionCase()));
   });
 
   it('requires explicit RFPM target mapping and invalidates the calculation preview when evidence changes', async () => {
     const value = malfunctionCase({ status: 'EXECUTED' });
-    listByCompetition.mockResolvedValue({ success: true, data: [value] });
-    previewScoreSheet.mockImplementation(async (input) => ({
-      success: true,
-      data: {
+    listByCompetition.mockResolvedValue(ok([value]));
+    previewScoreSheet.mockImplementation(async (input) =>
+      ok({
         input,
         digest: 'a'.repeat(64),
         calculation: {
@@ -55,8 +55,8 @@ describe('QualificationMalfunctionPanel', () => {
           totalX10: 90,
           countedShots: [{ row: 'ORIGINAL', shotId: 'original-shot', scoreX10: 90, targetIndex: 2, addedZero: false }],
         },
-      },
-    }));
+      }),
+    );
     render(
       <QualificationMalfunctionPanel
         competitionId={competitionId}
@@ -141,14 +141,15 @@ describe('QualificationMalfunctionPanel', () => {
   });
 
   it('requires an explicit official action and preserves a Lane declaration as immutable case context', async () => {
-    create.mockResolvedValue({
-      success: true,
-      data: malfunctionCase({
-        reportSource: 'LANE_SIGNAL',
-        sourceSignalId,
-        laneSnapshotCapturedAt: '2026-09-04T01:00:01.000Z',
-      }),
-    });
+    create.mockResolvedValue(
+      ok(
+        malfunctionCase({
+          reportSource: 'LANE_SIGNAL',
+          sourceSignalId,
+          laneSnapshotCapturedAt: '2026-09-04T01:00:01.000Z',
+        }),
+      ),
+    );
     render(
       <QualificationMalfunctionPanel
         competitionId={competitionId}

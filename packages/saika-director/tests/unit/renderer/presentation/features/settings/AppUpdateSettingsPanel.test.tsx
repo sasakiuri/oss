@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ElectronEventBus } from '@/renderer/events/ElectronEventBus';
 import { EventBusProvider } from '@/renderer/events/EventBusProvider';
 import { AppUpdateSettingsPanel } from '@/renderer/presentation/features/settings/AppUpdateSettingsPanel';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const mocks = vi.hoisted(() => ({
   getUpdateState: vi.fn(),
@@ -54,24 +55,20 @@ describe('application update settings', () => {
         },
       },
     });
-    mocks.getUpdateState.mockResolvedValue({ success: true, data: state });
-    mocks.checkForUpdates.mockResolvedValue({
-      success: true,
-      data: { ...state, status: 'checking', canCheckForUpdates: false },
-    });
+    mocks.getUpdateState.mockResolvedValue(ok(state));
+    mocks.checkForUpdates.mockResolvedValue(ok({ ...state, status: 'checking', canCheckForUpdates: false }));
     mocks.quitAndInstall.mockResolvedValue({ success: true });
   });
 
   it('shows the current version and disables updates in development builds', async () => {
-    mocks.getUpdateState.mockResolvedValue({
-      success: true,
-      data: {
+    mocks.getUpdateState.mockResolvedValue(
+      ok({
         ...state,
         status: 'unsupported',
         canCheckForUpdates: false,
         errorMessage: 'Auto-update is available only in packaged releases.',
-      },
-    });
+      }),
+    );
     const { unmount } = renderPanel();
     expect(await screen.findByText('Auto-update is available only in packaged releases.')).toBeVisible();
     expect(screen.getByText('Current version: 0.3.0')).toBeVisible();
@@ -109,7 +106,7 @@ describe('application update settings', () => {
   });
 
   it('shows an installation error and keeps the retry control available', async () => {
-    mocks.quitAndInstall.mockResolvedValue({ success: false, error: { message: 'Install could not start' } });
+    mocks.quitAndInstall.mockResolvedValue(fail('Install could not start'));
     renderPanel();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Check for updates' })).toBeEnabled());
     emit({ status: 'downloaded', targetVersion: '0.3.1', canInstallUpdate: true });
@@ -127,16 +124,12 @@ describe('application update settings', () => {
     );
     renderPanel();
     emit({ status: 'downloading', downloadPercent: 65, targetVersion: '0.3.1', canCheckForUpdates: false });
-    await act(async () => resolveQuery({ success: true, data: state }));
+    await act(async () => resolveQuery(ok(state)));
     expect(screen.getByText('Downloading update… 65%')).toBeVisible();
   });
 
   it('shows a failed or rejected initial query and clears it when a state is pushed', async () => {
-    mocks.getUpdateState.mockResolvedValueOnce({
-      success: false,
-      data: null,
-      error: { code: 'ERROR', message: 'Update state unavailable' },
-    });
+    mocks.getUpdateState.mockResolvedValueOnce(fail('Update state unavailable', 'ERROR'));
     const { unmount } = renderPanel();
     expect(await screen.findByRole('alert')).toHaveTextContent(/^Update state unavailable$/);
     emit({ status: 'idle' });
@@ -149,10 +142,7 @@ describe('application update settings', () => {
   });
 
   it('shows a failed check and the fallback text of an installation failure without a message', async () => {
-    mocks.checkForUpdates.mockResolvedValue({
-      success: false,
-      error: { code: 'ERROR', message: 'Update feed rejected the request' },
-    });
+    mocks.checkForUpdates.mockResolvedValue(fail('Update feed rejected the request', 'ERROR'));
     mocks.quitAndInstall.mockResolvedValue({ success: false });
     renderPanel();
     await waitFor(() => expect(screen.getByRole('button', { name: 'Check for updates' })).toBeEnabled());
@@ -175,7 +165,7 @@ describe('application update settings', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Check for updates' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Check for updates' }));
     emit({ status: 'downloading', downloadPercent: 30, targetVersion: '0.3.1', canCheckForUpdates: false });
-    await act(async () => resolveCheck({ success: true, data: { ...state, status: 'checking' } }));
+    await act(async () => resolveCheck(ok({ ...state, status: 'checking' })));
     expect(screen.getByText('Downloading update… 30%')).toBeVisible();
   });
 });

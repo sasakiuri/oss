@@ -5,7 +5,7 @@ import { SafetyStopPanel } from '@/renderer/presentation/features/range-safety/S
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import type { DirectorLaneSnapshotDto } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { activateSafetyStop, clearSafetyStop, getSafetyStopAudit } = vi.hoisted(() => ({
   activateSafetyStop: vi.fn(),
@@ -66,15 +66,13 @@ function lane(stopped = false, assigned = false, laneId = LANE_ID, firingPointNu
 describe('SafetyStopPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    getSafetyStopAudit.mockResolvedValue({ success: true, data: [] });
-    activateSafetyStop.mockResolvedValue({
-      success: true,
-      data: { success: true, commands: [{ success: true, action: 'activate-safety-stop', lanes: [] }] },
-    });
-    clearSafetyStop.mockResolvedValue({
-      success: true,
-      data: { success: true, commands: [{ success: true, action: 'clear-safety-stop', lanes: [] }] },
-    });
+    getSafetyStopAudit.mockResolvedValue(ok([]));
+    activateSafetyStop.mockResolvedValue(
+      ok({ success: true, commands: [{ success: true, action: 'activate-safety-stop', lanes: [] }] }),
+    );
+    clearSafetyStop.mockResolvedValue(
+      ok({ success: true, commands: [{ success: true, action: 'clear-safety-stop', lanes: [] }] }),
+    );
   });
 
   it('issues an immediate STOP with a stable operation id and all target Lanes', async () => {

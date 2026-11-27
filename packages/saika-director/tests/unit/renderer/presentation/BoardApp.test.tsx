@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import BoardApp from '@/renderer/presentation/BoardApp';
+import { fail, ok } from '../../../helpers/renderer/serviceResponses';
 
 const { getConfig } = vi.hoisted(() => ({ getConfig: vi.fn() }));
 const REPORT_ID = '11111111-1111-4111-8111-111111111111';
@@ -49,10 +50,7 @@ describe('BoardApp', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('unwraps the query response before selecting the board screen', async () => {
-    getConfig.mockResolvedValue({
-      success: true,
-      data: { type: 'target-board', laneRange: { from: 1, to: 3 } },
-    });
+    getConfig.mockResolvedValue(ok({ type: 'target-board', laneRange: { from: 1, to: 3 } }));
 
     render(<BoardApp />);
 
@@ -61,11 +59,7 @@ describe('BoardApp', () => {
   });
 
   it('shows the IPC error when the configuration query fails', async () => {
-    getConfig.mockResolvedValue({
-      success: false,
-      data: null,
-      error: { code: 'BOARD_CONFIG_FAILED', message: 'configuration unavailable' },
-    });
+    getConfig.mockResolvedValue(fail('configuration unavailable', 'BOARD_CONFIG_FAILED'));
 
     render(<BoardApp />);
 
@@ -81,10 +75,7 @@ describe('BoardApp', () => {
   });
 
   it('provides the event bus required by live board screens', async () => {
-    getConfig.mockResolvedValue({
-      success: true,
-      data: { type: 'ranking-board' },
-    });
+    getConfig.mockResolvedValue(ok({ type: 'ranking-board' }));
 
     render(<BoardApp />);
 
@@ -92,10 +83,7 @@ describe('BoardApp', () => {
   });
 
   it('routes an incident report print configuration to its print screen', async () => {
-    getConfig.mockResolvedValue({
-      success: true,
-      data: { type: 'incident-report-print', reportId: REPORT_ID },
-    });
+    getConfig.mockResolvedValue(ok({ type: 'incident-report-print', reportId: REPORT_ID }));
 
     render(<BoardApp />);
 
@@ -103,7 +91,7 @@ describe('BoardApp', () => {
   });
 
   it('routes a protest print configuration without losing the case ID', async () => {
-    getConfig.mockResolvedValue({ success: true, data: { type: 'protest-print', protestId: REPORT_ID } });
+    getConfig.mockResolvedValue(ok({ type: 'protest-print', protestId: REPORT_ID }));
     render(<BoardApp />);
     expect(await screen.findByText(`protest ${REPORT_ID}`)).toBeInTheDocument();
   });

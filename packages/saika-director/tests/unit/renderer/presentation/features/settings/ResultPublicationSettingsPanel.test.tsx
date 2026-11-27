@@ -12,15 +12,14 @@ import { ResultPublicationSettingsPanel } from '@/renderer/presentation/features
 
 describe('ResultPublicationSettingsPanel', () => {
   it('saves each review requirement independently', async () => {
-    getReviewSettings.mockResolvedValue({
-      success: true,
-      data: {
+    getReviewSettings.mockResolvedValue(
+      ok({
         requireIncidentReports: true,
         requireFinalRecoveriesComplete: true,
         requireProtestCasesComplete: true,
         requireEquipmentChecksComplete: true,
-      },
-    });
+      }),
+    );
     setReviewSettings.mockImplementation(async (data) => ({ success: true, data }));
     render(<ResultPublicationSettingsPanel />);
     fireEvent.click(await screen.findByLabelText('Require completed or voided Final recovery cases'));

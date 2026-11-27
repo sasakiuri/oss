@@ -5,6 +5,7 @@ import { TargetExaminationsPanel } from '@/renderer/presentation/features/target
 import type { TargetExaminationCaseDto } from '@/shared/ipc/contracts';
 
 import { CASE_ID, COMPETITION_ID, EVENT_ID, LANE_ID, caseFixture, deferred } from './fixtures';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const { listAll, listByScope, create, linkScope, addEvidence, appendEntry } = vi.hoisted(() => ({
   listAll: vi.fn(),
@@ -22,15 +23,12 @@ vi.mock('@/renderer/services', () => ({
 describe('TargetExaminationsPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listByScope.mockResolvedValue({ success: true, data: [caseFixture()] });
-    listAll.mockResolvedValue({ success: true, data: [caseFixture()] });
-    create.mockResolvedValue({ success: true, data: caseFixture() });
-    linkScope.mockResolvedValue({ success: true, data: caseFixture() });
-    addEvidence.mockResolvedValue({ success: true, data: caseFixture() });
-    appendEntry.mockResolvedValue({
-      success: true,
-      data: caseFixture({ evidenceHoldActive: false }),
-    });
+    listByScope.mockResolvedValue(ok([caseFixture()]));
+    listAll.mockResolvedValue(ok([caseFixture()]));
+    create.mockResolvedValue(ok(caseFixture()));
+    linkScope.mockResolvedValue(ok(caseFixture()));
+    addEvidence.mockResolvedValue(ok(caseFixture()));
+    appendEntry.mockResolvedValue(ok(caseFixture({ evidenceHoldActive: false })));
   });
 
   it('shows an active hold and records explicit release authorization', async () => {
@@ -65,7 +63,7 @@ describe('TargetExaminationsPanel', () => {
   });
 
   it('opens a Lane case with independent competition and event scope links', async () => {
-    listByScope.mockResolvedValueOnce({ success: true, data: [] });
+    listByScope.mockResolvedValueOnce(ok([]));
     render(
       <TargetExaminationsPanel
         primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }}
@@ -110,7 +108,7 @@ describe('TargetExaminationsPanel', () => {
   });
   it.each(['action', 'evidence'] as const)('does not carry an %s draft to another case', async (kind) => {
     const second = caseFixture({ id: '66666666-6666-4666-8666-666666666666', summary: 'Second case' });
-    listByScope.mockResolvedValue({ success: true, data: [second, caseFixture()] });
+    listByScope.mockResolvedValue(ok([second, caseFixture()]));
     render(<TargetExaminationsPanel primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }} />);
     await screen.findByRole('heading', { name: 'Expected shot was not shown' });
     const button = kind === 'action' ? 'Record action' : 'Add evidence';
@@ -136,13 +134,13 @@ describe('TargetExaminationsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open case and hold data' }));
     await screen.findByRole('heading', { name: 'Expected shot was not shown' });
 
-    await act(async () => initial.resolve({ success: true, data: [] }));
+    await act(async () => initial.resolve(ok([])));
 
     expect(screen.getByRole('heading', { name: 'Expected shot was not shown' })).toBeInTheDocument();
   });
   it('keeps the newly selected case after an action for the previous case completes', async () => {
     const second = caseFixture({ id: '66666666-6666-4666-8666-666666666666', summary: 'Second case' });
-    listByScope.mockResolvedValue({ success: true, data: [second, caseFixture()] });
+    listByScope.mockResolvedValue(ok([second, caseFixture()]));
     const pending = deferred<{ success: true; data: TargetExaminationCaseDto }>();
     appendEntry.mockReturnValueOnce(pending.promise);
     render(<TargetExaminationsPanel primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }} />);
@@ -153,7 +151,7 @@ describe('TargetExaminationsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Append action' }));
     fireEvent.click(screen.getByRole('button', { name: /Second case/ }));
 
-    await act(async () => pending.resolve({ success: true, data: caseFixture() }));
+    await act(async () => pending.resolve(ok(caseFixture())));
 
     expect(appendEntry).toHaveBeenCalledWith(
       expect.objectContaining({ caseId: CASE_ID, statement: 'First case note' }),
@@ -164,7 +162,7 @@ describe('TargetExaminationsPanel', () => {
   });
 
   it('retains an action draft when its command fails so the official can retry', async () => {
-    appendEntry.mockResolvedValueOnce({ success: false, error: { message: 'Unable to append action' } });
+    appendEntry.mockResolvedValueOnce(fail('Unable to append action'));
     render(<TargetExaminationsPanel primaryScope={{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }} />);
     await screen.findByRole('heading', { name: 'Expected shot was not shown' });
     fireEvent.click(screen.getByRole('button', { name: 'Record action' }));

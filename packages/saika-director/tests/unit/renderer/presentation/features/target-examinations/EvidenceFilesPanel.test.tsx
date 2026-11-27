@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EvidenceFilesPanel } from '@/renderer/presentation/features/target-examinations/EvidenceFilesPanel';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const api = vi.hoisted(() => ({ list: vi.fn(), importFile: vi.fn(), exportFile: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ evidenceFilesService: api }));
@@ -10,10 +10,10 @@ vi.mock('@/renderer/services', () => ({ evidenceFilesService: api }));
 describe('Evidence file operations', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    api.list.mockResolvedValue({ success: true, data: [] });
+    api.list.mockResolvedValue(ok([]));
   });
   it('imports only after an official supplies a custody statement and binds the selected evidence item', async () => {
-    api.importFile.mockResolvedValue({ success: true, data: null });
+    api.importFile.mockResolvedValue(ok(null));
     render(<EvidenceFilesPanel caseId="case" evidenceId="evidence" canImport />);
     expect(api.list).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Stored evidence files' }));
@@ -37,9 +37,8 @@ describe('Evidence file operations', () => {
     );
   });
   it('permits verified copies from closed cases while withholding the import action', async () => {
-    api.list.mockResolvedValue({
-      success: true,
-      data: [
+    api.list.mockResolvedValue(
+      ok([
         {
           id: 'file',
           fileName: 'log.pdf',
@@ -49,9 +48,9 @@ describe('Evidence file operations', () => {
           statement: 'Original',
           sha256: 'a'.repeat(64),
         },
-      ],
-    });
-    api.exportFile.mockResolvedValue({ success: false, error: { message: 'Evidence file SHA-256 mismatch' } });
+      ]),
+    );
+    api.exportFile.mockResolvedValue(fail('Evidence file SHA-256 mismatch'));
     render(<EvidenceFilesPanel caseId="case" evidenceId="evidence" canImport={false} />);
     fireEvent.click(screen.getByRole('button', { name: 'Stored evidence files' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Save verified copy' }));
@@ -71,9 +70,8 @@ describe('Evidence file operations', () => {
     expect(api.list).toHaveBeenCalledOnce();
   });
   it('shows a failed export as the response message and a rejected value as text', async () => {
-    api.list.mockResolvedValue({
-      success: true,
-      data: [
+    api.list.mockResolvedValue(
+      ok([
         {
           id: 'file',
           fileName: 'log.pdf',
@@ -83,8 +81,8 @@ describe('Evidence file operations', () => {
           statement: 'Original',
           sha256: 'a'.repeat(64),
         },
-      ],
-    });
+      ]),
+    );
     api.exportFile.mockResolvedValue(fail('Evidence file SHA-256 mismatch'));
     render(<EvidenceFilesPanel caseId="case" evidenceId="evidence" canImport={false} />);
     fireEvent.click(screen.getByRole('button', { name: 'Stored evidence files' }));

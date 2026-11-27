@@ -5,7 +5,7 @@ import { EstBackupCapturePanel } from '@/renderer/presentation/features/est-back
 import { estBackupVerificationService } from '@/renderer/services';
 import type { EstBackupCaptureStatusDto } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 vi.mock('@/renderer/services', () => ({
   estBackupVerificationService: {
@@ -35,7 +35,7 @@ beforeEach(() => {
     sourceId: null,
     error: null,
   };
-  vi.mocked(estBackupVerificationService.getCapture).mockImplementation(async () => ({ success: true, data: state }));
+  vi.mocked(estBackupVerificationService.getCapture).mockImplementation(async () => ok(state));
 });
 describe('backup capture controls', () => {
   it('uses the selected mapping, refreshes retained sources and stops only the displayed run', async () => {
@@ -48,15 +48,15 @@ describe('backup capture controls', () => {
     };
     vi.mocked(estBackupVerificationService.startCapture).mockImplementation(async () => {
       state = { ...state, state: 'WAITING', runId: 'run', sourceLabel: 'feed.csv', intervalMilliseconds: 2000 };
-      return { success: true, data: state };
+      return ok(state);
     });
     vi.mocked(estBackupVerificationService.checkCapture).mockImplementation(async () => {
       state = { ...state, state: 'READY', sourceId: 'source', capturedAt: '2026-09-09T00:00:00Z' };
-      return { success: true, data: state };
+      return ok(state);
     });
     vi.mocked(estBackupVerificationService.stopCapture).mockImplementation(async () => {
       state = { ...state, state: 'STOPPED' };
-      return { success: true, data: state };
+      return ok(state);
     });
     const onCaptured = vi.fn();
     render(<EstBackupCapturePanel eventId="event" mapping={mapping} onCaptured={onCaptured} />);
@@ -94,7 +94,7 @@ describe('backup capture controls', () => {
   });
 
   it('passes the explicit complete-files choice to a new capture', async () => {
-    vi.mocked(estBackupVerificationService.startCapture).mockResolvedValue({ success: true, data: state });
+    vi.mocked(estBackupVerificationService.startCapture).mockResolvedValue(ok(state));
     render(<EstBackupCapturePanel eventId="event" onCaptured={vi.fn()} />);
     await screen.findByText(/STOPPED/);
     fireEvent.change(screen.getByLabelText('Snapshot mode'), { target: { value: 'COMPLETE_FILES' } });
@@ -111,10 +111,9 @@ describe('backup capture controls', () => {
 
   it('resumes saved settings without requiring a new file selection', async () => {
     state = { ...state, canResume: true, sourceLabel: 'saved.csv' };
-    vi.mocked(estBackupVerificationService.resumeCapture).mockResolvedValue({
-      success: true,
-      data: { ...state, runId: 'resumed', state: 'WAITING' },
-    });
+    vi.mocked(estBackupVerificationService.resumeCapture).mockResolvedValue(
+      ok({ ...state, runId: 'resumed', state: 'WAITING' }),
+    );
     render(<EstBackupCapturePanel eventId="event" onCaptured={vi.fn()} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Resume saved source' }));
     await waitFor(() => expect(estBackupVerificationService.resumeCapture).toHaveBeenCalledWith({ eventId: 'event' }));
@@ -122,7 +121,7 @@ describe('backup capture controls', () => {
   });
 
   it('opts in to automatic restart only when the operator selects it', async () => {
-    vi.mocked(estBackupVerificationService.startCapture).mockResolvedValue({ success: true, data: state });
+    vi.mocked(estBackupVerificationService.startCapture).mockResolvedValue(ok(state));
     render(<EstBackupCapturePanel eventId="event" onCaptured={vi.fn()} />);
     await screen.findByText(/STOPPED/);
     fireEvent.click(screen.getByLabelText('Resume automatically after restarting Director'));

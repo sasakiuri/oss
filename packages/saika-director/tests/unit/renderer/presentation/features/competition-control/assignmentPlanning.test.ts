@@ -7,6 +7,7 @@ import {
   type FiringPointAssignmentPlan,
 } from '@/renderer/presentation/features/competition-control/assignmentPlanning';
 import type { DirectorLaneSnapshotDto, FiringPointAssignmentDto, ParticipantDto } from '@/shared/ipc/contracts';
+import { ok } from '../../../../../helpers/renderer/serviceResponses';
 
 function lane(laneId: string, firingPointNumber: number | null, laneAlias = ''): DirectorLaneSnapshotDto {
   return {
@@ -136,8 +137,8 @@ describe('applyFiringPointAssignmentPlan', () => {
     };
     const assignAthlete = vi
       .fn()
-      .mockResolvedValueOnce({ success: true, data: { success: true } })
-      .mockResolvedValueOnce({ success: true, data: { success: false } })
+      .mockResolvedValueOnce(ok({ success: true }))
+      .mockResolvedValueOnce(ok({ success: false }))
       .mockRejectedValueOnce(new Error('transport failed'));
 
     await expect(

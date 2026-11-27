@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EstComplaintInbox } from '@/renderer/presentation/features/est-complaints';
 import type { EstComplaintObservationDto } from '@/shared/ipc/contracts';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const signalId = '22222222-2222-4222-8222-222222222222';
@@ -22,10 +22,9 @@ vi.mock('@/renderer/services', () => ({
 describe('EstComplaintInbox', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    listByCompetition.mockResolvedValue({ success: true, data: [observation()] });
-    openTargetExamination.mockResolvedValue({
-      success: true,
-      data: {
+    listByCompetition.mockResolvedValue(ok([observation()]));
+    openTargetExamination.mockResolvedValue(
+      ok({
         created: true,
         targetExaminationCaseId: caseId,
         observation: observation({
@@ -33,8 +32,8 @@ describe('EstComplaintInbox', () => {
           linkedBy: 'RTS A',
           linkedAt: '2026-09-04T01:00:01.000Z',
         }),
-      },
-    });
+      }),
+    );
   });
 
   it('requires an explicit official and opens an examination without presenting the advisory as a ruling', async () => {

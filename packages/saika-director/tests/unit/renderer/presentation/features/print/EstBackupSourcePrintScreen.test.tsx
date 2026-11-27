@@ -9,9 +9,8 @@ const { getSource } = vi.hoisted(() => ({ getSource: vi.fn() }));
 vi.mock('@/renderer/services', () => ({ estBackupVerificationService: { getSource } }));
 describe('EST source printing', () => {
   it('prints acquired values without querying live scores and only includes original text when selected', async () => {
-    getSource.mockResolvedValue({
-      success: true,
-      data: {
+    getSource.mockResolvedValue(
+      ok({
         id: 'source',
         eventId: 'event',
         fileName: 'memory.csv',
@@ -23,8 +22,8 @@ describe('EST source printing', () => {
         sizeBytes: 40,
         content: '<script>source text</script>',
         records: [{ key: '001', totalScore: 601.2, shotScores: [10.2, 9.8], seriesScores: [100.1] }],
-      },
-    });
+      }),
+    );
     const { container, rerender } = render(
       <EstBackupSourcePrintScreen config={{ type: 'est-backup-source-print', sourceId: 'source' }} />,
     );
@@ -37,7 +36,7 @@ describe('EST source printing', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: 'Include original source text' }));
     expect(screen.getByText('<script>source text</script>')).toBeVisible();
     expect(container.querySelector('script')).toBeNull();
-    getSource.mockResolvedValue({ success: false, error: { message: 'Integrity check failed' } });
+    getSource.mockResolvedValue(fail('Integrity check failed'));
     rerender(<EstBackupSourcePrintScreen config={{ type: 'est-backup-source-print', sourceId: 'other' }} />);
     expect(await screen.findByRole('alert')).toHaveTextContent('Integrity check failed');
     expect(screen.getByRole('button', { name: 'Print' })).toBeDisabled();

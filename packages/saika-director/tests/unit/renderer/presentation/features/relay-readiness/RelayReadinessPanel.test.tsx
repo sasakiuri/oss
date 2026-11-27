@@ -33,14 +33,13 @@ describe('RelayReadinessPanel', () => {
 
   it('shows the persisted start scope and explicitly binds Required mode to the displayed relay', async () => {
     let settings = { competitionId: 'competition-a', relayNumber: 1, mode: 'ADVISORY' };
-    assess.mockImplementation(async () => ({
-      success: true,
-      data: { mode: settings.mode, ready: false, mayStart: settings.mode !== 'REQUIRED', items: [] },
-    }));
-    getStartSettings.mockImplementation(async () => ({ success: true, data: settings }));
+    assess.mockImplementation(async () =>
+      ok({ mode: settings.mode, ready: false, mayStart: settings.mode !== 'REQUIRED', items: [] }),
+    );
+    getStartSettings.mockImplementation(async () => ok(settings));
     setStartSettings.mockImplementation(async (input) => {
       settings = input;
-      return { success: true, data: input };
+      return ok(input);
     });
     render(
       <RelayReadinessPanel

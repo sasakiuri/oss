@@ -15,6 +15,7 @@ import { ChampionshipList } from '@/renderer/presentation/features/championship/
 import { useChampionshipStore } from '@/renderer/presentation/stores/domain/championship.store';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
+import { fail } from '../../../../../../helpers/renderer/serviceResponses';
 
 const CHAMPIONSHIP_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -53,11 +54,7 @@ describe('ChampionshipList', () => {
   });
 
   it.each([
-    [
-      'a failed response',
-      () => deleteChampionship.mockResolvedValue({ success: false, error: { message: 'In use' } }),
-      'In use',
-    ],
+    ['a failed response', () => deleteChampionship.mockResolvedValue(fail('In use')), 'In use'],
     [
       'a failed response without an error',
       () => deleteChampionship.mockResolvedValue({ success: false }),

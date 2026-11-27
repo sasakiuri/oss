@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompetitionStartReadinessPanel } from '@/renderer/presentation/features/competition-control/CompetitionStartReadinessPanel';
 import { mqttService } from '@/renderer/services';
 
-import { fail } from '../../../../../helpers/renderer/serviceResponses';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 vi.mock('@/renderer/services', () => ({ mqttService: { getStartReadiness: vi.fn() } }));
 const scope = { competitionId: '11111111-1111-4111-8111-111111111111', phase: 'SIGHTING' as const };
@@ -16,16 +16,15 @@ describe('CompetitionStartReadinessPanel', () => {
 
   it('distinguishes blocking checks from advisory issues and refreshes on request', async () => {
     vi.mocked(mqttService.getStartReadiness)
-      .mockResolvedValueOnce({
-        success: true,
-        data: {
+      .mockResolvedValueOnce(
+        ok({
           ...data,
           issues: [
             { code: 'EST_INSPECTION', message: 'Target inspection missing', blocking: true },
             { code: 'CLOCK_QUALITY', message: 'Probe Lane A', blocking: false },
           ],
-        },
-      })
+        }),
+      )
       .mockResolvedValue({ success: true, data });
     render(<CompetitionStartReadinessPanel {...scope} />);
     expect(await screen.findByText('Target inspection missing', { exact: false })).toHaveTextContent('Required:');
@@ -54,10 +53,7 @@ describe('CompetitionStartReadinessPanel', () => {
         resolveFirst = resolve;
       }),
     );
-    vi.mocked(mqttService.getStartReadiness).mockResolvedValue({
-      success: true,
-      data: { ...data, competitionId: 'other', laneIds: [] },
-    });
+    vi.mocked(mqttService.getStartReadiness).mockResolvedValue(ok({ ...data, competitionId: 'other', laneIds: [] }));
     const view = render(<CompetitionStartReadinessPanel {...scope} />);
     view.rerender(<CompetitionStartReadinessPanel {...scope} competitionId="other" />);
     expect(await screen.findByText('Join Lanes before checking their readiness.')).toBeInTheDocument();

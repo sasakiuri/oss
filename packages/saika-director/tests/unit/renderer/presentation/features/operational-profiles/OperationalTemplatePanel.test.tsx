@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OperationalTemplatePanel } from '@/renderer/presentation/features/operational-profiles/OperationalTemplatePanel';
 import { operationalTemplatesService } from '@/renderer/services';
 import type { OperationalProfilePreviewDto, OperationalTemplateDto } from '@/shared/ipc/contracts';
+import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 
 vi.mock('@/renderer/services', () => ({
   operationalTemplatesService: { list: vi.fn(), save: vi.fn(), remove: vi.fn() },
@@ -22,16 +23,15 @@ const settings: OperationalProfilePreviewDto['changes'] = [
 ];
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(operationalTemplatesService.list).mockResolvedValue({ success: true, data: [template] });
+  vi.mocked(operationalTemplatesService.list).mockResolvedValue(ok([template]));
 });
 
 describe('Operational template editor', () => {
   it('loads a template only on request and saves drafts independently of applying active settings', async () => {
     const onChoose = vi.fn();
-    vi.mocked(operationalTemplatesService.save).mockResolvedValue({
-      success: true,
-      data: { ...template, revision: 3, modes: { relay: 'REQUIRED' } },
-    });
+    vi.mocked(operationalTemplatesService.save).mockResolvedValue(
+      ok({ ...template, revision: 3, modes: { relay: 'REQUIRED' } }),
+    );
     render(
       <OperationalTemplatePanel
         modes={{ relay: 'REQUIRED' }}
@@ -59,10 +59,7 @@ describe('Operational template editor', () => {
 
   it('blocks unsupported templates and lets stale-removal errors be reloaded without changing the draft', async () => {
     const onChoose = vi.fn();
-    vi.mocked(operationalTemplatesService.remove).mockResolvedValue({
-      success: false,
-      error: { code: 'ERROR', message: 'Template changed; reload it' },
-    });
+    vi.mocked(operationalTemplatesService.remove).mockResolvedValue(fail('Template changed; reload it', 'ERROR'));
     render(<OperationalTemplatePanel modes={{}} settings={[]} onChoose={onChoose} disabled={false} />);
     await screen.findByRole('option', { name: 'Club evening' });
     fireEvent.change(screen.getByLabelText('Saved operational template'), { target: { value: template.id } });
@@ -71,7 +68,7 @@ describe('Operational template editor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove template' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Template changed');
     expect(operationalTemplatesService.remove).toHaveBeenCalledWith({ id: template.id, expectedRevision: 2 });
-    vi.mocked(operationalTemplatesService.list).mockResolvedValue({ success: true, data: [] });
+    vi.mocked(operationalTemplatesService.list).mockResolvedValue(ok([]));
     fireEvent.click(screen.getByRole('button', { name: 'Reload templates' }));
     await waitFor(() => expect(screen.queryByRole('option', { name: 'Club evening' })).not.toBeInTheDocument());
     expect(onChoose).not.toHaveBeenCalled();
@@ -92,18 +89,11 @@ describe('Operational template editor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove template' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/^Unable to remove template$/);
 
-    vi.mocked(operationalTemplatesService.save).mockResolvedValue({
-      success: false,
-      error: { code: 'CONFLICT', message: 'Template name already used' },
-    });
+    vi.mocked(operationalTemplatesService.save).mockResolvedValue(fail('Template name already used', 'CONFLICT'));
     fireEvent.click(screen.getByRole('button', { name: 'Replace template with proposed settings' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Template name already used$/));
 
-    vi.mocked(operationalTemplatesService.list).mockResolvedValue({
-      success: false,
-      data: null,
-      error: { code: 'ERROR', message: 'Templates are unavailable' },
-    });
+    vi.mocked(operationalTemplatesService.list).mockResolvedValue(fail('Templates are unavailable', 'ERROR'));
     fireEvent.click(screen.getByRole('button', { name: 'Reload templates' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Templates are unavailable$/));
   });
