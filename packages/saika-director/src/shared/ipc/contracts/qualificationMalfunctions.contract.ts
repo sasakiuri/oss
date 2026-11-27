@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { RulePackIdentitySchema } from '@sasakiuri/saika-protocol/CompetitionState';
 
 const uuid = z.string().uuid();
 const reportSource = z.enum(['LANE_SIGNAL', 'DIRECTOR_MANUAL']);
@@ -40,11 +41,6 @@ const status = z.enum([
   'COMPLETED',
   'VOID',
 ]);
-const rulePackIdentity = z.object({
-  id: z.string().min(1),
-  schemaVersion: z.literal(1),
-  fingerprint: z.object({ algorithm: z.literal('SHA-256'), value: z.string().regex(/^[a-f0-9]{64}$/) }),
-});
 const causeRule = z.object({
   code: z.string().min(1),
   classification,
@@ -157,7 +153,7 @@ const malfunctionCase = z.object({
   competitionId: uuid,
   eventId: uuid,
   competitionTypeId: z.string().min(1),
-  rulePackIdentity: rulePackIdentity.nullable(),
+  rulePackIdentity: RulePackIdentitySchema.nullable(),
   policySnapshot,
   participantId: uuid,
   participantNameSnapshot: z.string().min(1),
@@ -332,7 +328,7 @@ const scoreSheetPreview = z.object({
     laneChannel: z.number().int(),
     stageIndex: z.number().int(),
     seriesIndex: z.number().int(),
-    rulePackIdentity: rulePackIdentity.nullable(),
+    rulePackIdentity: RulePackIdentitySchema.nullable(),
   }),
 });
 const scoreSheet = scoreSheetPreview.extend({

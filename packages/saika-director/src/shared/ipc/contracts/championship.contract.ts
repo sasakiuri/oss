@@ -9,6 +9,7 @@ import {
   commandWithDataSchema,
   queryResponseSchema,
 } from '@sasakiuri/saika-ipc';
+import { RulePackIdentitySchema } from '@sasakiuri/saika-protocol/CompetitionState';
 
 // ---------------------------------------------------------------------------
 // Shared sub-schemas
@@ -19,14 +20,6 @@ const eventTypeSchema = z.string();
 const roundSchema = z.enum(['Elimination', 'Qualification', 'Final', 'Individual']);
 const participantGenderSchema = z.enum(['M', 'F', 'X', 'UNSPECIFIED']);
 export const participantEntryStatusSchema = z.enum(['COMPETING', 'RPO', 'MQS', 'OOC', 'DNS', 'DNF', 'DSQ', 'DQB']);
-const rulePackIdentitySchema = z.object({
-  id: z.string().min(1),
-  schemaVersion: z.literal(1),
-  fingerprint: z.object({
-    algorithm: z.literal('SHA-256'),
-    value: z.string().regex(/^[a-f0-9]{64}$/),
-  }),
-});
 
 // ---------------------------------------------------------------------------
 // Input schemas (command payloads)
@@ -132,7 +125,7 @@ const eventDtoSchema = z.object({
   eventType: eventTypeSchema,
   round: roundSchema,
   sortOrder: z.number(),
-  rulePackIdentity: rulePackIdentitySchema.nullable().optional(),
+  rulePackIdentity: RulePackIdentitySchema.nullable().optional(),
 });
 
 const championshipDetailDtoSchema = championshipDtoSchema.extend({
