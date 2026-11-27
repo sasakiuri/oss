@@ -34,7 +34,7 @@ Development and server output use port 5175. Static output is written to `packag
 
 Visit `/reference/` for forms, lists, dialogs, tabs, QR codes, and DOT diagrams. `/reference/material/` contains Material UI and Emotion examples. The input examples run in the browser.
 
-Documents work without front matter. Optional `title`, `description`, `published`, `updated`, `tags`, and `image` fields are validated when provided. Dates must use `YYYY-MM-DD`, and images must refer to existing files under `public`. RSS is available at `/rss.xml/`, and the print view is at `/print/`.
+Documents work without front matter. Optional `title`, `description`, `published`, `updated`, `tags`, and `image` fields are validated when provided. Dates must use `YYYY-MM-DD`, and images must refer to existing files under `public`. RSS is available at `/rss.xml`, and the print view is at `/print/`.
 
 ## Editing documentation
 

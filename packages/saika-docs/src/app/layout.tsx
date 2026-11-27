@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   title: { default: site.name, template: `%s | ${site.name}` },
   description: site.description,
   applicationName: site.name,
-  alternates: { types: { 'application/rss+xml': withBasePath('/rss.xml/') } },
+  alternates: { types: { 'application/rss+xml': withBasePath('/rss.xml') } },
   appleWebApp: { capable: true, title: site.name, statusBarStyle: 'default' },
   icons: { apple: withBasePath('/apple-touch-icon.png') },
 };

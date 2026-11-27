@@ -175,6 +175,10 @@ test('serves metadata, assets and security headers', async ({ page, request }) =
   expect(sitemaps).not.toHaveLength(0);
   for (const [, url] of sitemaps)
     expect((await request.get(new URL(url!).pathname, { maxRedirects: 0 })).status()).toBe(200);
+  expect((await request.get('/rss.xml', { maxRedirects: 0 })).status()).toBe(200);
+  // Document pages set their own alternates; the print view keeps the site-wide feed link.
+  await page.goto('/print/');
+  await expect(page.locator('link[rel=alternate][type="application/rss+xml"]')).toHaveAttribute('href', /\/rss\.xml$/);
 });
 test('renders the DOT diagram in a worker', async ({ page }) => {
   const errors: string[] = [];

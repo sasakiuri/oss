@@ -27,7 +27,7 @@ await new Promise((resolve, reject) => {
 for (const [route, expected] of [
   ['/', 'Saika'],
   ['/manifest.webmanifest', 'Saika'],
-  ['/rss.xml/', '<rss'],
+  ['/rss.xml', '<rss'],
   ['/sw.js', 'saika-docs-'],
 ]) {
   const response = await fetch(base + route, { redirect: 'error', signal: AbortSignal.timeout(15000) });
