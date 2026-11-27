@@ -512,6 +512,21 @@ describe('update state transitions and metadata', () => {
     expect(brokenUpdater.checkForUpdates).not.toHaveBeenCalled();
     expect(await service.checkForUpdates()).toMatchObject({ status: 'error', errorMessage: 'load failed' });
   });
+
+  it('retries a loader that throws before returning a promise', async () => {
+    const autoUpdater = new FakeAutoUpdater();
+    const loadAutoUpdater = vi
+      .fn<() => Promise<{ autoUpdater: AutoUpdaterLike }>>()
+      .mockImplementationOnce(() => {
+        throw new Error('load failed');
+      })
+      .mockResolvedValueOnce({ autoUpdater });
+    const { service } = setup({ loadAutoUpdater });
+    expect(await service.checkForUpdates()).toMatchObject({ status: 'error', errorMessage: 'load failed' });
+    await service.checkForUpdates();
+    expect(loadAutoUpdater).toHaveBeenCalledTimes(2);
+    expect(autoUpdater.checkForUpdates).toHaveBeenCalledOnce();
+  });
 });
 
 describe('update operation boundaries', () => {

@@ -308,12 +308,13 @@ export class UpdaterService {
         this.attachEventHandlers();
       } catch (error) {
         this.handleError(error);
-      } finally {
-        if (!this.autoUpdater) {
-          this.initializePromise = null;
-        }
       }
-    })();
+    })().finally(() => {
+      // Runs after the assignment, even when the loader throws synchronously, so a failed load is retried.
+      if (!this.autoUpdater) {
+        this.initializePromise = null;
+      }
+    });
 
     return this.initializePromise;
   }
