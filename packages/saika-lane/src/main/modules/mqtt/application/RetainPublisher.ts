@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Republishes retained state after reconnecting and marks replayed shots with isReplay=true. */
 
-import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+import { laneRetainedCompetitionTopics, mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
@@ -123,13 +123,7 @@ export class RetainPublisher {
 
   /** Clears all lane-owned retained topics when leaving a competition. */
   async clearCompetitionTopics(competitionId: string, laneId: string): Promise<void> {
-    const retainedTopics = [
-      mqttTopics.laneCompetitionState(competitionId, laneId),
-      mqttTopics.laneScore(competitionId, laneId),
-      mqttTopics.laneAssignment(competitionId, laneId),
-      mqttTopics.timedTargetState(competitionId, laneId),
-      mqttTopics.qualificationRecoveryState(competitionId, laneId),
-    ];
+    const retainedTopics = laneRetainedCompetitionTopics(competitionId, laneId);
     try {
       await Promise.all(
         retainedTopics.map((topic) => this.deps.mqttClient.publish(topic, '', { qos: 1, retain: true })),

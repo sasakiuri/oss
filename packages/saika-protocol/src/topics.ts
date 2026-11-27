@@ -70,6 +70,20 @@ export const mqttTopicFilters = {
     mqttTopics.laneQueryRequest(competitionId, laneId, MQTT_SINGLE_LEVEL_WILDCARD),
 } as const;
 
+/**
+ * Retained topics a Lane publishes for one competition. Lane clears them when it leaves the competition, and Director
+ * clears them again when the competition finishes.
+ */
+export function laneRetainedCompetitionTopics(competitionId: string, laneId: string): string[] {
+  return [
+    mqttTopics.laneCompetitionState(competitionId, laneId),
+    mqttTopics.laneScore(competitionId, laneId),
+    mqttTopics.laneAssignment(competitionId, laneId),
+    mqttTopics.timedTargetState(competitionId, laneId),
+    mqttTopics.qualificationRecoveryState(competitionId, laneId),
+  ];
+}
+
 type LaneTopicKind =
   | 'laneHardwareState'
   | 'laneHardwareShot'

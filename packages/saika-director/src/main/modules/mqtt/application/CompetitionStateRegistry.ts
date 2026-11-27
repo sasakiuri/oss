@@ -5,7 +5,7 @@ import {
   type CompetitionPhase,
   type CompetitionStatePayload,
 } from '@sasakiuri/saika-protocol/CompetitionState';
-import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
+import { laneRetainedCompetitionTopics, mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { IMqttTransport } from '../domain/IMqttTransport';
 
@@ -175,12 +175,7 @@ export class CompetitionStateRegistry {
   /** Clears every retained topic of a finished competition, then forgets it. */
   async clearRetainedState(competitionId: string, laneIds: readonly string[]): Promise<void> {
     const { transport } = this.dependencies;
-    const retainedTopics = laneIds.flatMap((laneId) => [
-      mqttTopics.laneCompetitionState(competitionId, laneId),
-      mqttTopics.laneScore(competitionId, laneId),
-      mqttTopics.laneAssignment(competitionId, laneId),
-      mqttTopics.timedTargetState(competitionId, laneId),
-    ]);
+    const retainedTopics = laneIds.flatMap((laneId) => laneRetainedCompetitionTopics(competitionId, laneId));
     retainedTopics.push(mqttTopics.competitionCue(competitionId));
     const outcomes = await Promise.allSettled(
       retainedTopics.map((topic) => transport.publish(topic, '', { qos: 1, retain: true })),
