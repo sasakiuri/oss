@@ -2,10 +2,11 @@
 import { vi } from 'vitest';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { ShotRoutingDeps } from '@/main/modules/connection/application/ShotRoutingService';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { IUSBConnectionManager } from '@/main/modules/connection/domain/IUSBConnectionManager';
+import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
@@ -62,6 +63,22 @@ export function createMockIpcRouter(): IpcRouter {
   return {
     register: vi.fn(),
   } as unknown as IpcRouter;
+}
+
+export function createMockMqttClient(): IMqttClientService {
+  return {
+    connect: vi.fn(),
+    disconnect: vi.fn(),
+    publish: vi.fn().mockResolvedValue(undefined),
+    subscribe: vi.fn().mockResolvedValue(undefined),
+    unsubscribe: vi.fn().mockResolvedValue(undefined),
+    setWill: vi.fn(),
+    clearWill: vi.fn(),
+    onMessage: vi.fn().mockReturnValue(() => {}),
+    onConnect: vi.fn().mockReturnValue(() => {}),
+    onDisconnect: vi.fn().mockReturnValue(() => {}),
+    isConnected: vi.fn().mockReturnValue(true),
+  };
 }
 
 export function createMockSessionRepository(): ISessionRepository {
@@ -151,8 +168,9 @@ export function createMockUSBManager(): IUSBConnectionManager {
   } as unknown as IUSBConnectionManager;
 }
 
-export function createMockStorage(): ILocalStorage {
-  const store = new Map<string, unknown>();
+/** An in-memory storage, optionally holding `entries` already. */
+export function createMockStorage(entries: Record<string, unknown> = {}): ILocalStorage {
+  const store = new Map<string, unknown>(Object.entries(entries));
 
   return {
     get: vi.fn((key: string) => store.get(key)),
@@ -296,13 +314,17 @@ export function createMockPrintWindowService(): PrintWindowService {
   } as unknown as PrintWindowService;
 }
 
-export function createMockTimerService(): LaneTimerService {
+export function createMockTimerService(): ICompetitionTimer {
   return {
-    sample: vi.fn().mockReturnValue(null),
     start: vi.fn(),
+    startAt: vi.fn().mockResolvedValue(undefined),
+    isStageTimerRunning: vi.fn().mockReturnValue(false),
     stop: vi.fn(),
-    syncRemaining: vi.fn(),
-  } as unknown as LaneTimerService;
+    pause: vi.fn(),
+    resumeAt: vi.fn().mockResolvedValue(undefined),
+    expire: vi.fn().mockResolvedValue(undefined),
+    sample: vi.fn().mockReturnValue(null),
+  };
 }
 
 export function createMockAdapterRegistry(): AdapterRegistry {

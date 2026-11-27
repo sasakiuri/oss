@@ -2,11 +2,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { ShotObservationEvidencePublisher } from '@/main/modules/mqtt/application/ShotObservationEvidencePublisher';
-import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
 import type { ShotObservationEvidence } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
-import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
+
+import { createMockEventBus, createMockMqttClient, createMockStorage } from '../../../../helpers/mockDependencies';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({ error: vi.fn() }),
@@ -47,8 +46,13 @@ describe('ShotObservationEvidencePublisher', () => {
         if (index >= 0) pending.splice(index, 1);
       }),
     };
-    const mqtt = createMqtt();
-    const publisher = new ShotObservationEvidencePublisher(mqtt, createEventBus(), createStorage(), outbox);
+    const mqtt = createMockMqttClient();
+    const publisher = new ShotObservationEvidencePublisher(
+      mqtt,
+      createMockEventBus(),
+      createMockStorage({ 'mqtt.laneId': '55555555-5555-4555-8555-555555555555' }),
+      outbox,
+    );
 
     await publisher.requestDrain();
 
@@ -73,41 +77,17 @@ describe('ShotObservationEvidencePublisher', () => {
       findPending: vi.fn(async () => [evidence]),
       markPublished: vi.fn(),
     };
-    const mqtt = createMqtt();
+    const mqtt = createMockMqttClient();
     vi.mocked(mqtt.publish).mockRejectedValue(new Error('offline'));
-    const publisher = new ShotObservationEvidencePublisher(mqtt, createEventBus(), createStorage(), outbox);
+    const publisher = new ShotObservationEvidencePublisher(
+      mqtt,
+      createMockEventBus(),
+      createMockStorage({ 'mqtt.laneId': '55555555-5555-4555-8555-555555555555' }),
+      outbox,
+    );
 
     await publisher.requestDrain();
 
     expect(outbox.markPublished).not.toHaveBeenCalled();
   });
 });
-
-function createMqtt(): IMqttClientService {
-  return {
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    publish: vi.fn().mockResolvedValue(undefined),
-    subscribe: vi.fn(),
-    unsubscribe: vi.fn(),
-    setWill: vi.fn(),
-    clearWill: vi.fn(),
-    onMessage: vi.fn(() => () => undefined),
-    onConnect: vi.fn(() => () => undefined),
-    onDisconnect: vi.fn(() => () => undefined),
-    isConnected: vi.fn(() => true),
-  };
-}
-
-function createEventBus(): IEventBus {
-  return { on: vi.fn(() => () => undefined), emit: vi.fn() } as unknown as IEventBus;
-}
-
-function createStorage(): ILocalStorage {
-  return {
-    get: vi.fn(() => '55555555-5555-4555-8555-555555555555'),
-    set: vi.fn(),
-    delete: vi.fn(),
-    has: vi.fn(),
-  } as unknown as ILocalStorage;
-}

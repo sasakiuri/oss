@@ -8,6 +8,7 @@ import {
   TimedTargetCommandPause,
 } from '@/main/modules/command-observations/application/TimedTargetCommandPause';
 import { SqliteCommandObservationRepository } from '@/main/modules/command-observations/infra/SqliteCommandObservationRepository';
+import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import { CompetitionInterruptionService } from '@/main/modules/competition-interruption';
@@ -252,6 +253,7 @@ export function createLaneServices(
     connectionRepository,
     competitionRepository,
     competitionCatalog: competitionRepository,
+    applyShotProgress: createShotRecordedHandler({ competitionRepository, eventBus }),
     printWindowService,
     adapterRegistry,
     timerService,

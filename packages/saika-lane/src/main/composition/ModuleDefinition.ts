@@ -39,6 +39,7 @@ import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import type { TimingProfileService } from '@/main/modules/timing-profiles';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
+import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import type { ActiveRunStartup } from '@/main/startup/restoreActiveRun';
@@ -62,6 +63,8 @@ export interface ServiceRegistry {
   competitionRepository: ICompetitionRepository;
   /** The competition store's read-only enumeration; the same instance as competitionRepository. */
   competitionCatalog: ICompetitionCatalog;
+  /** Advances the competition series for a recorded shot; awaited by the shot recording command. */
+  applyShotProgress: (event: ShotRecordedEvent) => Promise<void>;
   printWindowService: PrintWindowService;
   adapterRegistry: AdapterRegistry;
   mqttClient?: IMqttClientService;

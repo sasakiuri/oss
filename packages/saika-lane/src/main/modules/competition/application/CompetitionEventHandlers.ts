@@ -21,17 +21,17 @@ import { emitSeriesCompleted } from './emitSeriesCompleted';
 export function createShotRecordedHandler(deps: {
   competitionRepository: ICompetitionRepository;
   eventBus: IEventBus;
-}): (event?: ShotRecordedEvent) => Promise<void> {
+}): (event: ShotRecordedEvent) => Promise<void> {
   const { competitionRepository, eventBus } = deps;
 
   return async (event) => {
-    if (event?.acquisitionContext?.shotDisposition === 'ISOLATED') return;
+    if (event.acquisitionContext?.shotDisposition === 'ISOLATED') return;
     const state = await competitionRepository.findActive();
     if (!state || !state.canAcceptShot()) return;
 
     // In IDLE (training mode), shots are accepted but not tracked in competition series
     if (state.phase !== 'ACTIVE') return;
-    if (state.currentStageConfig.scored && event?.shot.mode.isSighting()) return;
+    if (state.currentStageConfig.scored && event.shot.mode.isSighting()) return;
 
     const newState = state.recordShotInSeries();
     await competitionRepository.save(newState);

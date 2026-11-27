@@ -65,6 +65,7 @@ describe('session.module', () => {
         'eventBus',
         'sessionRepository',
         'competitionRepository',
+        'applyShotProgress',
         'ipcRouter',
         'userDataPath',
         'shotObservationRepository',
@@ -81,6 +82,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -96,6 +98,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -111,6 +114,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -126,6 +130,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -141,6 +146,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -156,6 +162,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -171,6 +178,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -186,6 +194,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -201,6 +210,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath: '/tmp/test',
       });
@@ -231,6 +241,7 @@ describe('session.module', () => {
         eventBus,
         sessionRepository,
         competitionRepository: createMockCompetitionRepository(),
+        applyShotProgress: vi.fn().mockResolvedValue(undefined),
         ipcRouter,
         userDataPath,
       });

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import { type ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import { SqliteCompetitionShootOffShotOutbox } from '@/main/modules/competition-shoot-off/infra/SqliteCompetitionShootOffShotOutbox';
@@ -49,7 +49,12 @@ import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { buildSession } from '../../../helpers/factories';
-import { createMockStartup, createMockSettingsStore } from '../../../helpers/mockDependencies';
+import {
+  createMockSettingsStore,
+  createMockStartup,
+  createMockStorage,
+  createMockTimerService,
+} from '../../../helpers/mockDependencies';
 
 const { mockMqttClient } = vi.hoisted(() => ({
   mockMqttClient: {
@@ -97,16 +102,6 @@ function createMockIpcRouter(): IpcRouter {
   } as unknown as IpcRouter;
 }
 
-function createMockStorage(): ILocalStorage {
-  const store = new Map<string, unknown>([['mqtt.laneId', '11111111-1111-4111-8111-111111111111']]);
-  return {
-    get: vi.fn(<T>(key: string) => (store.get(key) as T) ?? (null as T)),
-    set: vi.fn(),
-    delete: vi.fn(),
-    has: vi.fn((key: string) => store.has(key)),
-  } as unknown as ILocalStorage;
-}
-
 function createMockCommandBus(): CommandBus {
   return {
     execute: vi.fn(),
@@ -131,14 +126,6 @@ function createMockCompetitionRepository(): ICompetitionRepository {
     findActive: vi.fn().mockResolvedValue(null),
     delete: vi.fn(),
   };
-}
-
-function createMockTimerService(): LaneTimerService {
-  return {
-    start: vi.fn(),
-    stop: vi.fn(),
-    syncRemaining: vi.fn(),
-  } as unknown as LaneTimerService;
 }
 
 function createMockSessionRepository(): ISessionRepository {
@@ -181,7 +168,7 @@ describe('mqtt.module', () => {
   let commandBus: CommandBus;
   let queryBus: QueryBus;
   let competitionRepository: ICompetitionRepository;
-  let timerService: LaneTimerService;
+  let timerService: ICompetitionTimer;
   let competitionInterruptionControl: ICompetitionInterruptionControl;
   let competitionShootOffControl: ICompetitionShootOffControl;
   let qualificationRecoveryControl: IQualificationRecoveryControl;
@@ -204,7 +191,7 @@ describe('mqtt.module', () => {
     mockMqttClient.unsubscribeAsync.mockResolvedValue(undefined);
     eventBus = createMockEventBus();
     ipcRouter = createMockIpcRouter();
-    storage = createMockStorage();
+    storage = createMockStorage({ 'mqtt.laneId': '11111111-1111-4111-8111-111111111111' });
     settingsStore = createMockSettingsStore();
     commandBus = createMockCommandBus();
     queryBus = createMockQueryBus();

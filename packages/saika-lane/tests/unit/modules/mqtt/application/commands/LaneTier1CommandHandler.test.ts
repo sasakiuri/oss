@@ -37,23 +37,8 @@ import { LaneSafetyStopState, type ILaneSafetyStopControl } from '@/main/modules
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
-import { createMockStorage } from '../../../../../helpers/mockDependencies';
-
-function createMockMqttClient(): IMqttClientService {
-  return {
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    publish: vi.fn().mockResolvedValue(undefined),
-    subscribe: vi.fn().mockResolvedValue(undefined),
-    unsubscribe: vi.fn().mockResolvedValue(undefined),
-    setWill: vi.fn(),
-    clearWill: vi.fn(),
-    onMessage: vi.fn().mockReturnValue(() => {}),
-    onConnect: vi.fn(),
-    onDisconnect: vi.fn(),
-    isConnected: vi.fn().mockReturnValue(true),
-  };
-}
+import { flushPromises } from '../../../../../helpers/flushPromises';
+import { createMockMqttClient, createMockStorage } from '../../../../../helpers/mockDependencies';
 
 function createMockBroadcastHandler(): BroadcastCommandHandler {
   return {
@@ -94,8 +79,6 @@ function buildCommand(overrides: Record<string, unknown> = {}): Record<string, u
     ...overrides,
   };
 }
-
-const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 50));
 
 describe('LaneTier1CommandHandler', () => {
   let mqttClient: IMqttClientService;

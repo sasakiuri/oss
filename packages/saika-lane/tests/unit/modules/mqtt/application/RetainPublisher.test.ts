@@ -16,6 +16,8 @@ import { Score } from '@/main/modules/session/domain/Score';
 import { Shot } from '@/main/modules/session/domain/Shot';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
+import { createMockStorage } from '../../../../helpers/mockDependencies';
+
 // ── mock logger ────────────────────────────────────────────────
 const mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() };
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
@@ -44,16 +46,6 @@ function createMockMqttClient(): IMqttClientService {
     _triggerConnect: () => connectHandlers.forEach((h) => h()),
     _triggerDisconnect: () => disconnectHandlers.forEach((h) => h()),
   } as unknown as IMqttClientService & { _triggerConnect: () => void; _triggerDisconnect: () => void };
-}
-
-function createMockStorage(): ILocalStorage {
-  const store = new Map<string, unknown>([['mqtt.laneId', 'lane-uuid']]);
-  return {
-    get: vi.fn(<T>(key: string) => (store.get(key) as T) ?? (null as T)),
-    set: vi.fn(),
-    delete: vi.fn(),
-    has: vi.fn(),
-  } as unknown as ILocalStorage;
 }
 
 const mockCompetition = {
@@ -137,7 +129,7 @@ describe('RetainPublisher', () => {
       _triggerConnect: () => void;
       _triggerDisconnect: () => void;
     };
-    storage = createMockStorage();
+    storage = createMockStorage({ 'mqtt.laneId': 'lane-uuid' });
     competitionRepository = {
       save: vi.fn(),
       findById: vi.fn(),

@@ -23,8 +23,8 @@ vi.mock('@/shared/errors/ErrorCatalog', () => ({
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import { BR60S, P25, P25_FINAL, RFPM_FINAL } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
+import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import { Timer } from '@/main/modules/competition/domain/Timer';
-import type { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import {
@@ -40,33 +40,13 @@ import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientS
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 
-import { createMockCommandBus } from '../../../../../helpers/mockDependencies';
-
-function createMockMqttClient(): IMqttClientService {
-  return {
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    publish: vi.fn().mockResolvedValue(undefined),
-    subscribe: vi.fn().mockResolvedValue(undefined),
-    unsubscribe: vi.fn().mockResolvedValue(undefined),
-    setWill: vi.fn(),
-    clearWill: vi.fn(),
-    onMessage: vi.fn().mockReturnValue(() => {}),
-    onConnect: vi.fn(),
-    onDisconnect: vi.fn(),
-    isConnected: vi.fn().mockReturnValue(true),
-  };
-}
-
-function createMockTimerService(): LaneTimerService {
-  return {
-    start: vi.fn(),
-    startAt: vi.fn().mockResolvedValue(undefined),
-    stop: vi.fn(),
-    expire: vi.fn().mockResolvedValue(undefined),
-    processTick: vi.fn(),
-  } as unknown as LaneTimerService;
-}
+import { buildCompetitionState } from '../../../../../helpers/factories';
+import { flushPromises } from '../../../../../helpers/flushPromises';
+import {
+  createMockCommandBus,
+  createMockMqttClient,
+  createMockTimerService,
+} from '../../../../../helpers/mockDependencies';
 
 // Valid UUIDs (version 4 format)
 const LANE_ID = 'a1111111-1111-4111-a111-111111111111';
@@ -89,26 +69,20 @@ function createCompetitionState(
   currentStageIndex: number,
   currentSeriesIndex: number,
 ): CompetitionState {
-  return CompetitionState.reconstruct({
+  return buildCompetitionState({
     id: COMPETITION_ID,
     sessionId: 'd4444444-4444-4444-a444-444444444444',
-    config: BR60S.config,
     phase,
     currentStageIndex,
     currentSeriesIndex,
-    seriesShotCount: 0,
-    timer: Timer.create(0),
-    startedAt: null,
     finishedAt: phase === 'FINISHED' ? Date.now() : null,
   });
 }
 
-const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 50));
-
 describe('BroadcastCommandHandler', () => {
   let mqttClient: IMqttClientService;
   let commandBus: ReturnType<typeof createMockCommandBus>;
-  let timerService: LaneTimerService;
+  let timerService: ICompetitionTimer;
   let competitionRepository: Pick<ICompetitionRepository, 'findById'>;
   let competitionStatePublisher: LaneCompetitionStatePublisher;
   let scorePublisher: LaneScorePublisher;
