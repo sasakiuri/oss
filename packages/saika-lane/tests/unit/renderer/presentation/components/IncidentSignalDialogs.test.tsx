@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Behaviour the Range Officer, possible-malfunction and EST complaint dialogs share, and where they differ. */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ComponentType } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -173,6 +173,32 @@ describe.each(cases)('$name dialog', (dialog) => {
     expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(3);
   });
 
+  it('reads once when it mounts already open', async () => {
+    render(<Dialog isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
+    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledOnce());
+    await act(async () => {});
+
+    expect(mqtt[dialog.get]).toHaveBeenCalledOnce();
+    expect(mqtt.getMqttStatus).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a declaration that completes while an older read is still pending', async () => {
+    const props = { onClose: vi.fn(), onActiveChange: vi.fn() };
+    const { rerender } = render(<Dialog isOpen={false} {...props} />);
+    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledOnce());
+    const staleRead = deferred<object>();
+    mqtt[dialog.get].mockReturnValueOnce(staleRead.promise);
+    rerender(<Dialog isOpen {...props} />);
+    await waitFor(() => expect(mqtt[dialog.get]).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByRole('button', { name: dialog.declareButton }));
+    expect(await screen.findByRole('button', { name: dialog.clearButton })).toBeEnabled();
+    await act(async () => staleRead.resolve(dialog.idle));
+
+    expect(screen.getByRole('button', { name: dialog.clearButton })).toBeEnabled();
+    expect(props.onActiveChange).toHaveBeenLastCalledWith(true);
+  });
+
   it('reports whether the signal is active', async () => {
     mqtt[dialog.get].mockResolvedValue(dialog.active);
     const onActiveChange = vi.fn();
@@ -194,7 +220,7 @@ describe.each(cases)('$name dialog', (dialog) => {
     mqtt.getMqttStatus.mockResolvedValue({ status: 'connected' });
     render(<Dialog isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
     expect(await screen.findByRole('button', { name: dialog.clearButton })).toBeInTheDocument();
-    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(2));
     expect(screen.queryByText(stored)).not.toBeInTheDocument();
   });
 
@@ -216,7 +242,7 @@ describe.each(cases)('$name dialog', (dialog) => {
     const pending = deferred<object>();
     mqtt[dialog.declare].mockReturnValue(pending.promise);
     render(<Dialog isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
-    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledOnce());
 
     fireEvent.click(screen.getByRole('button', { name: dialog.declareButton }));
 
@@ -225,24 +251,24 @@ describe.each(cases)('$name dialog', (dialog) => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
     pending.resolve(dialog.active);
     expect(await screen.findByRole('button', { name: dialog.clearButton })).toBeEnabled();
-    expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(3);
+    expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(2);
   });
 
   it('shows a failed declaration and enables the form again', async () => {
     mqtt[dialog.declare].mockRejectedValue(new Error('Lane is not ready'));
     render(<Dialog isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
-    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledOnce());
 
     fireEvent.click(screen.getByRole('button', { name: dialog.declareButton }));
 
     await waitFor(() => errorParagraph('Lane is not ready'));
     expect(screen.getByRole('button', { name: dialog.declareButton })).toBeEnabled();
-    expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(2);
+    expect(mqtt.getMqttStatus).toHaveBeenCalledOnce();
   });
 
   it('sends the observation the way this dialog normalizes it', async () => {
     render(<Dialog isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
-    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledOnce());
     mqtt[dialog.declare].mockRejectedValue(new Error('Lane is not ready'));
 
     fireEvent.change(screen.getByLabelText(dialog.textarea), { target: { value: '  Jammed slide  ' } });
@@ -257,7 +283,7 @@ describe.each(cases)('$name dialog', (dialog) => {
 
   it('clears by signal identity, shows a failed clear and empties the draft afterwards', async () => {
     render(<Dialog isOpen onClose={vi.fn()} onActiveChange={vi.fn()} />);
-    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mqtt.getMqttStatus).toHaveBeenCalledOnce());
     fireEvent.change(screen.getByLabelText(dialog.textarea), { target: { value: 'Draft' } });
     fireEvent.click(screen.getByRole('button', { name: dialog.declareButton }));
     const clearButton = await screen.findByRole('button', { name: dialog.clearButton });

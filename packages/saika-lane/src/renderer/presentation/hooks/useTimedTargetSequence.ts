@@ -29,20 +29,23 @@ export function useTimedTargetSequence() {
 
   useEffect(() => {
     let mounted = true;
+    let eventGeneration = 0;
     const applyState = (next: TimedTargetStateDto | null): void => {
       setState(next);
       if (next && isTargetScoringProfileId(next.targetProfileId)) setTargetProfileId(next.targetProfileId);
     };
-    void timedTargetService
-      .getState()
-      .then((current) => {
-        if (mounted) applyState(current);
-      })
-      .catch(() => undefined);
     const unsubscribe = window.electronAPI.on.timedTargetSequenceChanged((next) => {
+      eventGeneration += 1;
       applyState(next);
       setCancelError(null);
     });
+    const bootstrapGeneration = eventGeneration;
+    void timedTargetService
+      .getState()
+      .then((current) => {
+        if (mounted && eventGeneration === bootstrapGeneration) applyState(current);
+      })
+      .catch(() => undefined);
     return () => {
       mounted = false;
       unsubscribe();
