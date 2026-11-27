@@ -1,3 +1,4 @@
+import { optionalText, requiredText } from '@/main/domain/guards';
 import { INCIDENT_REPORT_OFFICIAL_ROLES, type IncidentReportOfficialRole } from './RangeIncidentReportEntry';
 
 export interface CreateRangeIncidentReportProps {
@@ -57,15 +58,15 @@ export class RangeIncidentReport {
       new Date(props.occurredAt.getTime()),
       props.relayNumber ?? null,
       props.firingPointNumber ?? null,
-      normalizeOptional(props.athleteName),
-      normalizeOptional(props.bibNumber),
-      normalizeOptional(props.nationality),
-      normalizeOptional(props.stage),
-      normalizeOptional(props.series),
+      optionalText(props.athleteName),
+      optionalText(props.bibNumber),
+      optionalText(props.nationality),
+      optionalText(props.stage),
+      optionalText(props.series),
       props.details.trim(),
       props.ruleReferences.trim(),
-      normalizeOptional(props.penalty),
-      normalizeOptional(props.scoreAmendmentReference),
+      optionalText(props.penalty),
+      optionalText(props.scoreAmendmentReference),
       props.initiatorRole,
       props.initiatorName.trim(),
       validDate(props.createdAt, 'createdAt'),
@@ -126,7 +127,7 @@ function validate(props: CreateRangeIncidentReportProps): void {
     ['ruleReferences', props.ruleReferences],
     ['initiatorName', props.initiatorName],
   ] as const) {
-    if (value.trim().length === 0) throw new Error(`${name} is required`);
+    requiredText(value, name);
   }
   validDate(props.occurredAt, 'occurredAt');
   validPositiveInteger(props.relayNumber, 'relayNumber');
@@ -146,9 +147,4 @@ function validDate(value: Date | undefined, name: string): Date {
   const date = value ?? new Date();
   if (!Number.isFinite(date.getTime())) throw new Error(`${name} must be valid`);
   return new Date(date.getTime());
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

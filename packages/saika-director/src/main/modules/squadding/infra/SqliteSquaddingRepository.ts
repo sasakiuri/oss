@@ -1,4 +1,6 @@
 import type Database from 'better-sqlite3';
+
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type { SquaddingAssignmentDto, SquaddingFindingDto } from '@/shared/ipc/contracts';
 import type {
   ISquaddingRepository,
@@ -89,13 +91,22 @@ export class SqliteSquaddingRepository implements ISquaddingRepository {
   }
 
   private hydrate(rows: DrawRow[]): SquaddingDrawRecord[] {
-    if (rows.length === 0) return [];
-    const entries = this.db
-      .prepare(
-        `SELECT * FROM squadding_draw_entries WHERE draw_id IN (${rows.map(() => '?').join(', ')})
-       ORDER BY recorded_at, rowid`,
-      )
-      .all(...rows.map((row) => row.id)) as EntryRow[];
+    const entries = selectGroupedBy(
+      this.db,
+      rows.map((row) => row.id),
+      (placeholders) =>
+        `SELECT * FROM squadding_draw_entries WHERE draw_id IN (${placeholders})
+         ORDER BY recorded_at, rowid`,
+      (entry: EntryRow) => entry.draw_id,
+      (entry): SquaddingDrawEntryRecord => ({
+        id: entry.id,
+        drawId: entry.draw_id,
+        entryType: entry.entry_type,
+        officialName: entry.official_name,
+        statement: entry.statement,
+        recordedAt: entry.recorded_at,
+      }),
+    );
     return rows.map((row) => ({
       id: row.id,
       eventId: row.event_id,
@@ -113,16 +124,7 @@ export class SqliteSquaddingRepository implements ISquaddingRepository {
       findings: JSON.parse(row.findings_json) as SquaddingFindingDto[],
       createdBy: row.created_by,
       createdAt: row.created_at,
-      entries: entries
-        .filter((entry) => entry.draw_id === row.id)
-        .map((entry) => ({
-          id: entry.id,
-          drawId: entry.draw_id,
-          entryType: entry.entry_type,
-          officialName: entry.official_name,
-          statement: entry.statement,
-          recordedAt: entry.recorded_at,
-        })),
+      entries: entries.get(row.id)!,
     }));
   }
 }

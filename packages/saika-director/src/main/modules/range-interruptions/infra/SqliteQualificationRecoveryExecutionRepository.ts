@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type { IQualificationRecoveryExecutionRepository } from '../domain/IQualificationRecoveryExecutionRepository';
 import {
   createQualificationRecoveryExecutionEvent,
@@ -127,18 +128,16 @@ export class SqliteQualificationRecoveryExecutionRepository implements IQualific
   }
 
   findByCaseIds(caseIds: readonly string[]): Map<string, QualificationRecoveryExecutionRecord[]> {
-    const result = new Map<string, QualificationRecoveryExecutionRecord[]>(caseIds.map((caseId) => [caseId, []]));
-    if (caseIds.length === 0) return result;
-    const placeholders = caseIds.map(() => '?').join(', ');
-    const rows = this.db
-      .prepare(
+    return selectGroupedBy(
+      this.db,
+      caseIds,
+      (placeholders) =>
         `SELECT * FROM qualification_recovery_executions
          WHERE case_id IN (${placeholders})
          ORDER BY requested_at, rowid`,
-      )
-      .all(...caseIds) as StartRow[];
-    for (const row of rows) result.get(row.case_id)?.push(this.toRecord(row));
-    return result;
+      (row: StartRow) => row.case_id,
+      (row) => this.toRecord(row),
+    );
   }
 
   private findStartByDecisionPhase(

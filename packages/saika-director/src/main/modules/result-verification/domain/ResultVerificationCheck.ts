@@ -1,3 +1,5 @@
+import { optionalText, requiredText, sha256Digest } from '@/main/domain/guards';
+
 export const RESULT_EVIDENCE_SOURCES = ['TARGET_PRINTOUT', 'INDEPENDENT_MEMORY', 'OTHER'] as const;
 export const RESULT_COMPARISON_STATUSES = ['MATCHED', 'MISMATCH', 'UNAVAILABLE'] as const;
 
@@ -61,7 +63,7 @@ export class ResultVerificationCheck {
       props.evidenceReference.trim(),
       props.comparisonStatus,
       props.manualInterventionsReviewed,
-      normalizeOptional(props.note),
+      optionalText(props.note),
       props.officialName.trim(),
       new Date((props.checkedAt ?? new Date()).getTime()),
     );
@@ -98,9 +100,9 @@ function validate(props: CreateResultVerificationCheckProps): void {
     ['evidenceReference', props.evidenceReference],
     ['officialName', props.officialName],
   ] as const) {
-    if (value.trim().length === 0) throw new Error(`${name} is required`);
+    requiredText(value, name);
   }
-  if (!/^[a-f0-9]{64}$/.test(props.resultRevision)) throw new Error('resultRevision must be a SHA-256 digest');
+  sha256Digest(props.resultRevision, 'resultRevision');
   if (!Number.isInteger(props.resultRank) || props.resultRank < 1) throw new Error('resultRank must be positive');
   if (!Number.isInteger(props.scoreX10) || props.scoreX10 < 0) throw new Error('scoreX10 must be non-negative');
   if (!Number.isInteger(props.decisionCountAtCheck) || props.decisionCountAtCheck < 0) {
@@ -108,9 +110,4 @@ function validate(props: CreateResultVerificationCheckProps): void {
   }
   const checkedAt = props.checkedAt ?? new Date();
   if (!Number.isFinite(checkedAt.getTime())) throw new Error('checkedAt must be valid');
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

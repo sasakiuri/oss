@@ -1,3 +1,4 @@
+import { requiredText } from '@/main/domain/guards';
 import {
   settleQualificationMalfunctionRepeat,
   type QualificationMalfunctionCountedShot,
@@ -79,8 +80,8 @@ export function calculateMalfunctionScoreSheet(
   if (!['RTS_OFFICER', 'JURY_MEMBER'].includes(input.officialRole)) {
     throw new Error('Score evidence must be confirmed by RTS or a Jury member');
   }
-  required(input.officialName, 'Confirming official');
-  required(input.statement, 'Evidence confirmation statement');
+  requiredText(input.officialName, 'Confirming official');
+  requiredText(input.statement, 'Evidence confirmation statement');
   const authorization = [...entries].reverse().find((entry) => entry.type === 'REMEDY_AUTHORIZED');
   const execution = [...entries].reverse().find((entry) => entry.type === 'EXECUTION_RECORDED');
   if (!authorization || !execution?.artifactId) throw new Error('Authorization and execution evidence are required');
@@ -120,7 +121,7 @@ export function calculateMalfunctionScoreSheet(
     if (authorization.shotsToFire !== treatment.shots)
       throw new Error('The repeat authorization shot count is invalid');
     if (input.secondMalfunction) {
-      required(input.secondMalfunction.evidenceReference, 'Second malfunction evidence');
+      requiredText(input.secondMalfunction.evidenceReference, 'Second malfunction evidence');
       if (all.some((shot) => shot.outcome === 'UNFIRED')) {
         throw new Error('Second-malfunction rows contain fired shots only; missing shots are added by the calculation');
       }
@@ -184,8 +185,8 @@ function normalResult(
 }
 
 function validateEvidence(shot: MalfunctionScoreEvidence): void {
-  required(shot.shotId, 'Shot ID');
-  required(shot.evidenceReference, 'Shot evidence reference');
+  requiredText(shot.shotId, 'Shot ID');
+  requiredText(shot.evidenceReference, 'Shot evidence reference');
   if (!Number.isInteger(shot.scoreX10) || shot.scoreX10 < 0 || shot.scoreX10 > 100 || shot.scoreX10 % 10 !== 0) {
     throw new Error('25m Qualification scores must be whole-ring values from 0 to 10');
   }
@@ -200,7 +201,4 @@ function counted(row: 'ORIGINAL' | 'REPEAT', shot: MalfunctionScoreEvidence): Qu
 }
 function zero(row: 'ORIGINAL' | 'REPEAT'): QualificationMalfunctionCountedShot {
   return { row, shotId: null, scoreX10: 0, targetIndex: null, addedZero: true };
-}
-function required(value: string, name: string): void {
-  if (!value.trim()) throw new Error(`${name} is required`);
 }

@@ -1,4 +1,4 @@
-import { validDate } from '@/main/domain/guards';
+import { validDate, requiredText, sha256Digest } from '@/main/domain/guards';
 
 export type ResultPublicationScope = 'QUALIFICATION' | 'FINAL';
 
@@ -137,20 +137,20 @@ export function reconstructResultPublicationEntry(entry: ProtestRegisteredEntry)
 export function reconstructResultPublicationEntry(entry: ProtestResolvedEntry): ProtestResolvedEntry;
 export function reconstructResultPublicationEntry(entry: OfficialPublishedEntry): OfficialPublishedEntry;
 export function reconstructResultPublicationEntry(entry: ResultPublicationEntry): ResultPublicationEntry {
-  validateText(entry.id, 'id');
-  validateText(entry.eventId, 'eventId');
-  validateText(entry.preliminaryId, 'preliminaryId');
+  requiredText(entry.id, 'id');
+  requiredText(entry.eventId, 'eventId');
+  requiredText(entry.preliminaryId, 'preliminaryId');
   validDate(entry.recordedAt, 'recordedAt');
 
   switch (entry.type) {
     case 'PRELIMINARY_PUBLISHED': {
-      validateRevision(entry.snapshotRevision);
-      validateText(entry.officialName, 'officialName');
+      sha256Digest(entry.snapshotRevision, 'snapshotRevision');
+      requiredText(entry.officialName, 'officialName');
       const postedAt = validDate(entry.postedAt, 'postedAt');
       const protestEndsAt = validDate(entry.protestEndsAt, 'protestEndsAt');
       if (postedAt.getTime() > entry.recordedAt.getTime()) throw new Error('Posting time cannot be in the future');
-      if (entry.postingLocation !== undefined) validateText(entry.postingLocation, 'postingLocation');
-      if (entry.postingReference !== undefined) validateText(entry.postingReference, 'postingReference');
+      if (entry.postingLocation !== undefined) requiredText(entry.postingLocation, 'postingLocation');
+      if (entry.postingReference !== undefined) requiredText(entry.postingReference, 'postingReference');
       if (protestEndsAt.getTime() <= postedAt.getTime()) {
         throw new Error('protestEndsAt must be after postedAt');
       }
@@ -166,16 +166,16 @@ export function reconstructResultPublicationEntry(entry: ResultPublicationEntry)
       });
     }
     case 'PROTEST_REGISTERED':
-      validateText(entry.protestReference, 'protestReference');
+      requiredText(entry.protestReference, 'protestReference');
       return Object.freeze({
         ...entry,
         protestReference: entry.protestReference.trim(),
         recordedAt: validDate(entry.recordedAt, 'recordedAt'),
       });
     case 'PROTEST_RESOLVED':
-      validateText(entry.protestReference, 'protestReference');
-      validateText(entry.resolution, 'resolution');
-      validateText(entry.officialName, 'officialName');
+      requiredText(entry.protestReference, 'protestReference');
+      requiredText(entry.resolution, 'resolution');
+      requiredText(entry.officialName, 'officialName');
       return Object.freeze({
         ...entry,
         protestReference: entry.protestReference.trim(),
@@ -184,9 +184,9 @@ export function reconstructResultPublicationEntry(entry: ResultPublicationEntry)
         recordedAt: validDate(entry.recordedAt, 'recordedAt'),
       });
     case 'OFFICIAL_PUBLISHED':
-      validateRevision(entry.snapshotRevision);
-      validateText(entry.approvalId, 'approvalId');
-      validateText(entry.officialName, 'officialName');
+      sha256Digest(entry.snapshotRevision, 'snapshotRevision');
+      requiredText(entry.approvalId, 'approvalId');
+      requiredText(entry.officialName, 'officialName');
       return Object.freeze({
         ...entry,
         approvalId: entry.approvalId.trim(),
@@ -194,12 +194,4 @@ export function reconstructResultPublicationEntry(entry: ResultPublicationEntry)
         recordedAt: validDate(entry.recordedAt, 'recordedAt'),
       });
   }
-}
-
-function validateRevision(value: string): void {
-  if (!/^[a-f0-9]{64}$/.test(value)) throw new Error('snapshotRevision must be a SHA-256 digest');
-}
-
-function validateText(value: string, name: string): void {
-  if (value.trim().length === 0) throw new Error(`${name} is required`);
 }

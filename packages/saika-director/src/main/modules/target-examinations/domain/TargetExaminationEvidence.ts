@@ -1,4 +1,4 @@
-import { requiredText, validDate } from '@/main/domain/guards';
+import { requiredText, validDate, optionalText } from '@/main/domain/guards';
 
 export const TARGET_EXAMINATION_EVIDENCE_TYPES = [
   'CONTROL_SHEET',
@@ -46,7 +46,7 @@ export class TargetExaminationEvidence {
     validateType(props.type);
     const collectedAt = validDate(props.collectedAt, 'collectedAt');
     const recordedAt = validDate(props.recordedAt ?? new Date(), 'recordedAt');
-    const hash = normalizeOptional(props.contentHashSha256)?.toLowerCase() ?? null;
+    const hash = optionalText(props.contentHashSha256)?.toLowerCase() ?? null;
     if (hash !== null && !/^[a-f0-9]{64}$/.test(hash)) {
       throw new Error('contentHashSha256 must contain 64 hexadecimal characters');
     }
@@ -55,7 +55,7 @@ export class TargetExaminationEvidence {
       requiredText(props.caseId, 'caseId'),
       props.type,
       requiredText(props.description, 'description'),
-      normalizeOptional(props.reference),
+      optionalText(props.reference),
       hash,
       requiredText(props.collectedBy, 'collectedBy'),
       collectedAt,
@@ -91,9 +91,4 @@ export class TargetExaminationEvidence {
 
 function validateType(value: TargetExaminationEvidenceType): void {
   if (!TARGET_EXAMINATION_EVIDENCE_TYPES.includes(value)) throw new Error('evidence type is invalid');
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

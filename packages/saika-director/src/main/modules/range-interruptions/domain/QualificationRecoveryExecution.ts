@@ -4,7 +4,7 @@ import {
   type QualificationRecoveryShotPayload,
   type QualificationRecoveryStatePayload,
 } from '@sasakiuri/saika-protocol/QualificationRecovery';
-import { validDate } from '@/main/domain/guards';
+import { validDate, requiredText } from '@/main/domain/guards';
 
 export type QualificationRecoveryExecutionPhase = QualificationRecoveryFiringAuthorizationPayload['phase'];
 export type QualificationRecoveryExecutionStatus =
@@ -271,10 +271,6 @@ function deepFreeze<T>(value: T): T {
     for (const nested of Object.values(value)) deepFreeze(nested);
   }
   return value;
-}
-
-function requiredText(value: string, name: string): void {
-  if (!value.trim()) throw new Error(`${name} is required`);
 }
 
 function positiveInteger(value: number, name: string): void {

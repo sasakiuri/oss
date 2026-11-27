@@ -1,3 +1,5 @@
+import { requiredText } from '@/main/domain/guards';
+
 export const PROTEST_ENTRY_TYPES = [
   'FORWARDED_TO_JURY',
   'DECIDED_UPHELD',
@@ -36,17 +38,12 @@ export class ProtestEntry {
     recordedAt?: Date;
   }): ProtestEntry {
     if (!PROTEST_ENTRY_TYPES.includes(props.type)) throw new Error('Protest entry type is invalid');
-    const text = (value: string, name: string) => {
-      const normalized = value.trim();
-      if (!normalized) throw new Error(`${name} is required`);
-      return normalized;
-    };
     return new ProtestEntry(
       props.id ?? crypto.randomUUID(),
-      text(props.caseId, 'caseId'),
+      requiredText(props.caseId, 'caseId'),
       props.type,
-      text(props.statement, 'statement'),
-      text(props.officialName, 'officialName'),
+      requiredText(props.statement, 'statement'),
+      requiredText(props.officialName, 'officialName'),
       props.ruleReference?.trim() || null,
       new Date(props.occurredAt),
       new Date(props.recordedAt ?? new Date()),

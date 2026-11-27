@@ -1,3 +1,4 @@
+import { sha256Digest } from '@/main/domain/guards';
 import { EventId } from './EventId';
 import { ChampionshipId } from './ChampionshipId';
 import { EventType } from './EventType';
@@ -54,9 +55,7 @@ export class Event {
 
 function copyIdentity(identity: RulePackIdentity | null): RulePackIdentity | null {
   if (!identity) return null;
-  if (!/^[a-f0-9]{64}$/.test(identity.fingerprint.value)) {
-    throw new Error('Rule Pack fingerprint must be a SHA-256 digest');
-  }
+  sha256Digest(identity.fingerprint.value, 'Rule Pack fingerprint');
   return Object.freeze({
     id: identity.id,
     schemaVersion: identity.schemaVersion,

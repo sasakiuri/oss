@@ -1,11 +1,13 @@
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
+import type { CaseEntryType } from '@/main/domain/caseLifecycle';
+
 import type { IIrregularShotCaseRepository } from '../domain/IIrregularShotCaseRepository';
 import {
   IrregularShotCase,
   IrregularShotCaseEntry,
   IrregularShotEvidence,
-  type IrregularShotEntryType,
   type IrregularShotEvidenceRelation,
   type IrregularShotKind,
   type IrregularShotResolutionCode,
@@ -52,7 +54,7 @@ interface EvidenceRow {
 interface EntryRow {
   id: string;
   case_id: string;
-  entry_type: IrregularShotEntryType;
+  entry_type: CaseEntryType;
   statement: string;
   official_name: string;
   rule_reference: string | null;
@@ -151,29 +153,26 @@ export class SqliteIrregularShotCaseRepository implements IIrregularShotCaseRepo
   }
 
   findEntries(caseIds: readonly string[]): Map<string, IrregularShotCaseEntry[]> {
-    return collect(caseIds, this.db, 'irregular_shot_case_entries', (row) => toEntry(row as EntryRow));
+    return selectGroupedBy(
+      this.db,
+      caseIds,
+      (placeholders) =>
+        `SELECT * FROM irregular_shot_case_entries WHERE case_id IN (${placeholders}) ORDER BY recorded_at, rowid`,
+      (row: EntryRow) => row.case_id,
+      toEntry,
+    );
   }
 
   findEvidence(caseIds: readonly string[]): Map<string, IrregularShotEvidence[]> {
-    return collect(caseIds, this.db, 'irregular_shot_evidence', (row) => toEvidence(row as EvidenceRow));
+    return selectGroupedBy(
+      this.db,
+      caseIds,
+      (placeholders) =>
+        `SELECT * FROM irregular_shot_evidence WHERE case_id IN (${placeholders}) ORDER BY recorded_at, rowid`,
+      (row: EvidenceRow) => row.case_id,
+      toEvidence,
+    );
   }
-}
-
-function collect<T>(
-  caseIds: readonly string[],
-  db: Database.Database,
-  table: 'irregular_shot_case_entries' | 'irregular_shot_evidence',
-  map: (row: unknown) => T,
-): Map<string, T[]> {
-  const result = new Map(caseIds.map((id) => [id, [] as T[]]));
-  if (caseIds.length === 0) return result;
-  const rows = db
-    .prepare(
-      `SELECT * FROM ${table} WHERE case_id IN (${caseIds.map(() => '?').join(',')}) ORDER BY recorded_at, rowid`,
-    )
-    .all(...caseIds) as Array<{ case_id: string }>;
-  for (const row of rows) result.get(row.case_id)?.push(map(row));
-  return result;
 }
 
 function toCase(row: CaseRow): IrregularShotCase {

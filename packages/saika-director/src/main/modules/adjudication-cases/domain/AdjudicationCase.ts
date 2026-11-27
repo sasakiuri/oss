@@ -1,3 +1,4 @@
+import { CASE_ENTRY_TYPES, type CaseEntryType } from '@/main/domain/caseLifecycle';
 import { requiredText, optionalText, validDate } from '@/main/domain/guards';
 
 export const ADJUDICATION_CASE_SCOPE_TYPES = ['EVENT', 'COMPETITION'] as const;
@@ -11,7 +12,6 @@ export const ADJUDICATION_CASE_CATEGORIES = [
   'FINAL',
   'OTHER',
 ] as const;
-export const ADJUDICATION_CASE_ENTRY_TYPES = ['NOTE', 'REFERRED', 'RESOLVED', 'REOPENED', 'CLOSED', 'VOID'] as const;
 export const ADJUDICATION_ARTIFACT_TYPES = [
   'SCORING_DECISION',
   'RANGE_INCIDENT_REPORT',
@@ -34,10 +34,8 @@ export const ADJUDICATION_LINK_RELATIONS = [
 
 export type AdjudicationCaseScopeType = (typeof ADJUDICATION_CASE_SCOPE_TYPES)[number];
 export type AdjudicationCaseCategory = (typeof ADJUDICATION_CASE_CATEGORIES)[number];
-export type AdjudicationCaseEntryType = (typeof ADJUDICATION_CASE_ENTRY_TYPES)[number];
 export type AdjudicationArtifactType = (typeof ADJUDICATION_ARTIFACT_TYPES)[number];
 export type AdjudicationLinkRelation = (typeof ADJUDICATION_LINK_RELATIONS)[number];
-export type AdjudicationCaseStatus = 'OPEN' | 'REFERRED' | 'RESOLVED' | 'CLOSED' | 'VOID';
 
 export class AdjudicationCase {
   private constructor(
@@ -91,7 +89,7 @@ export class AdjudicationCaseEntry {
   private constructor(
     readonly id: string,
     readonly caseId: string,
-    readonly type: AdjudicationCaseEntryType,
+    readonly type: CaseEntryType,
     readonly statement: string,
     readonly officialName: string,
     readonly ruleReference: string | null,
@@ -104,14 +102,14 @@ export class AdjudicationCaseEntry {
   static create(props: {
     id?: string;
     caseId: string;
-    type: AdjudicationCaseEntryType;
+    type: CaseEntryType;
     statement: string;
     officialName: string;
     ruleReference?: string | null;
     occurredAt?: Date;
     recordedAt?: Date;
   }): AdjudicationCaseEntry {
-    if (!ADJUDICATION_CASE_ENTRY_TYPES.includes(props.type)) throw new Error('Adjudication entry type is invalid');
+    if (!CASE_ENTRY_TYPES.includes(props.type)) throw new Error('Adjudication entry type is invalid');
     return new AdjudicationCaseEntry(
       props.id ?? crypto.randomUUID(),
       requiredText(props.caseId, 'caseId'),
@@ -233,32 +231,6 @@ export class AdjudicationCaseLink {
       props.reversesLinkId,
     );
   }
-}
-
-export function adjudicationCaseStatus(entries: readonly AdjudicationCaseEntry[]): AdjudicationCaseStatus {
-  let status: AdjudicationCaseStatus = 'OPEN';
-  for (const entry of entries) {
-    switch (entry.type) {
-      case 'REFERRED':
-        status = 'REFERRED';
-        break;
-      case 'RESOLVED':
-        status = 'RESOLVED';
-        break;
-      case 'REOPENED':
-        status = 'OPEN';
-        break;
-      case 'CLOSED':
-        status = 'CLOSED';
-        break;
-      case 'VOID':
-        status = 'VOID';
-        break;
-      case 'NOTE':
-        break;
-    }
-  }
-  return status;
 }
 
 export function activeAdjudicationLinks(history: readonly AdjudicationCaseLink[]): AdjudicationCaseLink[] {

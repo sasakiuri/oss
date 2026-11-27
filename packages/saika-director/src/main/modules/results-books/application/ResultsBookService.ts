@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { basename } from 'node:path';
 
+import { optionalText, requiredText } from '@/main/domain/guards';
 import type { ArchiveFileGateway } from '@/main/modules/operational-archives';
 import {
   OfficialSigningPolicy,
@@ -69,7 +70,7 @@ export class ResultsBookService {
     officialActorId?: string;
   }): Promise<ResultsBookWorkspaceDto> {
     const account = input.officialActorId ? this.signing.resolveAccount(input.officialActorId) : null;
-    const officialName = account?.name ?? required(input.officialName, 'officialName');
+    const officialName = account?.name ?? requiredText(input.officialName, 'officialName');
     const active = activeOfficials(this.repository.findOfficialEntries(input.championshipId));
     if (
       active.some(
@@ -87,9 +88,9 @@ export class ResultsBookService {
       role: input.role,
       officialName,
       officialActorId: account?.id ?? null,
-      organization: optional(input.organization),
-      statement: required(input.statement, 'statement'),
-      recordedBy: required(input.recordedBy, 'recordedBy'),
+      organization: optionalText(input.organization),
+      statement: requiredText(input.statement, 'statement'),
+      recordedBy: requiredText(input.recordedBy, 'recordedBy'),
       recordedAt: this.now(),
       reversesEntryId: null,
     });
@@ -109,8 +110,8 @@ export class ResultsBookService {
       ...appointment,
       id: crypto.randomUUID(),
       operation: 'REVOKE',
-      statement: required(input.statement, 'statement'),
-      recordedBy: required(input.recordedBy, 'recordedBy'),
+      statement: requiredText(input.statement, 'statement'),
+      recordedBy: requiredText(input.recordedBy, 'recordedBy'),
       recordedAt: this.now(),
       reversesEntryId: appointment.id,
     });
@@ -167,7 +168,7 @@ export class ResultsBookService {
       resultBasis: input.resultBasis,
       benchmarkScoreX10: input.benchmarkScoreX10,
       ruleReference: recordRule(input.code),
-      claimedBy: required(input.claimedBy, 'claimedBy'),
+      claimedBy: requiredText(input.claimedBy, 'claimedBy'),
       achievedAt: validDate(input.achievedAt, 'achievedAt'),
       createdAt: this.now(),
     });
@@ -209,10 +210,10 @@ export class ResultsBookService {
       id: crypto.randomUUID(),
       claimId: claim.id,
       type: input.type,
-      statement: required(input.statement, 'statement'),
-      officialName: required(input.officialName, 'officialName'),
-      appointmentId: optional(input.appointmentId),
-      reference: optional(input.reference),
+      statement: requiredText(input.statement, 'statement'),
+      officialName: requiredText(input.officialName, 'officialName'),
+      appointmentId: optionalText(input.appointmentId),
+      reference: optionalText(input.reference),
       recordedAt: this.now(),
     });
     return this.getWorkspace(input.championshipId);
@@ -258,7 +259,7 @@ export class ResultsBookService {
       contentJson: JSON.stringify(built.content),
       findings: [...new Set(findings)],
       requiredSigners,
-      createdBy: required(createdBy, 'createdBy'),
+      createdBy: requiredText(createdBy, 'createdBy'),
       createdAt: this.now(),
     });
     return this.getWorkspace(championshipId);
@@ -293,7 +294,7 @@ export class ResultsBookService {
       id: crypto.randomUUID(),
       bookId: book.id,
       ...signer,
-      statement: required(input.statement, 'statement'),
+      statement: requiredText(input.statement, 'statement'),
       signedAt: this.now(),
       signingEvidence,
     });
@@ -347,8 +348,8 @@ export class ResultsBookService {
       id: crypto.randomUUID(),
       bookId: book.id,
       sourceHash: book.sourceHash,
-      statement: required(input.statement, 'statement'),
-      officialName: required(input.officialName, 'officialName'),
+      statement: requiredText(input.statement, 'statement'),
+      officialName: requiredText(input.officialName, 'officialName'),
       finalizedAt: this.now(),
     });
     return this.getWorkspace(input.championshipId);
@@ -499,17 +500,6 @@ function recordRule(code: RecordCode): string {
   }
   if (['WRJ', 'EWRJ'].includes(code)) return 'ISSF 3.10.2.2, 6.14.9.2, 6.14.9.4, Annex R';
   return 'ISSF 3.10.2.2, 6.14.9, 6.14.9.4, Annex R';
-}
-
-function required(value: string, name: string): string {
-  const normalized = value.trim();
-  if (!normalized) throw new Error(`${name} is required`);
-  return normalized;
-}
-
-function optional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }
 
 function validDate(value: string, name: string): Date {

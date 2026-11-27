@@ -2,7 +2,7 @@ import {
   createQualificationTimedTargetInterruptionContext,
   type QualificationTimedTargetInterruptionContext,
 } from './QualificationTimedTargetInterruptionContext';
-import { requiredText, validDate } from '@/main/domain/guards';
+import { requiredText, validDate, optionalText } from '@/main/domain/guards';
 
 export const RANGE_INTERRUPTION_CAUSES = [
   'ATHLETE_NON_FAULT',
@@ -65,9 +65,9 @@ export class RangeInterruptionCase {
       props.phase,
       validDate(props.startedAt, 'startedAt'),
       props.remainingSecondsAtStart,
-      normalizeOptional(props.laneId),
+      optionalText(props.laneId),
       props.firingPointNumber ?? null,
-      normalizeOptional(props.athleteName),
+      optionalText(props.athleteName),
       requiredText(props.summary, 'summary'),
       requiredText(props.details, 'details'),
       requiredText(props.openedBy, 'openedBy'),
@@ -130,9 +130,4 @@ function validPositiveInteger(value: number | undefined, name: string): void {
 
 function validNonNegativeInteger(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be non-negative`);
-}
-
-function normalizeOptional(value: string | undefined): string | null {
-  const normalized = value?.trim();
-  return normalized ? normalized : null;
 }

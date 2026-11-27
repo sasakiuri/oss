@@ -1,3 +1,4 @@
+import { requiredText } from '@/main/domain/guards';
 import {
   createOfficialPublishedEntry,
   createPreliminaryPublishedEntry,
@@ -42,7 +43,7 @@ export class ResultPublication {
   ) {}
 
   static empty(eventId: string, resultScope: ResultPublicationScope): ResultPublication {
-    validateText(eventId, 'eventId');
+    requiredText(eventId, 'eventId');
     return new ResultPublication(eventId, resultScope, Object.freeze([]), null);
   }
 
@@ -309,10 +310,6 @@ export class ResultPublication {
 
 function openProtestReferences(cycle: PublicationCycle): string[] {
   return [...cycle.registeredProtests.keys()].filter((reference) => !cycle.resolvedProtests.has(reference));
-}
-
-function validateText(value: string, name: string): void {
-  if (value.trim().length === 0) throw new Error(`${name} is required`);
 }
 
 function validateDate(value: Date, name: string): void {

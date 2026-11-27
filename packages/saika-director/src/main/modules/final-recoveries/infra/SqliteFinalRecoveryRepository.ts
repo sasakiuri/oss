@@ -1,6 +1,7 @@
 import type { FinalRecoveryAllowanceSubject } from '../domain/FinalRecoveryAuthorizationPolicy';
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import {
   FinalRecoveryCase,
   FinalRecoveryEntry,
@@ -114,17 +115,16 @@ export class SqliteFinalRecoveryRepository implements IFinalRecoveryRepository {
   }
 
   findEntries(caseIds: readonly string[]): Map<string, FinalRecoveryEntry[]> {
-    const result = new Map(caseIds.map((id) => [id, [] as FinalRecoveryEntry[]]));
-    if (caseIds.length === 0) return result;
-    const rows = this.db
-      .prepare(
+    return selectGroupedBy(
+      this.db,
+      caseIds,
+      (placeholders) =>
         `SELECT * FROM final_recovery_entries
-         WHERE case_id IN (${caseIds.map(() => '?').join(',')})
+         WHERE case_id IN (${placeholders})
          ORDER BY recorded_at, rowid`,
-      )
-      .all(...caseIds) as EntryRow[];
-    for (const row of rows) result.get(row.case_id)?.push(toEntry(row));
-    return result;
+      (row: EntryRow) => row.case_id,
+      toEntry,
+    );
   }
 
   private findCases(column: 'competition_id' | 'event_id', id: string): FinalRecoveryCase[] {

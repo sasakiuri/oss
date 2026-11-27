@@ -1,4 +1,5 @@
 import type { CompetitionShotObservation } from '@/main/modules/mqtt';
+import { CASE_ENTRY_TYPES, type CaseEntryType } from '@/main/domain/caseLifecycle';
 import { requiredText, optionalText, validDate } from '@/main/domain/guards';
 
 export const FINAL_SERIES_IRREGULAR_SHOT_KINDS = [
@@ -13,7 +14,6 @@ export const IRREGULAR_SHOT_KINDS = [
   ...FINAL_SERIES_IRREGULAR_SHOT_KINDS,
 ] as const;
 export const IRREGULAR_SHOT_EVIDENCE_RELATIONS = ['SUBJECT', 'POSSIBLE_SOURCE', 'RECIPIENT', 'CONTEXT'] as const;
-export const IRREGULAR_SHOT_ENTRY_TYPES = ['NOTE', 'REFERRED', 'RESOLVED', 'REOPENED', 'CLOSED', 'VOID'] as const;
 export const IRREGULAR_SHOT_RESOLUTION_CODES = [
   'EXCESS_IDENTIFIED',
   'EXCESS_UNIDENTIFIED',
@@ -28,9 +28,7 @@ export const IRREGULAR_SHOT_RESOLUTION_CODES = [
 
 export type IrregularShotKind = (typeof IRREGULAR_SHOT_KINDS)[number];
 export type IrregularShotEvidenceRelation = (typeof IRREGULAR_SHOT_EVIDENCE_RELATIONS)[number];
-export type IrregularShotEntryType = (typeof IRREGULAR_SHOT_ENTRY_TYPES)[number];
 export type IrregularShotResolutionCode = (typeof IRREGULAR_SHOT_RESOLUTION_CODES)[number];
-export type IrregularShotCaseStatus = 'OPEN' | 'REFERRED' | 'RESOLVED' | 'CLOSED' | 'VOID';
 export type IrregularShotResultScope = 'QUALIFICATION' | 'FINAL';
 
 export class IrregularShotCase {
@@ -226,7 +224,7 @@ export class IrregularShotCaseEntry {
   private constructor(
     readonly id: string,
     readonly caseId: string,
-    readonly type: IrregularShotEntryType,
+    readonly type: CaseEntryType,
     readonly statement: string,
     readonly officialName: string,
     readonly ruleReference: string | null,
@@ -243,7 +241,7 @@ export class IrregularShotCaseEntry {
   static create(props: {
     id?: string;
     caseId: string;
-    type: IrregularShotEntryType;
+    type: CaseEntryType;
     statement: string;
     officialName: string;
     ruleReference?: string;
@@ -253,7 +251,7 @@ export class IrregularShotCaseEntry {
     occurredAt?: Date;
     recordedAt?: Date;
   }): IrregularShotCaseEntry {
-    if (!IRREGULAR_SHOT_ENTRY_TYPES.includes(props.type)) throw new Error('Irregular shot entry type is invalid');
+    if (!CASE_ENTRY_TYPES.includes(props.type)) throw new Error('Irregular shot entry type is invalid');
     const resolution = props.type === 'RESOLVED';
     if (resolution !== Boolean(props.resolutionCode && props.incidentReportId)) {
       throw new Error('A resolution requires a resolution code and Range Incident Report');
@@ -283,16 +281,4 @@ export class IrregularShotCaseEntry {
   static reconstruct(props: Parameters<typeof IrregularShotCaseEntry.create>[0] & { id: string; recordedAt: Date }) {
     return IrregularShotCaseEntry.create(props);
   }
-}
-
-export function irregularShotCaseStatus(entries: readonly IrregularShotCaseEntry[]): IrregularShotCaseStatus {
-  let status: IrregularShotCaseStatus = 'OPEN';
-  for (const entry of entries) {
-    if (entry.type === 'REFERRED') status = 'REFERRED';
-    else if (entry.type === 'RESOLVED') status = 'RESOLVED';
-    else if (entry.type === 'REOPENED') status = 'OPEN';
-    else if (entry.type === 'CLOSED') status = 'CLOSED';
-    else if (entry.type === 'VOID') status = 'VOID';
-  }
-  return status;
 }

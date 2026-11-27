@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type { IResultsBookRepository } from '../domain/IResultsBookRepository';
 import type {
   ChampionshipOfficialEntry,
@@ -167,15 +168,14 @@ export class SqliteResultsBookRepository implements IResultsBookRepository {
   }
 
   findRecordClaimEntries(claimIds: readonly string[]): Map<string, RecordClaimEntry[]> {
-    const result = new Map(claimIds.map((id) => [id, [] as RecordClaimEntry[]]));
-    if (claimIds.length === 0) return result;
-    const rows = this.db
-      .prepare(
-        `SELECT * FROM record_claim_entries WHERE claim_id IN (${claimIds.map(() => '?').join(',')}) ORDER BY recorded_at, rowid`,
-      )
-      .all(...claimIds) as ClaimEntryRow[];
-    for (const row of rows) result.get(row.claim_id)?.push(toClaimEntry(row));
-    return result;
+    return selectGroupedBy(
+      this.db,
+      claimIds,
+      (placeholders) =>
+        `SELECT * FROM record_claim_entries WHERE claim_id IN (${placeholders}) ORDER BY recorded_at, rowid`,
+      (row: ClaimEntryRow) => row.claim_id,
+      toClaimEntry,
+    );
   }
 
   appendBook(book: ResultsBookVersion): void {

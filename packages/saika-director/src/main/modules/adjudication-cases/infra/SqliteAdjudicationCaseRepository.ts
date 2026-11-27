@@ -1,5 +1,8 @@
 import type Database from 'better-sqlite3';
 
+import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
+import type { CaseEntryType } from '@/main/domain/caseLifecycle';
+
 import type { IAdjudicationCaseRepository } from '../domain/IAdjudicationCaseRepository';
 import {
   AdjudicationCase,
@@ -7,7 +10,6 @@ import {
   AdjudicationCaseLink,
   type AdjudicationArtifactType,
   type AdjudicationCaseCategory,
-  type AdjudicationCaseEntryType,
   type AdjudicationCaseLinkOperation,
   type AdjudicationCaseScopeType,
   type AdjudicationLinkRelation,
@@ -28,7 +30,7 @@ interface CaseRow {
 interface EntryRow {
   id: string;
   case_id: string;
-  entry_type: AdjudicationCaseEntryType;
+  entry_type: CaseEntryType;
   statement: string;
   official_name: string;
   rule_reference: string | null;
@@ -105,29 +107,26 @@ export class SqliteAdjudicationCaseRepository implements IAdjudicationCaseReposi
   }
 
   findEntries(caseIds: readonly string[]): Map<string, AdjudicationCaseEntry[]> {
-    return collectByCase(caseIds, this.db, 'adjudication_case_entries', (row) => toEntry(row as EntryRow));
+    return selectGroupedBy(
+      this.db,
+      caseIds,
+      (placeholders) =>
+        `SELECT * FROM adjudication_case_entries WHERE case_id IN (${placeholders}) ORDER BY recorded_at, rowid`,
+      (row: EntryRow) => row.case_id,
+      toEntry,
+    );
   }
 
   findLinks(caseIds: readonly string[]): Map<string, AdjudicationCaseLink[]> {
-    return collectByCase(caseIds, this.db, 'adjudication_case_links', (row) => toLink(row as LinkRow));
+    return selectGroupedBy(
+      this.db,
+      caseIds,
+      (placeholders) =>
+        `SELECT * FROM adjudication_case_links WHERE case_id IN (${placeholders}) ORDER BY recorded_at, rowid`,
+      (row: LinkRow) => row.case_id,
+      toLink,
+    );
   }
-}
-
-function collectByCase<T>(
-  caseIds: readonly string[],
-  db: Database.Database,
-  table: 'adjudication_case_entries' | 'adjudication_case_links',
-  map: (row: unknown) => T,
-): Map<string, T[]> {
-  const result = new Map(caseIds.map((id) => [id, [] as T[]]));
-  if (caseIds.length === 0) return result;
-  const rows = db
-    .prepare(
-      `SELECT * FROM ${table} WHERE case_id IN (${caseIds.map(() => '?').join(',')}) ORDER BY recorded_at, rowid`,
-    )
-    .all(...caseIds) as Array<{ case_id: string }>;
-  for (const row of rows) result.get(row.case_id)?.push(map(row));
-  return result;
 }
 
 function toCase(row: CaseRow): AdjudicationCase {
