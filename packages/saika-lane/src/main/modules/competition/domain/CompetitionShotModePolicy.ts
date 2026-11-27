@@ -8,6 +8,11 @@ export function isAthleteTargetSwitchSeries(stage: StageDefinition, series: Seri
   return stage.scored && series.targetModeControl === 'ATHLETE' && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING';
 }
 
+/** A scored series whose shot slots count in the match result; position change and sighting series do not. */
+export function isRecordedMatchSeries(stage: StageDefinition, series: SeriesDefinition): boolean {
+  return stage.scored && series.maxShots > 0 && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING';
+}
+
 export function previousPositionLabel(stage: StageDefinition | undefined, seriesIndex: number): string {
   const position = stage?.series[seriesIndex - 1]?.position;
   const names = { KNEELING: 'Kneeling', PRONE: 'Prone', STANDING: 'Standing' };

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { isRecordedMatchSeries } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { Shot } from '@/main/modules/session/domain/Shot';
 
@@ -23,7 +24,7 @@ export function resolveQualificationRecoveryPlacement(competition: CompetitionSt
     const end = stageIndex === competition.currentStageIndex ? competition.currentSeriesIndex : stage.series.length;
     for (let seriesIndex = 0; seriesIndex < end; seriesIndex += 1) {
       const series = stage.series[seriesIndex]!;
-      if (series.maxShots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
+      if (!isRecordedMatchSeries(stage, series)) continue;
       priorShots += series.maxShots;
       priorSeries += 1;
     }

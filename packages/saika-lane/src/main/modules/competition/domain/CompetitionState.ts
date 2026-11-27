@@ -76,6 +76,11 @@ export class CompetitionState {
     });
   }
 
+  /** The timer stopped with no time left; an already expired timer is kept, so no time is subtracted twice. */
+  private expiredTimer(): Timer {
+    return this.timer.isExpired ? this.timer : this.timer.tickBy(this.timer.remainingSeconds);
+  }
+
   // ── Computed getters ──
 
   get currentStageConfig(): StageDefinition {
@@ -141,15 +146,12 @@ export class CompetitionState {
       });
     }
 
-    const stageConfig = this.config.stages[0]!;
-    const timer = stageConfig.timer ? Timer.create(stageConfig.timer.durationSeconds) : Timer.create(0);
-
     return this.with({
       phase: 'ACTIVE',
       currentStageIndex: 0,
       currentSeriesIndex: 0,
       seriesShotCount: 0,
-      timer,
+      timer: stageStartTimer(this.config.stages[0]!),
       startedAt: Date.now(),
     });
   }
@@ -168,14 +170,11 @@ export class CompetitionState {
       });
     }
 
-    const stageConfig = this.config.stages[this.currentStageIndex]!;
-    const timer = stageConfig.timer ? Timer.create(stageConfig.timer.durationSeconds) : Timer.create(0);
-
     return this.with({
       phase: 'ACTIVE',
       currentSeriesIndex: 0,
       seriesShotCount: 0,
-      timer,
+      timer: stageStartTimer(this.config.stages[this.currentStageIndex]!),
     });
   }
 
@@ -193,12 +192,7 @@ export class CompetitionState {
       });
     }
 
-    const timer = this.timer.isExpired ? this.timer : this.timer.tickBy(this.timer.remainingSeconds);
-
-    return this.with({
-      phase: 'SERIES_COMPLETE',
-      timer,
-    });
+    return this.with({ phase: 'SERIES_COMPLETE', timer: this.expiredTimer() });
   }
 
   /**
@@ -323,15 +317,7 @@ export class CompetitionState {
     expectedRecordedShots: number;
     authorizedShots: number;
   }): CompetitionState {
-    this.assertNotFinished();
-    if (
-      (this.phase !== 'ACTIVE' && this.phase !== 'SERIES_COMPLETE') ||
-      this.currentSeriesConfig.timedTargetProgramId !== input.programId
-    ) {
-      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
-        detail: `Cannot apply Qualification recovery for ${input.programId} from ${this.phase} at ${this.currentStageIndex}:${this.currentSeriesIndex}`,
-      });
-    }
+    this.assertQualificationRecoverySeries(input.programId, 'apply Qualification recovery');
 
     const maxShots = this.currentSeriesConfig.maxShots;
     const creditedSeriesShots =
@@ -359,15 +345,7 @@ export class CompetitionState {
 
   /** Settles a full recorded Qualification series without entering the firing or scoring paths. */
   keepRecordedQualificationSeries(input: { programId: string; expectedRecordedShots: number }): CompetitionState {
-    this.assertNotFinished();
-    if (
-      (this.phase !== 'ACTIVE' && this.phase !== 'SERIES_COMPLETE') ||
-      this.currentSeriesConfig.timedTargetProgramId !== input.programId
-    ) {
-      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
-        detail: `Cannot retain Qualification series for ${input.programId} from ${this.phase} at ${this.currentStageIndex}:${this.currentSeriesIndex}`,
-      });
-    }
+    this.assertQualificationRecoverySeries(input.programId, 'retain Qualification series');
     const maxShots = this.currentSeriesConfig.maxShots;
     if (input.expectedRecordedShots !== maxShots || this.seriesShotCount !== maxShots) {
       throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
@@ -391,13 +369,7 @@ export class CompetitionState {
       });
     }
 
-    // Only set to 0 if timer has not yet expired (avoid double subtraction if already 0 via tickTimerBy)
-    const timer = this.timer.isExpired ? this.timer : this.timer.tickBy(this.timer.remainingSeconds);
-
-    return this.with({
-      phase: 'SERIES_COMPLETE',
-      timer,
-    });
+    return this.with({ phase: 'SERIES_COMPLETE', timer: this.expiredTimer() });
   }
 
   /**
@@ -487,15 +459,12 @@ export class CompetitionState {
       });
     }
 
-    const stageConfig = this.config.stages[index]!;
-    const timer = stageConfig.timer ? Timer.create(stageConfig.timer.durationSeconds) : Timer.create(0);
-
     return this.with({
       phase: 'ACTIVE',
       currentStageIndex: index,
       currentSeriesIndex: 0,
       seriesShotCount: 0,
-      timer,
+      timer: stageStartTimer(this.config.stages[index]!),
     });
   }
 
@@ -606,6 +575,19 @@ export class CompetitionState {
 
   // ── Guards ──
 
+  /** A Qualification recovery decision applies only to the active or completed series of its timed program. */
+  private assertQualificationRecoverySeries(programId: string, action: string): void {
+    this.assertNotFinished();
+    if (
+      (this.phase !== 'ACTIVE' && this.phase !== 'SERIES_COMPLETE') ||
+      this.currentSeriesConfig.timedTargetProgramId !== programId
+    ) {
+      throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: `Cannot ${action} for ${programId} from ${this.phase} at ${this.currentStageIndex}:${this.currentSeriesIndex}`,
+      });
+    }
+  }
+
   private assertNotFinished(): void {
     if (this.phase === 'FINISHED') {
       throw ErrorCatalog.createError('COMPETITION_ALREADY_FINISHED', {
@@ -635,4 +617,9 @@ export class CompetitionState {
   static reconstruct(props: CompetitionStateProps): CompetitionState {
     return new CompetitionState(props);
   }
+}
+
+/** The timer a stage starts with: its stage timer, or none. */
+function stageStartTimer(stage: StageDefinition): Timer {
+  return stage.timer ? Timer.create(stage.timer.durationSeconds) : Timer.create(0);
 }

@@ -5,6 +5,7 @@ import type { LaneScorePayload } from '@sasakiuri/saika-protocol/LaneScore';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import { projectShotResult, type ShotResultProjectionCapability } from '@sasakiuri/saika-rules';
 
+import { isRecordedMatchSeries } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
@@ -126,7 +127,7 @@ export class LaneScorePublisher {
       let stageTotalX10 = 0;
       let sourceStageTotalX10 = 0;
       for (const [seriesIndex, series] of stage.series.entries()) {
-        if (series.maxShots === 0 || series.purpose === 'POSITION_CHANGE_AND_SIGHTING') continue;
+        if (!isRecordedMatchSeries(stage, series)) continue;
         const seriesShots = placements
           .filter(({ placement }) => placement.stageIndex === stageIndex && placement.seriesIndex === seriesIndex)
           .sort((left, right) => left.shot.shotNumber - right.shot.shotNumber);
