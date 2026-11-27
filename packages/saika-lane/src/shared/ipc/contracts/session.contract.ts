@@ -15,7 +15,7 @@ import { DisciplineSchema } from '../schemas/common';
 // Shared enums / literals
 // ============================================================
 
-const SessionModeSchema = z.union([z.literal('SIGHTING'), z.literal('MATCH')]);
+export const SessionModeSchema = z.enum(['SIGHTING', 'MATCH']);
 
 export const ShotCompetitionContextSchema = z.object({
   competitionId: z.string(),
@@ -72,11 +72,11 @@ const SessionScoreDtoSchema = z.object({
   totalScore: z.number().int(),
   seriesScores: z.array(z.number().int()),
   shotCount: z.number(),
-  discipline: z.string(),
-  mode: z.string(),
+  discipline: DisciplineSchema,
+  mode: SessionModeSchema,
 });
 
-const ShotDtoSchema = z.object({
+export const ShotDtoSchema = z.object({
   id: z.string(),
   shotNumber: z.number(),
   seriesNumber: z.number().optional(),

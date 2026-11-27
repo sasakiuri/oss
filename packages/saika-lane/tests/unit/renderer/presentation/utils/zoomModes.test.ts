@@ -50,6 +50,23 @@ describe('getPrevZoomMode - full reverse cycle through all modes', () => {
   });
 });
 
+describe('invalid zoom modes', () => {
+  it('getNextZoomMode throws for an invalid mode', () => {
+    expect(() => getNextZoomMode('INVALID' as ZoomMode)).toThrow('Invalid ZoomMode: INVALID');
+  });
+
+  it('getPrevZoomMode throws for an invalid mode', () => {
+    expect(() => getPrevZoomMode('INVALID' as ZoomMode)).toThrow('Invalid ZoomMode: INVALID');
+  });
+});
+
+it('getNextZoomMode and getPrevZoomMode are inverse operations', () => {
+  ZOOM_MODE_SEQUENCE.forEach((mode) => {
+    expect(getPrevZoomMode(getNextZoomMode(mode))).toBe(mode);
+    expect(getNextZoomMode(getPrevZoomMode(mode))).toBe(mode);
+  });
+});
+
 describe('zoom direction', () => {
   function stepsFromAuto(step: (current: ZoomMode) => ZoomMode): ZoomMode[] {
     const modes: ZoomMode[] = [];

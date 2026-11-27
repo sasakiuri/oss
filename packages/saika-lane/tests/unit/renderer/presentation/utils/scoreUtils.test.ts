@@ -10,10 +10,13 @@ import {
 
 describe('scoreUtils', () => {
   describe('DISCIPLINE_LABELS', () => {
-    it('labels are defined for all disciplines', () => {
+    it('labels are defined for all 8 disciplines', () => {
+      expect(Object.keys(DISCIPLINE_LABELS)).toHaveLength(8);
       expect(DISCIPLINE_LABELS.AIR_RIFLE_10M).toBe('10m Air Rifle');
       expect(DISCIPLINE_LABELS.AIR_PISTOL_10M).toBe('10m Air Pistol');
       expect(DISCIPLINE_LABELS.RIFLE_50M).toBe('50m Rifle');
+      expect(DISCIPLINE_LABELS.RIFLE_300M).toBe('300m Rifle');
+      expect(DISCIPLINE_LABELS.PISTOL_50M).toBe('50m Pistol');
       expect(DISCIPLINE_LABELS.PISTOL_25M).toBe('25m Pistol');
       expect(DISCIPLINE_LABELS.BEAM_RIFLE_10M).toBe('10m Beam Rifle');
       expect(DISCIPLINE_LABELS.BEAM_PISTOL_10M).toBe('10m Beam Pistol');
@@ -56,12 +59,21 @@ describe('scoreUtils', () => {
     it("returns '↖' for 10-11 o'clock direction", () => {
       expect(toArrowDirection(-3, 5)).toBe('↖');
     });
+
+    it('returns the correct direction even for small coordinate values', () => {
+      expect(toArrowDirection(0.1, 0)).toBe('→');
+      expect(toArrowDirection(0, 0.1)).toBe('↑');
+    });
   });
 
   describe('calculateSeriesScores', () => {
     describe('default shotsPerSeries (10)', () => {
       it('returns empty array for empty array', () => {
         expect(calculateSeriesScores([])).toEqual([]);
+      });
+
+      it('returns one series for a single shot', () => {
+        expect(calculateSeriesScores([{ score: 10.5 }])).toEqual([10.5]);
       });
 
       it('returns one series score for 10 shots', () => {

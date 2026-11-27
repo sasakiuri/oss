@@ -7,7 +7,7 @@ import { useDirectorMembershipStore } from '@/renderer/presentation/stores/direc
 import { competitionService } from '@/renderer/services/competitionService';
 import { settingsService } from '@/renderer/services/settingsService';
 
-import { createMockElectronAPI } from '../../../helpers/mockElectronAPI';
+import { createMockElectronAPI } from '../../../../helpers/mockElectronAPI';
 
 vi.mock('@/renderer/presentation/components/SettingsModal', () => ({ SettingsModal: () => null }));
 vi.mock('@/renderer/services/competitionService', () => ({

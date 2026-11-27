@@ -2,6 +2,7 @@
 import React, { memo, useEffect, useRef } from 'react';
 
 import type { NullifiedExtraDto, ShotDto } from '@/shared/ipc/contracts';
+import type { ScoringAcc } from '@/shared/ipc/schemas/common';
 
 import { formatScore, toArrowDirection } from '../../utils/scoreUtils';
 
@@ -20,7 +21,7 @@ interface ShotHistoryItem {
 export interface ShotHistoryProps {
   shots: readonly ShotHistoryItem[];
   nullifiedExtras?: readonly NullifiedExtraDto[];
-  acc?: 'RING' | 'DECIMAL';
+  acc?: ScoringAcc;
 }
 
 export const ShotHistory: React.FC<ShotHistoryProps> = memo(({ shots, nullifiedExtras = [], acc = 'DECIMAL' }) => {

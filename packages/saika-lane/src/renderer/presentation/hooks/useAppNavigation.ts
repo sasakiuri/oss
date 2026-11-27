@@ -9,7 +9,6 @@ import { sessionService } from '@/renderer/services/sessionService';
 import { startupService } from '@/renderer/services/startupService';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import type { StartupStateDto } from '@/shared/ipc/contracts';
-import { DisciplineSchema } from '@/shared/ipc/schemas/common';
 import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/target';
 
 export function useAppNavigation() {
@@ -57,7 +56,7 @@ export function useAppNavigation() {
       const shots = mergeShots(history.shots, previous.currentSessionId === state.sessionId ? previous.shots : []);
       useSessionStore.setState({
         currentSessionId: state.sessionId,
-        discipline: DisciplineSchema.parse(score.discipline),
+        discipline: score.discipline,
         mode:
           competition.athleteTargetControl?.effective ??
           (competition.interruption?.status === 'SIGHTING' ? 'SIGHTING' : competition.scored ? 'MATCH' : 'SIGHTING'),

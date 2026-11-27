@@ -13,7 +13,7 @@ import { z } from 'zod';
 // DTO schemas
 // ============================================================
 
-const FullscreenStateDtoSchema = z.object({
+export const FullscreenStateDtoSchema = z.object({
   isFullscreen: z.boolean(),
 });
 

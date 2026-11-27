@@ -11,6 +11,10 @@ import { z } from 'zod';
 
 import { PHASE_VALUES } from '@/shared/types/Phase';
 
+import { InterruptionStatusSchema, ScoringAccSchema } from '../schemas/common';
+
+import { SessionModeSchema } from './session.contract';
+
 // ============================================================
 // Command input schemas
 // ============================================================
@@ -23,7 +27,7 @@ const SetAthleteTargetModeInputSchema = z.object({
   competitionId: z.string(),
   stageIndex: z.number().int().nonnegative(),
   seriesIndex: z.number().int().nonnegative(),
-  mode: z.enum(['SIGHTING', 'MATCH']),
+  mode: SessionModeSchema,
 });
 
 const CompetitionIdInputSchema = z.object({
@@ -43,11 +47,11 @@ const TimerDtoSchema = z.object({
 });
 
 const CompetitionStateDtoSchema = z.object({
-  acc: z.enum(['RING', 'DECIMAL']),
+  acc: ScoringAccSchema,
   interruption: z
     .object({
       interruptionId: z.string(),
-      status: z.enum(['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH']),
+      status: InterruptionStatusSchema,
       remainingSeconds: z.number().nonnegative(),
       unlimitedSightingShots: z.boolean(),
       restartHold: z.boolean(),
@@ -60,8 +64,8 @@ const CompetitionStateDtoSchema = z.object({
       sightingAllowed: z.boolean(),
       matchAllowed: z.boolean(),
       matchUnavailableReason: z.literal('SIGHTING_REQUIRED').nullable(),
-      selected: z.enum(['SIGHTING', 'MATCH']).nullable(),
-      effective: z.enum(['SIGHTING', 'MATCH']),
+      selected: SessionModeSchema.nullable(),
+      effective: SessionModeSchema,
     })
     .nullable(),
   id: z.string(),

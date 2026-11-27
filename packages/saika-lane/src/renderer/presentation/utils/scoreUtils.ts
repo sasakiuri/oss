@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { Discipline } from '@/shared/ipc/contracts';
+import type { ScoringAcc } from '@/shared/ipc/schemas/common';
 
 const CLOCK_HOUR_DEGREES = 30;
 
@@ -20,7 +21,7 @@ export const DISCIPLINE_LABELS: Record<Discipline, string> = {
 /**
  * Formats a score kept in tenths: whole rings (rounded down) for RING scoring, one decimal otherwise.
  */
-export function formatScore(tenths: number, acc: 'RING' | 'DECIMAL'): string {
+export function formatScore(tenths: number, acc: ScoringAcc): string {
   return acc === 'RING' ? String(Math.floor(tenths / 10)) : (tenths / 10).toFixed(1);
 }
 
