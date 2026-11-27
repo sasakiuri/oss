@@ -20,7 +20,8 @@ export interface VerifiableResult {
   readonly entryStatus: RankedResultDto['entryStatus'] | null;
   readonly playerName: string;
   readonly affiliation: string;
-  readonly relayNumber: number;
+  /** Qualification relay; null for Final result sources, whose results have no relay. */
+  readonly relayNumber: number | null;
   readonly totalScore: number;
   readonly classificationCode: 'DSQ' | 'DQB' | 'AD_DSQ' | null;
   readonly decisionCount: number;

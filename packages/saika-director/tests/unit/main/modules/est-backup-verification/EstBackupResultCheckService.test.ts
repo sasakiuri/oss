@@ -184,6 +184,7 @@ describe('EST backup to individual result checks', () => {
     const result: RankedResultDto = {
       ...f.results[0]!,
       entryStatus: 'COMPETING',
+      relayNumber: 1,
       id: ids[0]!,
       participantId: ids[0]!,
       familyName: 'Athlete',
