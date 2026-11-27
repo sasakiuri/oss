@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { documentHref, resolveDocLink } from '@/entities/document/links';
+import { docsRoot, documentHref, repositoryFileUrl, resolveDocLink, siteLinkUrl } from '@/entities/document/links';
 import { adjacentDocuments } from '@/entities/document/navigation';
 import { documentLinks, parseDocument } from '@/entities/document/parse';
 import { createSearchIndex } from '@/features/search/search-index';
@@ -38,6 +38,21 @@ describe('document URLs', () => {
       './diagram.svg',
     ])
       expect(resolveDocLink(href, 'README.md')).toBe(href);
+  });
+  it('links each document to its Markdown source at the selected ref', () => {
+    expect(repositoryFileUrl(`${docsRoot}/lane/README.md`, 'release/1.x')).toBe(
+      'https://github.com/sasakiuri/oss/blob/release%2F1.x/packages/saika-docs/lane/README.md',
+    );
+  });
+  it('resolves site links against the linking document and leaves other links alone', () => {
+    const page = siteLinkUrl('/common/target-spec/#標的', '/lane/');
+    expect(page?.pathname).toBe('/common/target-spec/');
+    expect(decodeURIComponent(page?.hash ?? '')).toBe('#標的');
+    const section = siteLinkUrl('#1-接続', '/lane/devices/');
+    expect(section?.pathname).toBe('/lane/devices/');
+    expect(decodeURIComponent(section?.hash ?? '')).toBe('#1-接続');
+    expect(siteLinkUrl('https://github.com/sasakiuri/oss/blob/1.x/LICENSE', '/')).toBeUndefined();
+    expect(siteLinkUrl('mailto:docs@example.com', '/')).toBeUndefined();
   });
 });
 
