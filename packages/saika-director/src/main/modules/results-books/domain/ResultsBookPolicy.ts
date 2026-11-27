@@ -1,3 +1,5 @@
+import type { ChampionshipOfficialEntry, EligibleRecordResult } from './ResultsBookModels';
+
 export const CHAMPIONSHIP_OFFICIAL_ROLES = [
   'TECHNICAL_DELEGATE',
   'RTS_JURY_CHAIR',
@@ -42,8 +44,20 @@ export interface RecordClaimEntryLike {
   readonly type: 'TD_CONFIRMED' | 'SUBMITTED' | 'TECHNICAL_COMMITTEE_VERIFIED' | 'REJECTED' | 'REOPENED' | 'VOID';
 }
 
+export function isJuryChair(role: ChampionshipOfficialRole): boolean {
+  return role.endsWith('_JURY_CHAIR');
+}
+
 export function isResultsBookCertifier(role: ChampionshipOfficialRole): boolean {
-  return role === 'TECHNICAL_DELEGATE' || role.endsWith('_JURY_CHAIR');
+  return role === 'TECHNICAL_DELEGATE' || isJuryChair(role);
+}
+
+/** Returns the appointments that no later entry revoked. */
+export function activeChampionshipOfficials(
+  entries: readonly ChampionshipOfficialEntry[],
+): ChampionshipOfficialEntry[] {
+  const revoked = new Set(entries.flatMap((entry) => (entry.reversesEntryId ? [entry.reversesEntryId] : [])));
+  return entries.filter((entry) => entry.operation === 'APPOINT' && !revoked.has(entry.id));
 }
 
 export function requiredResultsBookSigners(
@@ -102,6 +116,25 @@ export function assertRecordCode(input: {
   if (!equalled && input.scoreX10 <= input.benchmarkScoreX10) {
     throw new Error(`${input.code} requires a score exceeding the reference record`);
   }
+}
+
+export function recordCandidateKey(result: EligibleRecordResult): string {
+  return `${result.eventId}:${result.resultScope}:${result.resultId}`;
+}
+
+/** True when both candidates describe the same result with the same recorded facts. */
+export function sameRecordCandidate(left: EligibleRecordResult, right: EligibleRecordResult): boolean {
+  return (
+    left.eventName === right.eventName &&
+    left.subjectKind === right.subjectKind &&
+    left.subjectId === right.subjectId &&
+    left.subjectName === right.subjectName &&
+    left.nationCode === right.nationCode &&
+    left.entryStatus === right.entryStatus &&
+    left.scoreX10 === right.scoreX10 &&
+    left.snapshotRevision === right.snapshotRevision &&
+    JSON.stringify(left.members ?? []) === JSON.stringify(right.members ?? [])
+  );
 }
 
 export function assertRecordTransition(status: RecordClaimStatus, next: RecordClaimEntryLike['type']): void {

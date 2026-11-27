@@ -46,11 +46,11 @@ export class CompetitionEvidenceBundleBuilder {
     private readonly clock: ArchiveClock = { now: () => new Date() },
   ) {}
 
-  build(source: ICompetitionEvidenceSource, championshipId: string): CompetitionEvidenceBundle {
-    const championship = source.getChampionship(championshipId);
-    if (!championship) throw new Error(`Championship ${championshipId} not found`);
-    const sections = source
-      .collect(championshipId)
+  build(
+    championship: CompetitionEvidenceSummary,
+    collected: readonly CompetitionEvidenceSection[],
+  ): CompetitionEvidenceBundle {
+    const sections = collected
       .map((section) => {
         const records = [...section.records].sort((left, right) =>
           canonicalJson(left).localeCompare(canonicalJson(right)),

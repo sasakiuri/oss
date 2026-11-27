@@ -75,8 +75,9 @@ describe('CompetitionEvidenceBundleBuilder', () => {
     const builder = new CompetitionEvidenceBundleBuilder('0.3.0', {
       now: () => new Date('2026-09-02T06:00:00.000Z'),
     });
-    const first = builder.build(source, championshipId);
-    const second = builder.build(source, championshipId);
+    const build = () => builder.build(source.getChampionship(championshipId)!, source.collect(championshipId));
+    const first = build();
+    const second = build();
 
     expect(first).toEqual(second);
     expect(first.bundleSha256).toMatch(/^[a-f0-9]{64}$/);

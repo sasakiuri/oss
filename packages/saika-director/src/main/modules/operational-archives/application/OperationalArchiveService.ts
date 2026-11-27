@@ -38,10 +38,7 @@ export class OperationalArchiveService {
     if (!championship) throw new Error(`Championship ${championshipId} not found`);
     const sections = this.evidenceSource.collect(championshipId);
     const extraSections = (await this.attachments?.collect(sections)) ?? [];
-    const bundle = this.bundleBuilder.build(
-      { getChampionship: () => championship, collect: () => [...sections, ...extraSections] },
-      championshipId,
-    );
+    const bundle = this.bundleBuilder.build(championship, [...sections, ...extraSections]);
     const destination = await this.files.chooseEvidenceDestination(
       `${safeFileStem(bundle.championship.name)}-evidence-${dateStamp(this.now())}.json`,
     );

@@ -13,15 +13,17 @@ import type { ResultsBookWorkspaceDto } from '@/shared/ipc/contracts';
 import type { IResultsBookDocumentExporter, ResultsBookDocumentFormat } from './IResultsBookDocumentExporter';
 import type { IResultsBookRepository } from '../domain/IResultsBookRepository';
 import type {
-  ChampionshipOfficialEntry,
   IResultsBookSource,
   RecordClaim,
   RecordClaimEntry,
   ResultsBookVersion,
 } from '../domain/ResultsBookModels';
 import {
+  activeChampionshipOfficials,
   assertRecordCode,
   assertRecordTransition,
+  isJuryChair,
+  isResultsBookCertifier,
   recordClaimStatus,
   requiredResultsBookSigners,
   type ChampionshipOfficialRole,
@@ -41,7 +43,7 @@ export class ResultsBookService {
 
   async getWorkspace(championshipId: string): Promise<ResultsBookWorkspaceDto> {
     const officialEntries = this.repository.findOfficialEntries(championshipId);
-    const officials = activeOfficials(officialEntries);
+    const officials = activeChampionshipOfficials(officialEntries);
     const claims = this.repository.findRecordClaims(championshipId);
     const claimEntries = this.repository.findRecordClaimEntries(claims.map((claim) => claim.id));
     const books = this.repository.findBooks(championshipId);
@@ -71,7 +73,7 @@ export class ResultsBookService {
   }): Promise<ResultsBookWorkspaceDto> {
     const account = input.officialActorId ? this.signing.resolveAccount(input.officialActorId) : null;
     const officialName = account?.name ?? requiredText(input.officialName, 'officialName');
-    const active = activeOfficials(this.repository.findOfficialEntries(input.championshipId));
+    const active = activeChampionshipOfficials(this.repository.findOfficialEntries(input.championshipId));
     if (
       active.some(
         (entry) =>
@@ -104,7 +106,7 @@ export class ResultsBookService {
     recordedBy: string;
   }): Promise<ResultsBookWorkspaceDto> {
     const entries = this.repository.findOfficialEntries(input.championshipId);
-    const appointment = activeOfficials(entries).find((entry) => entry.id === input.appointmentId);
+    const appointment = activeChampionshipOfficials(entries).find((entry) => entry.id === input.appointmentId);
     if (!appointment) throw new Error('The selected official appointment is not active');
     this.repository.appendOfficialEntry({
       ...appointment,
@@ -190,7 +192,7 @@ export class ResultsBookService {
     const status = recordClaimStatus(entries);
     assertRecordTransition(status, input.type);
     if (input.type === 'TD_CONFIRMED') {
-      const appointment = activeOfficials(this.repository.findOfficialEntries(input.championshipId)).find(
+      const appointment = activeChampionshipOfficials(this.repository.findOfficialEntries(input.championshipId)).find(
         (entry) => entry.id === input.appointmentId,
       );
       if (!appointment || appointment.role !== 'TECHNICAL_DELEGATE') {
@@ -221,7 +223,7 @@ export class ResultsBookService {
 
   async generateBook(championshipId: string, createdBy: string): Promise<ResultsBookWorkspaceDto> {
     const officialEntries = this.repository.findOfficialEntries(championshipId);
-    const officials = activeOfficials(officialEntries);
+    const officials = activeChampionshipOfficials(officialEntries);
     const { verified: claims, unresolved } = this.classifyBookClaims(championshipId);
     const built = await this.source.build(championshipId, officialEntries, claims);
     const requiredSigners = requiredResultsBookSigners(
@@ -242,7 +244,7 @@ export class ResultsBookService {
     if (!officials.some((entry) => entry.role === 'TECHNICAL_DELEGATE')) {
       findings.push('No active Technical Delegate is appointed');
     }
-    if (!officials.some((entry) => entry.role.endsWith('_JURY_CHAIR'))) {
+    if (!officials.some((entry) => isJuryChair(entry.role))) {
       findings.push('No active Jury Chairman is appointed');
     }
     for (const item of unresolved) {
@@ -278,7 +280,7 @@ export class ResultsBookService {
       throw new Error('A certified Results Book cannot receive more signatures');
     const signer = book.requiredSigners.find((item) => item.appointmentId === input.appointmentId);
     if (!signer) throw new Error('This appointment is not an authorized signer for this Results Book version');
-    const active = activeOfficials(this.repository.findOfficialEntries(input.championshipId));
+    const active = activeChampionshipOfficials(this.repository.findOfficialEntries(input.championshipId));
     if (!active.some((entry) => entry.id === signer.appointmentId)) {
       throw new Error('The selected signer appointment is no longer active; generate a revised Results Book');
     }
@@ -330,9 +332,9 @@ export class ResultsBookService {
     if (current.sourceHash !== book.sourceHash) {
       throw new Error('Results Book source data changed; generate and sign a new version');
     }
-    const currentSigners = activeOfficials(this.repository.findOfficialEntries(input.championshipId)).filter(
-      (entry) => entry.role === 'TECHNICAL_DELEGATE' || entry.role.endsWith('_JURY_CHAIR'),
-    );
+    const currentSigners = activeChampionshipOfficials(
+      this.repository.findOfficialEntries(input.championshipId),
+    ).filter((entry) => isResultsBookCertifier(entry.role));
     if (
       currentSigners.length !== book.requiredSigners.length ||
       book.requiredSigners.some(
@@ -454,11 +456,6 @@ export class ResultsBookService {
       finalizedAt: finalization?.finalizedAt.toISOString() ?? null,
     };
   }
-}
-
-function activeOfficials(entries: readonly ChampionshipOfficialEntry[]): ChampionshipOfficialEntry[] {
-  const revoked = new Set(entries.flatMap((entry) => (entry.reversesEntryId ? [entry.reversesEntryId] : [])));
-  return entries.filter((entry) => entry.operation === 'APPOINT' && !revoked.has(entry.id));
 }
 
 function toClaimDto(claim: RecordClaim, entries: readonly RecordClaimEntry[]) {

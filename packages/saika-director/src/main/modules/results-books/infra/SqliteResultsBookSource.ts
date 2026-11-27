@@ -10,7 +10,12 @@ import type {
   ResultsBookBuildResult,
   ResultsBookProjectedResult,
 } from '../domain/ResultsBookModels';
-import { sha256Json } from '@/main/domain/sha256Json';
+import {
+  composeResultsBook,
+  type ResultsBookEventProjection,
+  type ResultsBookResultView,
+} from '../domain/composeResultsBook';
+import { recordCandidateKey, sameRecordCandidate } from '../domain/ResultsBookPolicy';
 
 interface EventRow {
   id: string;
@@ -47,20 +52,6 @@ interface ResultMetadataRow {
   remarks: string;
 }
 
-interface EventProjection {
-  readonly eventId: string;
-  readonly eventName: string;
-  readonly eventType: string;
-  readonly rulePackId?: string | null;
-  readonly rulePackFingerprint?: string | null;
-  readonly scope: 'QUALIFICATION' | 'FINAL';
-  readonly snapshotRevision: string | null;
-  readonly officialPublicationRevision: string | null;
-  readonly publicationCurrent: boolean;
-  readonly projectionIssue: string | null;
-  readonly results: readonly ReturnType<typeof resultView>[];
-}
-
 /** SQLite metadata adapter; score and rank data arrive through a replaceable projection port. */
 export class SqliteResultsBookSource implements IResultsBookSource {
   constructor(
@@ -87,105 +78,21 @@ export class SqliteResultsBookSource implements IResultsBookSource {
       .all(championshipId) as ParticipantRow[];
     const schedule = this.schedule(events);
     const projections = await Promise.all(events.map((event) => this.eventProjection(event)));
-    const medallists = projections.flatMap((event) =>
-      event.results
-        .filter((result) => result.rank >= 1 && result.rank <= 3)
-        .map((result) => ({
-          eventId: event.eventId,
-          eventName: event.eventName,
-          medal: result.rank === 1 ? 'GOLD' : result.rank === 2 ? 'SILVER' : 'BRONZE',
-          name: result.name,
-          nationCode: result.nationCode,
-        })),
-    );
-    const medalMap = new Map<string, { nationCode: string; gold: number; silver: number; bronze: number }>();
-    for (const medallist of medallists) {
-      const nationCode = medallist.nationCode ?? '---';
-      const row = medalMap.get(nationCode) ?? { nationCode, gold: 0, silver: 0, bronze: 0 };
-      if (medallist.medal === 'GOLD') row.gold += 1;
-      else if (medallist.medal === 'SILVER') row.silver += 1;
-      else row.bronze += 1;
-      medalMap.set(nationCode, row);
-    }
-    const entriesMap = new Map<string, { nationCode: string; athletes: Set<string>; entries: number }>();
-    for (const participant of participants) {
-      const nationCode = participant.nation_code ?? '---';
-      const row = entriesMap.get(nationCode) ?? { nationCode, athletes: new Set<string>(), entries: 0 };
-      row.athletes.add(participant.issf_id ?? `${participant.family_name}:${participant.player_name}`);
-      row.entries += 1;
-      entriesMap.set(nationCode, row);
-    }
-    const activeOfficials = activeOfficialRows(officials);
-    const content = {
-      format: 'saika-issf-results-book',
-      formatVersion: 1,
-      ruleReference: 'ISSF 6.14.4',
+    return composeResultsBook({
       championship,
-      tableOfContents: [
-        'Results Certification',
-        'Competition Officials',
-        'Entries by Country',
-        'Competition Schedule',
-        'Medallists by Name',
-        'Medals by Country',
-        'New and Equalled Records',
-        'Final Results',
-      ],
-      resultsCertification: { requiredRoles: ['TECHNICAL_DELEGATE', 'JURY_CHAIR'], signatures: [] },
-      competitionOfficials: activeOfficials.map((entry) => ({
-        role: entry.role,
-        officialName: entry.officialName,
-        organization: entry.organization,
+      participants: participants.map((participant) => ({
+        playerName: participant.player_name,
+        familyName: participant.family_name,
+        startNumber: participant.start_number,
+        issfId: participant.issf_id,
+        nationCode: participant.nation_code,
       })),
-      entriesByCountry: [...entriesMap.values()]
-        .map((row) => ({
-          nationCode: row.nationCode,
-          athleteCount: row.athletes.size,
-          entryCount: row.entries,
-        }))
-        .sort((left, right) => left.nationCode.localeCompare(right.nationCode)),
-      competitionSchedule: schedule,
-      medallistsByName: medallists,
-      medalsByCountry: [...medalMap.values()]
-        .map((row) => ({ ...row, total: row.gold + row.silver + row.bronze }))
-        .sort((left, right) => right.gold - left.gold || right.silver - left.silver || right.bronze - left.bronze),
-      newAndEqualledRecords: claims.map((claim) => ({
-        code: claim.code,
-        resultBasis: claim.resultBasis,
-        eventName: claim.source.eventName,
-        subjectKind: claim.source.subjectKind,
-        subjectName: claim.source.subjectName,
-        nationCode: claim.source.nationCode,
-        scoreX10: claim.source.scoreX10,
-        members: claim.source.members ?? [],
-        achievedAt: claim.achievedAt.toISOString(),
-        officialResultRevision: claim.source.snapshotRevision,
-      })),
-      finalResults: projections,
-      nameFormat: 'FAMILY NAME, full Given name; Bib Number; IOC nation code',
-      eventOrderBasis: 'Championship event sort order must be configured in ISSF 6.14.4(i) order',
-    };
-    const findings: string[] = [];
-    if (events.length === 0) findings.push('The championship has no events');
-    for (const projection of projections) {
-      if (projection.projectionIssue) {
-        findings.push(`Event ${projection.eventName} result projection is unavailable: ${projection.projectionIssue}`);
-      } else if (!projection.officialPublicationRevision) {
-        findings.push(`Event ${projection.eventName} has no Official Final Results publication`);
-      } else if (!projection.publicationCurrent) {
-        findings.push(`Event ${projection.eventName} Official publication does not match the current result revision`);
-      }
-    }
-    for (const participant of participants) {
-      const missing = [
-        !participant.family_name && 'family name',
-        !participant.start_number && 'Bib Number',
-        !participant.nation_code && 'IOC nation code',
-      ].filter(Boolean);
-      if (missing.length > 0) findings.push(`Participant ${participant.player_name} is missing ${missing.join(', ')}`);
-    }
-    findings.push(...(await this.recordClaimFindings(championshipId, claims)));
-    return { content, findings: [...new Set(findings)], sourceHash: sha256Json(content) };
+      schedule,
+      projections,
+      officials,
+      claims,
+      currentRecordResults: claims.length === 0 ? [] : await this.eligibleRecordResults(championshipId),
+    });
   }
 
   async eligibleRecordResults(championshipId: string): Promise<readonly EligibleRecordResult[]> {
@@ -263,7 +170,7 @@ export class SqliteResultsBookSource implements IResultsBookSource {
     });
   }
 
-  private async eventProjection(event: EventRow): Promise<EventProjection> {
+  private async eventProjection(event: EventRow): Promise<ResultsBookEventProjection> {
     const scope = this.eventResultScope(event);
     try {
       const snapshot = await this.snapshots.load(event.id, scope);
@@ -349,30 +256,12 @@ export class SqliteResultsBookSource implements IResultsBookSource {
     }
     return new Map(rows.map((row) => [row.result_id, row]));
   }
-
-  private async recordClaimFindings(championshipId: string, claims: readonly RecordClaim[]): Promise<string[]> {
-    const findings: string[] = [];
-    if (claims.length === 0) return findings;
-    const currentCandidates = await this.eligibleRecordResults(championshipId);
-    const currentByKey = new Map(currentCandidates.map((candidate) => [recordCandidateKey(candidate), candidate]));
-    for (const claim of claims) {
-      const current = currentByKey.get(recordCandidateKey(claim.source));
-      if (!current || !sameRecordCandidate(current, claim.source)) {
-        findings.push(
-          `Record claim ${claim.code} for ${claim.source.subjectName} is not based on the current Official result`,
-        );
-      }
-    }
-    return findings;
-  }
 }
 
-function activeOfficialRows(entries: readonly ChampionshipOfficialEntry[]) {
-  const revoked = new Set(entries.flatMap((entry) => (entry.reversesEntryId ? [entry.reversesEntryId] : [])));
-  return entries.filter((entry) => entry.operation === 'APPOINT' && !revoked.has(entry.id));
-}
-
-function resultView(result: ResultsBookProjectedResult, metadata: ResultMetadataRow | undefined) {
+function resultView(
+  result: ResultsBookProjectedResult,
+  metadata: ResultMetadataRow | undefined,
+): ResultsBookResultView {
   const name = metadata?.official_name ?? result.playerName;
   const familyName = metadata?.official_family_name ?? name;
   return {
@@ -401,24 +290,6 @@ function compareProjectedResults(left: ResultsBookProjectedResult, right: Result
 
 function inferSubjectKind(participantId: string): 'INDIVIDUAL' | 'MIXED_TEAM' {
   return participantId.startsWith('TEAM:') ? 'MIXED_TEAM' : 'INDIVIDUAL';
-}
-
-function recordCandidateKey(result: EligibleRecordResult): string {
-  return `${result.eventId}:${result.resultScope}:${result.resultId}`;
-}
-
-function sameRecordCandidate(left: EligibleRecordResult, right: EligibleRecordResult): boolean {
-  return (
-    left.eventName === right.eventName &&
-    left.subjectKind === right.subjectKind &&
-    left.subjectId === right.subjectId &&
-    left.subjectName === right.subjectName &&
-    left.nationCode === right.nationCode &&
-    left.entryStatus === right.entryStatus &&
-    left.scoreX10 === right.scoreX10 &&
-    left.snapshotRevision === right.snapshotRevision &&
-    JSON.stringify(left.members ?? []) === JSON.stringify(right.members ?? [])
-  );
 }
 
 function uniqueRecordCandidates(candidates: readonly EligibleRecordResult[]): EligibleRecordResult[] {

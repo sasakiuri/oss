@@ -83,11 +83,8 @@ describe('Evidence file custody and portable archive', () => {
     const sections = [{ id: 'target-examination-evidence', records: [{ id: 'evidence' }] }];
     const attachments = await archive.collect(sections);
     const bundle = new CompetitionEvidenceBundleBuilder('test').build(
-      {
-        getChampionship: () => ({ id: 'championship', name: 'Test', date: '2026-09-07', venue: 'Range' }),
-        collect: () => [...sections, ...attachments],
-      },
-      'championship',
+      { id: 'championship', name: 'Test', date: '2026-09-07', venue: 'Range' },
+      [...sections, ...attachments],
     );
     const decoded = JSON.parse(serializeEvidenceBundle(bundle));
     const record = decoded.sections.find((section: { id: string }) => section.id === 'evidence-file-attachments')
