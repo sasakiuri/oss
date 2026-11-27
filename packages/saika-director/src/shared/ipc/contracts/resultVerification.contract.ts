@@ -58,7 +58,7 @@ const VerificationResultItemDtoSchema = z.object({
   rank: z.number().int().nonnegative(),
   playerName: z.string(),
   affiliation: z.string(),
-  relayNumber: z.number().int().positive(),
+  relayNumber: z.number().int().positive().nullable(),
   totalScore: z.number().nonnegative(),
   classificationCode: z.enum(['DSQ', 'DQB', 'AD_DSQ']).nullable(),
   decisionCount: z.number().int().nonnegative(),

@@ -13,7 +13,7 @@ import type { ResultListApprovalEntry } from '@/main/modules/result-verification
 import type { ResultVerificationCheck } from '@/main/modules/result-verification/domain/ResultVerificationCheck';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';
-import type { FinalRankedResultDto } from '@/shared/ipc/contracts';
+import { resultVerificationContract, type FinalRankedResultDto } from '@/shared/ipc/contracts';
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 
@@ -96,6 +96,9 @@ describe('Final result verification flow', () => {
       allResultsConfirmed: true,
       readyForApproval: false,
     });
+    // A Final result has a firing point but no relay.
+    expect(initial.results.map((result) => result.relayNumber)).toEqual([null, null]);
+    expect(resultVerificationContract.procedures.getStatus.output.parse({ success: true, data: initial })).toBeTruthy();
 
     for (const result of initial.results) {
       await service.addCheck({
@@ -155,7 +158,8 @@ describe('Final result verification flow', () => {
       [3, true],
       [4, false],
     ]);
-    expect(status.results[0]).toMatchObject({ participantId: 'TEAM:team-1', playerName: 'Team 1' });
+    expect(status.results[0]).toMatchObject({ participantId: 'TEAM:team-1', playerName: 'Team 1', relayNumber: null });
+    expect(resultVerificationContract.procedures.getStatus.output.parse({ success: true, data: status })).toBeTruthy();
   });
 });
 
