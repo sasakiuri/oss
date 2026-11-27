@@ -7,8 +7,13 @@ export const officialSigningEvidenceSchema = z.object({
   evidenceReference: z.string().trim().min(1).max(2000).nullable(),
 });
 
+/** A personal signature by the requesting operator, or an external signature recorded with its evidence. */
+const officialSigningMethodSchema = z.enum(['SELF', 'EXTERNAL']);
+
 export const officialSigningRequestFields = {
-  method: z.enum(['SELF', 'EXTERNAL']).optional(),
+  method: officialSigningMethodSchema.optional(),
   recordedBy: z.string().trim().min(1).max(200).optional(),
   evidenceReference: z.string().trim().min(1).max(2000).optional(),
 };
+
+export type OfficialSigningMethod = z.infer<typeof officialSigningMethodSchema>;
