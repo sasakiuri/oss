@@ -5,14 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebugPane } from '@/renderer/presentation/components/DebugPane';
 import type { LogEntry } from '@/shared/types/log';
 
-// Mock useLog hook
+// Mock the log store
 const mockClearEntries = vi.fn();
 const mockSetAutoScroll = vi.fn();
 let mockEntries: LogEntry[] = [];
 let mockAutoScroll = true;
 
-vi.mock('@/renderer/presentation/hooks/useLog', () => ({
-  useLog: () => ({
+vi.mock('@/renderer/presentation/stores/logStore', () => ({
+  useLogStore: () => ({
     entries: mockEntries,
     autoScroll: mockAutoScroll,
     clearEntries: mockClearEntries,

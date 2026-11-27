@@ -19,6 +19,7 @@ vi.mock('@/renderer/presentation/hooks/useTitleBar', () => ({
     handleMinimize: vi.fn(),
     handleMaximize: vi.fn(),
     handleClose: vi.fn(),
+    handleToggleFullscreen: vi.fn(),
   }),
 }));
 

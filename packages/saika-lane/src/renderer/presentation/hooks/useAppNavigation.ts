@@ -11,9 +11,11 @@ import { errorMessage } from '@/shared/errors/errorMessage';
 import type { StartupStateDto } from '@/shared/ipc/contracts';
 import { knownScoringGaugeProfileId, knownTargetProfileId } from '@/shared/target';
 
+/** The screen to show; the recovery screen carries the startup state that needs attention. */
+export type AppScreen = { screen: 'splash' } | { screen: 'main' } | { screen: 'recovery'; startup: StartupStateDto };
+
 export function useAppNavigation() {
-  const [screen, setScreen] = useState<'splash' | 'main' | 'recovery'>('splash');
-  const [startup, setStartup] = useState<StartupStateDto | null>(null);
+  const [view, setView] = useState<AppScreen>({ screen: 'splash' });
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(async () => {
     setAttempt((value) => value + 1);
@@ -112,8 +114,7 @@ export function useAppNavigation() {
       }
       await minimum;
       if (!cancelled) {
-        setStartup(state);
-        setScreen(state.status === 'READY' ? 'main' : 'recovery');
+        setView(state.status === 'READY' ? { screen: 'main' } : { screen: 'recovery', startup: state });
       }
     })();
     return () => {
@@ -123,5 +124,5 @@ export function useAppNavigation() {
     };
   }, [attempt]);
 
-  return { screen, startup, retry };
+  return { ...view, retry };
 }

@@ -4,7 +4,7 @@
 import React, { useEffect, useRef } from 'react';
 
 import { Button } from '@/renderer/presentation/components/common/Button';
-import { useLog } from '@/renderer/presentation/hooks/useLog';
+import { useLogStore } from '@/renderer/presentation/stores/logStore';
 
 import { LogEntry } from './debug/LogEntry';
 
@@ -18,7 +18,7 @@ export interface DebugPaneProps {
 }
 
 export const DebugPane: React.FC<DebugPaneProps> = ({ onClose, className = '' }) => {
-  const { entries, autoScroll, clearEntries, setAutoScroll } = useLog();
+  const { entries, autoScroll, clearEntries, setAutoScroll } = useLogStore();
   const logEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

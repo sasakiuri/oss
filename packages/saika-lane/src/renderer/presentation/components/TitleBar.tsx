@@ -5,7 +5,6 @@ import { Copy, Minus, Square, Target, X } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useEscapeKey } from '@/renderer/presentation/hooks/useEscapeKey';
-import { windowService } from '@/renderer/services/windowService';
 
 export interface TitleBarProps {
   isMaximized: boolean;
@@ -13,6 +12,7 @@ export interface TitleBarProps {
   onMinimize: () => void;
   onMaximize: () => void;
   onClose: () => void;
+  onToggleFullscreen: () => void;
   useNativeControlsOverlay?: boolean;
   onSettingsOpen?: () => void;
   onDebugPanelToggle?: () => void;
@@ -38,6 +38,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
   onMinimize,
   onMaximize,
   onClose,
+  onToggleFullscreen,
   useNativeControlsOverlay = false,
   onSettingsOpen,
   onDebugPanelToggle,
@@ -66,13 +67,7 @@ export const TitleBar: React.FC<TitleBarProps> = ({
     {
       label: 'View',
       items: [
-        {
-          label: 'Toggle Fullscreen',
-          shortcut: 'F11',
-          action: () => {
-            windowService.toggleFullscreen().catch(() => {});
-          },
-        },
+        { label: 'Toggle Fullscreen', shortcut: 'F11', action: onToggleFullscreen },
         ...(onDebugPanelToggle ? [{ label: 'Toggle Debug Panel', action: onDebugPanelToggle }] : []),
         { separator: true, label: '' },
         { label: 'Zoom In', action: onZoomIn },

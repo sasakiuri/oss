@@ -5,13 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TitleBar, type TitleBarProps } from '@/renderer/presentation/components/TitleBar';
 
-// Mock windowService (used inside TitleBar for Toggle Fullscreen)
-vi.mock('@/renderer/services/windowService', () => ({
-  windowService: {
-    toggleFullscreen: vi.fn().mockResolvedValue({ isFullscreen: false }),
-  },
-}));
-
 // Mock useEscapeKey
 vi.mock('@/renderer/presentation/hooks/useEscapeKey', () => ({
   useEscapeKey: vi.fn(),
@@ -26,6 +19,7 @@ function defaultProps(overrides: Partial<TitleBarProps> = {}): TitleBarProps {
     onMinimize: vi.fn(),
     onMaximize: vi.fn(),
     onClose: vi.fn(),
+    onToggleFullscreen: vi.fn(),
     onSettingsOpen: vi.fn(),
     onDebugPanelToggle: vi.fn(),
     onZoomIn: vi.fn(),
@@ -175,6 +169,19 @@ describe('TitleBar', () => {
       // Click Settings...
       await user.click(screen.getByText('Settings...'));
       expect(props.onSettingsOpen).toHaveBeenCalledTimes(1);
+    });
+
+    it('calls onToggleFullscreen when Toggle Fullscreen is clicked', async () => {
+      const user = userEvent.setup();
+      const props = defaultProps();
+      render(<TitleBar {...props} />);
+
+      // Open the View menu
+      const menubar = screen.getByRole('menubar');
+      await user.click(within(menubar).getAllByRole('menuitem')[2]!);
+
+      await user.click(screen.getByText('Toggle Fullscreen'));
+      expect(props.onToggleFullscreen).toHaveBeenCalledTimes(1);
     });
 
     it('closes the dropdown after a menu item is clicked', async () => {

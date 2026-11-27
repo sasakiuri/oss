@@ -15,6 +15,7 @@
 import { useEffect } from 'react';
 
 import { SHORTCUTS } from '@/renderer/presentation/constants/shortcuts';
+import type { AppScreen } from '@/renderer/presentation/hooks/useAppNavigation';
 import { isEditableShortcutTarget } from '@/renderer/presentation/utils/keyboardShortcuts';
 
 /**
@@ -22,7 +23,7 @@ import { isEditableShortcutTarget } from '@/renderer/presentation/utils/keyboard
  */
 interface UseAppKeyboardShortcutsParams {
   /** Current screen */
-  screen: string;
+  screen: AppScreen['screen'];
   /** Preparation mode switch callback */
   onPreparationClick: () => Promise<void>;
   /** Match mode switch callback */

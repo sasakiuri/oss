@@ -9,6 +9,16 @@ export interface UseTitleBarResult {
   handleMinimize: () => void;
   handleMaximize: () => void;
   handleClose: () => void;
+  handleToggleFullscreen: () => Promise<void>;
+}
+
+/** Toggles fullscreen; a failure leaves the window as it is. */
+export async function toggleFullscreen(): Promise<void> {
+  try {
+    await windowService.toggleFullscreen();
+  } catch {
+    // Fullscreen toggle failure — silently handled
+  }
 }
 
 export function useTitleBar(): UseTitleBarResult {
@@ -52,5 +62,12 @@ export function useTitleBar(): UseTitleBarResult {
     windowService.close().catch(() => {});
   }, []);
 
-  return { isMaximized, isFullscreen, handleMinimize, handleMaximize, handleClose };
+  return {
+    isMaximized,
+    isFullscreen,
+    handleMinimize,
+    handleMaximize,
+    handleClose,
+    handleToggleFullscreen: toggleFullscreen,
+  };
 }
