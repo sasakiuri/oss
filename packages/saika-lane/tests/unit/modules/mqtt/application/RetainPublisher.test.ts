@@ -175,6 +175,28 @@ describe('RetainPublisher', () => {
     expect(payload).toMatchObject({ x: null, y: null, isReplay: true, stageIndex: 1, seriesIndex: 0 });
   });
 
+  it.each([
+    ['no competition is active', null],
+    ['another competition is active', { ...mockCompetition, id: 'other-comp-uuid' }],
+  ])('replays a transferred session against its own competition when %s', async (_case, active) => {
+    vi.mocked(competitionRepository.findActive).mockResolvedValue(active as CompetitionState | null);
+    vi.mocked(competitionRepository.findById).mockResolvedValue(mockCompetition);
+    vi.mocked(sessionRepository.findById).mockResolvedValue(
+      createMockSession([createTestShot(new Date(1000), 1), createTestShot(new Date(2000), 2)]) as never,
+    );
+
+    await retainPublisher.replayTransferredSession(mockCompetition.id);
+
+    const payloads = vi.mocked(mqttClient.publish).mock.calls.map(([topic, body]) => ({
+      topic,
+      ...JSON.parse(body as string),
+    }));
+    expect(payloads).toMatchObject([
+      { topic: 'saika/competition/comp-uuid/lane/lane-uuid/shot', competitionId: 'comp-uuid', shotNumberInSeries: 1 },
+      { topic: 'saika/competition/comp-uuid/lane/lane-uuid/shot', competitionId: 'comp-uuid', shotNumberInSeries: 2 },
+    ]);
+  });
+
   it('should register onConnect and onDisconnect callbacks', () => {
     expect(mqttClient.onConnect).toHaveBeenCalled();
     expect(mqttClient.onDisconnect).toHaveBeenCalled();

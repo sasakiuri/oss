@@ -3,6 +3,7 @@
 
 import { laneRetainedCompetitionTopics, mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
+import type { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -111,7 +112,7 @@ export class RetainPublisher {
 
     // 4. Replay shot backlog recorded during disconnection (isReplay=true)
     if (this.disconnectedAt) {
-      await this.replayBacklog(competition.id, competition.sessionId, this.disconnectedAt);
+      await this.replayBacklog(competition, this.disconnectedAt);
     }
 
     // 5. Re-publish LaneCompetitionState as replay completion notification
@@ -136,11 +137,13 @@ export class RetainPublisher {
   async replayTransferredSession(competitionId: string): Promise<void> {
     const competition = await this.deps.competitionRepository.findById(competitionId);
     if (!competition) throw new Error('Transferred competition not found');
-    await this.replayBacklog(competitionId, competition.sessionId, new Date(0));
+    await this.replayBacklog(competition, new Date(0));
   }
 
-  private async replayBacklog(competitionId: string, sessionId: string, since: Date): Promise<void> {
+  /** Replays the competition's session shots since a time, placed in that competition. */
+  private async replayBacklog(competition: CompetitionState, since: Date): Promise<void> {
     const logger = getLogger();
+    const { id: competitionId, sessionId } = competition;
     const session = await this.deps.sessionRepository.findById(sessionId);
     if (!session) return;
 
@@ -158,9 +161,6 @@ export class RetainPublisher {
     });
 
     const laneId = readMirroredLaneId(this.deps.storage);
-    const competition = await this.deps.competitionRepository.findActive();
-    if (!competition) return;
-
     const topic = mqttTopics.competitionShot(competitionId, laneId);
 
     for (const shot of backlogShots) {
