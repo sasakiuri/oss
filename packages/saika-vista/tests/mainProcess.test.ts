@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
     });
     setWindowOpenHandler = vi.fn();
     session = { setPermissionRequestHandler: vi.fn(), setPermissionCheckHandler: vi.fn() };
+    getURL = () => 'file:///renderer/index.html';
     isCrashed = () => this.crashed;
   }
   class FakeWindow {
@@ -241,7 +242,7 @@ describe('Vista main process', () => {
     const openHandler = output.webContents.setWindowOpenHandler.mock.calls[0]![0] as () => unknown;
     expect(openHandler()).toEqual({ action: 'deny' });
     for (const name of ['will-navigate', 'will-attach-webview']) {
-      const event = { preventDefault: vi.fn() };
+      const event = { url: 'https://example.test/', preventDefault: vi.fn() };
       (output.webContents.handlers.get(name) as (event: unknown) => void)(event);
       expect(event.preventDefault).toHaveBeenCalledOnce();
     }

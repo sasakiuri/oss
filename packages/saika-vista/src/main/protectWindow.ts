@@ -6,11 +6,16 @@ export function isolatedWebPreferences(preload: string) {
   return { preload, contextIsolation: true, nodeIntegration: false, sandbox: true };
 }
 
-/** Blocks new windows, navigation, webviews and permission requests for a Vista window. */
+/**
+ * Keeps a Vista window on the page main loaded into it: no new windows, no navigation to another page, no webviews
+ * and no permission grants. Reloading the page it shows, as the development server does after a change, stays
+ * allowed.
+ */
 export function protectWindow(window: BrowserWindow): void {
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  window.webContents.on('will-navigate', (event) => event.preventDefault());
-  window.webContents.on('will-attach-webview', (event) => event.preventDefault());
-  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-  window.webContents.session.setPermissionCheckHandler(() => false);
+  const { webContents } = window;
+  webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  webContents.on('will-navigate', (details) => details.url === webContents.getURL() || details.preventDefault());
+  webContents.on('will-attach-webview', (event) => event.preventDefault());
+  webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  webContents.session.setPermissionCheckHandler(() => false);
 }
