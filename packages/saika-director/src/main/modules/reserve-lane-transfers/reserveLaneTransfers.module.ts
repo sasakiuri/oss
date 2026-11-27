@@ -2,13 +2,13 @@
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { reserveLaneTransfersContract } from '@/shared/ipc/contracts';
 
+import { ReserveLaneTransferService } from './application/ReserveLaneTransferService';
 import {
-  ReserveLaneTransferService,
   ResumeReserveLaneToken,
   ResumeReserveMatchToken,
   TransferReserveLaneToken,
-} from './ReserveLaneTransferService';
-import { SqliteReserveTransferRepository } from './SqliteReserveTransferRepository';
+} from './domain/IReserveTransferTransport';
+import { SqliteReserveTransferRepository } from './infra/SqliteReserveTransferRepository';
 
 export const reserveLaneTransfersModule = defineModule({
   name: 'reserveLaneTransfers',

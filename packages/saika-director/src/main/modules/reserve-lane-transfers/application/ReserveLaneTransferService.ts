@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { canonicalJson } from '@sasakiuri/saika-rules';
 
-import { defineCommand } from '@/main/shared-infra/cqrs/CommandBus';
 import {
   ReserveLaneTransferBundleSchema,
   type ReserveLaneTransferAction,
@@ -9,54 +8,8 @@ import {
   type ReserveLaneTransferRequest,
 } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
-export interface ReserveTransferEntry {
-  id: string;
-  transferId: string;
-  operation: string;
-  recordedAt: string;
-  detail: unknown;
-}
-export interface IReserveTransferRepository {
-  create(request: ReserveLaneTransferRequest): void;
-  find(id: string): ReserveLaneTransferRequest | null;
-  list(competitionId: string): readonly ReserveLaneTransferRequest[];
-  entries(id: string): readonly ReserveTransferEntry[];
-  append(entry: ReserveTransferEntry): void;
-}
-export interface ReserveTransferGrant {
-  id: string;
-  transferId: string;
-  remainingSeconds: number;
-  unlimitedSightingShots: boolean;
-  officialName: string;
-  statement: string;
-}
-export const TransferReserveLaneToken = defineCommand<
-  { competitionId: string; laneId: string; transfer: ReserveLaneTransferAction },
-  ReserveLaneTransferBundle
->('TransferReserveLaneTransport');
-export const ResumeReserveLaneToken = defineCommand<
-  { competitionId: string; laneId: string; transferId: string; grant: ReserveTransferGrant },
-  void
->('ResumeReserveLaneTransport');
-export const ResumeReserveMatchToken = defineCommand<
-  { competitionId: string; laneId: string; transferId: string },
-  void
->('ResumeReserveMatchTransport');
-export interface IReserveTransferTransport {
-  transfer(input: {
-    competitionId: string;
-    laneId: string;
-    transfer: ReserveLaneTransferAction;
-  }): Promise<ReserveLaneTransferBundle>;
-  resume(input: {
-    competitionId: string;
-    laneId: string;
-    transferId: string;
-    grant: ReserveTransferGrant;
-  }): Promise<void>;
-  resumeMatch(input: { competitionId: string; laneId: string; transferId: string }): Promise<void>;
-}
+import type { IReserveTransferRepository } from '../domain/IReserveTransferRepository';
+import type { IReserveTransferTransport, ReserveTransferGrant } from '../domain/IReserveTransferTransport';
 
 /** A durable sequence of independently acknowledged operations, never a distributed transaction. */
 export class ReserveLaneTransferService {

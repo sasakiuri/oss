@@ -1,4 +1,3 @@
-import { SqliteParticipantRepository } from '@/main/modules/championship';
 import { AssignedFinalRecoverySubjectSource } from './infra/AssignedFinalRecoverySubjectSource';
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { finalRecoveriesContract } from '@/shared/ipc/contracts';
@@ -8,12 +7,12 @@ import { SqliteFinalRecoveryRepository } from './infra/SqliteFinalRecoveryReposi
 
 export const finalRecoveriesModule = defineModule({
   name: 'finalRecoveries',
-  deps: ['database', 'ipcRouter', 'laneControlRepository'],
-  register({ database, ipcRouter, laneControlRepository }) {
+  deps: ['database', 'ipcRouter', 'laneControlRepository', 'participantRepository'],
+  register({ database, ipcRouter, laneControlRepository, participantRepository }) {
     const service = new FinalRecoveryService(
       new SqliteFinalRecoveryRepository(database),
       undefined,
-      new AssignedFinalRecoverySubjectSource(new SqliteParticipantRepository(database), laneControlRepository),
+      new AssignedFinalRecoverySubjectSource(participantRepository, laneControlRepository),
     );
     ipcRouter.register(finalRecoveriesContract, {
       bindAllowanceSubject: async (input) => service.bindAllowanceSubject(input),

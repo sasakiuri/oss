@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 import { OperationalProfileService, directorOperationalPresets } from '@/main/modules/operational-profiles';
-import { ReserveTransferDataGuard, SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
 import { defineModule, type ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
 import { RuntimeOperationGate } from '@/main/shared-infra/operations/RuntimeOperationGate';
 import { mqttContract } from '@/shared/ipc/contracts';
@@ -78,6 +77,7 @@ export const mqttModule = defineModule({
     'firingWindowJournal',
     'shotObservationEvidenceJournal',
     'competitionDataGuard',
+    'reserveTransferDataGuard',
     'finalOperationService',
     'finalResultDeclarationService',
     'participantEligibilityReader',
@@ -107,7 +107,6 @@ export const mqttModule = defineModule({
     const safetyStopClearancePolicy = new SafetyStopClearancePolicy();
     const embeddedBrokerSecurity = embeddedMqttSecurityFromEnvironment(process.env);
     const directorMqttCredentials = mqttCredentialsFromEnvironment(process.env);
-    const reserveTransferGuard = new ReserveTransferDataGuard(new SqliteReserveTransferRepository(database));
 
     const recorder = new MqttObservationRecorder({
       eventBus,
@@ -141,7 +140,7 @@ export const mqttModule = defineModule({
       {
         assertPhaseStartAllowed: (scope) => ctx.competitionStartReadiness.assertAllowed(scope),
         assertCompetitionFinishAllowed: (competitionId) =>
-          reserveTransferGuard.assertAllowed({ competitionId, operation: 'CLEAR_COMPETITION_DATA' }),
+          ctx.reserveTransferDataGuard.assertAllowed({ competitionId, operation: 'CLEAR_COMPETITION_DATA' }),
         ...recorder.callbacks,
       },
       new MqttTransport(),
@@ -181,6 +180,7 @@ export const mqttModule = defineModule({
 
     registerMqttTransportCommands({
       commandBus,
+      queryBus,
       mqttService,
       runWithControlLock,
       competitionTypeRegistry,

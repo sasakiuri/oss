@@ -13,6 +13,7 @@ import {
   TransferReserveLaneToken,
 } from '@/main/modules/reserve-lane-transfers';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
+import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 
@@ -20,6 +21,7 @@ import type { DirectorMqttService } from './DirectorMqttService';
 
 interface Dependencies {
   readonly commandBus: Pick<CommandBus, 'register'>;
+  readonly queryBus: Pick<QueryBus, 'register'>;
   readonly mqttService: Pick<
     DirectorMqttService,
     | 'getFinalFiringContext'
@@ -43,12 +45,13 @@ interface Dependencies {
  */
 export function registerMqttTransportCommands({
   commandBus,
+  queryBus,
   mqttService,
   runWithControlLock,
   competitionTypeRegistry,
   requireCompetition,
 }: Dependencies): void {
-  commandBus.register(FinalFiringContextToken, async ({ competitionId, laneId }) =>
+  queryBus.register(FinalFiringContextToken, async ({ competitionId, laneId }) =>
     mqttService.getFinalFiringContext(competitionId, laneId),
   );
   commandBus.register(FinalFiringTransportToken, (input) => mqttService.executeFinalFiring(input));

@@ -6,6 +6,11 @@ import type Database from 'better-sqlite3';
 import type { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
 import type { WindowManager } from '@/main/infrastructure/window/WindowManager';
 import type { AthleteSanctionService, ISanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
+import type {
+  BackupCaptureReadinessService,
+  BackupCaptureSourceReaders,
+} from '@/main/modules/backup-capture-readiness';
+import type { IParticipantRepository } from '@/main/modules/championship';
 import type { EstBackupCaptureService } from '@/main/modules/est-backup-capture';
 import type { EstBackupSourceService } from '@/main/modules/est-backup-sources';
 import type {
@@ -15,8 +20,10 @@ import type {
 } from '@/main/modules/est-backup-verification';
 import type { EstInspectionStartService } from '@/main/modules/est-championship-inspections';
 import type { EvidenceFileService } from '@/main/modules/evidence-files';
-import type { FinalOperationService } from '@/main/modules/final-operations';
+import type { IFinalControlRepository } from '@/main/modules/final-control';
+import type { FinalOperationService, IFinalOperationRepository } from '@/main/modules/final-operations';
 import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
+import type { IFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import type { IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import type { IIrregularShotCaseRepository } from '@/main/modules/irregular-shot-cases';
 import type { ILaneControlRepository, LaneTimerService } from '@/main/modules/lane-control';
@@ -29,7 +36,10 @@ import type {
 import type { ObservationReviewService } from '@/main/modules/observation-reviews';
 import type { OperationalArchiveService } from '@/main/modules/operational-archives';
 import type { OperationalSettingTarget } from '@/main/modules/operational-profiles';
+import type { OperatorAccessService } from '@/main/modules/operator-access';
+import type { PublicationReviewPolicyService } from '@/main/modules/publication-review-policies';
 import type { IRangeInterruptionRepository } from '@/main/modules/range-interruptions';
+import type { IReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
 import type { RelayReadinessService } from '@/main/modules/relay-readiness';
 import type {
   FinalResultDeclarationService,
@@ -113,6 +123,13 @@ export interface ServiceRegistry {
   readonly rangeIncidentReportRepository: IRangeIncidentReportRepository;
   readonly targetExaminationRepository: ITargetExaminationRepository;
   readonly rangeInterruptionRepository: IRangeInterruptionRepository;
+  readonly participantRepository: IParticipantRepository;
+  readonly finalOperationRepository: IFinalOperationRepository;
+  readonly finalControlRepository: IFinalControlRepository;
+  readonly finalRecoveryRepository: IFinalRecoveryRepository;
+  readonly reserveTransferRepository: IReserveTransferRepository;
+  /** Blocks clearing competition data while a reserve Lane transfer is pending. */
+  readonly reserveTransferDataGuard: ICompetitionDataGuard;
   readonly competitionDataGuard: ICompetitionDataGuard;
   readonly finalPlacementReviewRepository: IFinalPlacementReviewRepository;
   readonly resultPublicationRepository: IResultPublicationRepository;
@@ -126,6 +143,10 @@ export interface ServiceRegistry {
   readonly athleteSanctionService: AthleteSanctionService;
   readonly participantEligibilityReader: IParticipantEligibilityReader;
   readonly sanctionAuthorizationResolver: ISanctionAuthorizationResolver;
+  readonly operatorAccessService: OperatorAccessService;
+  readonly publicationReviewPolicyService: PublicationReviewPolicyService;
+  readonly backupCaptureReadinessService: BackupCaptureReadinessService;
+  readonly backupCaptureSources: BackupCaptureSourceReaders;
 }
 
 // ---------------------------------------------------------------------------

@@ -2,7 +2,7 @@ import { canonicalJson } from '@sasakiuri/saika-rules';
 import type Database from 'better-sqlite3';
 
 import type { MalfunctionFiringEvidencePayload } from '@sasakiuri/saika-protocol/MalfunctionFiring';
-import type { FinalFiringRecord, IFinalFiringRepository } from './FinalRecoveryFiringService';
+import type { FinalFiringRecord, IFinalFiringRepository } from '../domain/IFinalFiringRepository';
 
 export class SqliteFinalFiringRepository implements IFinalFiringRepository {
   constructor(private readonly db: Database.Database) {}

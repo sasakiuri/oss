@@ -4,7 +4,7 @@ import type {
   ICompetitionDataGuard,
 } from '@/main/shared-infra/operations/CompetitionDataGuard';
 
-import type { IReserveTransferRepository } from './ReserveLaneTransferService';
+import type { IReserveTransferRepository } from '../domain/IReserveTransferRepository';
 
 export class ReserveTransferDataGuard implements ICompetitionDataGuard {
   constructor(private readonly repository: IReserveTransferRepository) {}

@@ -1,56 +1,12 @@
 import { canonicalJson } from '@sasakiuri/saika-rules';
 
-import { defineCommand } from '@/main/shared-infra/cqrs/CommandBus';
 import {
   MalfunctionFiringEvidenceSchema,
   type MalfunctionFiringEvidencePayload,
-  type MalfunctionFiringRequestPayload,
 } from '@sasakiuri/saika-protocol/MalfunctionFiring';
 
-export interface FinalFiringIntent {
-  readinessConfirmed: true;
-  id: string;
-  caseId: string;
-  authorizationId: string;
-  laneId: string;
-  loadAt: string;
-}
-export interface FinalFiringRecord {
-  intent: FinalFiringIntent;
-  request: MalfunctionFiringRequestPayload;
-  evidence: MalfunctionFiringEvidencePayload | null;
-}
-export interface IFinalFiringRepository {
-  create(record: FinalFiringRecord): void;
-  find(id: string): FinalFiringRecord | null;
-  list(caseId: string): FinalFiringRecord[];
-  appendEvidence(id: string, evidence: MalfunctionFiringEvidencePayload): void;
-}
-export interface IFinalFiringAuthorizationSource {
-  assertAuthorized(intent: FinalFiringIntent): void;
-  prepare(intent: FinalFiringIntent): Promise<MalfunctionFiringRequestPayload>;
-}
-export interface FinalFiringTransportInput {
-  laneId: string;
-  request: MalfunctionFiringRequestPayload;
-  operation: 'START' | 'READ' | 'CANCEL';
-  reason?: string;
-}
-export const FinalFiringContextToken = defineCommand<
-  { competitionId: string; laneId: string },
-  {
-    sessionId: string;
-    participantId: string;
-    rulePackFingerprint: string;
-    stageIndex: number;
-    seriesIndex: number;
-    recordedShots: number;
-    seriesShotLimit: number;
-  }
->('FinalFiringLiveContext');
-export const FinalFiringTransportToken = defineCommand<FinalFiringTransportInput, MalfunctionFiringEvidencePayload>(
-  'FinalFiringTransport',
-);
+import type { FinalFiringIntent, FinalFiringRecord, IFinalFiringRepository } from '../domain/IFinalFiringRepository';
+import type { FinalFiringTransportInput, IFinalFiringAuthorizationSource } from '../domain/IFinalFiringTransport';
 
 /** Owns acquisition history only; Jury decisions, ordinary shots and result settlement stay independent. */
 export class FinalRecoveryFiringService {

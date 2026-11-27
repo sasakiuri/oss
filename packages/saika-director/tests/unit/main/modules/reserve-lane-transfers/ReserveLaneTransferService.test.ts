@@ -3,12 +3,10 @@ import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { migration070ReserveLaneTransfers } from '@/main/infrastructure/database/migrations/070_reserve_lane_transfers';
-import {
-  ReserveLaneTransferService,
-  type IReserveTransferTransport,
-} from '@/main/modules/reserve-lane-transfers/ReserveLaneTransferService';
-import { ReserveTransferDataGuard } from '@/main/modules/reserve-lane-transfers/ReserveTransferDataGuard';
-import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers/SqliteReserveTransferRepository';
+import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfers/application/ReserveLaneTransferService';
+import { ReserveTransferDataGuard } from '@/main/modules/reserve-lane-transfers/application/ReserveTransferDataGuard';
+import type { IReserveTransferTransport } from '@/main/modules/reserve-lane-transfers/domain/IReserveTransferTransport';
+import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers/infra/SqliteReserveTransferRepository';
 import type {
   ReserveLaneTransferBundle,
   ReserveLaneTransferRequest,

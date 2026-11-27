@@ -9,11 +9,8 @@ import { eventsContract } from '@/shared/ipc/contracts';
 import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
 import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
 import { WindowManager } from '@/main/infrastructure/window/WindowManager';
-import { registerBackupCaptureReadiness } from '@/main/modules/backup-capture-readiness';
 import { FinalOperationService, SqliteFinalOperationRepository } from '@/main/modules/final-operations';
 import { LaneTimerService } from '@/main/modules/lane-control';
-import { registerOperatorAccess } from '@/main/modules/operator-access';
-import { registerPublicationReviewPolicies } from '@/main/modules/publication-review-policies';
 import { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import {
   CommandLoggingMiddleware,
@@ -111,6 +108,10 @@ export function createApp(
     rangeIncidentReportRepository,
     targetExaminationRepository,
     rangeInterruptionRepository,
+    finalControlRepository,
+    finalRecoveryRepository,
+    reserveTransferRepository,
+    reserveTransferDataGuard,
     competitionDataGuard,
     finalPlacementReviewRepository,
     resultPublicationRepository,
@@ -150,8 +151,9 @@ export function createApp(
   // Competition Type Registry
   registerBuiltinCompetitionTypes();
   const rulePackRegistry = new RulePackRegistry([...ISSF_2026_RULE_PACKS, ...JRSF_2026_RULE_PACKS]);
+  const finalOperationRepository = new SqliteFinalOperationRepository(database);
   const finalOperationService = new FinalOperationService(
-    new SqliteFinalOperationRepository(database),
+    finalOperationRepository,
     competitionTypeRegistry,
     rulePackRegistry,
   );
@@ -260,12 +262,6 @@ export function createApp(
     log: (level, message, details) => logger[level](message, details),
   });
   registerUpdater(ipcRouter, updater, windowManager);
-  registerOperatorAccess(ipcRouter, operatorAccessService);
-  registerPublicationReviewPolicies(ipcRouter, publicationReviewPolicies);
-  registerBackupCaptureReadiness(ipcRouter, backupCaptureReadiness, {
-    plans: estBackupCapturePlans,
-    events: policyEvents,
-  });
 
   // Timer Service
   const laneTimerService = new LaneTimerService(laneControlRepository, eventBus);
@@ -319,6 +315,12 @@ export function createApp(
     malfunctionScoreApplicationService,
     scoreCorrectionService,
     rangeInterruptionRepository,
+    participantRepository,
+    finalOperationRepository,
+    finalControlRepository,
+    finalRecoveryRepository,
+    reserveTransferRepository,
+    reserveTransferDataGuard,
     competitionDataGuard,
     finalPlacementReviewRepository,
     resultPublicationRepository,
@@ -331,6 +333,10 @@ export function createApp(
     athleteSanctionService,
     participantEligibilityReader,
     sanctionAuthorizationResolver,
+    operatorAccessService,
+    publicationReviewPolicyService: publicationReviewPolicies,
+    backupCaptureReadinessService: backupCaptureReadiness,
+    backupCaptureSources: { plans: estBackupCapturePlans, events: policyEvents },
   };
 
   // === Module Registration via ModuleLoader ===

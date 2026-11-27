@@ -254,6 +254,7 @@ function registerModule(
   ) => Promise<unknown>;
   output: ModuleOutput;
   executeCommand: (token: { name: string }, input: unknown) => Promise<unknown>;
+  executeQuery: (token: { name: string }, input: unknown) => Promise<unknown>;
   findLaneByChannel: ReturnType<typeof vi.fn>;
   appendObservationEvidence: ReturnType<typeof vi.fn>;
   observeShootOffShot: ReturnType<typeof vi.fn>;
@@ -306,6 +307,13 @@ function registerModule(
       return handler ? handler(input) : publishResults(token, input);
     }),
   };
+  const queryHandlers = new Map<string, (input: unknown) => Promise<unknown>>();
+  const queryBus = {
+    register: vi.fn((token: { name: string }, handler: (input: unknown) => Promise<unknown>) =>
+      queryHandlers.set(token.name, handler),
+    ),
+    execute: queryEvent,
+  };
   const competitionTypes = new Map(
     [
       BR60S,
@@ -330,7 +338,7 @@ function registerModule(
     database: {} as never,
     eventBus: { emit: emitEvent } as never,
     commandBus: commandBus as never,
-    queryBus: { execute: queryEvent } as never,
+    queryBus: queryBus as never,
     ipcRouter: {
       register: vi.fn((_contract, registeredHandlers) => {
         if (_contract.namespace === 'operationalProfiles') {
@@ -385,6 +393,7 @@ function registerModule(
     } as never,
     shotObservationEvidenceJournal: { append: appendObservationEvidence, findByCompetition: vi.fn(() => []) } as never,
     competitionDataGuard: { assertAllowed: assertCompetitionDataAllowed },
+    reserveTransferDataGuard: { assertAllowed: vi.fn() },
     finalOperationService: {
       assertExecutionAuthorized: assertFinalExecutionAuthorized,
       observeShootOffShot,
@@ -427,6 +436,11 @@ function registerModule(
       commandBus.execute(ApplyQualificationRecoverySettlementTransportToken, input as never),
     output,
     executeCommand: (token, input) => commandBus.execute(token, input),
+    executeQuery: async (token, input) => {
+      const handler = queryHandlers.get(token.name);
+      if (!handler) throw new Error(`No query handler for ${token.name}`);
+      return handler(input);
+    },
     findLaneByChannel,
     appendObservationEvidence,
     observeShootOffShot,
@@ -830,7 +844,7 @@ describe('mqttModule wiring', () => {
   });
 
   it('serves Final firing and reserve transfer commands for other modules', async () => {
-    const { executeCommand } = registerModule('BR60S');
+    const { executeCommand, executeQuery } = registerModule('BR60S');
     const context = { laneId: LANE_ID };
     transportCommands.getFinalFiringContext.mockReturnValue(context);
     transportCommands.executeFinalFiring.mockResolvedValue('fired');
@@ -839,7 +853,7 @@ describe('mqttModule wiring', () => {
     const resume = { competitionId: COMPETITION_ID, laneId: LANE_ID, transferId: 'transfer-1', grant };
 
     await expect(
-      executeCommand(FinalFiringContextToken, { competitionId: COMPETITION_ID, laneId: LANE_ID }),
+      executeQuery(FinalFiringContextToken, { competitionId: COMPETITION_ID, laneId: LANE_ID }),
     ).resolves.toBe(context);
     expect(transportCommands.getFinalFiringContext).toHaveBeenCalledWith(COMPETITION_ID, LANE_ID);
     await expect(executeCommand(FinalFiringTransportToken, { step: 1 })).resolves.toBe('fired');
