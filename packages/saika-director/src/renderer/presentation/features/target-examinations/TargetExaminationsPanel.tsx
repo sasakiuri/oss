@@ -5,11 +5,12 @@ import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 import type { CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { CaseListItem } from '../shared/cases/CaseListItem';
+import { uniqueCaseScopes } from '../shared/cases/caseScopes';
 import { Button } from '../shared/common/Button';
 
 import { CaseDetail } from './CaseDetail';
 import { CreateCaseForm } from './CreateCaseForm';
-import { statusClass, statusLabel, uniqueScopes } from './examinationPresentation';
+import { statusClass, statusLabel } from './examinationPresentation';
 import type { TargetExaminationLaneOption } from './examinationTypes';
 import { useTargetExaminationCases } from './useTargetExaminationCases';
 import { InlineError } from '../shared/common/InlineError';
@@ -38,7 +39,7 @@ function TargetExaminationWorkspace({
   const [showCreate, setShowCreate] = useState(false);
 
   const currentScopes = useMemo(
-    () => uniqueScopes([...(primaryScope ? [primaryScope] : []), ...additionalScopes]),
+    () => uniqueCaseScopes([...(primaryScope ? [primaryScope] : []), ...additionalScopes]),
     [additionalScopes, primaryScope],
   );
 

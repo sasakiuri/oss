@@ -3,7 +3,6 @@ import type {
   TargetExaminationEntryTypeDto,
   TargetExaminationEvidenceTypeDto,
   TargetExaminationIssueKindDto,
-  CaseScopePayload,
 } from '@/shared/ipc/contracts';
 
 export const ISSUE_OPTIONS: ReadonlyArray<{
@@ -62,16 +61,6 @@ export function defaultEntryRule(type: TargetExaminationEntryTypeDto, examinatio
   if (type === 'HOLD_RELEASED') return 'ISSF 6.10.8.3';
   if (type === 'DECISION') return examination.ruleReferences;
   return '';
-}
-
-export function uniqueScopes(scopes: readonly CaseScopePayload[]): CaseScopePayload[] {
-  const seen = new Set<string>();
-  return scopes.filter((scope) => {
-    const key = `${scope.scopeType}:${scope.scopeId}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 }
 
 export function statusLabel(examination: TargetExaminationCaseDto): string {

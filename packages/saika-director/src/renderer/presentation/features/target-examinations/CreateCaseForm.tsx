@@ -5,7 +5,7 @@ import type { TargetExaminationIssueKindDto, CaseScopePayload } from '@/shared/i
 import { Button } from '../shared/common/Button';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
-import { Field, inputClass } from './ExaminationFields';
+import { Field, inputClass } from '../shared/cases/CaseFields';
 import { ISSUE_OPTIONS } from './examinationPresentation';
 import type { TargetExaminationCommands, TargetExaminationLaneOption } from './examinationTypes';
 import { spacedPanelClass } from '../shared/common/formClasses';

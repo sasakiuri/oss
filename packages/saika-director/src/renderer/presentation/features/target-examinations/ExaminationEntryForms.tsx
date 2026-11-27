@@ -10,7 +10,7 @@ import type {
 import { Button } from '../shared/common/Button';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
-import { Field, inputClass } from './ExaminationFields';
+import { Field, inputClass } from '../shared/cases/CaseFields';
 import { defaultEntryRule, entryOptions, EVIDENCE_OPTIONS } from './examinationPresentation';
 import type { TargetExaminationCommands } from './examinationTypes';
 import { spacedPanelClass } from '../shared/common/formClasses';

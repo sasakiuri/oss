@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
-import { stackedMediumLabelClass } from '../shared/common/formClasses';
 
+import { stackedMediumLabelClass } from '../common/formClasses';
+
+/** Labelled control of a case form. */
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className={stackedMediumLabelClass}>
@@ -10,6 +12,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
+/** One term of a case record's description list. */
 export function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -19,5 +22,6 @@ export function Detail({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Full-width input of a case form. */
 export const inputClass =
   'min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';

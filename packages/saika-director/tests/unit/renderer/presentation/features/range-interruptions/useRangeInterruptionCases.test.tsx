@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useRangeInterruptionCases } from '@/renderer/presentation/features/range-interruptions/useRangeInterruptionCases';
 import { rangeInterruptionsService } from '@/renderer/services';
-import type { RangeInterruptionCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
+import type {
+  AppendRangeInterruptionEntryPayload,
+  CaseScopePayload,
+  RangeInterruptionCaseDto,
+} from '@/shared/ipc/contracts';
 
 import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 import { fixture } from './fixtures';
@@ -12,7 +16,7 @@ import { fixture } from './fixtures';
 vi.mock('@/renderer/services', async () =>
   (await import('../../../../../helpers/renderer/mockServices')).mockServices(),
 );
-const { listAll, listByScope } = vi.mocked(rangeInterruptionsService);
+const { listAll, listByScope, appendEntry } = vi.mocked(rangeInterruptionsService);
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -25,6 +29,15 @@ function deferred<T>() {
 }
 const response = (...data: RangeInterruptionCaseDto[]) => ok(data);
 const scope = (scopeId: string): CaseScopePayload => ({ scopeType: 'COMPETITION', scopeId });
+const entry: AppendRangeInterruptionEntryPayload = {
+  caseId: fixture().id,
+  type: 'NOTE',
+  occurredAt: '2026-08-31T01:05:00.000Z',
+  statement: 'Range Officer note',
+  officialName: 'Range Officer A',
+};
+/** Answers the next audit entry command with the record that `recorded` settles to. */
+const nextEntry = (recorded: Promise<RangeInterruptionCaseDto>) => appendEntry.mockReturnValueOnce(recorded.then(ok));
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -81,14 +94,16 @@ describe('useRangeInterruptionCases', () => {
       });
       await waitFor(() => expect(result.current.loading).toBe(false));
       let oldResult!: Promise<boolean>;
+      nextEntry(oldMutation.promise);
       act(() => {
-        oldResult = result.current.runMutation(() => oldMutation.promise);
+        oldResult = result.current.commands.appendEntry(entry);
       });
       rerender({ id: 'B' });
       await waitFor(() => expect(result.current.loading).toBe(false));
       let currentResult!: Promise<boolean>;
+      nextEntry(currentMutation.promise);
       act(() => {
-        currentResult = result.current.runMutation(() => currentMutation.promise);
+        currentResult = result.current.commands.appendEntry(entry);
       });
       await act(async () => {
         if (completion === 'resolve') oldMutation.resolve(fixture());
@@ -111,12 +126,9 @@ describe('useRangeInterruptionCases', () => {
     const { result } = renderHook(() => useRangeInterruptionCases());
     await waitFor(() => expect(result.current.loading).toBe(false));
     listAll.mockResolvedValueOnce(response(fixture({ summary: 'Persisted before acknowledgement failed' })));
+    appendEntry.mockRejectedValueOnce(new Error('Acknowledgement lost'));
     await act(async () => {
-      expect(
-        await result.current.runMutation(async () => {
-          throw new Error('Acknowledgement lost');
-        }),
-      ).toBe(false);
+      expect(await result.current.commands.appendEntry(entry)).toBe(false);
     });
     expect(result.current.selectedCase?.summary).toBe('Persisted before acknowledgement failed');
     expect(result.current.error).toBe('Acknowledgement lost');
@@ -128,8 +140,9 @@ describe('useRangeInterruptionCases', () => {
     const { result, unmount } = renderHook(() => useRangeInterruptionCases());
     await waitFor(() => expect(result.current.loading).toBe(false));
     let pending!: Promise<boolean>;
+    nextEntry(mutation.promise);
     act(() => {
-      pending = result.current.runMutation(() => mutation.promise);
+      pending = result.current.commands.appendEntry(entry);
     });
     unmount();
     mutation.resolve(fixture());
@@ -144,12 +157,13 @@ describe('useRangeInterruptionCases', () => {
     const mutation = deferred<RangeInterruptionCaseDto>();
     const { result } = renderHook(() => useRangeInterruptionCases());
     await waitFor(() => expect(result.current.cases).toHaveLength(2));
-    act(() => result.current.setSelectedCaseId(first.id));
+    act(() => result.current.selectCase(first.id));
     let pending!: Promise<boolean>;
+    nextEntry(mutation.promise);
     act(() => {
-      pending = result.current.runMutation(() => mutation.promise);
+      pending = result.current.commands.appendEntry(entry);
     });
-    act(() => result.current.setSelectedCaseId(second.id));
+    act(() => result.current.selectCase(second.id));
     await act(async () => {
       mutation.resolve(first);
       await pending;
@@ -163,8 +177,9 @@ describe('useRangeInterruptionCases', () => {
     listAll.mockResolvedValue(response(first, second));
     const { result } = renderHook(() => useRangeInterruptionCases());
     await waitFor(() => expect(result.current.selectedCase?.summary).toBe('Second'));
+    appendEntry.mockResolvedValueOnce(ok(first));
     await act(async () => {
-      expect(await result.current.runMutation(async () => first)).toBe(true);
+      expect(await result.current.commands.appendEntry(entry)).toBe(true);
     });
     expect(result.current.selectedCase?.summary).toBe('First');
   });
@@ -174,12 +189,12 @@ describe('useRangeInterruptionCases', () => {
     const { result } = renderHook(() => useRangeInterruptionCases());
     await waitFor(() => expect(result.current.loading).toBe(false));
     let pending!: Promise<boolean>;
+    nextEntry(mutation.promise);
     act(() => {
-      pending = result.current.runMutation(() => mutation.promise);
+      pending = result.current.commands.appendEntry(entry);
     });
-    const duplicate = vi.fn();
-    expect(await result.current.runMutation(duplicate)).toBe(false);
-    expect(duplicate).not.toHaveBeenCalled();
+    expect(await result.current.commands.appendEntry(entry)).toBe(false);
+    expect(appendEntry).toHaveBeenCalledTimes(1);
     await act(async () => {
       mutation.resolve(fixture());
       await pending;
@@ -227,8 +242,9 @@ describe('useRangeInterruptionCases', () => {
   it('shows the command fallback text when a command rejects with a non-error value', async () => {
     const { result } = renderHook(() => useRangeInterruptionCases());
     await waitFor(() => expect(result.current.loading).toBe(false));
+    appendEntry.mockRejectedValueOnce('bridge closed');
     await act(async () => {
-      expect(await result.current.runMutation(() => Promise.reject('bridge closed'))).toBe(false);
+      expect(await result.current.commands.appendEntry(entry)).toBe(false);
     });
     expect(result.current.error).toBe('Failed to update the interruption record');
   });

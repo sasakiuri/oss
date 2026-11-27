@@ -2,10 +2,10 @@
 import { ClockAlert, Plus, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { rangeInterruptionsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
 import type { RangeInterruptionPhaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
+import { CaseListItem } from '../shared/cases/CaseListItem';
+import { uniqueCaseScopes } from '../shared/cases/caseScopes';
 import { Button } from '../shared/common/Button';
 
 import { CreateInterruptionForm } from './CreateInterruptionForm';
@@ -26,18 +26,8 @@ export function RangeInterruptionsPanel({
   defaultRemainingSeconds = 0,
   qualificationTimedTargetCompetitionTypeId,
 }: RangeInterruptionsPanelProps) {
-  const {
-    cases,
-    selectedCaseId,
-    setSelectedCaseId,
-    selectedCase,
-    activeHolds,
-    loading,
-    saving,
-    error,
-    loadCases,
-    runMutation,
-  } = useRangeInterruptionCases(primaryScope);
+  const { cases, selectedCaseId, selectCase, selectedCase, activeHolds, loading, saving, error, loadCases, commands } =
+    useRangeInterruptionCases(primaryScope);
   const [showCreate, setShowCreate] = useState(false);
   const [detailAction, setDetailAction] = useState<DetailAction>(null);
 
@@ -47,7 +37,7 @@ export function RangeInterruptionsPanel({
   }, [primaryScope?.scopeType, primaryScope?.scopeId]);
 
   const scopes = useMemo(
-    () => uniqueScopes([...(primaryScope ? [primaryScope] : []), ...additionalScopes]),
+    () => uniqueCaseScopes([...(primaryScope ? [primaryScope] : []), ...additionalScopes]),
     [additionalScopes, primaryScope],
   );
 
@@ -98,10 +88,7 @@ export function RangeInterruptionsPanel({
           saving={saving}
           onCancel={() => setShowCreate(false)}
           onCreate={async (input) => {
-            const succeeded = await runMutation(async () => {
-              return unwrap(await rangeInterruptionsService.create(input));
-            });
-            if (succeeded) setShowCreate(false);
+            if (await commands.create(input)) setShowCreate(false);
           }}
         />
       )}
@@ -125,14 +112,11 @@ export function RangeInterruptionsPanel({
             </div>
             <div className="max-h-[48rem] overflow-auto">
               {[...cases].reverse().map((interruption) => (
-                <button
+                <CaseListItem
                   key={interruption.id}
-                  type="button"
-                  className={`block w-full border-b border-vscode-border px-3 py-2.5 text-left last:border-b-0 ${
-                    interruption.id === selectedCaseId ? 'bg-vscode-highlight' : 'hover:bg-vscode-bg-hover'
-                  }`}
-                  onClick={() => {
-                    setSelectedCaseId(interruption.id);
+                  selected={interruption.id === selectedCaseId}
+                  onSelect={() => {
+                    selectCase(interruption.id);
                     setDetailAction(null);
                   }}
                 >
@@ -147,7 +131,7 @@ export function RangeInterruptionsPanel({
                   <span className="block text-xs text-vscode-dimmed">
                     {new Date(interruption.startedAt).toLocaleString()} · {interruption.id.slice(0, 8)}
                   </span>
-                </button>
+                </CaseListItem>
               ))}
             </div>
           </aside>
@@ -162,7 +146,7 @@ export function RangeInterruptionsPanel({
                 saving={saving}
                 action={detailAction}
                 onAction={setDetailAction}
-                onMutate={runMutation}
+                commands={commands}
               />
             ) : (
               <p className="text-xs text-vscode-text-muted">Select an interruption record.</p>
@@ -183,16 +167,6 @@ interface RangeInterruptionsPanelProps {
   defaultPhase?: RangeInterruptionPhaseDto;
   defaultRemainingSeconds?: number;
   qualificationTimedTargetCompetitionTypeId?: string;
-}
-
-function uniqueScopes(scopes: readonly CaseScopePayload[]): CaseScopePayload[] {
-  const seen = new Set<string>();
-  return scopes.filter((scope) => {
-    const key = `${scope.scopeType}:${scope.scopeId}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
 }
 
 export type { RangeInterruptionLaneOption } from './interruptionPresentationTypes';

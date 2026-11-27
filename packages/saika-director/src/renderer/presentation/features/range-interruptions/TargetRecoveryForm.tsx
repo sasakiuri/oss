@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: MIT
 import { useState } from 'react';
 
-import { rangeInterruptionsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
-
 import { spacedPanelClass } from '../shared/common/formClasses';
 
-import { FormButtons, Field, inputClass } from './InterruptionFields';
+import { Field, inputClass } from '../shared/cases/CaseFields';
+
+import { FormButtons } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
-export function TargetRecoveryForm({ interruption, saving, onCancel, onMutate }: FormProps) {
+export function TargetRecoveryForm({
+  interruption,
+  saving,
+  onCancel,
+  onSubmitCommand,
+}: FormProps<'recordTargetRecovery'>) {
   const [repairCompleted, setRepairCompleted] = useState(false);
   const [repairCompletedAt, setRepairCompletedAt] = useState(toDateTimeLocalValue(new Date(), 'seconds'));
   const [movedToReserve, setMovedToReserve] = useState(false);
@@ -22,19 +26,16 @@ export function TargetRecoveryForm({ interruption, saving, onCancel, onMutate }:
       className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
-        void onMutate(async () => {
-          const response = await rangeInterruptionsService.recordTargetRecovery({
-            caseId: interruption.id,
-            ...(repairCompleted ? { repairCompletedAt: new Date(repairCompletedAt).toISOString() } : {}),
-            movedToReserveFiringPoint: movedToReserve,
-            ...(movedToReserve ? { reserveFiringPointNumber: Number(reserveFiringPointNumber) } : {}),
-            statement,
-            officialName,
-            assessedAt: new Date().toISOString(),
-          });
-          const recorded = unwrap(response);
-          onCancel();
-          return recorded;
+        void onSubmitCommand({
+          caseId: interruption.id,
+          ...(repairCompleted ? { repairCompletedAt: new Date(repairCompletedAt).toISOString() } : {}),
+          movedToReserveFiringPoint: movedToReserve,
+          ...(movedToReserve ? { reserveFiringPointNumber: Number(reserveFiringPointNumber) } : {}),
+          statement,
+          officialName,
+          assessedAt: new Date().toISOString(),
+        }).then((succeeded) => {
+          if (succeeded) onCancel();
         });
       }}
     >
