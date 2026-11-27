@@ -3,7 +3,11 @@ import { describe, expect, expectTypeOf, it } from 'vitest';
 import { z } from 'zod';
 
 import {
+  EndSightingCommandSchema,
   MQTT_COMMAND_ACTIONS,
+  MQTT_COMMAND_SCHEMAS,
+  MqttCommandActionSchema,
+  RetireFinalistCommandSchema,
   commandSchemasForScope,
   createCommandSchemas,
   type MqttCommandAction,
@@ -126,6 +130,17 @@ describe('MQTT command actions', () => {
     const legacy = commandSchemasForScope(createCommandSchemas(z.string()), 'lane');
     expect(legacy['join-competition'].safeParse(command).success).toBe(true);
     expect(commandSchemasForScope(schemas, 'lane')['join-competition'].safeParse(command).success).toBe(false);
+  });
+
+  it('accepts exactly the released action names in the action schema', () => {
+    expect(MqttCommandActionSchema.options).toEqual(Object.keys(MQTT_COMMAND_ACTIONS));
+    expect(MqttCommandActionSchema.safeParse('action-name').success).toBe(false);
+    expectTypeOf<z.infer<typeof MqttCommandActionSchema>>().toEqualTypeOf<MqttCommandAction>();
+  });
+
+  it('exports the default schema set together with its named schemas', () => {
+    expect(MQTT_COMMAND_SCHEMAS.EndSightingCommandSchema).toBe(EndSightingCommandSchema);
+    expect(MQTT_COMMAND_SCHEMAS.RetireFinalistCommandSchema).toBe(RetireFinalistCommandSchema);
   });
 
   it('keeps end-sighting and finish-competition on the bare command envelope', () => {

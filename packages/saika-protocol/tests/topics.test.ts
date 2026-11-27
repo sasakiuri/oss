@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
+import type { MqttCommandActionOf } from '../src/commands';
 import {
   MQTT_SINGLE_LEVEL_WILDCARD,
   mqttTopicFilters,
@@ -12,6 +13,10 @@ import {
 const competitionId = 'competition-id';
 const laneId = 'lane-id';
 const action = 'action-name';
+// Command builders accept only released actions; the golden strings keep a neutral placeholder.
+const laneAction = action as MqttCommandActionOf<'lane'>;
+const competitionAction = action as MqttCommandActionOf<'competition'>;
+const competitionLaneAction = action as MqttCommandActionOf<'competition-lane'>;
 const requestId = 'request-id';
 const any = MQTT_SINGLE_LEVEL_WILDCARD;
 
@@ -27,7 +32,7 @@ const goldenTopics: Record<keyof typeof mqttTopics, readonly [built: string, wir
     'saika/lane/lane-id/qualification-malfunction/signal',
   ],
   laneEstComplaintSignal: [mqttTopics.laneEstComplaintSignal(laneId), 'saika/lane/lane-id/est-complaint/signal'],
-  laneCommand: [mqttTopics.laneCommand(laneId, action), 'saika/lane/lane-id/command/action-name'],
+  laneCommand: [mqttTopics.laneCommand(laneId, laneAction), 'saika/lane/lane-id/command/action-name'],
   laneCommandAcknowledgement: [
     mqttTopics.laneCommandAcknowledgement(laneId, action),
     'saika/lane/lane-id/command/action-name/acknowledgement',
@@ -68,7 +73,7 @@ const goldenTopics: Record<keyof typeof mqttTopics, readonly [built: string, wir
     'saika/competition/competition-id/lane/lane-id/qualification-recovery/shot',
   ],
   competitionCommand: [
-    mqttTopics.competitionCommand(competitionId, action),
+    mqttTopics.competitionCommand(competitionId, competitionAction),
     'saika/competition/competition-id/command/action-name',
   ],
   competitionCommandAcknowledgement: [
@@ -76,7 +81,7 @@ const goldenTopics: Record<keyof typeof mqttTopics, readonly [built: string, wir
     'saika/competition/competition-id/command/action-name/acknowledgement/lane-id',
   ],
   laneCompetitionCommand: [
-    mqttTopics.laneCompetitionCommand(competitionId, laneId, action),
+    mqttTopics.laneCompetitionCommand(competitionId, laneId, competitionLaneAction),
     'saika/competition/competition-id/lane/lane-id/command/action-name',
   ],
   laneCompetitionCommandAcknowledgement: [
