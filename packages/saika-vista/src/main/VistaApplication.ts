@@ -32,7 +32,10 @@ export class VistaApplication {
   private readonly display: DisplayServer;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private stopped = false;
-  private error: string | null = null;
+  /** Why screens could not open at startup, by screen, until each opens. Removed screens are not reported. */
+  private readonly unopenedScreens = new Map<string, string>();
+  /** Why polls and the last poll round failed unexpectedly, by poll or `round`, until each succeeds or ends. */
+  private readonly pollErrors = new Map<string, string>();
   private loginStartError: string | null = null;
   private commandQueue: Promise<unknown> = Promise.resolve();
   private activePolls = new Set<string>();
@@ -54,13 +57,12 @@ export class VistaApplication {
     };
     this.peers = new PeerController(state, this.identity.sourceId);
     this.sources = new SourceAcquisition(state, () => [...this.state.document.screens, ...this.peers.screens()]);
-    this.display = new DisplayServer(this.identity, state, desktop, {
-      node: () => this.node(),
-      releaseFailed: (error) => {
-        this.error = messageOf(error);
-        this.notifyIfChanged();
-      },
-    });
+    this.display = new DisplayServer(
+      this.identity,
+      state,
+      { ...desktop, open: (config) => this.open(config) },
+      { node: () => this.node(), releaseFailed: () => this.notifyIfChanged() },
+    );
   }
 
   static async start(directory: string, desktop: DesktopPort): Promise<VistaApplication> {
@@ -81,7 +83,7 @@ export class VistaApplication {
         try {
           desktop.open(config);
         } catch (error) {
-          application.error = messageOf(error);
+          application.unopenedScreens.set(config.id, messageOf(error));
         }
       }
     if (state.document.loginStart) {
@@ -135,6 +137,10 @@ export class VistaApplication {
   }
 
   view(): AppState {
+    const failures = new Set([
+      ...this.state.document.screens.flatMap((config) => this.unopenedScreens.get(config.id) ?? []),
+      ...this.pollErrors.values(),
+    ]);
     return {
       local: this.node(),
       endpoints: this.display.endpoints,
@@ -143,7 +149,13 @@ export class VistaApplication {
       peers: this.peers.list(),
       snapshots: this.state.getEntries(),
       error:
-        [this.display.error, this.loginStartError, this.error, this.state.persistenceError, this.state.snapshotErrors()]
+        [
+          this.display.error,
+          this.loginStartError,
+          ...failures,
+          this.state.persistenceError,
+          this.state.snapshotErrors(),
+        ]
           .filter(Boolean)
           .join(' ') || null,
       loginStart: this.state.document.loginStart,
@@ -195,20 +207,20 @@ export class VistaApplication {
         await this.validateSelection(command.config, command.nodeId);
         if (command.nodeId === this.identity.sourceId) {
           await this.state.apply(command.config, this.desktop.monitors());
-          this.desktop.open(command.config);
+          this.open(command.config);
         } else remoteWarning = await this.peers.apply(command.nodeId, command.config);
         break;
       }
       case 'identify': {
         if (command.nodeId === this.identity.sourceId) {
-          this.desktop.open(this.state.identifyScreen(command.screenId));
+          this.open(this.state.identifyScreen(command.screenId));
         } else remoteWarning = await this.peers.identify(command.nodeId, command.screenId);
         break;
       }
       case 'openScreen': {
         const config = this.state.document.screens.find((screen) => screen.id === command.screenId);
         if (!config) throw new Error('Screen not found');
-        this.desktop.open(config);
+        this.open(config);
         break;
       }
       case 'closeScreen':
@@ -248,6 +260,12 @@ export class VistaApplication {
     }
     this.notifyIfChanged();
     return remoteWarning;
+  }
+
+  /** Opens a screen's audience window; a screen that could not open at startup is then no longer reported. */
+  private open(config: ScreenConfig): void {
+    this.desktop.open(config);
+    this.unopenedScreens.delete(config.id);
   }
 
   private async validateSelection(config: ScreenConfig, nodeId: string): Promise<void> {
@@ -306,28 +324,32 @@ export class VistaApplication {
         })),
         ...this.state.document.peers.map((peer) => ({ key: `peer:${peer.id}`, run: () => this.peers.sync(peer.id) })),
       ];
+      // Failures of the previous round and of removed sources and display PCs no longer apply.
+      for (const key of this.pollErrors.keys())
+        if (!tasks.some((task) => task.key === key)) this.pollErrors.delete(key);
       for (const task of tasks) {
         if (this.activePolls.has(task.key)) continue;
         this.activePolls.add(task.key);
         const pending = task
           .run()
-          .catch((error) => {
-            this.error = messageOf(error);
-          })
+          .then(
+            () => {
+              this.pollErrors.delete(task.key);
+            },
+            (error) => {
+              this.pollErrors.set(task.key, messageOf(error));
+            },
+          )
           .finally(() => {
             this.activePolls.delete(task.key);
             this.activeTasks.delete(pending);
           });
         this.activeTasks.add(pending);
       }
-    } catch (error) {
-      this.error = messageOf(error);
-    }
-    try {
       this.notifyIfChanged();
     } catch (error) {
-      // A failed notification is reported to the operator and must not end polling.
-      this.error = messageOf(error);
+      // A failed round or notification is reported to the operator and must not end polling.
+      this.pollErrors.set('round', messageOf(error));
     } finally {
       if (!this.stopped) this.timer = setTimeout(() => void this.tick(), 200);
     }

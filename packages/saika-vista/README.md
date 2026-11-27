@@ -61,7 +61,7 @@ An unsupported file version, invalid settings or unreadable JSON prevents startu
 
 If a saved competition or session is invalid, Vista identifies it in the operator view while other displays remain usable. New valid data can restore that display, including after an unsupported snapshot version; the invalid original stays in the file. Unidentifiable entries continue to show an error by entry number. Invalid network updates are rejected without saving them, and the preceding valid data stays on screen.
 
-After restart, saved data stays unconfirmed until its source responds for that competition or session. Standby also survives restart. Replacing or disconnecting a monitor closes its audience window; assign the replacement in Audience screens. For offline PCs, Vista shows the requested settings and the last confirmed settings separately. Removing a remote PC requires its response; if the old controller is unavailable, revoke control on the display PC.
+After restart, saved data stays unconfirmed until its source responds for that competition or session. Standby also survives restart. Replacing or disconnecting a monitor closes its audience window; assign the replacement in Audience screens. If a screen set to open at startup cannot open, for example because its monitor is missing, the operator window reports it until that screen opens or is removed. For offline PCs, Vista shows the requested settings and the last confirmed settings separately. Removing a remote PC requires its response; if the old controller is unavailable, revoke control on the display PC.
 
 A rejected screen setting retains its preceding applied selection and reports the error on that screen. Other screens on the same PC continue receiving updates and accepting settings.
 

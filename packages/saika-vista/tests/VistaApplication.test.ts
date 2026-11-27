@@ -106,6 +106,81 @@ it('restores displays and source reception while reporting a failed login startu
   expect(app.view().loginStart).toBe(true);
 });
 
+it.each(['openScreen', 'removeScreen'] as const)(
+  'reports a screen that could not open at startup until %s succeeds',
+  async (type) => {
+    const directory = await temporaryDirectory('vista-startup-open-');
+    const config = screenConfig();
+    await new AtomicStore(join(directory, 'vista.json'), DocumentSchema).write({ ...newDocument(), screens: [config] });
+    const missing = 'The saved monitor is not connected. Select the replacement monitor explicitly.';
+    const port = desktopPort();
+    vi.mocked(port.open).mockImplementationOnce(() => {
+      throw new Error(missing);
+    });
+    const app = await VistaApplication.start(directory, port);
+    afterTest(() => app.stop());
+    await pausePolling(app);
+    expect(app.view().error).toBe(missing);
+
+    await app.command(
+      type === 'openScreen'
+        ? { type, screenId: config.id }
+        : { type, nodeId: app.identity.sourceId, screenId: config.id },
+    );
+
+    expect(app.view().error).toBeNull();
+  },
+);
+
+it('reports a remote release that could not finish until the listener restarts', async () => {
+  const display = await start();
+  await pausePolling(display);
+  const endpoint = `http://127.0.0.1:${display.state.document.port}`;
+  const owner = { controllerId: 'old-controller', controllerGeneration: 1 };
+  const id = display.identity.sourceId;
+  const oldSecret = display.view().pairingSecret;
+  await requestVista(endpoint, oldSecret, 'POST', '/vista/v1/display/register', owner, id);
+  const write = AtomicStore.prototype.write;
+  let failRelease = true;
+  vi.spyOn(AtomicStore.prototype, 'write').mockImplementation(async function (this: AtomicStore<unknown>, value) {
+    const document = DocumentSchema.parse(value);
+    if (failRelease && document.id === id && !document.controller && !document.releasing) {
+      failRelease = false;
+      throw new Error('Disk full');
+    }
+    return write.call(this, value);
+  });
+
+  await requestVista(endpoint, oldSecret, 'POST', '/vista/v1/display/release', owner, id);
+  await vi.waitFor(() => expect(display.view().error).toBe('Disk full'));
+  expect(display.view().endpoints).toEqual([]);
+
+  await display.command({ type: 'revokeController' });
+
+  expect(display.view().error).toBeNull();
+  expect(display.view().endpoints).toContain(endpoint);
+});
+
+it('reports an unexpected poll failure until that poll succeeds', async () => {
+  const server = await source();
+  const app = await start();
+  const scheduled = await pausePolling(app);
+  await app.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret });
+  const sources = (app as unknown as { sources: { poll(source: unknown): Promise<void> } }).sources;
+  vi.spyOn(sources, 'poll').mockRejectedValueOnce(new Error('Unexpected poll failure'));
+  const round = async () => {
+    await scheduled.tick();
+    if (scheduled.timer) clearTimeout(scheduled.timer);
+    await Promise.allSettled([...scheduled.activeTasks]);
+  };
+
+  await round();
+  expect(app.view().error).toBe('Unexpected poll failure');
+
+  await round();
+  expect(app.view().error).toBeNull();
+});
+
 it('leaves OS login startup alone when the saved setting is disabled', async () => {
   const port = desktopPort();
   port.loginStart = vi.fn();
