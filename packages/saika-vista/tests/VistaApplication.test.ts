@@ -854,6 +854,29 @@ it.each([false, true])(
   },
 );
 
+it('keeps the controller reachable when a local revocation cannot be saved', async () => {
+  const display = await start();
+  await pausePolling(display);
+  const endpoint = `http://127.0.0.1:${display.state.document.port}`;
+  const oldSecret = display.view().pairingSecret;
+  const owner = { controllerId: 'old-controller', controllerGeneration: 1 };
+  const state = () =>
+    requestVista(endpoint, oldSecret, 'GET', '/vista/v1/display/state', undefined, display.identity.sourceId);
+  await requestVista(endpoint, oldSecret, 'POST', '/vista/v1/display/register', owner, display.identity.sourceId);
+  vi.spyOn(AtomicStore.prototype, 'write').mockRejectedValueOnce(new Error('Disk full'));
+
+  await expect(display.command({ type: 'revokeController' })).rejects.toThrow('Disk full');
+
+  expect(display.state.document.controller?.id).toBe('old-controller');
+  expect(display.view()).toMatchObject({ pairingSecret: oldSecret, error: null });
+  expect(display.view().endpoints).toContain(endpoint);
+  await expect(state()).resolves.toMatchObject({ controllerId: 'old-controller' });
+
+  await display.command({ type: 'revokeController' });
+  expect(display.state.document.controller).toBeNull();
+  await expect(state()).rejects.toThrow();
+});
+
 it('acknowledges controller release and then rejects the old pairing secret', async () => {
   const controller = await start();
   const display = await start();
