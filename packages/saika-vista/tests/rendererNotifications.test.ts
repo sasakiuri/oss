@@ -113,11 +113,12 @@ it('keeps polling when a notification fails', async () => {
   const previous = scheduled.timer;
 
   fail = true;
-  await expect(scheduled.tick()).rejects.toThrow('Displays are unavailable');
+  await expect(scheduled.tick()).resolves.toBeUndefined();
   fail = false;
 
   expect(scheduled.timer).not.toBe(previous);
   clearTimeout(scheduled.timer!);
+  expect(app.view().error).toBe('Displays are unavailable');
 });
 
 const changes: ReadonlyArray<readonly [string, (screen: Awaited<ReturnType<typeof liveScreen>>) => Promise<unknown>]> =
