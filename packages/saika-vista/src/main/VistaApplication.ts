@@ -7,7 +7,6 @@ import { discoverVistaNodes } from '@sasakiuri/saika-protocol/vista-node';
 
 import {
   CommandSchema,
-  findEntry,
   sameSubject,
   type AppState,
   type Command,
@@ -21,6 +20,7 @@ import { DisplayServer } from './DisplayServer';
 import { DisplayState } from './DisplayState';
 import { DocumentSchema, messageOf, newDocument, withoutController } from './document';
 import { PeerController } from './PeerController';
+import { assertSelectable, resumableSubjects, resumesWithoutLocalData, selectsAny } from './selectionPolicy';
 import { SourceAcquisition } from './SourceAcquisition';
 
 /** Composition of source acquisition, durable display state and authenticated peer control. */
@@ -104,13 +104,6 @@ export class VistaApplication {
     await this.state.flush();
   }
 
-  private resumableSubjects(): NodeState['resumableSubjects'] {
-    return this.state
-      .getEntries()
-      .filter((entry) => entry.state === 'live' || entry.snapshot.finished)
-      .map(({ snapshot }) => ({ sourceId: snapshot.sourceId, subjectId: snapshot.subjectId }));
-  }
-
   node(): NodeState {
     const monitors = this.desktop.monitors();
     const entries = this.state.getEntries();
@@ -119,7 +112,7 @@ export class VistaApplication {
       monitors,
       controllerId: this.state.document.controller?.id ?? null,
       persistenceError: this.state.persistenceError,
-      resumableSubjects: this.resumableSubjects(),
+      resumableSubjects: resumableSubjects(entries),
       screens: this.state.document.screens.map((config) => {
         const renderer = this.desktop.status(config.id);
         const available = monitors.some((monitor) => monitor.id === config.monitorId);
@@ -258,55 +251,21 @@ export class VistaApplication {
   }
 
   private async validateSelection(config: ScreenConfig, nodeId: string): Promise<void> {
-    const screens = nodeId === this.identity.sourceId ? this.state.document.screens : this.peers.peer(nodeId).desired;
+    const local = nodeId === this.identity.sourceId;
+    const screens = local ? this.state.document.screens : this.peers.peer(nodeId).desired;
     const previous = screens.find((screen) => screen.id === config.id);
-    // A display can retain an authorized selection without retaining the controller's source connections.
-    const preservesSubjects =
-      previous?.view === config.view &&
-      previous.selections.length === config.selections.length &&
-      config.selections.every((selection, index) => {
-        const saved = previous.selections[index]!;
-        return sameSubject(selection, saved) && selection.follow === saved.follow;
-      });
-    const kindOf = (id?: string) =>
-      this.state.document.sources.find((source) => source.id === id)?.catalog.identity.kind ??
-      this.state.document.sourceIdentities.find((identity) => identity.sourceId === id)?.kind;
-    const permitsDirectorSelection = (id?: string) =>
-      kindOf(id) === 'director' || (kindOf(id) === undefined && preservesSubjects);
-    if (config.view === 'ranking' || config.view === 'final') {
-      if (config.selections.length !== 1 || !permitsDirectorSelection(config.selections[0]?.sourceId))
-        throw new Error('Rankings and final summaries require one Director subject');
-    }
-    for (const selection of config.selections) {
-      const source = this.state.document.sources.find((candidate) => candidate.id === selection.sourceId);
-      const saved = findEntry(this.state.getEntries(), selection) !== undefined;
-      if (!source && !saved && !preservesSubjects) throw new Error('Connect the selected source first');
-      if (selection.follow === 'athlete' && !permitsDirectorSelection(selection.sourceId))
-        throw new Error('Athlete tracking requires Director');
-      const subject = source
-        ? this.sources.catalog(source).subjects.find((candidate) => candidate.id === selection.subjectId)
-        : undefined;
-      // Saved subjects remain selectable while the source no longer advertises them.
-      if ((!subject || subject.availability !== 'available') && !saved && !preservesSubjects)
-        throw new Error(subject?.reason ?? 'The selected subject is unavailable');
-    }
-    if (
-      previous?.standby &&
-      !config.standby &&
-      config.selections.length &&
-      !config.selections.some((selection) =>
-        this.resumableSubjects().some((subject) => sameSubject(subject, selection)),
-      )
-    ) {
-      // A replacement controller may have no source cache while the display retains its finished results.
-      const remote = nodeId === this.identity.sourceId ? null : await this.peers.fetchNode(nodeId);
-      if (
-        !config.selections.some((selection) =>
-          remote?.resumableSubjects.some((subject) => sameSubject(subject, selection)),
-        )
-      )
-        throw new Error('The selected display has no current data or saved finished result. Standby was retained.');
-    }
+    const entries = this.state.getEntries();
+    assertSelectable(config, {
+      previous,
+      sources: this.state.document.sources.map((source) => ({ id: source.id, catalog: this.sources.catalog(source) })),
+      sourceIdentities: this.state.document.sourceIdentities,
+      entries,
+    });
+    if (!resumesWithoutLocalData(config, previous, entries)) return;
+    // A replacement controller may have no source cache while the display retains its finished results.
+    const remote = local ? null : await this.peers.fetchNode(nodeId);
+    if (!selectsAny(config.selections, remote?.resumableSubjects ?? []))
+      throw new Error('The selected display has no current data or saved finished result. Standby was retained.');
   }
 
   /**

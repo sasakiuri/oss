@@ -3,10 +3,12 @@ import type { UpdaterService } from '@sasakiuri/saika-updater/main';
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import { z } from 'zod';
 
+import { VISTA_CHANNEL } from '../shared/ipcChannels';
+
 import type { OutputWindows } from './OutputWindows';
 import type { VistaApplication } from './VistaApplication';
 
-/** Registers the operator and audience handlers. The preload script uses the same channel names. */
+/** Registers the operator and audience handlers. */
 export function registerIpcHandlers({
   application,
   operator,
@@ -35,23 +37,23 @@ export function registerIpcHandlers({
     if (!isMainFrame(event) || id === undefined) throw new Error('This operation requires an audience window');
     return id;
   };
-  ipcMain.handle('vista:state', (event) => requireOperator(event).view());
-  ipcMain.handle('vista:command', (event, input: unknown) => requireOperator(event).command(input));
-  ipcMain.handle('vista:discover', (event) => requireOperator(event).discover());
-  ipcMain.handle('vista:updates-state', (event) => {
+  ipcMain.handle(VISTA_CHANNEL.state, (event) => requireOperator(event).view());
+  ipcMain.handle(VISTA_CHANNEL.command, (event, input: unknown) => requireOperator(event).command(input));
+  ipcMain.handle(VISTA_CHANNEL.discover, (event) => requireOperator(event).discover());
+  ipcMain.handle(VISTA_CHANNEL.updatesState, (event) => {
     requireOperator(event);
     return updater.getState();
   });
-  ipcMain.handle('vista:updates-check', (event) => {
+  ipcMain.handle(VISTA_CHANNEL.updatesCheck, (event) => {
     requireOperator(event);
     return updater.checkForUpdates();
   });
-  ipcMain.handle('vista:updates-install', (event) => {
+  ipcMain.handle(VISTA_CHANNEL.updatesInstall, (event) => {
     requireOperator(event);
     return updater.quitAndInstall();
   });
-  ipcMain.handle('vista:audience', (event) => application().state.audience(audienceScreen(event)));
-  ipcMain.handle('vista:rendered', (event, input: unknown) => {
+  ipcMain.handle(VISTA_CHANNEL.audience, (event) => application().state.audience(audienceScreen(event)));
+  ipcMain.handle(VISTA_CHANNEL.rendered, (event, input: unknown) => {
     const id = audienceScreen(event);
     const revision = z.number().int().positive().parse(input);
     if (application().state.document.screens.find((config) => config.id === id)?.revision !== revision) return;

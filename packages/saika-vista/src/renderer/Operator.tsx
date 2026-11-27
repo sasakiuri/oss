@@ -81,19 +81,7 @@ export function Operator() {
         <p>{error || 'Loading display settings…'}</p>
       </main>
     );
-  const nodes = [
-    state.local,
-    ...state.peers.flatMap((p) =>
-      p.node
-        ? [
-            {
-              ...p.node,
-              screens: p.node.screens.map((screen) => (p.error ? { ...screen, renderAlive: false } : screen)),
-            },
-          ]
-        : [],
-    ),
-  ];
+  const nodes = [state.local, ...state.peers.flatMap((p) => (p.node ? [p.node] : []))];
   const screens = nodes.flatMap((node) => node.screens.map((screen) => ({ node, screen })));
   const selectedNode = nodes.find((node) => node.identity.sourceId === selection?.nodeId);
   const selectedScreen = selectedNode?.screens.find((screen) => screen.config.id === selection?.id);
