@@ -12,22 +12,6 @@ import { assessIssfQualificationComparison } from './IssfQualificationComparison
 export class IssfStandardStrategy implements CompetitionTypeStrategy {
   readonly id = 'standard';
 
-  padShots(shotScores: number[], format: ResultFormat): number[] {
-    const padded = [...shotScores];
-    while (padded.length < format.totalShots) {
-      padded.push(0);
-    }
-    return padded;
-  }
-
-  padSeries(seriesScores: number[], format: ResultFormat): number[] {
-    const padded = [...seriesScores];
-    while (padded.length < format.totalSeries) {
-      padded.push(0);
-    }
-    return padded;
-  }
-
   compareResults(a: QualificationRankingInput, b: QualificationRankingInput, format: ResultFormat): number {
     return this.assessComparison(a, b, format).comparison;
   }
@@ -107,14 +91,6 @@ export class IssfStandardStrategy implements CompetitionTypeStrategy {
       a.familyName ?? '',
       b.familyName ?? '',
     );
-  }
-
-  splitFinalStages(matchShots: number[], format: ResultFormat): { stage1Shots: number[]; stage2Shots: number[] } {
-    const stage1Count = format.stage1Shots ?? 0;
-    return {
-      stage1Shots: matchShots.slice(0, stage1Count),
-      stage2Shots: matchShots.slice(stage1Count),
-    };
   }
 }
 

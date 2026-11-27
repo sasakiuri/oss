@@ -11,10 +11,9 @@ import type {
 } from '@/main/modules/team-results';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { PublishResultsResponse } from '@/shared/ipc/contracts';
 import type { LaneScorePayload } from '@sasakiuri/saika-protocol/LaneScore';
 
-import type { PublishMqttResultLane, PublishMqttResultsCommand } from './PublishMqttResults';
+import type { PublishMqttResultLane, PublishMqttResultsCommand, PublishResultsResponse } from './PublishMqttResults';
 
 interface PreparedMember extends MixedTeamFinalMemberResult {
   laneId: string;

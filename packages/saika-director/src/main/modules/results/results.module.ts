@@ -1,11 +1,9 @@
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 
 // Command handlers (kept as classes — cross-module orchestration)
-import { PublishResultsHandler } from './application/commands/PublishResultsHandler';
 import { PublishMqttResultsHandler } from './application/commands/PublishMqttResultsHandler';
 import { PublishMqttFinalResultsHandler } from './application/commands/PublishMqttFinalResultsHandler';
 import { PublishMqttMixedTeamFinalResultsHandler } from './application/commands/PublishMqttMixedTeamFinalResultsHandler';
-import { PublishFinalResultsHandler } from './application/commands/PublishFinalResultsHandler';
 import { ConfirmResultsHandler } from './application/commands/ConfirmResultsHandler';
 
 // IPC Contract & response types
@@ -18,11 +16,9 @@ import type {
 
 // Command Tokens (kept for cross-module command dispatch)
 import {
-  PublishResultsToken,
   PublishMqttResultsToken,
   PublishMqttFinalResultsToken,
   PublishMqttMixedTeamFinalResultsToken,
-  PublishFinalResultsToken,
   ConfirmResultsToken,
 } from './application/tokens';
 import { SqliteFinalControlRepository } from '@/main/modules/final-control';
@@ -59,7 +55,6 @@ export const resultsModule = defineModule({
     } = ctx;
 
     // 1. Command Handlers (token-based registration)
-    const publishResultsHandler = new PublishResultsHandler(queryBus, resultRepository, competitionTypeRegistry);
     const publishMqttResultsHandler = new PublishMqttResultsHandler(
       queryBus,
       resultRepository,
@@ -78,27 +73,18 @@ export const resultsModule = defineModule({
       competitionTypeRegistry,
       new SqliteMixedTeamFinalControlRepository(database),
     );
-    const publishFinalResultsHandler = new PublishFinalResultsHandler(
-      queryBus,
-      finalResultRepository,
-      competitionTypeRegistry,
-    );
     const confirmResultsHandler = new ConfirmResultsHandler(resultRepository);
 
-    commandBus.register(PublishResultsToken, (input) => publishResultsHandler.execute(input));
     commandBus.register(PublishMqttResultsToken, (input) => publishMqttResultsHandler.execute(input));
     commandBus.register(PublishMqttFinalResultsToken, (input) => publishMqttFinalResultsHandler.execute(input));
     commandBus.register(PublishMqttMixedTeamFinalResultsToken, (input) =>
       publishMqttMixedTeamFinalResultsHandler.execute(input),
     );
-    commandBus.register(PublishFinalResultsToken, (input) => publishFinalResultsHandler.execute(input));
     commandBus.register(ConfirmResultsToken, async (input) => confirmResultsHandler.execute(input));
 
     // 2. IPC Registration — queries through public readers, commands via bus
     ipcRouter.register(resultsContract, {
       // --- Commands (delegated to handlers via CommandBus) ---
-      publish: (input) => commandBus.execute(PublishResultsToken, input),
-      publishFinal: (input) => commandBus.execute(PublishFinalResultsToken, input),
       confirm: (input) => commandBus.execute(ConfirmResultsToken, input),
 
       // --- Queries (inlined) ---

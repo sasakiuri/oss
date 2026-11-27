@@ -4,10 +4,10 @@ import {
   PublishMqttFinalResultsToken,
   PublishMqttMixedTeamFinalResultsToken,
   PublishMqttResultsToken,
+  type PublishResultsResponse,
 } from '@/main/modules/results';
 import { assertParticipantEligible } from '@/main/shared-infra/operations/ParticipantEligibility';
 import type { mqttContract } from '@/shared/ipc/contracts';
-import type { PublishResultsResponse } from '@/shared/ipc/contracts';
 import type { DirectorMqttService } from './DirectorMqttService';
 import type { CompetitionResultLane } from './DirectorMqttTypes';
 import { assertPhaseStartReady } from './PhaseStartGuard';

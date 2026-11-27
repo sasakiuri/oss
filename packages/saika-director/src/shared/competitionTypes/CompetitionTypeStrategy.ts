@@ -33,16 +33,10 @@ export interface QualificationComparison {
 
 /**
  * Competition-specific result processing strategy.
- * Encapsulates shot/series padding, ranking, and stage-splitting logic.
+ * Encapsulates qualification ranking logic.
  */
 export interface CompetitionTypeStrategy {
   readonly id: string;
-
-  /** Pads qualification shots to the required result format. */
-  padShots(shotScores: number[], format: ResultFormat): number[];
-
-  /** Pads qualification series scores to the required result format. */
-  padSeries(seriesScores: number[], format: ResultFormat): number[];
 
   /**
    * Compares qualification results for ranking.
@@ -59,7 +53,4 @@ export interface CompetitionTypeStrategy {
 
   /** Orders an unresolved tie for display without assigning different ranks (Rule 6.15.1(e)). */
   compareEqualResultsForDisplay?(a: QualificationRankingInput, b: QualificationRankingInput): number;
-
-  /** Splits final-round shots between Stage 1 and Stage 2. */
-  splitFinalStages(matchShots: number[], format: ResultFormat): { stage1Shots: number[]; stage2Shots: number[] };
 }

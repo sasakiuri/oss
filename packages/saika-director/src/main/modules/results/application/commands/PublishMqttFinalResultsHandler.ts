@@ -8,12 +8,11 @@ import {
 import type { IFinalControlRepository } from '@/main/modules/final-control';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { PublishResultsResponse } from '@/shared/ipc/contracts';
 import type { LaneScorePayload } from '@sasakiuri/saika-protocol/LaneScore';
 import { FinalResult, type FinalStageConfig } from '../../domain/FinalResult';
 import { FinalResultId } from '../../domain/FinalResultId';
 import type { IFinalResultRepository } from '../../domain/IFinalResultRepository';
-import type { PublishMqttResultsCommand } from './PublishMqttResults';
+import type { PublishMqttResultsCommand, PublishResultsResponse } from './PublishMqttResults';
 
 /** Publishes immutable MQTT score snapshots using the independent Final-control placing ledger. */
 export class PublishMqttFinalResultsHandler {
