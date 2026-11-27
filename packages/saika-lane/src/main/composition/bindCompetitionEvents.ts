@@ -9,12 +9,6 @@ export function bindCompetitionEvents(
 ): () => void {
   const subscriptions: (() => void)[] = [];
   subscriptions.push(
-    eventBus.on('SafetyStopChanged', (event) => {
-      if (event.status === 'STOPPED')
-        cancelActiveTimedTarget(timedTargetControl, `Safety stop ${event.safetyStopId}: ${event.reason}`);
-    }),
-  );
-  subscriptions.push(
     eventBus.on('CompetitionInterruptionChanged', (event) => {
       if (event.status === 'PAUSED') {
         cancelActiveTimedTarget(

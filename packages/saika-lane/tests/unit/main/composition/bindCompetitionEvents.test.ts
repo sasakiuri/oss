@@ -41,6 +41,33 @@ describe('competition event composition', () => {
     expect(cancel).not.toHaveBeenCalled();
   });
 
+  it('leaves the timed target of a safety stop to the STOP command', () => {
+    const eventBus = new TypedEventBus();
+    const cancel = vi.fn();
+    bindCompetitionEvents(eventBus, {
+      getState: () => ({ phase: 'FIRING', sequenceId: 'sequence' }) as TimedTargetState,
+      cancel,
+    });
+    eventBus.emit({
+      type: 'SafetyStopChanged',
+      timestamp: 1,
+      aggregateId: 'stop',
+      safetyStopId: 'stop',
+      status: 'STOPPED',
+      reason: 'Unsafe condition',
+      stoppedBy: 'director',
+      stoppedAt: 1,
+      competitionId: null,
+      remainingSeconds: null,
+      totalSeconds: null,
+      frozenAt: null,
+      clearedBy: null,
+      clearanceReason: null,
+      clearedAt: null,
+    });
+    expect(cancel).not.toHaveBeenCalled();
+  });
+
   it('cancels on pause but keeps resume events separate from cancellation', () => {
     const eventBus = new TypedEventBus();
     const cancel = vi.fn();

@@ -336,9 +336,9 @@ describe('LaneTier1CommandHandler', () => {
 
       expect(safetyStopControl.activate).toHaveBeenCalled();
       expect(shootOffControl.close).toHaveBeenCalledWith(COMPETITION_ID, 'e5555555-5555-4555-a555-555555555555', 3);
-      expect(timedTargetControl.cancel).toHaveBeenCalledWith({
+      expect(timedTargetControl.cancel).toHaveBeenCalledExactlyOnceWith({
         sequenceId: 'f6666666-6666-4666-a666-666666666666',
-        reason: 'Safety stop activated: Unsafe condition',
+        reason: 'Safety stop d4444444-4444-4444-a444-444444444444: Unsafe condition',
       });
       expect(safetyStatePublisher.publishCurrentState).toHaveBeenCalled();
       const acknowledgements = vi
@@ -348,6 +348,28 @@ describe('LaneTier1CommandHandler', () => {
         status: 'done',
         data: { status: 'STOPPED', timerRestarted: false },
       });
+    });
+
+    it('cancels the timed target when the STOP latched but the timer freeze failed', async () => {
+      vi.mocked(safetyStopControl.activate).mockRejectedValue(new Error('Competition timer changed while pausing'));
+      vi.mocked(timedTargetControl.getState).mockReturnValue({
+        sequenceId: 'f6666666-6666-4666-a666-666666666666',
+        competitionId: COMPETITION_ID,
+        purpose: 'MATCH',
+        phase: 'FIRING',
+      } as ReturnType<ITimedTargetControl['getState']>);
+
+      await sendMessage(
+        'activate-safety-stop',
+        buildCommand({ safetyStopId: 'd4444444-4444-4444-a444-444444444444', reason: 'Unsafe condition' }),
+      );
+
+      expect(timedTargetControl.cancel).toHaveBeenCalledWith({
+        sequenceId: 'f6666666-6666-4666-a666-666666666666',
+        reason: 'Safety stop d4444444-4444-4444-a444-444444444444: Unsafe condition',
+      });
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1]);
+      expect(ack).toMatchObject({ status: 'error', error: { message: 'Competition timer changed while pausing' } });
     });
   });
 
