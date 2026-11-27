@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -54,6 +55,52 @@ describe('EmbeddedMqttAccessPolicy', () => {
     expect(policy.canPublish(principal, clientId, `saika/lane/${laneId}/command/join-competition`)).toBe(false);
     expect(policy.canPublish(principal, clientId, 'saika/competition/c1/command/start-match')).toBe(false);
     expect(policy.canPublish(principal, 'unbound-client', `saika/lane/${laneId}/hardware/state`)).toBe(false);
+  });
+
+  it.each([
+    mqttTopics.laneHardwareState(laneId),
+    mqttTopics.laneHardwareShot(laneId),
+    mqttTopics.laneHardwareObservation(laneId),
+    mqttTopics.laneSafetyState(laneId),
+    mqttTopics.laneRangeOfficerRequest(laneId),
+    mqttTopics.laneQualificationMalfunctionSignal(laneId),
+    mqttTopics.laneEstComplaintSignal(laneId),
+    mqttTopics.laneCommandAcknowledgement(laneId, 'join-competition'),
+    mqttTopics.competitionCommandAcknowledgement('c1', 'start-match', laneId),
+    mqttTopics.laneCompetitionState('c1', laneId),
+    mqttTopics.laneAssignment('c1', laneId),
+    mqttTopics.laneScore('c1', laneId),
+    mqttTopics.competitionShot('c1', laneId),
+    mqttTopics.competitionShotObservation('c1', laneId),
+    mqttTopics.timedTargetState('c1', laneId),
+    mqttTopics.competitionShootOffShot('c1', laneId),
+    mqttTopics.qualificationRecoveryState('c1', laneId),
+    mqttTopics.qualificationRecoveryShot('c1', laneId),
+    mqttTopics.laneCompetitionCommandAcknowledgement('c1', laneId, 'assign-athlete'),
+    mqttTopics.laneQueryResponse('c1', laneId, 'request-1'),
+  ])('lets a Lane publish its own %s', (topic) => {
+    const principal = { username: 'lane', role: 'LANE' } as const;
+    expect(requiredPolicy().canPublish(principal, `saika-lane-${laneId}`, topic)).toBe(true);
+  });
+
+  it.each([
+    `saika/lane/${laneId}/command/acknowledgement`,
+    `saika/lane/${laneId}/command/join-competition/acknowledgement/extra`,
+    `saika/lane/${laneId}/unknown`,
+    `saika/lane/${laneId}/hardware/state/extra`,
+    `saika/competition/c1/command/start-match/acknowledgement/${laneId}/extra`,
+    `saika/competition/c1/command/start-match/acknowledgement/${otherLaneId}`,
+    `saika/competition/c1/lane/${laneId}/command/acknowledgement`,
+    `saika/competition/c1/lane/${laneId}/command/assign-athlete`,
+    `saika/competition/c1/lane/${laneId}/query/request-1/request`,
+    `saika/competition/c1/lane/${laneId}/unknown`,
+    `saika/competition/c1/lane/${laneId}/score/extra`,
+    `saika/competition/c1/lane/${otherLaneId}/score`,
+    'saika/competition/c1/state',
+    'saika/competition/c1/cue',
+  ])('refuses a Lane publication to %s', (topic) => {
+    const principal = { username: 'lane', role: 'LANE' } as const;
+    expect(requiredPolicy().canPublish(principal, `saika-lane-${laneId}`, topic)).toBe(false);
   });
 
   it('limits a Lane subscription to shared state/commands and its own private topics', () => {
