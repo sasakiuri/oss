@@ -4,10 +4,9 @@ import {
   RecordTimedTargetUnloadCommandSchema,
   StartTimedTargetCommandSchema,
 } from '@sasakiuri/saika-protocol/commands';
-import type { CompetitionPhase, CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
-
+import type { CompetitionStateRegistry } from './CompetitionStateRegistry';
 import type { DirectorCommandPort } from './DirectorCommandPort';
-import type { CommandExecutionResult, DirectorLaneSnapshot } from './DirectorMqttTypes';
+import type { CommandExecutionResult } from './DirectorMqttTypes';
 
 export interface StartTimedTargetInput {
   competitionId: string;
@@ -33,11 +32,19 @@ export interface CancelTimedTargetInput {
   targetLaneIds?: readonly string[];
 }
 
-export interface TimedTargetContext {
-  requireCompetition(competitionId: string): CompetitionStatePayload;
-  requireCompetitionPhase(competitionId: string, phase: CompetitionPhase, operation: string): CompetitionStatePayload;
-  requireCompetitionLane(competitionId: string, laneId: string): void;
-  getLane(laneId: string): DirectorLaneSnapshot | undefined;
+export type TimedTargetContext = Pick<
+  CompetitionStateRegistry,
+  | 'requireCompetition'
+  | 'requireCompetitionPhase'
+  | 'requireCompetitionLane'
+  | 'getLane'
+  | 'assertPhaseStartAllowed'
+  | 'assertSafetyCleared'
+  | 'assertTimedCommandReadiness'
+  | 'assertTimedTargetReadiness'
+>;
+
+export interface TimedTargetLaneReadiness {
   /** Resolves with the Lanes that did not reach the series before the wait ended. */
   waitForTimedTargetLaneReadiness(
     competitionId: string,
@@ -45,14 +52,6 @@ export interface TimedTargetContext {
     stageIndex: number,
     seriesIndex: number,
   ): Promise<string[]>;
-  assertPhaseStartAllowed(scope: {
-    readonly competitionId: string;
-    readonly phase: 'SIGHTING' | 'MATCH';
-    readonly laneIds: readonly string[];
-  }): void;
-  assertSafetyCleared(laneIds: readonly string[], operation: string): void;
-  assertTimedCommandReadiness(laneIds: readonly string[]): void;
-  assertTimedTargetReadiness(laneIds: readonly string[]): void;
 }
 
 /** Timed target LOAD, UNLOAD and cancellation; the coordinator runs each in the competition operation queue. */
@@ -60,6 +59,7 @@ export class TimedTargetCommands {
   constructor(
     private readonly commands: DirectorCommandPort,
     private readonly context: TimedTargetContext,
+    private readonly laneReadiness: TimedTargetLaneReadiness,
     private readonly startDelayMs: number,
   ) {}
 
@@ -76,7 +76,7 @@ export class TimedTargetCommands {
     this.context.assertTimedCommandReadiness(targetLaneIds);
     this.context.assertTimedTargetReadiness(targetLaneIds);
 
-    const notReady = await this.context.waitForTimedTargetLaneReadiness(
+    const notReady = await this.laneReadiness.waitForTimedTargetLaneReadiness(
       input.competitionId,
       targetLaneIds,
       input.stageIndex,

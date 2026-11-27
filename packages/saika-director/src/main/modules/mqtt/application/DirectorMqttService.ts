@@ -1,26 +1,10 @@
 // SPDX-License-Identifier: MIT
-import {
-  AssignAthleteCommandSchema,
-  commandSchemasForScope,
-  JoinCompetitionCommandSchema,
-  LeaveCompetitionCommandSchema,
-  MQTT_COMMAND_SCHEMAS,
-  ProbeClockCommandSchema,
-  ResetSessionCommandSchema,
-  StartSightingCommandSchema,
-  type MqttCommandActionOf,
-} from '@sasakiuri/saika-protocol/commands';
+import { ProbeClockCommandSchema } from '@sasakiuri/saika-protocol/commands';
 import type { FinalFiringTransportInput } from '@/main/modules/final-recovery-firing';
 import type { CompetitionStartIssue } from '@/main/shared-infra/operations/CompetitionStartReadiness';
 import { KeyedOperationQueue } from '@/main/shared-infra/operations/KeyedOperationQueue';
 import { CompetitionCuePayloadSchema, type CompetitionCuePayload } from '@sasakiuri/saika-protocol/CompetitionCue';
-import {
-  CompetitionStatePayloadSchema,
-  type ActiveCompetitionTimer,
-  type CompetitionPhase,
-  type CompetitionStatePayload,
-  type PendingCompetitionTimer,
-} from '@sasakiuri/saika-protocol/CompetitionState';
+import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import type { ReserveLaneTransferAction } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
@@ -31,17 +15,16 @@ import {
   type ClockQualityAssessment,
   type IClockQualityPolicy,
 } from '../domain/ClockQualityPolicy';
-import {
-  CompetitionDefinitionCompatibilityPolicy,
-  type ICompetitionDefinitionCompatibilityPolicy,
-} from '../domain/CompetitionDefinitionCompatibilityPolicy';
 import type { FiringBoundarySignal } from '../domain/IFiringWindowJournal';
 import type { IMqttTransport } from '../domain/IMqttTransport';
 import type { LaneTimingEvidencePolicy } from '../domain/LaneTimingEvidencePolicy';
 import type { ITimedTargetReadinessPolicy } from '../domain/TimedTargetReadinessPolicy';
 
 import { CompetitionExpiryScheduler } from './CompetitionExpiryScheduler';
-import { createLaneCommandFailure, fanOutLaneCommands } from './laneCommandBatch';
+import { CompetitionFinishCommands } from './CompetitionFinishCommands';
+import { CompetitionMembershipCommands } from './CompetitionMembershipCommands';
+import { CompetitionStateRegistry } from './CompetitionStateRegistry';
+import { CompetitionTimerCommands, type NextSeriesTimer } from './CompetitionTimerCommands';
 import { createDirectorCommandPort, type DirectorCommandPort } from './DirectorCommandPort';
 import { DirectorLaneReadiness } from './DirectorLaneReadiness';
 import { DirectorMqttConnection } from './DirectorMqttConnection';
@@ -78,41 +61,27 @@ import {
 
 const logger = Logger.create('DirectorMqttService');
 
-type BroadcastCommandAction = Extract<
-  MqttCommandActionOf<'competition'>,
-  | 'end-sighting'
-  | 'start-match'
-  | 'timer-started'
-  | 'timer-expired'
-  | 'advance-series'
-  | 'finish-competition'
-  | 'start-timed-target'
-  | 'cancel-timed-target'
->;
-
-const broadcastCommandSchemas = commandSchemasForScope(MQTT_COMMAND_SCHEMAS, 'competition');
-
-type MembershipCommandAction = Extract<MqttCommandActionOf<'lane'>, 'join-competition' | 'leave-competition'>;
-
+/**
+ * Coordinates Director's MQTT control: wires the broker session to the read model, runs each control
+ * workflow inside its operation queue and publishes the control snapshot.
+ */
 export class DirectorMqttService {
   private readonly transport: IMqttTransport;
   private readonly commands: DirectorCommandPort;
-  private readonly commandTimeoutMs: number;
-  private readonly startDelayMs: number;
   private readonly callbacks: DirectorMqttCallbacks;
-  private readonly definitionCompatibilityPolicy: ICompetitionDefinitionCompatibilityPolicy =
-    new CompetitionDefinitionCompatibilityPolicy();
-  private activeCompetitionId: string | null = null;
-  private competitionCleanupLaneIds = new Map<string, string[]>();
   private readonly connection: DirectorMqttConnection;
   private readonly receiver: DirectorMqttReceiver;
   private readonly state: DirectorMqttState;
+  private readonly competitions: CompetitionStateRegistry;
   private readonly commandDispatcher: MqttCommandDispatcher;
   private lastCommand: CommandExecutionResult | null = null;
   private readonly hardwareMonitor: LaneHardwareMonitor;
   private readonly operations = new KeyedOperationQueue();
   private readonly expiry: CompetitionExpiryScheduler;
   private readonly readiness: DirectorLaneReadiness;
+  private readonly membership: CompetitionMembershipCommands;
+  private readonly timers: CompetitionTimerCommands;
+  private readonly finish: CompetitionFinishCommands;
   private readonly qualificationRecovery: QualificationRecoveryCommands;
   private readonly safety: RangeSafetyCommands;
   private readonly interruptions: RangeInterruptionCommands;
@@ -126,12 +95,12 @@ export class DirectorMqttService {
     transport: IMqttTransport,
     clockQualityPolicy: IClockQualityPolicy = new ClockQualityPolicy(),
   ) {
-    this.commandTimeoutMs = options.commandTimeoutMs ?? 10_000;
-    this.startDelayMs = options.startDelayMs ?? 3_000;
+    const commandTimeoutMs = options.commandTimeoutMs ?? 10_000;
+    const startDelayMs = options.startDelayMs ?? 3_000;
     this.callbacks = callbacks;
     this.transport = transport;
-    this.state = new DirectorMqttState(this.commandTimeoutMs, () => this.emitStateChanged());
-    this.commandDispatcher = new MqttCommandDispatcher(transport, this.commandTimeoutMs, {
+    this.state = new DirectorMqttState(commandTimeoutMs, () => this.emitStateChanged());
+    this.commandDispatcher = new MqttCommandDispatcher(transport, commandTimeoutMs, {
       onCompleted: (result) => this.setLastCommand(result),
       onProgress: () => this.emitStateChanged(),
       onError: (error) => this.handleError(error),
@@ -142,9 +111,8 @@ export class DirectorMqttService {
       state: this.state,
       isConnected: () => this.connection.isConnected(),
       runCompetitionOperation: (competitionId, operation) => this.runCompetitionOperation(competitionId, operation),
-      publishExpiry: (competitionId, fields) => this.publishBroadcast(competitionId, 'timer-expired', fields),
-      clearActiveTimer: (state) =>
-        this.publishCompetitionState(this.updateCompetitionState(state, { activeTimer: undefined })),
+      publishExpiry: (competitionId, fields) => this.timers.publishBroadcast(competitionId, 'timer-expired', fields),
+      clearActiveTimer: (state) => this.competitions.retainCompetitionState(state, { activeTimer: undefined }),
       onError: (error) => this.handleError(error),
     });
     this.connection = new DirectorMqttConnection(transport, options, {
@@ -160,75 +128,52 @@ export class DirectorMqttService {
       { isReady: () => this.connection.ready, getHardware: (laneId) => this.state.getLane(laneId)?.hardware },
       clockQualityPolicy,
     );
+    this.competitions = new CompetitionStateRegistry({
+      state: this.state,
+      readiness: this.readiness,
+      expiry: this.expiry,
+      connection: this.connection,
+      transport,
+      callbacks,
+      onStateChanged: () => this.emitStateChanged(),
+    });
     this.commands = createDirectorCommandPort(options.directorId, (command) => this.publishCommand(command));
-    this.qualificationRecovery = new QualificationRecoveryCommands(
+    const onResult = (result: CommandExecutionResult) => this.setLastCommand(result);
+    const log = (message: string) => this.log(message);
+    this.membership = new CompetitionMembershipCommands(this.commands, this.competitions, {
+      clearCompetitionShotHistory: (competitionId, laneId) =>
+        this.state.clearCompetitionShotHistory(competitionId, laneId),
+      onResult,
+    });
+    this.timers = new CompetitionTimerCommands(
       this.commands,
-      {
-        requireCompetition: (competitionId) => this.requireCompetition(competitionId),
-        requireCompetitionPhase: (competitionId, phase, operation) =>
-          this.requireCompetitionPhase(competitionId, phase, operation),
-        requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
-        getLane: (laneId) => this.state.getLane(laneId),
-        assertSafetyCleared: (laneIds, operation) => this.assertSafetyCleared(laneIds, operation),
-        assertTimedCommandReadiness: (laneIds) => this.readiness.assertTimedCommandReadiness(laneIds),
-        assertTimedTargetReadiness: (laneIds) => this.readiness.assertTimedTargetReadiness(laneIds),
-      },
-      this.startDelayMs,
+      this.competitions,
+      { deadlines: this.expiry, onFiringBoundary: (boundary) => this.emitFiringBoundary(boundary) },
+      startDelayMs,
     );
+    this.finish = new CompetitionFinishCommands(this.competitions, {
+      callbacks,
+      deadlines: this.expiry,
+      snapshots: this.state,
+      timers: this.timers,
+      membership: this.membership,
+      onResult,
+    });
+    this.qualificationRecovery = new QualificationRecoveryCommands(this.commands, this.competitions, startDelayMs);
     this.safety = new RangeSafetyCommands(this.commands, {
       hasLane: (laneId) => Boolean(this.state.getLane(laneId)),
-      onResult: (result) => this.setLastCommand(result),
-      log: (message) => this.log(message),
+      onResult,
+      log,
     });
     this.interruptions = new RangeInterruptionCommands(
       this.commands,
-      {
-        requireCompetition: (competitionId) => this.requireCompetition(competitionId),
-        requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
-        assertSafetyCleared: (laneIds, operation) => this.assertSafetyCleared(laneIds, operation),
-        assertTimedCommandReadiness: (laneIds) => this.readiness.assertTimedCommandReadiness(laneIds),
-        onResult: (result) => this.setLastCommand(result),
-        log: (message) => this.log(message),
-      },
-      this.startDelayMs,
+      this.competitions,
+      { onResult, log },
+      startDelayMs,
     );
-    this.reserveTransfers = new ReserveLaneTransferCommands(this.commands, {
-      requireCompetitionPhase: (competitionId, phase, operation) =>
-        this.requireCompetitionPhase(competitionId, phase, operation),
-      requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
-      getLane: (laneId) => this.state.getLane(laneId),
-      retainCompetitionState: (state, patch) => this.publishCompetitionState(this.updateCompetitionState(state, patch)),
-    });
-    this.timedTargets = new TimedTargetCommands(
-      this.commands,
-      {
-        requireCompetition: (competitionId) => this.requireCompetition(competitionId),
-        requireCompetitionPhase: (competitionId, phase, operation) =>
-          this.requireCompetitionPhase(competitionId, phase, operation),
-        requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
-        getLane: (laneId) => this.state.getLane(laneId),
-        waitForTimedTargetLaneReadiness: (competitionId, laneIds, stageIndex, seriesIndex) =>
-          this.state.waitForTimedTargetLaneReadiness(competitionId, laneIds, stageIndex, seriesIndex),
-        assertPhaseStartAllowed: (scope) => this.callbacks.assertPhaseStartAllowed?.(scope),
-        assertSafetyCleared: (laneIds, operation) => this.assertSafetyCleared(laneIds, operation),
-        assertTimedCommandReadiness: (laneIds) => this.readiness.assertTimedCommandReadiness(laneIds),
-        assertTimedTargetReadiness: (laneIds) => this.readiness.assertTimedTargetReadiness(laneIds),
-      },
-      this.startDelayMs,
-    );
-    this.finals = new FinalCompetitionCommands(
-      this.commands,
-      {
-        requireCompetitionPhase: (competitionId, phase, operation) =>
-          this.requireCompetitionPhase(competitionId, phase, operation),
-        requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
-        getLane: (laneId) => this.state.getLane(laneId),
-        assertSafetyCleared: (laneIds, operation) => this.assertSafetyCleared(laneIds, operation),
-        assertTimedCommandReadiness: (laneIds) => this.readiness.assertTimedCommandReadiness(laneIds),
-        assertTimedTargetReadiness: (laneIds) => this.readiness.assertTimedTargetReadiness(laneIds),
-      },
-      this.startDelayMs,
-    );
+    this.reserveTransfers = new ReserveLaneTransferCommands(this.commands, this.competitions);
+    this.timedTargets = new TimedTargetCommands(this.commands, this.competitions, this.state, startDelayMs);
+    this.finals = new FinalCompetitionCommands(this.commands, this.competitions, startDelayMs);
     this.receiver = new DirectorMqttReceiver({
       onHardwareState: (state) => {
         const wasConnected = this.state.getLane(state.laneId)?.hardware?.connection.status === 'connected';
@@ -240,18 +185,8 @@ export class DirectorMqttService {
         });
         if (!wasConnected && effectiveState.connection.status === 'connected') this.expiry.retryForLane(state.laneId);
       },
-      onCompetitionState: (state) => {
-        this.state.setCompetition(state);
-        if (this.connection.ready) this.expiry.restore(state);
-        if (
-          !this.activeCompetitionId ||
-          Date.parse(state.publishedAt) >=
-            Date.parse(this.state.getCompetition(this.activeCompetitionId)?.publishedAt ?? '1970-01-01')
-        )
-          this.activeCompetitionId = state.competitionId;
-        this.refreshProjection();
-      },
-      onCompetitionCleared: (competitionId) => this.forgetCompetition(competitionId),
+      onCompetitionState: (state) => this.competitions.observe(state),
+      onCompetitionCleared: (competitionId) => this.competitions.forget(competitionId),
       onLaneUpdate: (laneId, patch) => this.state.updateLane(laneId, patch),
       onCompetitionLaneUpdate: (competitionId, laneId, patch, lastSeenAt) =>
         this.state.updateCompetitionLane(competitionId, laneId, patch, lastSeenAt),
@@ -300,14 +235,18 @@ export class DirectorMqttService {
     return this.readiness.getTimedTargetStartIssues(laneIds);
   }
 
+  getClockStartIssues(laneIds: readonly string[]): CompetitionStartIssue[] {
+    return this.readiness.getClockStartIssues(laneIds);
+  }
+
   getClockQualityByLane(): Readonly<Record<string, ClockQualityAssessment>> {
     return this.readiness.getClockQualityByLane();
   }
 
   async publishCompetitionCue(payload: CompetitionCuePayload): Promise<CompetitionCuePayload> {
-    this.assertConnected();
-    this.requireCompetition(payload.competitionId);
-    payload.targetLaneIds?.forEach((laneId) => this.requireCompetitionLane(payload.competitionId, laneId));
+    this.connection.assertConnected();
+    this.competitions.requireCompetition(payload.competitionId);
+    payload.targetLaneIds?.forEach((laneId) => this.competitions.requireCompetitionLane(payload.competitionId, laneId));
     const validated = CompetitionCuePayloadSchema.parse(payload);
     await this.transport.publish(mqttTopics.competitionCue(validated.competitionId), JSON.stringify(validated), {
       qos: 1,
@@ -317,13 +256,13 @@ export class DirectorMqttService {
   }
 
   async clearCompetitionCue(competitionId: string): Promise<void> {
-    this.assertConnected();
-    this.requireCompetition(competitionId);
+    this.connection.assertConnected();
+    this.competitions.requireCompetition(competitionId);
     await this.transport.publish(mqttTopics.competitionCue(competitionId), '', { qos: 1, retain: true });
   }
 
   async probeLaneClock(laneId: string): Promise<LaneClockProbeResult> {
-    this.assertConnected();
+    this.connection.assertConnected();
     if (!this.state.getLane(laneId)) throw new Error(`Lane not found: ${laneId}`);
     const directorSentAt = new Date();
     const command = ProbeClockCommandSchema.parse(
@@ -366,7 +305,7 @@ export class DirectorMqttService {
     return {
       connected: this.connection.isConnected(),
       brokerUrl: this.connection.brokerUrl,
-      activeCompetitionId: this.activeCompetitionId,
+      activeCompetitionId: this.competitions.activeCompetitionId,
       lanes: this.state
         .getLanes()
         .sort((a, b) => (a.laneAlias || a.laneId).localeCompare(b.laneAlias || b.laneId, 'ja', { numeric: true })),
@@ -379,164 +318,37 @@ export class DirectorMqttService {
     const competitionId = input.competitionId ?? crypto.randomUUID();
     return this.runCompetitionOperation(
       competitionId,
-      () => this.createCompetitionNow(input, competitionId),
+      () => this.membership.createCompetition(input, competitionId),
       input.laneIds.length > 0,
     );
   }
 
-  private async createCompetitionNow(
-    input: CreateCompetitionInput,
-    competitionId: string,
-  ): Promise<CompetitionStatePayload> {
-    this.assertConnected();
-    const now = new Date().toISOString();
-    const state = CompetitionStatePayloadSchema.parse({
-      ...input,
-      competitionId,
-      phase: 'NOT_STARTED',
-      startedAt: null,
-      finishedAt: null,
-      publishedAt: now,
-    });
-    this.assertLanesAvailableForCompetition(state.competitionId, state.laneIds);
-
-    await this.publishCompetitionState(state);
-    this.activeCompetitionId = state.competitionId;
-    this.refreshProjection();
-    return state;
-  }
-
   async joinCompetition(competitionId: string, laneIds: string[]): Promise<CommandBatchResult> {
-    return this.runCompetitionOperation(competitionId, () => this.joinCompetitionNow(competitionId, laneIds), true);
-  }
-
-  private async joinCompetitionNow(competitionId: string, laneIds: string[]): Promise<CommandBatchResult> {
-    const state = this.requireCompetitionPhase(competitionId, 'NOT_STARTED', 'join competition');
-    const uniqueLaneIds = [...new Set(laneIds)];
-    this.assertLanesAvailableForCompetition(competitionId, uniqueLaneIds);
-    this.assertDefinitionCompatibility(state, uniqueLaneIds);
-    const previousPendingJoinLaneIds = new Set(state.pendingJoinLaneIds ?? []);
-    const provisionalPendingJoinLaneIds = [
-      ...new Set([...previousPendingJoinLaneIds, ...uniqueLaneIds.filter((laneId) => !state.laneIds.includes(laneId))]),
-    ];
-    const provisional = this.updateCompetitionState(state, {
-      laneIds: [...new Set([...state.laneIds, ...uniqueLaneIds])],
-      pendingJoinLaneIds: provisionalPendingJoinLaneIds.length > 0 ? provisionalPendingJoinLaneIds : undefined,
-      // No Lane can have applied an intent that outlived an empty membership.
-      // This also repairs stale retained state written by earlier versions.
-      ...(state.laneIds.length === 0 ? { pendingTimer: undefined } : {}),
-    });
-    await this.publishCompetitionState(provisional);
-
-    const result = await this.publishMembershipCommands(competitionId, uniqueLaneIds, 'join-competition');
-
-    const requestedLaneIds = new Set(uniqueLaneIds);
-    const outcomeByLaneId = new Map(
-      result.commands.flatMap((command) => command.lanes.map((lane) => [lane.laneId, lane] as const)),
+    return this.runCompetitionOperation(
+      competitionId,
+      () => this.membership.joinCompetition(competitionId, laneIds),
+      true,
     );
-    const ambiguousLaneIds = provisionalPendingJoinLaneIds.filter((laneId) => {
-      if (!requestedLaneIds.has(laneId)) return true;
-      const outcome = outcomeByLaneId.get(laneId);
-      return !outcome || outcome.status === 'timeout' || outcome.error?.code === 'MQTT_PUBLISH_FAILED';
-    });
-    const rejectedLaneIds = new Set(
-      provisionalPendingJoinLaneIds.filter((laneId) => {
-        if (!requestedLaneIds.has(laneId)) return false;
-        const outcome = outcomeByLaneId.get(laneId);
-        return outcome?.status === 'error' && outcome.error?.code !== 'MQTT_PUBLISH_FAILED';
-      }),
-    );
-    const finalState = this.updateCompetitionState(provisional, {
-      laneIds: provisional.laneIds.filter((laneId) => !rejectedLaneIds.has(laneId)),
-      pendingJoinLaneIds: ambiguousLaneIds.length > 0 ? ambiguousLaneIds : undefined,
-    });
-    await this.publishCompetitionState(finalState);
-
-    return result;
-  }
-
-  private assertDefinitionCompatibility(state: CompetitionStatePayload, laneIds: readonly string[]): void {
-    for (const laneId of laneIds) {
-      const assessment = this.definitionCompatibilityPolicy.assess(
-        state.definitionBinding,
-        this.state.getLane(laneId)?.hardware?.capabilities,
-      );
-      if (!assessment.joinAllowed) {
-        throw new Error(`Lane ${laneId} cannot join competition ${state.competitionId}: ${assessment.guidance}`);
-      }
-      if (assessment.status !== 'MATCH' && assessment.status !== 'DISABLED' && assessment.status !== 'LEGACY') {
-        logger.warn(`Lane ${laneId} has advisory Rule Pack compatibility: ${assessment.guidance}`);
-      }
-    }
   }
 
   async leaveCompetition(competitionId: string, laneIds: string[]): Promise<CommandBatchResult> {
-    return this.runCompetitionOperation(competitionId, () => this.leaveCompetitionNow(competitionId, laneIds), true);
-  }
-
-  private async leaveCompetitionNow(competitionId: string, laneIds: string[]): Promise<CommandBatchResult> {
-    const state = this.requireCompetition(competitionId);
-    const uniqueLaneIds = [...new Set(laneIds)];
-    uniqueLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
-    const pendingSightingLaneIds = new Set(state.pendingSightingLaneIds ?? []);
-    const canLeave =
-      state.phase === 'NOT_STARTED' ||
-      (state.phase === 'SIGHTING' && uniqueLaneIds.every((laneId) => pendingSightingLaneIds.has(laneId)));
-    if (!canLeave) {
-      throw new Error(
-        `Cannot leave competition ${competitionId} while it is in phase ${state.phase}; only Lanes still pending sighting may leave after the competition starts`,
-      );
-    }
-    const result = await this.publishMembershipCommands(competitionId, uniqueLaneIds, 'leave-competition');
-
-    const leftLaneIds = new Set(
-      result.commands
-        .filter((command) => command.success)
-        .flatMap((command) => command.lanes.map((lane) => lane.laneId)),
+    return this.runCompetitionOperation(
+      competitionId,
+      () => this.membership.leaveCompetition(competitionId, laneIds),
+      true,
     );
-    const remainingLaneIds = state.laneIds.filter((laneId) => !leftLaneIds.has(laneId));
-    const remainingPendingJoinLaneIds = state.pendingJoinLaneIds?.filter((laneId) => !leftLaneIds.has(laneId));
-    const remainingPendingSightingLaneIds = state.pendingSightingLaneIds?.filter((laneId) => !leftLaneIds.has(laneId));
-    await this.publishCompetitionState(
-      this.updateCompetitionState(state, {
-        laneIds: remainingLaneIds,
-        ...(state.pendingJoinLaneIds
-          ? {
-              pendingJoinLaneIds:
-                remainingPendingJoinLaneIds && remainingPendingJoinLaneIds.length > 0
-                  ? remainingPendingJoinLaneIds
-                  : undefined,
-            }
-          : {}),
-        // Reusing an ambiguous timer deadline is necessary only while at least
-        // one Lane that could have applied it remains in the competition.
-        ...(remainingLaneIds.length === 0 ? { pendingTimer: undefined } : {}),
-        ...(state.pendingSightingLaneIds
-          ? {
-              pendingSightingLaneIds:
-                remainingPendingSightingLaneIds && remainingPendingSightingLaneIds.length > 0
-                  ? remainingPendingSightingLaneIds
-                  : undefined,
-            }
-          : {}),
-      }),
-    );
-    return result;
   }
 
   async assignAthlete(competitionId: string, laneId: string, athlete: Athlete | null): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(competitionId, () => this.assignAthleteNow(competitionId, laneId, athlete));
+    return this.runCompetitionOperation(competitionId, () =>
+      this.membership.assignAthlete(competitionId, laneId, athlete),
+    );
   }
 
-  private async assignAthleteNow(
-    competitionId: string,
-    laneId: string,
-    athlete: Athlete | null,
-  ): Promise<CommandExecutionResult> {
-    this.requireAthleteAssignmentAllowed(competitionId);
-    this.requireCompetitionLane(competitionId, laneId);
-    const command = AssignAthleteCommandSchema.parse(this.commands.commandBase({ athlete }));
-    return this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'assign-athlete', command);
+  async resetSession(competitionId: string, laneId: string, reason?: string): Promise<CommandExecutionResult> {
+    return this.runCompetitionOperation(competitionId, () =>
+      this.membership.resetSession(competitionId, laneId, reason),
+    );
   }
 
   async retireFinalist(
@@ -575,23 +387,16 @@ export class DirectorMqttService {
     );
   }
 
-  async resetSession(competitionId: string, laneId: string, reason?: string): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(competitionId, () => this.resetSessionNow(competitionId, laneId, reason));
+  getFinalFiringContext(competitionId: string, laneId: string) {
+    return this.finals.getFinalFiringContext(competitionId, laneId);
   }
 
-  private async resetSessionNow(
-    competitionId: string,
-    laneId: string,
-    reason?: string,
-  ): Promise<CommandExecutionResult> {
-    this.requireCompetitionPhase(competitionId, 'NOT_STARTED', 'reset a session');
-    this.requireCompetitionLane(competitionId, laneId);
-    const command = ResetSessionCommandSchema.parse(this.commands.commandBase({ ...(reason ? { reason } : {}) }));
-    const result = await this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'reset-session', command);
-    const scopedResult: CommandExecutionResult = { ...result, competitionId };
-    this.setLastCommand(scopedResult);
-    if (result.success) this.state.clearCompetitionShotHistory(competitionId, laneId);
-    return scopedResult;
+  async executeFinalFiring(input: FinalFiringTransportInput) {
+    return this.runCompetitionOperation(input.request.competitionId, () => this.finals.executeFinalFiring(input));
+  }
+
+  async transferReserveLane(input: { competitionId: string; laneId: string; transfer: ReserveLaneTransferAction }) {
+    return this.runCompetitionOperation(input.competitionId, () => this.reserveTransfers.transferReserveLane(input));
   }
 
   async pauseLaneTimer(competitionId: string, laneId: string, interruptionId: string): Promise<CommandExecutionResult> {
@@ -612,18 +417,6 @@ export class DirectorMqttService {
     return this.runCompetitionOperation(competitionId, () =>
       this.interruptions.pauseRangeTimers(competitionId, laneIds, interruptionId),
     );
-  }
-
-  getFinalFiringContext(competitionId: string, laneId: string) {
-    return this.finals.getFinalFiringContext(competitionId, laneId);
-  }
-
-  async executeFinalFiring(input: FinalFiringTransportInput) {
-    return this.runCompetitionOperation(input.request.competitionId, () => this.finals.executeFinalFiring(input));
-  }
-
-  async transferReserveLane(input: { competitionId: string; laneId: string; transfer: ReserveLaneTransferAction }) {
-    return this.runCompetitionOperation(input.competitionId, () => this.reserveTransfers.transferReserveLane(input));
   }
 
   async resumeLaneTimer(
@@ -717,209 +510,20 @@ export class DirectorMqttService {
     targetLaneIds?: string[],
   ): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(competitionId, () =>
-      this.startSightingNow(competitionId, durationSeconds, targetLaneIds),
+      this.timers.startSighting(competitionId, durationSeconds, targetLaneIds),
     );
-  }
-
-  private async startSightingNow(
-    competitionId: string,
-    durationSeconds: number,
-    targetLaneIds?: string[],
-  ): Promise<CommandExecutionResult> {
-    const state = this.requireCompetition(competitionId);
-    const isTargetedContinuation = state.phase === 'SIGHTING' && targetLaneIds !== undefined;
-    if (state.phase !== 'NOT_STARTED' && !isTargetedContinuation) {
-      throw new Error(`Cannot start sighting while competition ${competitionId} is in phase ${state.phase}`);
-    }
-    const pendingJoinLaneCount = state.pendingJoinLaneIds?.length ?? 0;
-    if (pendingJoinLaneCount > 0) {
-      throw new Error(
-        `Cannot start sighting while ${pendingJoinLaneCount} Lane(s) have unconfirmed competition membership`,
-      );
-    }
-    const expectedLaneIds = targetLaneIds ?? state.laneIds;
-    if (expectedLaneIds.length === 0) {
-      throw new Error('Cannot start sighting for a competition with no joined Lanes');
-    }
-    expectedLaneIds.forEach((laneId) => this.requireCompetitionLane(competitionId, laneId));
-    this.callbacks.assertPhaseStartAllowed?.({ competitionId, phase: 'SIGHTING', laneIds: expectedLaneIds });
-    this.assertSafetyCleared(expectedLaneIds, 'start sighting');
-    this.readiness.assertTimedCommandReadiness(expectedLaneIds);
-    let commandState = state;
-    let activeTimer: ActiveCompetitionTimer;
-    if (isTargetedContinuation && state.activeTimer) {
-      activeTimer = state.activeTimer;
-    } else {
-      const prepared = await this.retainTimerIntent(state, 'start-sighting', {
-        timerScope: 'STAGE',
-        timerStartAt:
-          isTargetedContinuation && state.startedAt
-            ? state.startedAt
-            : new Date(Date.now() + this.startDelayMs).toISOString(),
-        timerDurationSeconds: durationSeconds,
-        stageIndex: 0,
-        seriesIndex: null,
-      });
-      commandState = prepared.state;
-      activeTimer = prepared.timer;
-    }
-    const command = StartSightingCommandSchema.parse(
-      this.commands.commandBase({
-        timerStartAt: activeTimer.timerStartAt,
-        timerDurationSeconds: activeTimer.timerDurationSeconds,
-        ...(targetLaneIds ? { targetLaneIds } : {}),
-      }),
-    );
-    const result = await this.commands.publishCompetitionCommand(
-      competitionId,
-      'start-sighting',
-      command,
-      expectedLaneIds,
-      () =>
-        this.emitFiringBoundary({
-          competitionId,
-          phase: 'SIGHTING',
-          transition: 'OPEN',
-          occurredAt: new Date(activeTimer.timerStartAt),
-          commandId: command.commandId,
-          commandIssuedAt: new Date(command.issuedAt),
-          sourceAction: 'start-sighting',
-        }),
-    );
-    const completedLaneIds = new Set(result.lanes.filter((lane) => lane.status === 'done').map((lane) => lane.laneId));
-    if (state.phase === 'SIGHTING' || completedLaneIds.size > 0) {
-      const pendingCandidates =
-        state.phase === 'NOT_STARTED' ? state.laneIds : (state.pendingSightingLaneIds ?? expectedLaneIds);
-      const pendingSightingLaneIds = [
-        ...new Set([
-          ...pendingCandidates.filter((laneId) => !completedLaneIds.has(laneId)),
-          ...result.lanes.filter((lane) => lane.status !== 'done').map((lane) => lane.laneId),
-        ]),
-      ];
-      const updatedState = this.updateCompetitionState(commandState, {
-        phase: 'SIGHTING',
-        startedAt: state.startedAt ?? activeTimer.timerStartAt,
-        activeTimer,
-        pendingTimer: undefined,
-        pendingSightingLaneIds: pendingSightingLaneIds.length > 0 ? pendingSightingLaneIds : undefined,
-      });
-      await this.publishCompetitionState(updatedState);
-    }
-    return result;
   }
 
   async endSighting(competitionId: string): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(competitionId, () => this.endSightingNow(competitionId));
+    return this.runCompetitionOperation(competitionId, () => this.timers.endSighting(competitionId));
   }
 
   async stopActiveTimer(competitionId: string): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(competitionId, () => this.stopActiveTimerNow(competitionId));
-  }
-
-  private async stopActiveTimerNow(competitionId: string): Promise<CommandExecutionResult> {
-    const state = this.requireCompetition(competitionId);
-    if ((state.phase !== 'SIGHTING' && state.phase !== 'MATCH') || !state.activeTimer) {
-      throw new Error(`Competition ${competitionId} has no active firing timer to stop`);
-    }
-    this.expiry.clear(competitionId);
-    const activeTimer = state.activeTimer;
-    try {
-      const result = await this.publishBroadcast(competitionId, 'timer-expired', {
-        timerScope: activeTimer.timerScope,
-        stageIndex: activeTimer.stageIndex,
-        seriesIndex: activeTimer.seriesIndex,
-        expiredAt: new Date().toISOString(),
-      });
-      if (result.success) {
-        await this.publishCompetitionState(this.updateCompetitionState(state, { activeTimer: undefined }));
-      } else {
-        this.expiry.restore(state);
-      }
-      return result;
-    } catch (error) {
-      this.expiry.restore(state);
-      throw error;
-    }
-  }
-
-  private async endSightingNow(competitionId: string): Promise<CommandExecutionResult> {
-    const state = this.requireCompetitionPhase(competitionId, 'SIGHTING', 'end sighting');
-    const pendingSightingLaneCount = state.pendingSightingLaneIds?.length ?? 0;
-    if (pendingSightingLaneCount > 0) {
-      throw new Error(`Cannot end sighting while ${pendingSightingLaneCount} Lane(s) have not started sighting`);
-    }
-    this.expiry.clear(competitionId);
-    let result: CommandExecutionResult;
-    try {
-      result = await this.publishBroadcast(competitionId, 'end-sighting', {});
-    } catch (error) {
-      this.expiry.restore(state);
-      throw error;
-    }
-    if (result.success) {
-      await this.publishCompetitionState(
-        this.updateCompetitionState(state, {
-          phase: 'SIGHTING_COMPLETE',
-          activeTimer: undefined,
-          pendingTimer: undefined,
-          pendingSightingLaneIds: undefined,
-        }),
-      );
-    } else {
-      this.expiry.restore(state);
-    }
-    return result;
+    return this.runCompetitionOperation(competitionId, () => this.timers.stopActiveTimer(competitionId));
   }
 
   async startMatch(competitionId: string, durationSeconds?: number): Promise<CommandExecutionResult> {
-    return this.runCompetitionOperation(competitionId, () => this.startMatchNow(competitionId, durationSeconds));
-  }
-
-  private async startMatchNow(competitionId: string, durationSeconds?: number): Promise<CommandExecutionResult> {
-    const state = this.requireCompetitionPhase(competitionId, 'SIGHTING_COMPLETE', 'start match');
-    // With no generic timer, MATCH only arms the enclosing phase; the target program opens firing later.
-    if (durationSeconds !== undefined)
-      this.callbacks.assertPhaseStartAllowed?.({ competitionId, phase: 'MATCH', laneIds: state.laneIds });
-    this.assertSafetyCleared(state.laneIds, 'start match');
-    this.readiness.assertTimedCommandReadiness(state.laneIds);
-    if (durationSeconds === undefined) {
-      const timerStartAt = new Date(Date.now() + this.startDelayMs).toISOString();
-      const result = await this.publishBroadcast(competitionId, 'start-match', { timerStartAt });
-      if (result.success) {
-        await this.publishCompetitionState(
-          this.updateCompetitionState(state, {
-            phase: 'MATCH',
-            startedAt: state.startedAt ?? timerStartAt,
-            activeTimer: undefined,
-            pendingTimer: undefined,
-          }),
-        );
-      }
-      return result;
-    }
-    const prepared = await this.retainTimerIntent(state, 'start-match', {
-      timerScope: 'STAGE',
-      timerStartAt: new Date(Date.now() + this.startDelayMs).toISOString(),
-      timerDurationSeconds: durationSeconds,
-      stageIndex: 1,
-      seriesIndex: null,
-    });
-    const activeTimer = prepared.timer;
-    const result = await this.publishBroadcast(competitionId, 'start-match', {
-      timerStartAt: activeTimer.timerStartAt,
-      timerDurationSeconds: activeTimer.timerDurationSeconds,
-    });
-    if (result.success) {
-      await this.publishCompetitionState(
-        this.updateCompetitionState(prepared.state, {
-          phase: 'MATCH',
-          startedAt: state.startedAt ?? activeTimer.timerStartAt,
-          activeTimer,
-          pendingTimer: undefined,
-        }),
-      );
-    }
-    return result;
+    return this.runCompetitionOperation(competitionId, () => this.timers.startMatch(competitionId, durationSeconds));
   }
 
   async startTimedTarget(input: StartTimedTargetInput): Promise<CommandExecutionResult> {
@@ -942,44 +546,8 @@ export class DirectorMqttService {
     seriesIndex: number | null,
   ): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(competitionId, () =>
-      this.restartTimerNow(competitionId, timerScope, durationSeconds, stageIndex, seriesIndex),
+      this.timers.restartTimer(competitionId, timerScope, durationSeconds, stageIndex, seriesIndex),
     );
-  }
-
-  private async restartTimerNow(
-    competitionId: string,
-    timerScope: 'STAGE' | 'SERIES',
-    durationSeconds: number,
-    stageIndex: number,
-    seriesIndex: number | null,
-  ): Promise<CommandExecutionResult> {
-    const state = this.requireCompetition(competitionId);
-    if (state.phase !== 'SIGHTING' && state.phase !== 'MATCH') {
-      throw new Error(`Cannot restart timer while competition ${competitionId} is in phase ${state.phase}`);
-    }
-    this.assertSafetyCleared(state.laneIds, 'restart a timer');
-    this.readiness.assertTimedCommandReadiness(state.laneIds);
-    const prepared = await this.retainTimerIntent(state, 'timer-started', {
-      timerScope,
-      timerStartAt: new Date(Date.now() + this.startDelayMs).toISOString(),
-      timerDurationSeconds: durationSeconds,
-      stageIndex,
-      seriesIndex,
-    });
-    const activeTimer = prepared.timer;
-    const result = await this.publishBroadcast(competitionId, 'timer-started', {
-      timerScope: activeTimer.timerScope,
-      timerStartAt: activeTimer.timerStartAt,
-      timerDurationSeconds: activeTimer.timerDurationSeconds,
-      stageIndex: activeTimer.stageIndex,
-      seriesIndex: activeTimer.seriesIndex,
-    });
-    if (result.success) {
-      await this.publishCompetitionState(
-        this.updateCompetitionState(prepared.state, { activeTimer, pendingTimer: undefined }),
-      );
-    }
-    return result;
   }
 
   async advanceSeries(
@@ -987,52 +555,11 @@ export class DirectorMqttService {
     stageIndex: number,
     fromSeriesIndex: number,
     resumeOnly?: boolean,
-    nextSeriesTimer?: {
-      durationSeconds: number;
-      stageIndex: number;
-      seriesIndex: number;
-    },
+    nextSeriesTimer?: NextSeriesTimer,
   ): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(competitionId, () =>
-      this.advanceSeriesNow(competitionId, stageIndex, fromSeriesIndex, resumeOnly, nextSeriesTimer),
+      this.timers.advanceSeries(competitionId, stageIndex, fromSeriesIndex, resumeOnly, nextSeriesTimer),
     );
-  }
-
-  private async advanceSeriesNow(
-    competitionId: string,
-    stageIndex: number,
-    fromSeriesIndex: number,
-    resumeOnly?: boolean,
-    nextSeriesTimer?: {
-      durationSeconds: number;
-      stageIndex: number;
-      seriesIndex: number;
-    },
-  ): Promise<CommandExecutionResult> {
-    const state = this.requireCompetitionPhase(competitionId, 'MATCH', 'advance series');
-    this.assertSafetyCleared(state.laneIds, 'advance series');
-    if (nextSeriesTimer) this.readiness.assertTimedCommandReadiness(state.laneIds);
-    const timerStartAt = nextSeriesTimer ? new Date(Date.now() + this.startDelayMs).toISOString() : undefined;
-    const result = await this.publishBroadcast(competitionId, 'advance-series', {
-      stageIndex,
-      fromSeriesIndex,
-      ...(resumeOnly === undefined ? {} : { resumeOnly }),
-      ...(nextSeriesTimer ? { timerStartAt, timerDurationSeconds: nextSeriesTimer.durationSeconds } : {}),
-    });
-    if (result.success) {
-      const activeTimer =
-        nextSeriesTimer && timerStartAt
-          ? {
-              timerScope: 'SERIES' as const,
-              timerStartAt,
-              timerDurationSeconds: nextSeriesTimer.durationSeconds,
-              stageIndex: nextSeriesTimer.stageIndex,
-              seriesIndex: nextSeriesTimer.seriesIndex,
-            }
-          : undefined;
-      await this.publishCompetitionState(this.updateCompetitionState(state, { activeTimer, pendingTimer: undefined }));
-    }
-    return result;
   }
 
   async finishCompetition(
@@ -1042,265 +569,9 @@ export class DirectorMqttService {
   ): Promise<CommandExecutionResult> {
     return this.runCompetitionOperation(
       competitionId,
-      () => this.finishCompetitionNow(competitionId, beforeCleanup, beforeDataClear),
+      () => this.finish.finishCompetition(competitionId, beforeCleanup, beforeDataClear),
       true,
     );
-  }
-
-  private async finishCompetitionNow(
-    competitionId: string,
-    beforeCleanup?: (lanes: CompetitionResultLane[]) => Promise<boolean | void>,
-    beforeDataClear?: () => Promise<void> | void,
-  ): Promise<CommandExecutionResult> {
-    this.callbacks.assertCompetitionFinishAllowed?.(competitionId);
-    let state = this.requireCompetition(competitionId);
-    this.expiry.clear(competitionId);
-    const finalSnapshotBaseline =
-      state.phase !== 'MATCH_COMPLETE' && beforeCleanup
-        ? this.state.captureCompetitionLaneSnapshotRevisions(competitionId, state.laneIds)
-        : null;
-    let result: CommandExecutionResult;
-    try {
-      result =
-        state.phase === 'MATCH_COMPLETE'
-          ? this.completedFinishResult(state.laneIds)
-          : await this.publishBroadcast(competitionId, 'finish-competition', {});
-    } catch (error) {
-      this.expiry.restore(state);
-      throw error;
-    }
-    if (result.success) {
-      if (finalSnapshotBaseline) {
-        const snapshotErrors = await this.state.waitForFreshFinalLaneSnapshots(
-          competitionId,
-          state.laneIds,
-          finalSnapshotBaseline,
-          result.commandId,
-        );
-        if (snapshotErrors.size > 0) {
-          const failedResult: CommandExecutionResult = {
-            ...result,
-            success: false,
-            lanes: result.lanes.map((lane) => {
-              const message = snapshotErrors.get(lane.laneId);
-              return message
-                ? {
-                    laneId: lane.laneId,
-                    status: 'error',
-                    error: { code: 'MQTT_FINAL_SNAPSHOT_INCOMPLETE', message },
-                  }
-                : lane;
-            }),
-          };
-          this.setLastCommand(failedResult);
-          return failedResult;
-        }
-      }
-
-      if (state.phase !== 'MATCH_COMPLETE') {
-        const finishedAt = new Date().toISOString();
-        state = this.updateCompetitionState(state, {
-          phase: 'MATCH_COMPLETE',
-          finishedAt,
-          activeTimer: undefined,
-          pendingTimer: undefined,
-          // With no result-publication callback there is no pre-cleanup work to
-          // resume. Persist that fact in the same retained state as completion,
-          // so a crash cannot expose an ambiguous completed competition that a
-          // later retry might treat as eligible for result publication.
-          ...(beforeCleanup || beforeDataClear ? {} : { cleanupPreparedAt: finishedAt }),
-        });
-        await this.publishCompetitionState(state);
-      }
-
-      const laneIds = this.getCompetitionCleanupLaneIds(competitionId);
-      await beforeDataClear?.();
-      if (!state.cleanupPreparedAt) {
-        const cleanupAllowed = await beforeCleanup?.(this.state.getCompetitionResultLanes(competitionId, laneIds));
-        if (cleanupAllowed === false) return result;
-
-        // Lane clears its retained assignment and score before acknowledging
-        // leave-competition. Persist completion of result publication (or any
-        // other pre-cleanup work) first so a cleanup retry never needs data
-        // that has already been removed from the broker.
-        state = this.updateCompetitionState(state, {
-          cleanupPreparedAt: new Date().toISOString(),
-        });
-        await this.publishCompetitionState(state);
-      }
-
-      // Keep the retained membership unchanged until every cleanup operation
-      // succeeds. Already-left Lanes return an idempotent done result on retry.
-      const leaveResult = await this.publishMembershipCommands(competitionId, laneIds, 'leave-competition');
-      if (!leaveResult.success) {
-        const failedResult: CommandExecutionResult = {
-          ...result,
-          success: false,
-          lanes: leaveResult.commands.flatMap((command) => command.lanes),
-        };
-        this.setLastCommand(failedResult);
-        return failedResult;
-      }
-
-      await this.clearCompetitionRetainedState(competitionId, laneIds);
-      this.setLastCommand(result);
-    } else {
-      this.expiry.restore(state);
-    }
-    return result;
-  }
-
-  private publishCommand(options: PublishCommandOptions): Promise<CommandExecutionResult> {
-    this.assertConnected();
-    return this.commandDispatcher.publish(options);
-  }
-
-  private async publishBroadcast(
-    competitionId: string,
-    action: BroadcastCommandAction,
-    fields: Record<string, unknown>,
-  ): Promise<CommandExecutionResult> {
-    const state = this.requireCompetition(competitionId);
-    const command = broadcastCommandSchemas[action].parse(this.commands.commandBase(fields));
-    const firingBoundary = this.toFiringBoundarySignal(competitionId, state.phase, action, fields, command);
-    return this.commands.publishCompetitionCommand(
-      competitionId,
-      action,
-      command,
-      state.laneIds,
-      firingBoundary ? () => this.emitFiringBoundary(firingBoundary) : undefined,
-    );
-  }
-
-  private toFiringBoundarySignal(
-    competitionId: string,
-    phase: CompetitionPhase,
-    action: BroadcastCommandAction,
-    fields: Record<string, unknown>,
-    command: { commandId: string; issuedAt: string },
-  ): FiringBoundarySignal | null {
-    const commandIssuedAt = new Date(command.issuedAt);
-    if (action === 'end-sighting') {
-      return {
-        competitionId,
-        phase: 'SIGHTING',
-        transition: 'CLOSE',
-        occurredAt: commandIssuedAt,
-        commandId: command.commandId,
-        commandIssuedAt,
-        sourceAction: action,
-      };
-    }
-    if (action === 'start-match') {
-      if (fields.timerDurationSeconds === undefined) return null;
-      return {
-        competitionId,
-        phase: 'MATCH',
-        transition: 'OPEN',
-        occurredAt: new Date(String(fields.timerStartAt)),
-        commandId: command.commandId,
-        commandIssuedAt,
-        sourceAction: action,
-      };
-    }
-    if (action === 'timer-started' && (phase === 'SIGHTING' || phase === 'MATCH')) {
-      return {
-        competitionId,
-        phase,
-        transition: 'OPEN',
-        occurredAt: new Date(String(fields.timerStartAt)),
-        commandId: command.commandId,
-        commandIssuedAt,
-        sourceAction: action,
-      };
-    }
-    if (action === 'timer-expired' && (phase === 'SIGHTING' || phase === 'MATCH')) {
-      return {
-        competitionId,
-        phase,
-        transition: 'CLOSE',
-        occurredAt: new Date(String(fields.expiredAt)),
-        commandId: command.commandId,
-        commandIssuedAt,
-        sourceAction: action,
-      };
-    }
-    if (action === 'finish-competition' && phase === 'MATCH') {
-      return {
-        competitionId,
-        phase: 'MATCH',
-        transition: 'CLOSE',
-        occurredAt: commandIssuedAt,
-        commandId: command.commandId,
-        commandIssuedAt,
-        sourceAction: action,
-      };
-    }
-    return null;
-  }
-
-  private emitFiringBoundary(boundary: FiringBoundarySignal): void {
-    try {
-      this.callbacks.onFiringBoundary?.(boundary);
-    } catch (error) {
-      logger.error(`Failed to record ${boundary.sourceAction} firing boundary:`, error);
-    }
-  }
-
-  /** A command that cannot be published becomes that Lane's failure, keyed by the command it would have sent. */
-  private publishMembershipCommands(
-    competitionId: string,
-    laneIds: readonly string[],
-    action: MembershipCommandAction,
-  ): Promise<CommandBatchResult> {
-    const schema = action === 'join-competition' ? JoinCompetitionCommandSchema : LeaveCompetitionCommandSchema;
-    const commandIds = new Map<string, string>();
-    return fanOutLaneCommands(
-      laneIds,
-      async (laneId) => {
-        const command = schema.parse(this.commands.commandBase({ competitionId }));
-        commandIds.set(laneId, command.commandId);
-        return this.commands.publishLaneCommand(laneId, action, command);
-      },
-      (laneId, error) => this.commandPublishFailure(commandIds.get(laneId), action, laneId, error),
-    );
-  }
-
-  private async publishCompetitionState(state: CompetitionStatePayload): Promise<void> {
-    this.assertConnected();
-    const validated = CompetitionStatePayloadSchema.parse(state);
-    await this.transport.publish(mqttTopics.competitionState(validated.competitionId), JSON.stringify(validated), {
-      qos: 1,
-      retain: true,
-    });
-    this.state.setCompetition(validated);
-    this.expiry.restore(validated);
-    this.refreshProjection();
-  }
-
-  private updateCompetitionState(
-    state: CompetitionStatePayload,
-    patch: Partial<
-      Pick<
-        CompetitionStatePayload,
-        | 'laneIds'
-        | 'transferredSourceLaneIds'
-        | 'pendingJoinLaneIds'
-        | 'pendingSightingLaneIds'
-        | 'phase'
-        | 'startedAt'
-        | 'finishedAt'
-        | 'activeTimer'
-        | 'pendingTimer'
-        | 'cleanupPreparedAt'
-      >
-    >,
-  ): CompetitionStatePayload {
-    return CompetitionStatePayloadSchema.parse({
-      ...state,
-      ...patch,
-      publishedAt: new Date().toISOString(),
-    });
   }
 
   private runCompetitionOperation<T>(
@@ -1314,125 +585,21 @@ export class DirectorMqttService {
     );
   }
 
-  private async retainTimerIntent(
-    state: CompetitionStatePayload,
-    action: PendingCompetitionTimer['action'],
-    requestedTimer: ActiveCompetitionTimer,
-  ): Promise<{ state: CompetitionStatePayload; timer: ActiveCompetitionTimer }> {
-    const existing = state.pendingTimer;
-    const pendingTimer: PendingCompetitionTimer =
-      existing && this.timerIntentMatches(existing, action, requestedTimer)
-        ? existing
-        : {
-            action,
-            ...requestedTimer,
-          };
-
-    if (pendingTimer === existing) {
-      return { state, timer: this.activeTimerFromIntent(pendingTimer) };
-    }
-
-    const preparedState = this.updateCompetitionState(state, { pendingTimer });
-    await this.publishCompetitionState(preparedState);
-    return { state: preparedState, timer: this.activeTimerFromIntent(pendingTimer) };
+  private runSafetyOperation<T>(operation: () => Promise<T>): Promise<T> {
+    return this.operations.run(['range-safety'], operation);
   }
 
-  private timerIntentMatches(
-    intent: PendingCompetitionTimer,
-    action: PendingCompetitionTimer['action'],
-    requestedTimer: ActiveCompetitionTimer,
-  ): boolean {
-    // A retry may arrive with a different duration after an ambiguous failure.
-    // Preserve both the original deadline and duration for the same timer target;
-    // some Lanes may already have applied them even when Director lost the ACK.
-    return (
-      intent.action === action &&
-      intent.timerScope === requestedTimer.timerScope &&
-      intent.stageIndex === requestedTimer.stageIndex &&
-      intent.seriesIndex === requestedTimer.seriesIndex
-    );
+  private publishCommand(options: PublishCommandOptions): Promise<CommandExecutionResult> {
+    this.connection.assertConnected();
+    return this.commandDispatcher.publish(options);
   }
 
-  private activeTimerFromIntent(intent: PendingCompetitionTimer): ActiveCompetitionTimer {
-    return {
-      timerScope: intent.timerScope,
-      timerStartAt: intent.timerStartAt,
-      timerDurationSeconds: intent.timerDurationSeconds,
-      stageIndex: intent.stageIndex,
-      seriesIndex: intent.seriesIndex,
-    };
-  }
-
-  private async clearCompetitionRetainedState(competitionId: string, laneIds: string[]): Promise<void> {
-    const retainedTopics = laneIds.flatMap((laneId) => [
-      mqttTopics.laneCompetitionState(competitionId, laneId),
-      mqttTopics.laneScore(competitionId, laneId),
-      mqttTopics.laneAssignment(competitionId, laneId),
-      mqttTopics.timedTargetState(competitionId, laneId),
-    ]);
-    retainedTopics.push(mqttTopics.competitionCue(competitionId));
-    const outcomes = await Promise.allSettled(
-      retainedTopics.map((topic) => this.transport.publish(topic, '', { qos: 1, retain: true })),
-    );
-
-    const rejected = outcomes.filter((outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected');
-    if (rejected.length > 0) {
-      throw new Error(`Failed to clear ${rejected.length} retained MQTT competition topic(s)`);
-    }
-
+  private emitFiringBoundary(boundary: FiringBoundarySignal): void {
     try {
-      await this.transport.publish(mqttTopics.competitionState(competitionId), '', { qos: 1, retain: true });
-    } catch {
-      throw new Error('Failed to clear 1 retained MQTT competition topic(s)');
+      this.callbacks.onFiringBoundary?.(boundary);
+    } catch (error) {
+      logger.error(`Failed to record ${boundary.sourceAction} firing boundary:`, error);
     }
-
-    this.forgetCompetition(competitionId);
-  }
-
-  /** Drops a cleared competition from the read model, its expiry timer and its cleanup Lanes. */
-  private forgetCompetition(competitionId: string): void {
-    this.state.removeCompetition(competitionId);
-    this.competitionCleanupLaneIds.delete(competitionId);
-    this.expiry.clear(competitionId);
-    if (this.activeCompetitionId === competitionId) this.activeCompetitionId = this.state.getMostRecentCompetitionId();
-    this.refreshProjection();
-  }
-
-  private refreshProjection(): void {
-    this.state.projectCompetitionLaneData();
-    this.emitStateChanged();
-  }
-
-  private completedFinishResult(laneIds: string[]): CommandExecutionResult {
-    const result: CommandExecutionResult = {
-      commandId: crypto.randomUUID(),
-      action: 'finish-competition',
-      success: true,
-      lanes: laneIds.map((laneId) => ({ laneId, status: 'done' })),
-    };
-    this.setLastCommand(result);
-    return result;
-  }
-
-  private getCompetitionCleanupLaneIds(competitionId: string): string[] {
-    const state = this.requireCompetition(competitionId);
-    const existing = this.competitionCleanupLaneIds.get(competitionId);
-    if (existing) return [...existing];
-
-    const laneIds = [...new Set(state.laneIds)];
-    this.competitionCleanupLaneIds.set(competitionId, laneIds);
-    return [...laneIds];
-  }
-
-  private commandPublishFailure(
-    commandId: string | undefined,
-    action: MembershipCommandAction,
-    laneId: string,
-    error: unknown,
-  ): CommandExecutionResult {
-    const result = createLaneCommandFailure({ commandId, action, laneId, code: 'MQTT_PUBLISH_FAILED', error });
-    this.setLastCommand(result);
-    return result;
   }
 
   /** Stops expiry timers, heartbeat expiry and pending acknowledgements of the current broker session. */
@@ -1444,79 +611,11 @@ export class DirectorMqttService {
 
   private resetBrokerState(): void {
     this.stopBrokerScopedWork();
-    this.activeCompetitionId = null;
+    this.competitions.reset();
     this.state.reset();
-    this.competitionCleanupLaneIds.clear();
     this.readiness.reset();
     this.lastCommand = null;
     this.callbacks.onSessionReset?.();
-  }
-
-  private requireCompetition(competitionId: string): CompetitionStatePayload {
-    const state = this.state.getCompetition(competitionId);
-    if (!state) throw new Error(`MQTT competition not found: ${competitionId}`);
-    return state;
-  }
-
-  private requireCompetitionPhase(
-    competitionId: string,
-    phase: CompetitionPhase,
-    operation: string,
-  ): CompetitionStatePayload {
-    const state = this.requireCompetition(competitionId);
-    if (state.phase !== phase) {
-      throw new Error(`Cannot ${operation} while competition ${competitionId} is in phase ${state.phase}`);
-    }
-    return state;
-  }
-
-  private requireAthleteAssignmentAllowed(competitionId: string): void {
-    const state = this.requireCompetition(competitionId);
-    const canRepairUnpublishedResults = state.phase === 'MATCH_COMPLETE' && !state.cleanupPreparedAt;
-    if (state.phase !== 'NOT_STARTED' && !canRepairUnpublishedResults) {
-      throw new Error(
-        `Cannot change athlete assignments while competition ${competitionId} is in phase ${state.phase}`,
-      );
-    }
-  }
-
-  private requireCompetitionLane(competitionId: string, laneId: string): void {
-    const state = this.requireCompetition(competitionId);
-    if (!state.laneIds.includes(laneId)) {
-      throw new Error(`Lane ${laneId} is not joined to competition ${competitionId}`);
-    }
-  }
-
-  private assertSafetyCleared(laneIds: readonly string[], operation: string): void {
-    const stopped = laneIds.filter((laneId) => this.state.getLane(laneId)?.safetyState?.status === 'STOPPED');
-    if (stopped.length > 0) {
-      throw new Error(`Cannot ${operation}; safety STOP is active on Lane(s): ${stopped.join(', ')}`);
-    }
-  }
-
-  private runSafetyOperation<T>(operation: () => Promise<T>): Promise<T> {
-    return this.operations.run(['range-safety'], operation);
-  }
-
-  getClockStartIssues(laneIds: readonly string[]): CompetitionStartIssue[] {
-    return this.readiness.getClockStartIssues(laneIds);
-  }
-
-  private assertLanesAvailableForCompetition(competitionId: string, laneIds: string[]): void {
-    for (const laneId of laneIds) {
-      const conflictingCompetition = this.state
-        .getCompetitions()
-        .find((competition) => competition.competitionId !== competitionId && competition.laneIds.includes(laneId));
-      if (conflictingCompetition) {
-        throw new Error(
-          `Lane ${laneId} is already joined to competition ${conflictingCompetition.competitionId} (${conflictingCompetition.competitionTypeId})`,
-        );
-      }
-    }
-  }
-
-  private assertConnected(): void {
-    this.connection.assertConnected();
   }
 
   private setLastCommand(result: CommandExecutionResult): void {

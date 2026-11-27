@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-import type { CompetitionPhase, CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import {
   ReserveLaneTransferActionSchema,
   ReserveLaneTransferBundleSchema,
@@ -7,19 +6,13 @@ import {
   type ReserveLaneTransferBundle,
 } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
+import type { CompetitionStateRegistry } from './CompetitionStateRegistry';
 import type { DirectorCommandPort } from './DirectorCommandPort';
-import type { DirectorLaneSnapshot } from './DirectorMqttTypes';
 
-export interface ReserveLaneTransferContext {
-  requireCompetitionPhase(competitionId: string, phase: CompetitionPhase, operation: string): CompetitionStatePayload;
-  requireCompetitionLane(competitionId: string, laneId: string): void;
-  getLane(laneId: string): DirectorLaneSnapshot | undefined;
-  /** Publishes the retained competition state with the patch applied. */
-  retainCompetitionState(
-    state: CompetitionStatePayload,
-    patch: Pick<CompetitionStatePayload, 'transferredSourceLaneIds'>,
-  ): Promise<void>;
-}
+export type ReserveLaneTransferContext = Pick<
+  CompetitionStateRegistry,
+  'requireCompetitionPhase' | 'requireCompetitionLane' | 'getLane' | 'retainCompetitionState'
+>;
 
 /** Moves a competitor's Lane state to a reserve Lane, one Lane-addressed step at a time. */
 export class ReserveLaneTransferCommands {
