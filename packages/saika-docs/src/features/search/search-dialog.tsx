@@ -7,13 +7,16 @@ import Link from 'next/link';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 
+import type { SearchDocument } from '@/entities/document/model';
 import { withBasePath } from '@/shared/config/site';
 import { Button } from '@/shared/ui/button';
 import { Dialog } from '@/shared/ui/dialog';
 
 import { createSearchIndex } from './search-index';
 
-const searchSchema = z.array(z.object({ id: z.string(), title: z.string(), section: z.string(), text: z.string() }));
+const searchSchema: z.ZodType<SearchDocument[]> = z.array(
+  z.object({ id: z.string(), title: z.string(), section: z.string(), text: z.string() }),
+);
 
 export function SearchDialog() {
   const [open, setOpen] = useState(false);
@@ -82,16 +85,16 @@ export function SearchDialog() {
       {isError && <Button onClick={() => void refetch()}>再試行</Button>}
       <ul aria-label="検索結果" className="space-y-2">
         {results.map((result) => (
-          <li key={result.id as string}>
+          <li key={result.id}>
             <Link
-              href={result.id as string}
+              href={result.id}
               onClick={() => setOpen(false)}
               className="border-line hover:bg-muted flex items-start justify-between gap-3 rounded-xl border p-4"
             >
               <div>
-                <div className="text-brand text-sm font-semibold">{result.title as string}</div>
-                {result.section && <p className="mt-1 text-sm">{result.section as string}</p>}
-                <p className="text-subtle mt-1 line-clamp-2 text-xs">{(result.text as string).slice(0, 160)}</p>
+                <div className="text-brand text-sm font-semibold">{result.title}</div>
+                {result.section && <p className="mt-1 text-sm">{result.section}</p>}
+                <p className="text-subtle mt-1 line-clamp-2 text-xs">{result.text.slice(0, 160)}</p>
               </div>
               <ArrowUpRight className="text-subtle mt-1 shrink-0" size={16} aria-hidden="true" />
             </Link>

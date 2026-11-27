@@ -8,7 +8,6 @@ export const site = {
   description: 'Saika Lane と Saika Director の日本語マニュアル・技術資料',
   version: packageInfo.version,
   repository: 'https://github.com/sasakiuri/oss',
-  sourceRef: process.env.DOCS_SOURCE_REF || '1.x',
   url: `${new URL(publicEnv.NEXT_PUBLIC_SITE_URL).origin}${publicEnv.NEXT_PUBLIC_BASE_PATH}`,
 };
 

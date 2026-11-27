@@ -31,12 +31,12 @@ export const metadataSchema = z
     (value) => !value.published || !value.updated || value.updated >= value.published,
     'updated must not precede published',
   );
-const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
+export const markdownParser = unified().use(remarkParse).use(remarkGfm).use(remarkMath);
 
 export function parseDocument(sourcePath: string, source: string): DocumentRecord {
   const { content, data } = matter(source);
   const metadata = metadataSchema.parse(data);
-  const tree = parser.parse(content);
+  const tree = markdownParser.parse(content);
   const slugger = new GithubSlugger();
   const headings: DocumentRecord['headings'] = [];
   let title = metadata.title;
@@ -67,7 +67,7 @@ export function parseDocument(sourcePath: string, source: string): DocumentRecor
 
 export function documentLinks(document: DocumentRecord): string[] {
   const links: string[] = [];
-  const tree = parser.parse(document.markdown);
+  const tree = markdownParser.parse(document.markdown);
   visit(tree, (node) => {
     if (node.type === 'link' || node.type === 'definition') links.push(resolveDocLink(node.url, document.sourcePath));
   });

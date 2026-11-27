@@ -2,8 +2,9 @@
 import { ArrowLeft, ArrowRight, FileCode2 } from 'lucide-react';
 import Link from 'next/link';
 
+import { docsRoot, repositoryFileUrl } from '@/entities/document/links';
 import type { DocumentRecord } from '@/entities/document/model';
-import { site } from '@/shared/config/site';
+import { readServerEnv } from '@/shared/config/env';
 import { cn } from '@/shared/lib/classes';
 
 import { DocumentMarkdown } from './markdown';
@@ -43,7 +44,7 @@ export function DocumentPage({
         <div className="text-subtle mb-4 flex flex-wrap items-center justify-between gap-3 text-xs">
           <span>Saika / ドキュメント</span>
           <a
-            href={`${site.repository}/blob/${encodeURIComponent(site.sourceRef)}/packages/saika-docs/${document.sourcePath}`}
+            href={repositoryFileUrl(`${docsRoot}/${document.sourcePath}`, readServerEnv().DOCS_SOURCE_REF)}
             target="_blank"
             rel="noreferrer"
             className="border-line hover:bg-muted hover:text-ink inline-flex min-h-8 items-center gap-1.5 rounded-md border px-2.5"
