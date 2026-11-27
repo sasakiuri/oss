@@ -20,18 +20,20 @@ function createPorts() {
     lanes: options.expectedLaneIds.map((laneId) => ({ laneId, status: 'done' })),
   }));
   const commands = { ...createDirectorCommandPort('director', publishCommand), publishCommand };
-  const context = {
+  const competitions = {
     requireCompetition: vi.fn().mockReturnValue({ competitionId: COMPETITION_ID, phase: 'MATCH' }),
     requireCompetitionLane: vi.fn((_competitionId: string, laneId: string) => {
       if (![LANE_1, LANE_2].includes(laneId)) throw new Error('Lane is not joined');
     }),
     assertSafetyCleared: vi.fn(),
     assertTimedCommandReadiness: vi.fn(),
+  };
+  const context = {
     hasLane: (laneId: string) => [LANE_1, LANE_2].includes(laneId),
     onResult: vi.fn(),
     log: vi.fn(),
   };
-  return { commands, context };
+  return { commands, competitions, context };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -41,9 +43,9 @@ describe('Range interruption commands', () => {
     vi.useFakeTimers();
     const now = Date.parse('2026-09-10T00:00:00Z');
     vi.setSystemTime(now);
-    const { commands, context } = createPorts();
-    const workflow = new RangeInterruptionCommands(commands, context, 3000);
-    context.assertTimedCommandReadiness.mockImplementationOnce(() => {
+    const { commands, competitions, context } = createPorts();
+    const workflow = new RangeInterruptionCommands(commands, competitions, context, 3000);
+    competitions.assertTimedCommandReadiness.mockImplementationOnce(() => {
       throw new Error('Lane clock is not ready');
     });
     await expect(
@@ -59,7 +61,7 @@ describe('Range interruption commands', () => {
     await expect(
       workflow.resumeRangeTimers(COMPETITION_ID, [LANE_1, LANE_2, LANE_1], INTERRUPTION_ID, 120, true),
     ).resolves.toMatchObject({ success: true });
-    expect(context.assertTimedCommandReadiness).toHaveBeenLastCalledWith([LANE_1, LANE_2]);
+    expect(competitions.assertTimedCommandReadiness).toHaveBeenLastCalledWith([LANE_1, LANE_2]);
     expect(commands.publishCommand).toHaveBeenCalledTimes(2);
     for (const [options] of commands.publishCommand.mock.calls) {
       expect(options.payload).toMatchObject({
@@ -72,11 +74,11 @@ describe('Range interruption commands', () => {
   });
 
   it('reports a stopped Lane as a partial failure while preserving the other Lane outcome', async () => {
-    const { commands, context } = createPorts();
-    context.assertSafetyCleared.mockImplementation((lanes: string[]) => {
+    const { commands, competitions, context } = createPorts();
+    competitions.assertSafetyCleared.mockImplementation((lanes: string[]) => {
       if (lanes.includes(LANE_2)) throw new Error('Safety STOP is active');
     });
-    const workflow = new RangeInterruptionCommands(commands, context, 0);
+    const workflow = new RangeInterruptionCommands(commands, competitions, context, 0);
     const result = await workflow.resumeRangeMatch(COMPETITION_ID, [LANE_1, LANE_2], INTERRUPTION_ID);
     expect(result).toMatchObject({
       success: false,
@@ -99,8 +101,8 @@ describe('Range interruption commands', () => {
   });
 
   it('validates every Lane before issuing any pause command', async () => {
-    const { commands, context } = createPorts();
-    const workflow = new RangeInterruptionCommands(commands, context, 0);
+    const { commands, competitions, context } = createPorts();
+    const workflow = new RangeInterruptionCommands(commands, competitions, context, 0);
     await expect(workflow.pauseRangeTimers(COMPETITION_ID, [LANE_1, 'unknown'], INTERRUPTION_ID)).rejects.toThrow(
       'Lane is not joined',
     );

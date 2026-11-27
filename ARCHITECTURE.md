@@ -116,7 +116,9 @@ remain in the applications and `saika-rules`.
 | Director component              | Responsibility                                                            |
 | ------------------------------- | ------------------------------------------------------------------------- |
 | `mqtt.module.ts`                | Adapter construction, IPC registration, lifecycle                         |
-| `DirectorMqttService`           | Membership, competition progress, queues, cleanup                         |
+| `DirectorMqttService`           | Queues, broker session wiring, control snapshot                           |
+| `CompetitionStateRegistry`      | Retained competition state, active competition, command preconditions     |
+| `Competition*Commands`          | Membership, sighting and MATCH timers, finish and cleanup                 |
 | `*Commands` workflow classes    | Final, timed-target, recovery, interruption, transfer and safety commands |
 | `DirectorMqttConnection`        | Transport listeners, subscriptions, reconnects                            |
 | `DirectorLaneReadiness`         | Lane capabilities and expiring clock assessments                          |

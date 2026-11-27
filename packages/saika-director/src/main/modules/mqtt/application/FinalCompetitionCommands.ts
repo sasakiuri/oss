@@ -5,20 +5,21 @@ import {
   StartShootOffCommandSchema,
   StopShootOffCommandSchema,
 } from '@sasakiuri/saika-protocol/commands';
-import type { CompetitionPhase, CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import { MalfunctionFiringEvidenceSchema } from '@sasakiuri/saika-protocol/MalfunctionFiring';
 
+import type { CompetitionStateRegistry } from './CompetitionStateRegistry';
 import type { DirectorCommandPort } from './DirectorCommandPort';
-import type { CommandExecutionResult, DirectorLaneSnapshot, ShootOffTiming } from './DirectorMqttTypes';
+import type { CommandExecutionResult, ShootOffTiming } from './DirectorMqttTypes';
 
-export interface FinalCompetitionContext {
-  requireCompetitionPhase(competitionId: string, phase: CompetitionPhase, operation: string): CompetitionStatePayload;
-  requireCompetitionLane(competitionId: string, laneId: string): void;
-  getLane(laneId: string): DirectorLaneSnapshot | undefined;
-  assertSafetyCleared(laneIds: readonly string[], operation: string): void;
-  assertTimedCommandReadiness(laneIds: readonly string[]): void;
-  assertTimedTargetReadiness(laneIds: readonly string[]): void;
-}
+export type FinalCompetitionContext = Pick<
+  CompetitionStateRegistry,
+  | 'requireCompetitionPhase'
+  | 'requireCompetitionLane'
+  | 'getLane'
+  | 'assertSafetyCleared'
+  | 'assertTimedCommandReadiness'
+  | 'assertTimedTargetReadiness'
+>;
 
 /**
  * Final-only commands: retiring a finalist, shoot-off start and stop, and Final recovery firing. The

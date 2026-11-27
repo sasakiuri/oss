@@ -204,3 +204,9 @@ export interface CompetitionLaneData {
   qualificationRecoveryState: QualificationRecoveryStatePayload | null;
   lastQualificationRecoveryShot: QualificationRecoveryShotPayload | null;
 }
+
+/** Publication counters of a Lane's competition state and score, compared to detect a fresh final snapshot. */
+export interface CompetitionLaneSnapshotRevision {
+  competitionState: number;
+  score: number;
+}

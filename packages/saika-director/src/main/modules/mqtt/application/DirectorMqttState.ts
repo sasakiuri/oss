@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import type { CompetitionShotPayload } from '@sasakiuri/saika-protocol/Shots';
-import type { CompetitionLaneData, CompetitionResultLane, DirectorLaneSnapshot } from './DirectorMqttTypes';
-
-interface CompetitionLaneSnapshotRevision {
-  competitionState: number;
-  score: number;
-}
+import type {
+  CompetitionLaneData,
+  CompetitionLaneSnapshotRevision,
+  CompetitionResultLane,
+  DirectorLaneSnapshot,
+} from './DirectorMqttTypes';
 
 /** Broker-scoped read model. Retained delivery order does not determine Lane ownership. */
 export class DirectorMqttState {

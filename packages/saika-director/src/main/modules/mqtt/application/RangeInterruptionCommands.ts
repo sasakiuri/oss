@@ -7,15 +7,17 @@ import {
 } from '@sasakiuri/saika-protocol/commands';
 import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 
+import type { CompetitionStateRegistry } from './CompetitionStateRegistry';
 import { createLaneCommandFailure, fanOutLaneCommands } from './laneCommandBatch';
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type { CommandBatchResult, CommandExecutionResult } from './DirectorMqttTypes';
 
+export type RangeInterruptionState = Pick<
+  CompetitionStateRegistry,
+  'requireCompetition' | 'requireCompetitionLane' | 'assertSafetyCleared' | 'assertTimedCommandReadiness'
+>;
+
 export interface RangeInterruptionContext {
-  requireCompetition(competitionId: string): CompetitionStatePayload;
-  requireCompetitionLane(competitionId: string, laneId: string): void;
-  assertSafetyCleared(laneIds: readonly string[], operation: string): void;
-  assertTimedCommandReadiness(laneIds: readonly string[]): void;
   onResult(result: CommandExecutionResult): void;
   log(message: string): void;
 }
@@ -24,13 +26,14 @@ export interface RangeInterruptionContext {
 export class RangeInterruptionCommands {
   constructor(
     private readonly commands: DirectorCommandPort,
+    private readonly competitions: RangeInterruptionState,
     private readonly context: RangeInterruptionContext,
     private readonly startDelayMs: number,
   ) {}
 
   async pauseLaneTimer(competitionId: string, laneId: string, interruptionId: string): Promise<CommandExecutionResult> {
     const state = this.requireActiveFiringPhase(competitionId, 'pause a Lane timer');
-    this.context.requireCompetitionLane(competitionId, laneId);
+    this.competitions.requireCompetitionLane(competitionId, laneId);
     const pausedAt = new Date().toISOString();
     const command = PauseTimerCommandSchema.parse(this.commands.commandBase({ interruptionId, pausedAt }));
     return this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'pause-timer', command, () =>
@@ -76,9 +79,9 @@ export class RangeInterruptionCommands {
     sharedTimerStartAt?: string,
   ): Promise<CommandExecutionResult> {
     this.requireActiveFiringPhase(competitionId, 'resume a Lane timer');
-    this.context.requireCompetitionLane(competitionId, laneId);
-    this.context.assertSafetyCleared([laneId], 'resume a Lane timer');
-    if (!clockQualityAlreadyChecked) this.context.assertTimedCommandReadiness([laneId]);
+    this.competitions.requireCompetitionLane(competitionId, laneId);
+    this.competitions.assertSafetyCleared([laneId], 'resume a Lane timer');
+    if (!clockQualityAlreadyChecked) this.competitions.assertTimedCommandReadiness([laneId]);
     const command = ResumeTimerCommandSchema.parse(
       this.commands.commandBase({
         interruptionId,
@@ -98,7 +101,7 @@ export class RangeInterruptionCommands {
     unlimitedSightingShots: boolean,
   ): Promise<CommandBatchResult> {
     const uniqueLaneIds = this.requireRangeOperationLanes(competitionId, laneIds);
-    this.context.assertTimedCommandReadiness(uniqueLaneIds);
+    this.competitions.assertTimedCommandReadiness(uniqueLaneIds);
     const timerStartAt = new Date(Date.now() + this.startDelayMs).toISOString();
     return fanOutLaneCommands(
       uniqueLaneIds,
@@ -122,8 +125,8 @@ export class RangeInterruptionCommands {
     interruptionId: string,
   ): Promise<CommandExecutionResult> {
     this.requireActiveFiringPhase(competitionId, 'resume MATCH fire on a Lane');
-    this.context.requireCompetitionLane(competitionId, laneId);
-    this.context.assertSafetyCleared([laneId], 'resume MATCH fire on a Lane');
+    this.competitions.requireCompetitionLane(competitionId, laneId);
+    this.competitions.assertSafetyCleared([laneId], 'resume MATCH fire on a Lane');
     const command = ResumeMatchCommandSchema.parse(this.commands.commandBase({ interruptionId }));
     return this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'resume-match', command);
   }
@@ -141,7 +144,7 @@ export class RangeInterruptionCommands {
   }
 
   private requireActiveFiringPhase(competitionId: string, operation: string): CompetitionStatePayload {
-    const state = this.context.requireCompetition(competitionId);
+    const state = this.competitions.requireCompetition(competitionId);
     if (state.phase !== 'SIGHTING' && state.phase !== 'MATCH') {
       throw new Error(`Cannot ${operation} while competition ${competitionId} is in phase ${state.phase}`);
     }
@@ -152,7 +155,7 @@ export class RangeInterruptionCommands {
     const uniqueLaneIds = [...new Set(laneIds)];
     if (uniqueLaneIds.length === 0) throw new Error('A range operation requires at least one Lane');
     this.requireActiveFiringPhase(competitionId, 'operate range interruption timers');
-    uniqueLaneIds.forEach((laneId) => this.context.requireCompetitionLane(competitionId, laneId));
+    uniqueLaneIds.forEach((laneId) => this.competitions.requireCompetitionLane(competitionId, laneId));
     return uniqueLaneIds;
   }
 
