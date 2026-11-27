@@ -18,7 +18,7 @@ import { FilterPanel, Pagination, SortableTh, TableFrame } from '@/shared/ui/tab
 export function Catalog() {
   const query = useQuery({
     queryKey: ['catalog'],
-    queryFn: ({ signal }) => browserApi('/catalog/', catalogSchema, { signal }, '/api'),
+    queryFn: ({ signal }) => browserApi('/catalog/', catalogSchema, { signal }),
   });
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('');

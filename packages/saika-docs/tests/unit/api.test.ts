@@ -4,7 +4,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { safeReturnTo } from '@/shared/api/auth';
 import { ApiError, apiPath, fetchJson, parseApiResponse, readLimitedBody } from '@/shared/api/http';
 import { toQueryString } from '@/shared/api/query';
 
@@ -72,13 +71,11 @@ describe('HTTP boundary', () => {
     'https://evil.test',
     '/a#x',
   ])('rejects an unsafe API path %s', (path) => expect(() => apiPath(path)).toThrow());
-  it('encodes query values and keeps safe relative return URLs', () => {
+  it('encodes query values', () => {
     expect(apiPath('/catalog?q=https%3A%2F%2Fexample.test')).toContain('?q=');
     expect(toQueryString({ q: '日 本', tag: ['one', 'two'], page: 2, empty: undefined })).toBe(
       '?q=%E6%97%A5+%E6%9C%AC&tag=one&tag=two&page=2',
     );
-    expect(safeReturnTo('//evil.test')).toBe('/');
-    expect(safeReturnTo('/reference/?q=1')).toBe('/reference/?q=1');
   });
 });
 

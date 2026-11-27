@@ -8,10 +8,9 @@ import { defineConfig } from 'vitest/config';
 const verifiedBoundaries = [
   'src/entities/document/{links,code-meta,parse}.ts',
   'src/features/search/search-index.@(ts)',
-  'src/shared/api/{http,auth,query,browser-client}.ts',
-  'src/shared/api/server/{client,response,rate-limit}.ts',
+  'src/shared/api/{http,query,browser-client}.ts',
   'src/shared/config/{env,security,query}.ts',
-  'src/shared/lib/{date,search-params,structured-data}.ts',
+  'src/shared/lib/{search-params,structured-data}.ts',
   'src/shared/telemetry/redact.@(ts)',
 ];
 

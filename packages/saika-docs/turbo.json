@@ -29,9 +29,7 @@
         "PREVIEW_AUTH_USER",
         "PREVIEW_AUTH_PASSWORD",
         "ANALYZE",
-        "NEXT_PUBLIC_APP_ENV",
-        "UPSTASH_REDIS_REST_URL",
-        "UPSTASH_REDIS_REST_TOKEN"
+        "NEXT_PUBLIC_APP_ENV"
       ],
       "outputs": [
         ".next/**",
@@ -69,9 +67,7 @@
         "DOCS_PREVIEW_AUTH",
         "PREVIEW_AUTH_USER",
         "PREVIEW_AUTH_PASSWORD",
-        "NEXT_PUBLIC_APP_ENV",
-        "UPSTASH_REDIS_REST_URL",
-        "UPSTASH_REDIS_REST_TOKEN"
+        "NEXT_PUBLIC_APP_ENV"
       ]
     },
     "typecheck": {
@@ -107,9 +103,7 @@
         "PREVIEW_AUTH_USER",
         "PREVIEW_AUTH_PASSWORD",
         "ANALYZE",
-        "NEXT_PUBLIC_APP_ENV",
-        "UPSTASH_REDIS_REST_URL",
-        "UPSTASH_REDIS_REST_TOKEN"
+        "NEXT_PUBLIC_APP_ENV"
       ]
     }
   }

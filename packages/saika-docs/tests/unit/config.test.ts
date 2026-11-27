@@ -5,8 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { parseEnvironment, publicEnvSchema, serverEnvSchema } from '@/shared/config/env';
 import { createQueryClient } from '@/shared/config/query';
 import { securityHeaders } from '@/shared/config/security';
-import { exclusiveEndDate, formatDate } from '@/shared/lib/date';
-import { dateParam, positiveIntegerParam, stringParam, stringsParam } from '@/shared/lib/search-params';
+import { positiveIntegerParam } from '@/shared/lib/search-params';
 import { structuredData } from '@/shared/lib/structured-data';
 import { redact } from '@/shared/telemetry/redact';
 
@@ -62,15 +61,11 @@ describe('configuration and shared policies', () => {
     });
     expect(structuredData({ title: '</script><script>alert(1)</script>' })).not.toContain('<');
   });
-  it('uses Japanese calendar dates, exclusive all-day ends and validated query values', () => {
-    expect(formatDate('2026-09-09T15:30:00Z')).toBe('2026/09/10');
-    expect(exclusiveEndDate('2026-03-09')).toBe('2026-03-08');
-    expect(() => formatDate('bad')).toThrow();
+  it('validates page query values and caches queries', () => {
     expect(positiveIntegerParam({ page: '-1' }, 'page')).toBe(1);
     expect(positiveIntegerParam({ page: '3' }, 'page')).toBe(3);
-    expect(stringParam({ q: ['first', 'second'] }, 'q')).toBe('first');
-    expect(stringsParam({ q: ['one', 'two'] }, 'q')).toEqual(['one', 'two']);
-    expect(dateParam({ date: '2026-02-30' }, 'date')).toBeUndefined();
+    expect(positiveIntegerParam({ page: ['4', '5'] }, 'page')).toBe(4);
+    expect(positiveIntegerParam({}, 'page', 2)).toBe(2);
     const client = createQueryClient();
     expect(client.getDefaultOptions().queries?.staleTime).toBeGreaterThan(0);
     client.clear();
