@@ -21,6 +21,12 @@ const excluded = new Set([
   'storybook-static',
   '.lighthouse.reports',
 ]);
+export const qualityReports = {
+  coverage: 'coverage/coverage-summary.json',
+  lighthouse: '.lighthouse.reports/summary.json',
+  playwright: 'test-results/playwright.xml',
+  storybook: 'reports/storybook/storybook.xml',
+};
 export const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 export async function files(root, relative = '', source = false) {
   const output = [];

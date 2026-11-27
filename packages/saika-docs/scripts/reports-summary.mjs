@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 
+import { qualityReports } from './lib/artifact.mjs';
+
 let body = '# Saika Docs validation\n\n';
 for (const [title, file] of [
-  ['Coverage', 'coverage/coverage-summary.json'],
-  ['Lighthouse', '.lighthouse.reports/summary.json'],
+  ['Coverage', qualityReports.coverage],
+  ['Lighthouse', qualityReports.lighthouse],
   ['Distribution', 'dist/docs/manifest.json'],
 ]) {
   try {

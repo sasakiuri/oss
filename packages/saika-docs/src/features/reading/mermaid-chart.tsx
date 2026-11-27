@@ -5,26 +5,13 @@ import { useTheme } from 'next-themes';
 import { useEffect, useId, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 
+import { useFirstVisible } from './use-first-visible';
+
 function Diagram({ source }: { source: string }) {
   const { resolvedTheme } = useTheme();
   const id = useId().replaceAll(':', '').replaceAll('«', '').replaceAll('»', '');
   const figure = useRef<HTMLElement>(null);
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const node = figure.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '0px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+  const visible = useFirstVisible(figure);
   const [result, setResult] = useState({ svg: '', error: '' });
   useEffect(() => {
     if (!visible) return;
