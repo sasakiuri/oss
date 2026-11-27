@@ -61,8 +61,12 @@ export function EstBackupVerificationPanel({
   };
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
-    const response = await estBackupVerificationService.list({ eventId });
-    if (response.success) setRuns(response.data.filter((run) => (run.resultScope ?? 'QUALIFICATION') === resultScope));
+    try {
+      const listed = unwrap(await estBackupVerificationService.list({ eventId }));
+      setRuns(listed.filter((run) => (run.resultScope ?? 'QUALIFICATION') === resultScope));
+    } catch (caught) {
+      setError(errorMessage(caught, 'Failed to load EST backup verifications'));
+    }
   }, [eventId, resultScope]);
   useEffect(() => {
     void load();
@@ -103,8 +107,8 @@ export function EstBackupVerificationPanel({
                 officialName: official,
               });
               unwrap(response);
-              await load();
               setError(null);
+              await load();
             } catch (caught) {
               setError(errorMessage(caught, 'Invalid backup input'));
             }
