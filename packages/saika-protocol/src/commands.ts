@@ -205,6 +205,9 @@ export function createCommandSchemas(issuedBySchema: z.ZodString = z.string().mi
   };
 }
 
+/** The schema set Director sends with; each schema is also exported by name. */
+export const MQTT_COMMAND_SCHEMAS = createCommandSchemas();
+
 export const {
   CommandBaseSchema,
   JoinCompetitionCommandSchema,
@@ -238,7 +241,7 @@ export const {
   StartMalfunctionFiringCommandSchema,
   ReadMalfunctionFiringCommandSchema,
   CancelMalfunctionFiringCommandSchema,
-} = createCommandSchemas();
+} = MQTT_COMMAND_SCHEMAS;
 
 type CommandSchemas = ReturnType<typeof createCommandSchemas>;
 type CommandSchemaName = Exclude<keyof CommandSchemas, 'CommandBaseSchema'>;
@@ -287,6 +290,9 @@ export const MQTT_COMMAND_ACTIONS = {
 type CommandActionTable = typeof MQTT_COMMAND_ACTIONS;
 
 export type MqttCommandAction = keyof CommandActionTable;
+
+/** Accepts exactly the released action names of `MQTT_COMMAND_ACTIONS`. */
+export const MqttCommandActionSchema = z.enum(Object.keys(MQTT_COMMAND_ACTIONS) as MqttCommandAction[]);
 
 export type MqttCommandActionOf<Scope extends MqttCommandScope> = {
   [Action in MqttCommandAction]: CommandActionTable[Action]['scope'] extends Scope ? Action : never;

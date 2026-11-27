@@ -1,19 +1,13 @@
 // SPDX-License-Identifier: MIT
 import {
-  AdvanceSeriesCommandSchema,
   AssignAthleteCommandSchema,
-  CancelTimedTargetCommandSchema,
-  EndSightingCommandSchema,
-  FinishCompetitionCommandSchema,
+  commandSchemasForScope,
   JoinCompetitionCommandSchema,
   LeaveCompetitionCommandSchema,
+  MQTT_COMMAND_SCHEMAS,
   ProbeClockCommandSchema,
   ResetSessionCommandSchema,
-  StartMatchCommandSchema,
   StartSightingCommandSchema,
-  StartTimedTargetCommandSchema,
-  TimerExpiredCommandSchema,
-  TimerStartedCommandSchema,
   type MqttCommandActionOf,
 } from '@sasakiuri/saika-protocol/commands';
 import type { FinalFiringTransportInput } from '@/main/modules/final-recovery-firing';
@@ -96,16 +90,7 @@ type BroadcastCommandAction = Extract<
   | 'cancel-timed-target'
 >;
 
-const broadcastCommandSchemas = {
-  'end-sighting': EndSightingCommandSchema,
-  'start-match': StartMatchCommandSchema,
-  'timer-started': TimerStartedCommandSchema,
-  'timer-expired': TimerExpiredCommandSchema,
-  'advance-series': AdvanceSeriesCommandSchema,
-  'finish-competition': FinishCompetitionCommandSchema,
-  'start-timed-target': StartTimedTargetCommandSchema,
-  'cancel-timed-target': CancelTimedTargetCommandSchema,
-} as const;
+const broadcastCommandSchemas = commandSchemasForScope(MQTT_COMMAND_SCHEMAS, 'competition');
 
 export class DirectorMqttService {
   private readonly transport: IMqttTransport;

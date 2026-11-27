@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { MqttBrokerUrlSchema } from '@/shared/config/AppConfigSchema';
+import { MqttCommandActionSchema } from '@sasakiuri/saika-protocol/commands';
 import { CompetitionStatePayloadSchema } from '@sasakiuri/saika-protocol/CompetitionState';
 import { EstComplaintSignalPayloadSchema } from '@sasakiuri/saika-protocol/EstComplaintSignal';
 import { AthleteSchema, LaneAssignmentPayloadSchema } from '@sasakiuri/saika-protocol/LaneAssignment';
@@ -75,39 +76,7 @@ const LaneCommandResultSchema = z.object({
 const CommandExecutionResultSchema = z.object({
   competitionId: z.string().uuid().optional(),
   commandId: z.string().uuid(),
-  action: z.enum([
-    'join-competition',
-    'activate-safety-stop',
-    'clear-safety-stop',
-    'leave-competition',
-    'start-sighting',
-    'end-sighting',
-    'start-match',
-    'timer-started',
-    'timer-expired',
-    'advance-series',
-    'finish-competition',
-    'assign-athlete',
-    'reset-session',
-    'pause-timer',
-    'resume-timer',
-    'resume-match',
-    'start-qualification-recovery',
-    'cancel-qualification-recovery',
-    'apply-qualification-recovery',
-    'settle-qualification-recovery',
-    'retire-finalist',
-    'start-shoot-off',
-    'stop-shoot-off',
-    'start-timed-target',
-    'cancel-timed-target',
-    'record-timed-target-unload',
-    'probe-clock',
-    'reserve-lane-transfer',
-    'start-malfunction-firing',
-    'read-malfunction-firing',
-    'cancel-malfunction-firing',
-  ]),
+  action: MqttCommandActionSchema,
   success: z.boolean(),
   lanes: z.array(LaneCommandResultSchema),
   resultPublication: z
