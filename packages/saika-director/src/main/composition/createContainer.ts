@@ -171,7 +171,6 @@ export function createApp(
   const {
     malfunctionScoreApplicationService,
     scoreCorrectionService,
-    reviewCompetitionScope,
     observationReviewService,
     qualificationResultsReader,
     finalResultsReader,
@@ -235,7 +234,6 @@ export function createApp(
     estBackupCaptureService,
     policyEvents,
     observationReviewService,
-    reviewCompetitionScope,
     athleteSanctionRepository,
     athleteEntryReferenceSource,
     irregularShotCaseRepository,

@@ -146,6 +146,11 @@ export class SanctionDecision {
   }
 }
 
+/** True when the sanction covers the event: the whole Championship, or the event it was imposed in. */
+export function sanctionAppliesToEvent(decision: SanctionDecision, eventId: string): boolean {
+  return decision.scope === 'CHAMPIONSHIP' || decision.sourceEventId === eventId;
+}
+
 export function getActiveSanctionDecisions(history: readonly SanctionDecision[]): SanctionDecision[] {
   const reversed = new Set(
     history.flatMap((decision) => (decision.reversesDecisionId ? [decision.reversesDecisionId] : [])),

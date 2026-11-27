@@ -3,7 +3,6 @@ export { EventId } from './domain/EventId';
 export { ParticipantId } from './domain/ParticipantId';
 export { Participant } from './domain/Participant';
 export { FiringPointAssignment } from './domain/FiringPointAssignment';
-export { FiringPointAssignmentId } from './domain/FiringPointAssignmentId';
 export type { ParticipantGender, ParticipantEntryStatus, ParticipantOfficialEntry } from './domain/Participant';
 export type { IParticipantRepository } from './domain/IParticipantRepository';
 export type { IEventRepository } from './domain/IEventRepository';

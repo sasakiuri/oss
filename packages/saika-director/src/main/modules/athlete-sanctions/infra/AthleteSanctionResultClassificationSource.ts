@@ -3,7 +3,12 @@ import type { IResultClassificationOverlaySource, ResultClassificationOverlay } 
 import type { IAthleteEntryReferenceSource } from '../application/AthleteEntryReferenceSource';
 import { getActiveAthleteIdentityLinks } from '../domain/AthleteIdentityLink';
 import type { IAthleteSanctionRepository } from '../domain/IAthleteSanctionRepository';
-import { getActiveSanctionDecisions, selectEffectiveSanction, type SanctionDecision } from '../domain/SanctionDecision';
+import {
+  getActiveSanctionDecisions,
+  sanctionAppliesToEvent,
+  selectEffectiveSanction,
+  type SanctionDecision,
+} from '../domain/SanctionDecision';
 
 /** Projects append-only sanctions through the result module's consumer-owned port. */
 export class AthleteSanctionResultClassificationSource implements IResultClassificationOverlaySource {
@@ -52,7 +57,7 @@ function groupApplicableDecisions(
 ): ReadonlyMap<string, SanctionDecision[]> {
   const grouped = new Map<string, SanctionDecision[]>();
   for (const decision of decisions) {
-    if (decision.scope === 'EVENT' && decision.sourceEventId !== eventId) continue;
+    if (!sanctionAppliesToEvent(decision, eventId)) continue;
     const values = grouped.get(decision.athleteIdentityId) ?? [];
     values.push(decision);
     grouped.set(decision.athleteIdentityId, values);

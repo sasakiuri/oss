@@ -27,6 +27,22 @@ export class FiringPointAssignment {
     return new FiringPointAssignment(id, eventId, relayNumber, firingPointNumber, participantId);
   }
 
+  /** Creates new assignments for an event's firing-point plan. */
+  static planFor(
+    eventId: EventId,
+    rows: readonly { relayNumber: number; firingPointNumber: number; participantId: string }[],
+  ): FiringPointAssignment[] {
+    return rows.map((row) =>
+      FiringPointAssignment.create(
+        FiringPointAssignmentId.generate(),
+        eventId,
+        row.relayNumber,
+        row.firingPointNumber,
+        ParticipantId.create(row.participantId),
+      ),
+    );
+  }
+
   static reconstruct(
     id: FiringPointAssignmentId,
     eventId: EventId,

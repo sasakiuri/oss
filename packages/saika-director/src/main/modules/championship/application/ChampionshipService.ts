@@ -24,7 +24,6 @@ import { Event } from '../domain/Event';
 import { EventId } from '../domain/EventId';
 import { EventType } from '../domain/EventType';
 import { FiringPointAssignment } from '../domain/FiringPointAssignment';
-import { FiringPointAssignmentId } from '../domain/FiringPointAssignmentId';
 import type { IChampionshipRepository } from '../domain/IChampionshipRepository';
 import type { IEventRepository } from '../domain/IEventRepository';
 import type { IFiringPointAssignmentRepository } from '../domain/IFiringPointAssignmentRepository';
@@ -165,30 +164,7 @@ export class ChampionshipService {
     const newParticipants = input.participants.map((p, index) => {
       if (p.id) {
         usedIds.add(p.id);
-        const existingParticipant = existingById.get(p.id)!;
-        return Participant.create(
-          ParticipantId.create(p.id),
-          eventId,
-          p.playerName,
-          p.affiliation,
-          p.logoPath ?? existingParticipant.logoPath,
-          index,
-          p.familyName ?? existingParticipant.familyName,
-          {
-            startNumber: p.startNumber === undefined ? existingParticipant.officialEntry.startNumber : p.startNumber,
-            issfId: p.issfId === undefined ? existingParticipant.officialEntry.issfId : p.issfId,
-            nationCode: p.nationCode === undefined ? existingParticipant.officialEntry.nationCode : p.nationCode,
-            gender: p.gender ?? existingParticipant.officialEntry.gender,
-            entryStatus: p.entryStatus ?? existingParticipant.officialEntry.entryStatus,
-            teamId: p.teamId === undefined ? existingParticipant.officialEntry.teamId : p.teamId,
-            teamName:
-              p.teamId === null && p.teamName === undefined
-                ? null
-                : p.teamName === undefined
-                  ? existingParticipant.officialEntry.teamName
-                  : p.teamName,
-          },
-        );
+        return mergeParticipant(existingById.get(p.id)!, p, index);
       } else {
         const newId = ParticipantId.generate();
         usedIds.add(newId.value);
@@ -233,17 +209,7 @@ export class ChampionshipService {
       this.participants.saveAll(newParticipants);
     });
 
-    return {
-      participants: newParticipants.map((participant) => ({
-        id: participant.id.value,
-        playerName: participant.playerName,
-        familyName: participant.familyName,
-        affiliation: participant.affiliation,
-        logoPath: participant.logoPath,
-        sortOrder: participant.sortOrder,
-        ...participant.officialEntry,
-      })),
-    };
+    return { participants: newParticipants.map(toParticipantDto) };
   }
 
   saveFiringPointAssignments(input: SaveFiringPointAssignmentsPayload): FiringPointAssignmentListResponse {
@@ -264,44 +230,16 @@ export class ChampionshipService {
       assignedParticipantIds.add(assignment.participantId);
     }
 
-    const eventId = EventId.create(input.eventId);
-    const assignments = input.assignments.map((a) =>
-      FiringPointAssignment.create(
-        FiringPointAssignmentId.generate(),
-        eventId,
-        a.relayNumber,
-        a.firingPointNumber,
-        ParticipantId.create(a.participantId),
-      ),
-    );
-    this.assignments.executeInTransaction(() => {
-      this.assignments.deleteByEventId(input.eventId);
-      this.assignments.saveAll(assignments);
-    });
-
-    return {
-      assignments: assignments.map((assignment) => ({
-        id: assignment.id.value,
-        relayNumber: assignment.relayNumber,
-        firingPointNumber: assignment.firingPointNumber,
-        participantId: assignment.participantId.value,
-      })),
-    };
+    const assignments = FiringPointAssignment.planFor(EventId.create(input.eventId), input.assignments);
+    this.assignments.replaceByEventId(input.eventId, assignments);
+    return { assignments: assignments.map(toAssignmentDto) };
   }
 
   // --- Queries ---
 
   listChampionships(): ChampionshipListResponse {
     const championships = this.championships.findAll();
-    return {
-      championships: championships.map((c) => ({
-        id: c.id.value,
-        name: c.info.name,
-        date: c.info.date,
-        venue: c.info.venue,
-        createdAt: c.createdAt.toISOString(),
-      })),
-    };
+    return { championships: championships.map(toChampionshipSummary) };
   }
 
   getDetail(id: string): ChampionshipDetailDto | null {
@@ -309,48 +247,17 @@ export class ChampionshipService {
     if (!championship) return null;
 
     const events = this.events.findByChampionshipId(id);
-    return {
-      id: championship.id.value,
-      name: championship.info.name,
-      date: championship.info.date,
-      venue: championship.info.venue,
-      createdAt: championship.createdAt.toISOString(),
-      events: events.map((e) => ({
-        id: e.id.value,
-        name: e.name,
-        eventType: e.eventType.value,
-        round: e.round.value,
-        sortOrder: e.sortOrder,
-        rulePackIdentity: e.rulePackIdentity,
-      })),
-    };
+    return { ...toChampionshipSummary(championship), events: events.map(toEventDto) };
   }
 
   getParticipants(eventId: string): ParticipantListResponse {
     const participants = this.participants.findByEventId(eventId);
-    return {
-      participants: participants.map((p) => ({
-        id: p.id.value,
-        playerName: p.playerName,
-        familyName: p.familyName,
-        affiliation: p.affiliation,
-        logoPath: p.logoPath,
-        sortOrder: p.sortOrder,
-        ...p.officialEntry,
-      })),
-    };
+    return { participants: participants.map(toParticipantDto) };
   }
 
   getFiringPointAssignments(eventId: string): FiringPointAssignmentListResponse {
     const assignments = this.assignments.findByEventId(eventId);
-    return {
-      assignments: assignments.map((a) => ({
-        id: a.id.value,
-        relayNumber: a.relayNumber,
-        firingPointNumber: a.firingPointNumber,
-        participantId: a.participantId.value,
-      })),
-    };
+    return { assignments: assignments.map(toAssignmentDto) };
   }
 
   listCompetitionTypes(): CompetitionTypeListResponse {
@@ -368,15 +275,7 @@ export class ChampionshipService {
 
   findEvent(eventId: string): GetEventByIdResponse | null {
     const event = this.events.findById(eventId);
-    if (!event) return null;
-    return {
-      id: event.id.value,
-      name: event.name,
-      eventType: event.eventType.value,
-      round: event.round.value,
-      sortOrder: event.sortOrder,
-      rulePackIdentity: event.rulePackIdentity,
-    };
+    return event ? toEventDto(event) : null;
   }
 
   getRelayAssignments(eventId: string, relayNumber: number): RelayFiringPointAssignment[] {
@@ -397,4 +296,77 @@ export class ChampionshipService {
       };
     });
   }
+}
+
+type ParticipantInput = SaveParticipantsPayload['participants'][number];
+
+/** Applies a saved row to an existing participant; omitted fields keep their stored values. */
+function mergeParticipant(existing: Participant, input: ParticipantInput, sortOrder: number): Participant {
+  const entry = existing.officialEntry;
+  return Participant.create(
+    existing.id,
+    existing.eventId,
+    input.playerName,
+    input.affiliation,
+    input.logoPath ?? existing.logoPath,
+    sortOrder,
+    input.familyName ?? existing.familyName,
+    {
+      startNumber: input.startNumber === undefined ? entry.startNumber : input.startNumber,
+      issfId: input.issfId === undefined ? entry.issfId : input.issfId,
+      nationCode: input.nationCode === undefined ? entry.nationCode : input.nationCode,
+      gender: input.gender ?? entry.gender,
+      entryStatus: input.entryStatus ?? entry.entryStatus,
+      teamId: input.teamId === undefined ? entry.teamId : input.teamId,
+      teamName:
+        input.teamId === null && input.teamName === undefined
+          ? null
+          : input.teamName === undefined
+            ? entry.teamName
+            : input.teamName,
+    },
+  );
+}
+
+function toChampionshipSummary(championship: Championship): ChampionshipListResponse['championships'][number] {
+  return {
+    id: championship.id.value,
+    name: championship.info.name,
+    date: championship.info.date,
+    venue: championship.info.venue,
+    createdAt: championship.createdAt.toISOString(),
+  };
+}
+
+/** The event fields shared by the championship detail and the event lookup. */
+function toEventDto(event: Event) {
+  return {
+    id: event.id.value,
+    name: event.name,
+    eventType: event.eventType.value,
+    round: event.round.value,
+    sortOrder: event.sortOrder,
+    rulePackIdentity: event.rulePackIdentity,
+  };
+}
+
+function toParticipantDto(participant: Participant): ParticipantListResponse['participants'][number] {
+  return {
+    id: participant.id.value,
+    playerName: participant.playerName,
+    familyName: participant.familyName,
+    affiliation: participant.affiliation,
+    logoPath: participant.logoPath,
+    sortOrder: participant.sortOrder,
+    ...participant.officialEntry,
+  };
+}
+
+function toAssignmentDto(assignment: FiringPointAssignment): FiringPointAssignmentListResponse['assignments'][number] {
+  return {
+    id: assignment.id.value,
+    relayNumber: assignment.relayNumber,
+    firingPointNumber: assignment.firingPointNumber,
+    participantId: assignment.participantId.value,
+  };
 }

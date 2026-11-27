@@ -76,10 +76,13 @@ describe('SqliteShotObservationEvidenceJournal', () => {
       const source = new StoredReviewSubjects(journal, {
         findViolationsByCompetition: () => [],
       } as unknown as IFiringWindowJournal);
-      const service = new ObservationReviewService(source, new SqliteObservationReviewRepository(database), {
-        issue: () => null,
-      });
-      const blocker = new ObservationReviewPublicationBlocker(service, () => [extra.competition!.competitionId]);
+      const service = new ObservationReviewService(
+        source,
+        new SqliteObservationReviewRepository(database),
+        { issue: () => null },
+        () => [extra.competition!.competitionId],
+      );
+      const blocker = new ObservationReviewPublicationBlocker(service);
       expect(await blocker.getIssues('event', scope)).toHaveLength(1);
       const subject = source.list(extra.competition!.competitionId)[0]!;
       expect(subject.kind).toBe('NULLIFIED_POSITION_EXTRA');
