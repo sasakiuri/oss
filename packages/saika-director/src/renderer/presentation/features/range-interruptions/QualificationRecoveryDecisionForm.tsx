@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { useState } from 'react';
 
-import { rangeInterruptionsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
 import type {
   QualificationTimedTargetInterruptionRecommendationDto,
   QualificationTimedTargetRecoveryDecisionDto,
@@ -10,7 +8,9 @@ import type {
 
 import { spacedPanelClass } from '../shared/common/formClasses';
 
-import { FormButtons, Field, inputClass } from './InterruptionFields';
+import { Field, inputClass } from '../shared/cases/CaseFields';
+
+import { FormButtons } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
 import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
@@ -51,7 +51,12 @@ export function QualificationRecoveryDecisionHistory({
   );
 }
 
-export function QualificationRecoveryDecisionForm({ interruption, saving, onCancel, onMutate }: FormProps) {
+export function QualificationRecoveryDecisionForm({
+  interruption,
+  saving,
+  onCancel,
+  onSubmitCommand,
+}: FormProps<'recordQualificationDecision'>) {
   const recommendation = interruption.recommendation;
   if (recommendation?.type !== 'QUALIFICATION_TIMED_TARGET') {
     throw new Error('Qualification timed-target recommendation is unavailable');
@@ -87,52 +92,49 @@ export function QualificationRecoveryDecisionForm({ interruption, saving, onCanc
       className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
-        void onMutate(async () => {
-          const recoveryShots = Number(shotsToFire);
-          const seriesRecovery =
-            treatment === 'KEEP_RECORDED_SERIES'
-              ? ({ treatment, shotsToFire: 0, execution: null } as const)
-              : treatment === 'ANNUL_AND_REPEAT'
+        const recoveryShots = Number(shotsToFire);
+        const seriesRecovery =
+          treatment === 'KEEP_RECORDED_SERIES'
+            ? ({ treatment, shotsToFire: 0, execution: null } as const)
+            : treatment === 'ANNUL_AND_REPEAT'
+              ? ({
+                  treatment,
+                  shotsToFire: recoveryShots,
+                  execution: { mode: 'SAME_TIMED_TARGET_PROGRAM' },
+                } as const)
+              : completionMode === 'SECONDS_PER_SHOT'
                 ? ({
                     treatment,
                     shotsToFire: recoveryShots,
-                    execution: { mode: 'SAME_TIMED_TARGET_PROGRAM' },
+                    execution: {
+                      mode: completionMode,
+                      secondsPerShot: Number(secondsPerShot),
+                      totalSeconds: Number(secondsPerShot) * recoveryShots,
+                    },
                   } as const)
-                : completionMode === 'SECONDS_PER_SHOT'
-                  ? ({
-                      treatment,
-                      shotsToFire: recoveryShots,
-                      execution: {
-                        mode: completionMode,
-                        secondsPerShot: Number(secondsPerShot),
-                        totalSeconds: Number(secondsPerShot) * recoveryShots,
-                      },
-                    } as const)
-                  : ({
-                      treatment,
-                      shotsToFire: recoveryShots,
-                      execution: { mode: completionMode },
-                    } as const);
-          const response = await rangeInterruptionsService.recordQualificationTimedTargetRecoveryDecision({
-            id: crypto.randomUUID(),
-            caseId: interruption.id,
-            ...(latest ? { supersedesDecisionId: latest.id } : {}),
-            authorizedRecovery: {
-              extraSightingSeriesShots: Number(extraSightingShots),
-              ...(suggested.minimumPauseAfterSightingSeconds !== undefined || Number(sightingPauseSeconds) > 0
-                ? { minimumPauseAfterSightingSeconds: Number(sightingPauseSeconds) }
-                : {}),
-              seriesRecovery,
-            },
-            statement,
-            officialName,
-            incidentReportReference,
-            ruleReference,
-            decidedAt: new Date().toISOString(),
-          });
-          const recorded = unwrap(response);
-          onCancel();
-          return recorded;
+                : ({
+                    treatment,
+                    shotsToFire: recoveryShots,
+                    execution: { mode: completionMode },
+                  } as const);
+        void onSubmitCommand({
+          id: crypto.randomUUID(),
+          caseId: interruption.id,
+          ...(latest ? { supersedesDecisionId: latest.id } : {}),
+          authorizedRecovery: {
+            extraSightingSeriesShots: Number(extraSightingShots),
+            ...(suggested.minimumPauseAfterSightingSeconds !== undefined || Number(sightingPauseSeconds) > 0
+              ? { minimumPauseAfterSightingSeconds: Number(sightingPauseSeconds) }
+              : {}),
+            seriesRecovery,
+          },
+          statement,
+          officialName,
+          incidentReportReference,
+          ruleReference,
+          decidedAt: new Date().toISOString(),
+        }).then((succeeded) => {
+          if (succeeded) onCancel();
         });
       }}
     >

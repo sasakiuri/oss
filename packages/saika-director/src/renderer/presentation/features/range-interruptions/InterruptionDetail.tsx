@@ -1,18 +1,22 @@
 // SPDX-License-Identifier: MIT
 import { PauseCircle, Play } from 'lucide-react';
 
-import { mqttService, rangeInterruptionsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
 import type { RangeInterruptionCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
+import { Detail } from '../shared/cases/CaseFields';
+import { LinkCaseScopeForm } from '../shared/cases/LinkCaseScopeForm';
+import { unlinkedCaseScopes } from '../shared/cases/caseScopes';
 import { Button } from '../shared/common/Button';
 
 import { AuditHistory } from './AuditHistory';
 import { GrantForm } from './GrantForm';
-import { Detail } from './InterruptionFields';
 import { statusClass, formatDuration, shortLane } from './interruptionFormatting';
-import { type RangeInterruptionLaneOption, type DetailAction } from './interruptionPresentationTypes';
-import { EndInterruptionForm, LaneOperationForm, GenericEntryForm, LinkScopeForm } from './InterruptionRecordForms';
+import {
+  type RangeInterruptionCommands,
+  type RangeInterruptionLaneOption,
+  type DetailAction,
+} from './interruptionPresentationTypes';
+import { EndInterruptionForm, LaneOperationForm, GenericEntryForm } from './InterruptionRecordForms';
 import {
   qualificationSeriesRecoveryComplete,
   blocksQualificationDecisionSupersession,
@@ -26,18 +30,6 @@ import {
 } from './QualificationRecoveryDecisionForm';
 import { QualificationRecoveryExecutionPanel } from './QualificationRecoveryExecutionPanel';
 import { QualificationRecoverySettlementPanel } from './QualificationRecoverySettlementPanel';
-import {
-  applyLaneMatchResume,
-  applyLanePause,
-  applyLaneResume,
-  type RangeInterruptionLaneWorkflowPorts,
-} from './rangeInterruptionLaneWorkflow';
-import {
-  applyRangeMatchResume,
-  applyRangePause,
-  applyRangeResume,
-  type RangeInterruptionRangeWorkflowPorts,
-} from './rangeInterruptionRangeWorkflow';
 import { RecommendationPanel } from './RecommendationPanel';
 import { TargetRecoveryForm } from './TargetRecoveryForm';
 import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
@@ -50,7 +42,7 @@ export function InterruptionDetail({
   saving,
   action,
   onAction,
-  onMutate,
+  commands,
 }: {
   interruption: RangeInterruptionCaseDto;
   additionalScopes: readonly CaseScopePayload[];
@@ -59,16 +51,17 @@ export function InterruptionDetail({
   saving: boolean;
   action: DetailAction;
   onAction: (action: DetailAction) => void;
-  onMutate: (operation: () => Promise<RangeInterruptionCaseDto>) => Promise<boolean>;
+  commands: RangeInterruptionCommands;
 }) {
   const lane = lanes.find((candidate) => candidate.laneId === interruption.laneId);
   const pauseRecorded = interruption.entries.some((entry) => entry.type === 'PAUSE_APPLIED');
   const matchResumeRecorded = interruption.entries.some((entry) => entry.type === 'MATCH_RESUMED');
   const latestGrant = [...interruption.entries].reverse().find((entry) => entry.type === 'TIME_GRANTED') ?? null;
+  const authorizedRemainingSeconds = latestGrant?.authorizedRemainingSeconds ?? null;
   const latestQualificationDecision = interruption.qualificationTimedTargetRecoveryDecisions.at(-1) ?? null;
-  const targetRecoveryAssessments = interruption.targetRecoveryAssessments ?? [];
-  const laneControlAvailable = Boolean(competitionId && interruption.laneId);
-  const rangeControlAvailable = Boolean(competitionId && !interruption.laneId && lanes.length > 0);
+  const laneId = interruption.laneId;
+  const laneControlAvailable = Boolean(competitionId && laneId);
+  const rangeControlAvailable = Boolean(competitionId && !laneId && lanes.length > 0);
   const targetRangeLaneIds = rangeTargetLaneIds(interruption, lanes);
   const matchingLaneInterruption = lane?.interruption?.interruptionId === interruption.id ? lane.interruption : null;
   const laneRecoveryComplete = matchingLaneInterruption === null || matchingLaneInterruption.status === 'RUNNING_MATCH';
@@ -86,12 +79,11 @@ export function InterruptionDetail({
         (settlement) => settlement.decisionId === latestQualificationDecision.id,
       )
     : false;
-  const missingScopes = additionalScopes.filter(
-    (candidate) =>
-      !interruption.scopes.some(
-        (scope) => scope.scopeType === candidate.scopeType && scope.scopeId === candidate.scopeId,
-      ),
-  );
+  const missingScopes = unlinkedCaseScopes(interruption.scopes, additionalScopes);
+  /** Closes the operation form when its command succeeded. */
+  const submitAndClose = async (command: Promise<boolean>) => {
+    if (await command) onAction(null);
+  };
 
   return (
     <div className="space-y-3">
@@ -230,36 +222,13 @@ export function InterruptionDetail({
             saving={saving}
             onStart={async (decisionId, phase) => {
               if (!competitionId) return false;
-              return onMutate(async () => {
-                const response = await rangeInterruptionsService.startQualificationRecoveryExecution({
-                  caseId: interruption.id,
-                  decisionId,
-                  competitionId,
-                  phase,
-                });
-                return unwrap(response);
-              });
+              return commands.startQualificationRecovery({ caseId: interruption.id, decisionId, competitionId, phase });
             }}
             onCancel={(runId, reason) =>
-              onMutate(async () => {
-                const response = await rangeInterruptionsService.cancelQualificationRecoveryExecution({
-                  caseId: interruption.id,
-                  runId,
-                  reason,
-                });
-                return unwrap(response);
-              })
+              commands.cancelQualificationRecovery({ caseId: interruption.id, runId, reason })
             }
             onAdjudicate={(runId, appliedBy, statement) =>
-              onMutate(async () => {
-                const response = await rangeInterruptionsService.adjudicateQualificationRecoveryExecution({
-                  caseId: interruption.id,
-                  runId,
-                  appliedBy,
-                  statement,
-                });
-                return unwrap(response);
-              })
+              commands.adjudicateQualificationRecovery({ caseId: interruption.id, runId, appliedBy, statement })
             }
           />
           <QualificationRecoverySettlementPanel
@@ -268,15 +237,12 @@ export function InterruptionDetail({
             saving={saving}
             onApply={async (decisionId, appliedBy, statement) => {
               if (!competitionId) return false;
-              return onMutate(async () => {
-                const response = await rangeInterruptionsService.applyQualificationRecoverySettlement({
-                  caseId: interruption.id,
-                  decisionId,
-                  competitionId,
-                  appliedBy,
-                  statement,
-                });
-                return unwrap(response);
+              return commands.applyQualificationSettlement({
+                caseId: interruption.id,
+                decisionId,
+                competitionId,
+                appliedBy,
+                statement,
               });
             }}
           />
@@ -284,16 +250,16 @@ export function InterruptionDetail({
       )}
 
       {missingScopes.map((scope) => (
-        <LinkScopeForm
+        <LinkCaseScopeForm
           key={`${scope.scopeType}:${scope.scopeId}`}
-          interruption={interruption}
+          caseId={interruption.id}
           scope={scope}
           saving={saving}
-          onMutate={onMutate}
+          onLink={commands.linkScope}
         />
       ))}
 
-      {action === 'pause' && competitionId && interruption.laneId && (
+      {action === 'pause' && competitionId && laneId && (
         <LaneOperationForm
           title="Apply Lane STOP"
           description="The Lane pauses and saves its remaining time. Its response is recorded here."
@@ -301,15 +267,9 @@ export function InterruptionDetail({
           defaultOfficial={interruption.openedBy}
           saving={saving}
           onCancel={() => onAction(null)}
-          onSubmit={async (officialName) => {
-            const succeeded = await onMutate(() =>
-              applyLanePause(
-                { competitionId, laneId: interruption.laneId!, interruptionId: interruption.id, officialName },
-                laneWorkflowPorts(),
-              ),
-            );
-            if (succeeded) onAction(null);
-          }}
+          onSubmit={(officialName) =>
+            submitAndClose(commands.pauseLane({ competitionId, laneId, interruptionId: interruption.id, officialName }))
+          }
         />
       )}
       {action === 'pause' && competitionId && rangeControlAvailable && (
@@ -320,21 +280,17 @@ export function InterruptionDetail({
           defaultOfficial={interruption.openedBy}
           saving={saving}
           onCancel={() => onAction(null)}
-          onSubmit={async (officialName) => {
-            const succeeded = await onMutate(() =>
-              applyRangePause(
-                {
-                  competitionId,
-                  targetLaneIds: targetRangeLaneIds,
-                  commandLaneIds: pendingRangeLaneIds(interruption, 'PAUSE', targetRangeLaneIds),
-                  interruptionId: interruption.id,
-                  officialName,
-                },
-                rangeWorkflowPorts(),
-              ),
-            );
-            if (succeeded) onAction(null);
-          }}
+          onSubmit={(officialName) =>
+            submitAndClose(
+              commands.pauseRange({
+                competitionId,
+                targetLaneIds: targetRangeLaneIds,
+                commandLaneIds: pendingRangeLaneIds(interruption, 'PAUSE', targetRangeLaneIds),
+                interruptionId: interruption.id,
+                officialName,
+              }),
+            )
+          }
         />
       )}
       {action === 'end' && (
@@ -342,18 +298,23 @@ export function InterruptionDetail({
           interruption={interruption}
           saving={saving}
           onCancel={() => onAction(null)}
-          onMutate={onMutate}
+          onSubmitCommand={commands.appendEntry}
         />
       )}
       {action === 'grant' && (
-        <GrantForm interruption={interruption} saving={saving} onCancel={() => onAction(null)} onMutate={onMutate} />
+        <GrantForm
+          interruption={interruption}
+          saving={saving}
+          onCancel={() => onAction(null)}
+          onSubmitCommand={commands.appendEntry}
+        />
       )}
       {action === 'qualification-decision' && (
         <QualificationRecoveryDecisionForm
           interruption={interruption}
           saving={saving}
           onCancel={() => onAction(null)}
-          onMutate={onMutate}
+          onSubmitCommand={commands.recordQualificationDecision}
         />
       )}
       {action === 'recovery' && (
@@ -361,71 +322,59 @@ export function InterruptionDetail({
           interruption={interruption}
           saving={saving}
           onCancel={() => onAction(null)}
-          onMutate={onMutate}
+          onSubmitCommand={commands.recordTargetRecovery}
+        />
+      )}
+      {action === 'resume' && competitionId && laneId && latestGrant && authorizedRemainingSeconds !== null && (
+        <LaneOperationForm
+          title="Apply authorized Lane resume"
+          description={`Resume with ${formatDuration(authorizedRemainingSeconds)}${latestGrant.unlimitedSightingShots ? ' in SIGHTING mode' : ' in MATCH mode'}. The recorded grant is not recalculated.`}
+          submitLabel="Resume Lane timer"
+          defaultOfficial={latestGrant.officialName}
+          saving={saving}
+          onCancel={() => onAction(null)}
+          onSubmit={(officialName) =>
+            submitAndClose(
+              commands.resumeLane({
+                competitionId,
+                laneId,
+                interruptionId: interruption.id,
+                officialName,
+                authorizedRemainingSeconds,
+                unlimitedSightingShots: latestGrant.unlimitedSightingShots === true,
+              }),
+            )
+          }
         />
       )}
       {action === 'resume' &&
         competitionId &&
-        interruption.laneId &&
-        latestGrant?.authorizedRemainingSeconds !== null &&
-        latestGrant && (
-          <LaneOperationForm
-            title="Apply authorized Lane resume"
-            description={`Resume with ${formatDuration(latestGrant.authorizedRemainingSeconds!)}${latestGrant.unlimitedSightingShots ? ' in SIGHTING mode' : ' in MATCH mode'}. The recorded grant is not recalculated.`}
-            submitLabel="Resume Lane timer"
-            defaultOfficial={latestGrant.officialName}
-            saving={saving}
-            onCancel={() => onAction(null)}
-            onSubmit={async (officialName) => {
-              const succeeded = await onMutate(() =>
-                applyLaneResume(
-                  {
-                    competitionId,
-                    laneId: interruption.laneId!,
-                    interruptionId: interruption.id,
-                    officialName,
-                    authorizedRemainingSeconds: latestGrant.authorizedRemainingSeconds!,
-                    unlimitedSightingShots: latestGrant.unlimitedSightingShots === true,
-                  },
-                  laneWorkflowPorts(),
-                ),
-              );
-              if (succeeded) onAction(null);
-            }}
-          />
-        )}
-      {action === 'resume' &&
-        competitionId &&
         rangeControlAvailable &&
-        latestGrant?.authorizedRemainingSeconds !== null &&
-        latestGrant && (
+        latestGrant &&
+        authorizedRemainingSeconds !== null && (
           <LaneOperationForm
             title="Apply authorized range resume"
-            description={`Use one shared start timestamp for the incomplete Lanes, with ${formatDuration(latestGrant.authorizedRemainingSeconds!)} authorized.`}
+            description={`Use one shared start timestamp for the incomplete Lanes, with ${formatDuration(authorizedRemainingSeconds)} authorized.`}
             submitLabel="Resume range timers"
             defaultOfficial={latestGrant.officialName}
             saving={saving}
             onCancel={() => onAction(null)}
-            onSubmit={async (officialName) => {
-              const succeeded = await onMutate(() =>
-                applyRangeResume(
-                  {
-                    competitionId,
-                    targetLaneIds: targetRangeLaneIds,
-                    commandLaneIds: pendingRangeLaneIds(interruption, 'RESUME', targetRangeLaneIds),
-                    interruptionId: interruption.id,
-                    officialName,
-                    authorizedRemainingSeconds: latestGrant.authorizedRemainingSeconds!,
-                    unlimitedSightingShots: latestGrant.unlimitedSightingShots === true,
-                  },
-                  rangeWorkflowPorts(),
-                ),
-              );
-              if (succeeded) onAction(null);
-            }}
+            onSubmit={(officialName) =>
+              submitAndClose(
+                commands.resumeRange({
+                  competitionId,
+                  targetLaneIds: targetRangeLaneIds,
+                  commandLaneIds: pendingRangeLaneIds(interruption, 'RESUME', targetRangeLaneIds),
+                  interruptionId: interruption.id,
+                  officialName,
+                  authorizedRemainingSeconds,
+                  unlimitedSightingShots: latestGrant.unlimitedSightingShots === true,
+                }),
+              )
+            }
           />
         )}
-      {action === 'match' && competitionId && interruption.laneId && (
+      {action === 'match' && competitionId && laneId && (
         <LaneOperationForm
           title="Resume MATCH fire"
           description="Use this only after the athlete has completed the authorized unlimited sighting shots."
@@ -433,15 +382,11 @@ export function InterruptionDetail({
           defaultOfficial={latestGrant?.officialName ?? interruption.openedBy}
           saving={saving}
           onCancel={() => onAction(null)}
-          onSubmit={async (officialName) => {
-            const succeeded = await onMutate(() =>
-              applyLaneMatchResume(
-                { competitionId, laneId: interruption.laneId!, interruptionId: interruption.id, officialName },
-                laneWorkflowPorts(),
-              ),
-            );
-            if (succeeded) onAction(null);
-          }}
+          onSubmit={(officialName) =>
+            submitAndClose(
+              commands.resumeLaneMatch({ competitionId, laneId, interruptionId: interruption.id, officialName }),
+            )
+          }
         />
       )}
       {action === 'match' && competitionId && rangeControlAvailable && (
@@ -452,21 +397,17 @@ export function InterruptionDetail({
           defaultOfficial={latestGrant?.officialName ?? interruption.openedBy}
           saving={saving}
           onCancel={() => onAction(null)}
-          onSubmit={async (officialName) => {
-            const succeeded = await onMutate(() =>
-              applyRangeMatchResume(
-                {
-                  competitionId,
-                  targetLaneIds: targetRangeLaneIds,
-                  commandLaneIds: pendingRangeLaneIds(interruption, 'MATCH_RESUME', targetRangeLaneIds),
-                  interruptionId: interruption.id,
-                  officialName,
-                },
-                rangeWorkflowPorts(),
-              ),
-            );
-            if (succeeded) onAction(null);
-          }}
+          onSubmit={(officialName) =>
+            submitAndClose(
+              commands.resumeRangeMatch({
+                competitionId,
+                targetLaneIds: targetRangeLaneIds,
+                commandLaneIds: pendingRangeLaneIds(interruption, 'MATCH_RESUME', targetRangeLaneIds),
+                interruptionId: interruption.id,
+                officialName,
+              }),
+            )
+          }
         />
       )}
       {action === 'entry' && (
@@ -477,15 +418,15 @@ export function InterruptionDetail({
           }
           saving={saving}
           onCancel={() => onAction(null)}
-          onMutate={onMutate}
+          onSubmitCommand={commands.appendEntry}
         />
       )}
 
-      {targetRecoveryAssessments.length > 0 && (
+      {interruption.targetRecoveryAssessments.length > 0 && (
         <section className="rounded-[3px] border border-vscode-border bg-vscode-bg p-3">
           <h4 className="text-[13px] font-semibold text-vscode-text">Target recovery evidence</h4>
           <div className="mt-2 space-y-2">
-            {targetRecoveryAssessments.map((assessment) => (
+            {interruption.targetRecoveryAssessments.map((assessment) => (
               <div key={assessment.id} className="border-l-2 border-vscode-border pl-3 text-xs leading-5">
                 <p className="font-medium text-vscode-text">{assessment.statement}</p>
                 <p className="text-vscode-text-muted">
@@ -533,12 +474,4 @@ export function InterruptionDetail({
       <AuditHistory entries={interruption.entries} />
     </div>
   );
-}
-
-function laneWorkflowPorts(): RangeInterruptionLaneWorkflowPorts {
-  return { lane: mqttService, ledger: rangeInterruptionsService };
-}
-
-function rangeWorkflowPorts(): RangeInterruptionRangeWorkflowPorts {
-  return { lane: mqttService, ledger: rangeInterruptionsService };
 }

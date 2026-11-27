@@ -1,23 +1,23 @@
 import { Link } from 'lucide-react';
 import { useState } from 'react';
 
-import type { TargetExaminationCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
+import type { CaseScopePayload, LinkCaseScopePayload } from '@/shared/ipc/contracts';
 
-import { Button } from '../shared/common/Button';
+import { Button } from '../common/Button';
 
-import { inputClass } from './ExaminationFields';
-import type { TargetExaminationCommands } from './examinationTypes';
+import { inputClass } from './CaseFields';
 
-export function LinkScopeForm({
-  examination,
+/** Links a case to the competition or event of the current workspace. */
+export function LinkCaseScopeForm({
+  caseId,
   scope,
   saving,
-  onSubmitCommand,
+  onLink,
 }: {
-  examination: TargetExaminationCaseDto;
+  caseId: string;
   scope: CaseScopePayload;
   saving: boolean;
-  onSubmitCommand: TargetExaminationCommands['linkScope'];
+  onLink: (input: LinkCaseScopePayload) => Promise<boolean>;
 }) {
   const [linkedBy, setLinkedBy] = useState('');
   return (
@@ -25,8 +25,8 @@ export function LinkScopeForm({
       className="flex flex-wrap items-end gap-2 rounded-[3px] border border-vscode-border bg-vscode-bg p-3"
       onSubmit={(event) => {
         event.preventDefault();
-        void onSubmitCommand({
-          caseId: examination.id,
+        void onLink({
+          caseId,
           scope,
           linkedBy,
           note: `Linked from the current ${scope.scopeType.toLowerCase()} workspace`,

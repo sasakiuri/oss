@@ -3,7 +3,7 @@ import { ClockAlert } from 'lucide-react';
 
 import type { RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
 
-import { Detail } from './InterruptionFields';
+import { Detail } from '../shared/cases/CaseFields';
 import { formatDuration } from './interruptionFormatting';
 import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 

@@ -8,6 +8,17 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+
+import { FormButtons } from './InterruptionFields';
+import {
+  activeRecoveryFiring,
+  adjudicableRecoveryRun,
+  authorizedRecoveryShots,
+  cancellableRecoveryRun,
+  recoveryAdjudicationRequest,
+  retryableRecoveryStart,
+  type RecoveryAdjudicationRequest,
+} from './interruptionRecoveryState';
 import { readOnlyMutedInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 import { titleCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
@@ -19,14 +30,9 @@ type RecoveryAction =
   | {
       kind: 'ADJUDICATE';
       execution: QualificationRecoveryExecutionDto;
-      priorRequest: AdjudicationRequest | null;
+      priorRequest: RecoveryAdjudicationRequest | null;
     }
   | null;
-
-interface AdjudicationRequest {
-  appliedBy: string;
-  statement: string;
-}
 
 interface QualificationRecoveryExecutionPanelProps {
   interruption: RangeInterruptionCaseDto;
@@ -65,10 +71,10 @@ export function QualificationRecoveryExecutionPanel({
   if (!hasFiringOperation) return null;
   const operationAvailable = Boolean(competitionId && interruption.status === 'ENDED');
   const sightingBlockedByOtherRun = currentExecutions.some(
-    (execution) => execution.phase !== 'EXTRA_SIGHTING' && activeFiringStatus(execution.status),
+    (execution) => execution.phase !== 'EXTRA_SIGHTING' && activeRecoveryFiring(execution.status),
   );
   const seriesBlockedByOtherRun = currentExecutions.some(
-    (execution) => execution.phase !== 'SERIES_RECOVERY' && activeFiringStatus(execution.status),
+    (execution) => execution.phase !== 'SERIES_RECOVERY' && activeRecoveryFiring(execution.status),
   );
 
   return (
@@ -94,11 +100,13 @@ export function QualificationRecoveryExecutionPanel({
             startDisabled={!operationAvailable || sightingBlockedByOtherRun}
             startLabel={sighting ? 'Retry extra sighting start' : 'Start extra sighting'}
             onStart={
-              !sighting || retryableStart(sighting.status)
+              !sighting || retryableRecoveryStart(sighting.status)
                 ? () => setAction({ kind: 'START', phase: 'EXTRA_SIGHTING' })
                 : undefined
             }
-            onCancel={cancellable(sighting) ? () => setAction({ kind: 'CANCEL', execution: sighting }) : undefined}
+            onCancel={
+              cancellableRecoveryRun(sighting) ? () => setAction({ kind: 'CANCEL', execution: sighting }) : undefined
+            }
           />
         )}
         {seriesRecovery.treatment !== 'KEEP_RECORDED_SERIES' && seriesRecovery.shotsToFire > 0 && (
@@ -110,15 +118,15 @@ export function QualificationRecoveryExecutionPanel({
             anotherRunActive={seriesBlockedByOtherRun}
             onStart={() => setAction({ kind: 'START', phase: 'SERIES_RECOVERY' })}
             onCancel={
-              cancellable(series) && series ? () => setAction({ kind: 'CANCEL', execution: series }) : undefined
+              cancellableRecoveryRun(series) ? () => setAction({ kind: 'CANCEL', execution: series }) : undefined
             }
             onAdjudicate={
-              canAdjudicate(series) && series
+              adjudicableRecoveryRun(series)
                 ? () =>
                     setAction({
                       kind: 'ADJUDICATE',
                       execution: series,
-                      priorRequest: adjudicationRequest(series),
+                      priorRequest: recoveryAdjudicationRequest(series),
                     })
                 : undefined
             }
@@ -193,6 +201,28 @@ export function QualificationRecoveryExecutionPanel({
   );
 }
 
+function PhaseCardHeader({
+  title,
+  description,
+  execution,
+}: {
+  title: string;
+  description: string;
+  execution: QualificationRecoveryExecutionDto | null;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-2">
+      <div>
+        <p className="text-xs font-semibold text-vscode-text">{title}</p>
+        <p className="mt-0.5 text-xs text-vscode-text-muted">{description}</p>
+      </div>
+      <span className={executionStatusClass(execution?.status)}>
+        {execution ? titleCaseLabel(execution.status) : 'Not started'}
+      </span>
+    </div>
+  );
+}
+
 function RecoveryPhaseCard({
   title,
   description,
@@ -214,18 +244,11 @@ function RecoveryPhaseCard({
 }) {
   return (
     <div className="rounded-[3px] border border-vscode-border px-3 py-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold text-vscode-text">{title}</p>
-          <p className="mt-0.5 text-xs text-vscode-text-muted">{description}</p>
-        </div>
-        <span className={executionStatusClass(execution?.status)}>
-          {execution ? titleCaseLabel(execution.status) : 'Not started'}
-        </span>
-      </div>
+      <PhaseCardHeader title={title} description={description} execution={execution} />
       {execution && (
         <p className="mt-2 text-xs text-vscode-dimmed">
-          {execution.shots.length}/{authorizedShots(execution)} shot(s) observed · run {execution.runId.slice(0, 8)}
+          {execution.shots.length}/{authorizedRecoveryShots(execution)} shot(s) observed · run{' '}
+          {execution.runId.slice(0, 8)}
         </p>
       )}
       {(onStart || onCancel) && (
@@ -266,24 +289,18 @@ function SeriesRecoveryCard({
   onAdjudicate?: () => void;
 }) {
   const recovery = decision.authorizedRecovery.seriesRecovery;
-  const startAllowed = !execution || retryableStart(execution.status);
+  const startAllowed = !execution || retryableRecoveryStart(execution.status);
   return (
     <div className="rounded-[3px] border border-vscode-border px-3 py-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold text-vscode-text">Competition series recovery</p>
-          <p className="mt-0.5 text-xs text-vscode-text-muted">
-            {titleCaseLabel(recovery.treatment)} · {recovery.shotsToFire} authorized shot(s)
-          </p>
-        </div>
-        <span className={executionStatusClass(execution?.status)}>
-          {execution ? titleCaseLabel(execution.status) : 'Not started'}
-        </span>
-      </div>
+      <PhaseCardHeader
+        title="Competition series recovery"
+        description={`${titleCaseLabel(recovery.treatment)} · ${recovery.shotsToFire} authorized shot(s)`}
+        execution={execution}
+      />
       {execution && (
         <p className="mt-2 text-xs text-vscode-dimmed">
-          {execution.shots.length}/{authorizedShots(execution)} shot(s) observed · Lane {laneStateLabel(execution)} ·
-          run {execution.runId.slice(0, 8)}
+          {execution.shots.length}/{authorizedRecoveryShots(execution)} shot(s) observed · Lane{' '}
+          {laneStateLabel(execution)} · run {execution.runId.slice(0, 8)}
         </p>
       )}
       <div className="mt-2 flex flex-wrap gap-2">
@@ -359,6 +376,7 @@ function StartRecoveryForm({
         submitDisabled={!confirmed}
         submitLabel={`Start ${phaseLabel(phase)}`}
         onCancel={onCancel}
+        cancelLabel="Back"
       />
     </form>
   );
@@ -397,7 +415,7 @@ function CancelRecoveryForm({
           className={readOnlyMutedInputClass}
         />
       </Field>
-      <FormButtons saving={saving} submitLabel="Cancel recovery run" onCancel={onCancel} danger />
+      <FormButtons saving={saving} submitLabel="Cancel recovery run" onCancel={onCancel} cancelLabel="Back" danger />
     </form>
   );
 }
@@ -412,7 +430,7 @@ function AdjudicateRecoveryForm({
 }: {
   execution: QualificationRecoveryExecutionDto;
   decision: QualificationTimedTargetRecoveryDecisionDto;
-  priorRequest: AdjudicationRequest | null;
+  priorRequest: RecoveryAdjudicationRequest | null;
   saving: boolean;
   onCancel: () => void;
   onSubmit: (appliedBy: string, statement: string) => Promise<void>;
@@ -420,7 +438,7 @@ function AdjudicateRecoveryForm({
   const [appliedBy, setAppliedBy] = useState(priorRequest?.appliedBy ?? decision.officialName);
   const [statement, setStatement] = useState(priorRequest?.statement ?? '');
   const [confirmed, setConfirmed] = useState(false);
-  const unfired = Math.max(0, authorizedShots(execution) - execution.shots.length);
+  const unfired = Math.max(0, authorizedRecoveryShots(execution) - execution.shots.length);
   const treatment = decision.authorizedRecovery.seriesRecovery.treatment;
   return (
     <form
@@ -480,42 +498,10 @@ function AdjudicateRecoveryForm({
         submitDisabled={!confirmed}
         submitLabel={priorRequest ? 'Retry score application' : 'Apply recovery score'}
         onCancel={onCancel}
+        cancelLabel="Back"
       />
     </form>
   );
-}
-
-function cancellable(
-  execution: QualificationRecoveryExecutionDto | null,
-): execution is QualificationRecoveryExecutionDto {
-  return Boolean(execution && ['ACCEPTED', 'RUNNING', 'CANCELLING'].includes(execution.status));
-}
-
-function retryableStart(status: QualificationRecoveryExecutionDto['status']): boolean {
-  return status === 'REQUESTED' || status === 'COMMAND_FAILED';
-}
-
-function canAdjudicate(execution: QualificationRecoveryExecutionDto | null): boolean {
-  return Boolean(execution && ['COMPLETED', 'ADJUDICATING', 'ADJUDICATION_FAILED'].includes(execution.status));
-}
-
-function activeFiringStatus(status: QualificationRecoveryExecutionDto['status'] | undefined): boolean {
-  return Boolean(status && ['REQUESTED', 'ACCEPTED', 'RUNNING', 'CANCELLING'].includes(status));
-}
-
-function adjudicationRequest(execution: QualificationRecoveryExecutionDto): AdjudicationRequest | null {
-  const event = execution.events.find((candidate) => candidate.type === 'ADJUDICATION_REQUESTED');
-  const value = event?.payload.adjudication;
-  if (!value || typeof value !== 'object') return null;
-  const appliedBy = Reflect.get(value, 'appliedBy');
-  const statement = Reflect.get(value, 'statement');
-  return typeof appliedBy === 'string' && typeof statement === 'string' ? { appliedBy, statement } : null;
-}
-
-function authorizedShots(execution: QualificationRecoveryExecutionDto): number {
-  return execution.authorization.phase === 'EXTRA_SIGHTING'
-    ? execution.authorization.shotsToFire
-    : execution.authorization.seriesRecovery.shotsToFire;
 }
 
 function laneStateLabel(execution: QualificationRecoveryExecutionDto): string {
@@ -548,31 +534,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1 block">{label}</span>
       {children}
     </label>
-  );
-}
-
-function FormButtons({
-  saving,
-  submitDisabled = false,
-  submitLabel,
-  onCancel,
-  danger = false,
-}: {
-  saving: boolean;
-  submitDisabled?: boolean;
-  submitLabel: string;
-  onCancel: () => void;
-  danger?: boolean;
-}) {
-  return (
-    <div className="flex justify-end gap-2">
-      <Button type="button" variant="secondary" size="sm" disabled={saving} onClick={onCancel}>
-        Back
-      </Button>
-      <Button type="submit" variant={danger ? 'danger' : 'primary'} size="sm" disabled={saving || submitDisabled}>
-        {submitLabel}
-      </Button>
-    </div>
   );
 }
 

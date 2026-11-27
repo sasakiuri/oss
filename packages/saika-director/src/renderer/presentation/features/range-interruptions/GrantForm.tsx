@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 import { useState } from 'react';
 
-import { rangeInterruptionsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
-
 import { spacedPanelClass } from '../shared/common/formClasses';
 
-import { FormButtons, Field, inputClass } from './InterruptionFields';
+import { Field, inputClass } from '../shared/cases/CaseFields';
+
+import { FormButtons } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
 
-export function GrantForm({ interruption, saving, onCancel, onMutate }: FormProps) {
+export function GrantForm({ interruption, saving, onCancel, onSubmitCommand }: FormProps<'appendEntry'>) {
   const recommendation = interruption.recommendation?.type === 'MATCH_TIME' ? interruption.recommendation : undefined;
   const [extensionSeconds, setExtensionSeconds] = useState(String(recommendation?.suggestedAdditionalSeconds ?? 0));
   const [authorizedRemainingSeconds, setAuthorizedRemainingSeconds] = useState(
@@ -26,22 +25,19 @@ export function GrantForm({ interruption, saving, onCancel, onMutate }: FormProp
       className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
-        void onMutate(async () => {
-          const response = await rangeInterruptionsService.appendEntry({
-            caseId: interruption.id,
-            type: 'TIME_GRANTED',
-            occurredAt: new Date().toISOString(),
-            statement,
-            officialName,
-            extensionSeconds: Number(extensionSeconds),
-            authorizedRemainingSeconds: Number(authorizedRemainingSeconds),
-            unlimitedSightingShots,
-            incidentReportReference,
-            ruleReference,
-          });
-          const recorded = unwrap(response);
-          onCancel();
-          return recorded;
+        void onSubmitCommand({
+          caseId: interruption.id,
+          type: 'TIME_GRANTED',
+          occurredAt: new Date().toISOString(),
+          statement,
+          officialName,
+          extensionSeconds: Number(extensionSeconds),
+          authorizedRemainingSeconds: Number(authorizedRemainingSeconds),
+          unlimitedSightingShots,
+          incidentReportReference,
+          ruleReference,
+        }).then((succeeded) => {
+          if (succeeded) onCancel();
         });
       }}
     >

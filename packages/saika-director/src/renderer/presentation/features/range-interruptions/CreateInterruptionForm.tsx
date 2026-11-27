@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: MIT
 import { useState } from 'react';
 
-import { rangeInterruptionsService } from '@/renderer/services';
-import type { RangeInterruptionCauseDto, RangeInterruptionPhaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
+import type {
+  CaseScopePayload,
+  CreateRangeInterruptionCasePayload,
+  RangeInterruptionCauseDto,
+  RangeInterruptionPhaseDto,
+} from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 
-import { Field, inputClass } from './InterruptionFields';
+import { Field, inputClass } from '../shared/cases/CaseFields';
 import { formatDuration } from './interruptionFormatting';
 import { type RangeInterruptionLaneOption } from './interruptionPresentationTypes';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
@@ -30,7 +34,7 @@ export function CreateInterruptionForm({
   defaultRemainingSeconds: number;
   qualificationTimedTargetCompetitionTypeId?: string;
   saving: boolean;
-  onCreate: (input: Parameters<typeof rangeInterruptionsService.create>[0]) => Promise<void>;
+  onCreate: (input: CreateRangeInterruptionCasePayload) => Promise<void>;
   onCancel: () => void;
 }) {
   const [cause, setCause] = useState<RangeInterruptionCauseDto>('ATHLETE_NON_FAULT');

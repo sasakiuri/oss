@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
-import type { RangeInterruptionCaseDto, QualificationTimedTargetRecoveryDecisionDto } from '@/shared/ipc/contracts';
+import type {
+  QualificationRecoveryExecutionDto,
+  QualificationTimedTargetRecoveryDecisionDto,
+  RangeInterruptionCaseDto,
+} from '@/shared/ipc/contracts';
 
 import { type RangeInterruptionLaneOption } from './interruptionPresentationTypes';
 
@@ -58,4 +62,47 @@ export function rangeBatchRecoveryComplete(interruption: RangeInterruptionCaseDt
 
 function sameLaneSet(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((laneId) => b.includes(laneId));
+}
+
+/** The official and statement of a score application that was already requested for a recovery run. */
+export interface RecoveryAdjudicationRequest {
+  appliedBy: string;
+  statement: string;
+}
+
+export function cancellableRecoveryRun(
+  execution: QualificationRecoveryExecutionDto | null,
+): execution is QualificationRecoveryExecutionDto {
+  return Boolean(execution && ['ACCEPTED', 'RUNNING', 'CANCELLING'].includes(execution.status));
+}
+
+export function retryableRecoveryStart(status: QualificationRecoveryExecutionDto['status']): boolean {
+  return status === 'REQUESTED' || status === 'COMMAND_FAILED';
+}
+
+export function adjudicableRecoveryRun(
+  execution: QualificationRecoveryExecutionDto | null,
+): execution is QualificationRecoveryExecutionDto {
+  return Boolean(execution && ['COMPLETED', 'ADJUDICATING', 'ADJUDICATION_FAILED'].includes(execution.status));
+}
+
+export function activeRecoveryFiring(status: QualificationRecoveryExecutionDto['status'] | undefined): boolean {
+  return Boolean(status && ['REQUESTED', 'ACCEPTED', 'RUNNING', 'CANCELLING'].includes(status));
+}
+
+export function recoveryAdjudicationRequest(
+  execution: QualificationRecoveryExecutionDto,
+): RecoveryAdjudicationRequest | null {
+  const event = execution.events.find((candidate) => candidate.type === 'ADJUDICATION_REQUESTED');
+  const value = event?.payload.adjudication;
+  if (!value || typeof value !== 'object') return null;
+  const appliedBy = Reflect.get(value, 'appliedBy');
+  const statement = Reflect.get(value, 'statement');
+  return typeof appliedBy === 'string' && typeof statement === 'string' ? { appliedBy, statement } : null;
+}
+
+export function authorizedRecoveryShots(execution: QualificationRecoveryExecutionDto): number {
+  return execution.authorization.phase === 'EXTRA_SIGHTING'
+    ? execution.authorization.shotsToFire
+    : execution.authorization.seriesRecovery.shotsToFire;
 }

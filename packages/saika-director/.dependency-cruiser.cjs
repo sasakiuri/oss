@@ -7,7 +7,7 @@ module.exports = {
       comment: 'Examination forms submit typed commands; their workspace hook owns IPC and record state.',
       severity: 'error',
       from: {
-        path: '^src/renderer/presentation/features/target-examinations/(TargetExaminationsPanel|CaseDetail|CreateCaseForm|ExaminationEntryForms|LinkScopeForm)\\.tsx$',
+        path: '^src/renderer/presentation/features/target-examinations/(TargetExaminationsPanel|CaseDetail|CreateCaseForm|ExaminationEntryForms)\\.tsx$',
       },
       to: { path: '^src/renderer/(services/|presentation/stores/)' },
     },
@@ -34,7 +34,7 @@ module.exports = {
       comment: 'Case-owned forms cannot reach back into their parent workspace or its state hook.',
       severity: 'error',
       from: {
-        path: '^src/renderer/presentation/features/target-examinations/(CaseDetail|CreateCaseForm|ExaminationEntryForms|LinkScopeForm)\\.tsx$',
+        path: '^src/renderer/presentation/features/target-examinations/(CaseDetail|CreateCaseForm|ExaminationEntryForms)\\.tsx$',
       },
       to: {
         path: '^src/renderer/presentation/features/target-examinations/(TargetExaminationsPanel\\.tsx|useTargetExaminationCases\\.ts)$',
@@ -76,6 +76,16 @@ module.exports = {
         pathNot: '/(index\\.ts|RangeInterruptionsScreen\\.tsx)$',
       },
       to: { path: '^src/renderer/presentation/features/range-interruptions/RangeInterruptionsPanel\\.tsx$' },
+    },
+    {
+      name: 'no-interruption-view-to-services',
+      comment: 'Interruption case views submit typed commands; their workspace hook owns IPC and case state.',
+      severity: 'error',
+      from: {
+        path: '^src/renderer/presentation/features/range-interruptions/[^/]+\\.tsx$',
+        pathNot: '/ReserveLaneTransferPanel\\.tsx$',
+      },
+      to: { path: '^src/renderer/(services/|presentation/stores/)' },
     },
     {
       name: 'no-championship-screen-to-commands-runtime',

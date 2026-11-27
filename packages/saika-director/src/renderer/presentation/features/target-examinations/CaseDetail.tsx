@@ -3,14 +3,15 @@ import { useState } from 'react';
 import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 import type { TargetExaminationCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
+import { Detail } from '../shared/cases/CaseFields';
+import { LinkCaseScopeForm } from '../shared/cases/LinkCaseScopeForm';
+import { unlinkedCaseScopes } from '../shared/cases/caseScopes';
 import { Button } from '../shared/common/Button';
 
 import { EvidenceFilesPanel } from './EvidenceFilesPanel';
 import { EvidenceForm, EntryForm } from './ExaminationEntryForms';
-import { Detail } from './ExaminationFields';
 import { statusClass, statusLabel } from './examinationPresentation';
 import type { TargetExaminationCommands } from './examinationTypes';
-import { LinkScopeForm } from './LinkScopeForm';
 
 export function CaseDetail({
   examination,
@@ -25,12 +26,7 @@ export function CaseDetail({
 }) {
   const [form, setForm] = useState<'evidence' | 'entry' | null>(null);
   const onCancelForm = () => setForm(null);
-  const missingScopes = additionalScopes.filter(
-    (candidate) =>
-      !examination.scopes.some(
-        (scope) => scope.scopeType === candidate.scopeType && scope.scopeId === candidate.scopeId,
-      ),
-  );
+  const missingScopes = unlinkedCaseScopes(examination.scopes, additionalScopes);
 
   return (
     <div className="space-y-3">
@@ -77,12 +73,12 @@ export function CaseDetail({
       </div>
 
       {missingScopes.map((scope) => (
-        <LinkScopeForm
+        <LinkCaseScopeForm
           key={`${scope.scopeType}:${scope.scopeId}`}
-          examination={examination}
+          caseId={examination.id}
           scope={scope}
           saving={saving}
-          onSubmitCommand={commands.linkScope}
+          onLink={commands.linkScope}
         />
       ))}
 

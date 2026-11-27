@@ -1,25 +1,21 @@
 // SPDX-License-Identifier: MIT
-import { Link } from 'lucide-react';
 import { useState } from 'react';
 
-import { rangeInterruptionsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
 import type {
   AppendRangeInterruptionEntryPayload,
   RangeInterruptionCaseDto,
   RangeInterruptionEntryTypeDto,
-  CaseScopePayload,
 } from '@/shared/ipc/contracts';
-
-import { Button } from '../shared/common/Button';
 
 import { spacedPanelClass } from '../shared/common/formClasses';
 
-import { FormButtons, Field, inputClass } from './InterruptionFields';
+import { Field, inputClass } from '../shared/cases/CaseFields';
+
+import { FormButtons } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
-export function EndInterruptionForm({ interruption, saving, onCancel, onMutate }: FormProps) {
+export function EndInterruptionForm({ interruption, saving, onCancel, onSubmitCommand }: FormProps<'appendEntry'>) {
   const [occurredAt, setOccurredAt] = useState(toDateTimeLocalValue(new Date(), 'seconds'));
   const [statement, setStatement] = useState('The interruption ended and the athlete is ready for the Jury decision.');
   const [officialName, setOfficialName] = useState(interruption.openedBy);
@@ -28,17 +24,14 @@ export function EndInterruptionForm({ interruption, saving, onCancel, onMutate }
       className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
-        void onMutate(async () => {
-          const response = await rangeInterruptionsService.appendEntry({
-            caseId: interruption.id,
-            type: 'ENDED',
-            occurredAt: new Date(occurredAt).toISOString(),
-            statement,
-            officialName,
-          });
-          const recorded = unwrap(response);
-          onCancel();
-          return recorded;
+        void onSubmitCommand({
+          caseId: interruption.id,
+          type: 'ENDED',
+          occurredAt: new Date(occurredAt).toISOString(),
+          statement,
+          officialName,
+        }).then((succeeded) => {
+          if (succeeded) onCancel();
         });
       }}
     >
@@ -123,8 +116,8 @@ export function GenericEntryForm({
   allowFinalization,
   saving,
   onCancel,
-  onMutate,
-}: FormProps & { allowFinalization: boolean }) {
+  onSubmitCommand,
+}: FormProps<'appendEntry'> & { allowFinalization: boolean }) {
   const options = entryOptions(interruption.status, allowFinalization);
   const [type, setType] = useState<RangeInterruptionEntryTypeDto>(options[0]!.value);
   const [statement, setStatement] = useState('');
@@ -135,18 +128,15 @@ export function GenericEntryForm({
       className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
-        void onMutate(async () => {
-          const payload = {
-            caseId: interruption.id,
-            type,
-            occurredAt: new Date().toISOString(),
-            statement,
-            officialName,
-            ...(ruleReference.trim() ? { ruleReference: ruleReference.trim() } : {}),
-          } as AppendRangeInterruptionEntryPayload;
-          const recorded = unwrap(await rangeInterruptionsService.appendEntry(payload));
-          onCancel();
-          return recorded;
+        void onSubmitCommand({
+          caseId: interruption.id,
+          type,
+          occurredAt: new Date().toISOString(),
+          statement,
+          officialName,
+          ...(ruleReference.trim() ? { ruleReference: ruleReference.trim() } : {}),
+        } as AppendRangeInterruptionEntryPayload).then((succeeded) => {
+          if (succeeded) onCancel();
         });
       }}
     >
@@ -191,54 +181,6 @@ export function GenericEntryForm({
         />
       </Field>
       <FormButtons saving={saving} submitLabel="Append action" onCancel={onCancel} />
-    </form>
-  );
-}
-
-export function LinkScopeForm({
-  interruption,
-  scope,
-  saving,
-  onMutate,
-}: {
-  interruption: RangeInterruptionCaseDto;
-  scope: CaseScopePayload;
-  saving: boolean;
-  onMutate: FormProps['onMutate'];
-}) {
-  const [linkedBy, setLinkedBy] = useState('');
-  return (
-    <form
-      className="flex flex-wrap items-end gap-2 rounded-[3px] border border-vscode-border bg-vscode-bg p-3"
-      onSubmit={(event) => {
-        event.preventDefault();
-        void onMutate(async () => {
-          const response = await rangeInterruptionsService.linkScope({
-            caseId: interruption.id,
-            scope,
-            linkedBy,
-            note: `Linked from the current ${scope.scopeType.toLowerCase()} workspace`,
-          });
-          return unwrap(response);
-        });
-      }}
-    >
-      <div className="min-w-52 flex-1">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-vscode-text">
-          <Link size={13} aria-hidden="true" /> Link current {scope.scopeType.toLowerCase()}
-        </p>
-        <input
-          required
-          aria-label="Linked by"
-          placeholder="Official name"
-          value={linkedBy}
-          onChange={(event) => setLinkedBy(event.target.value)}
-          className={`${inputClass} mt-2`}
-        />
-      </div>
-      <Button type="submit" variant="secondary" size="sm" disabled={saving}>
-        Link scope
-      </Button>
     </form>
   );
 }
