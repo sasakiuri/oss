@@ -48,7 +48,6 @@ describe('useShot', () => {
     act(() => useSessionStore.getState().addShot(shot));
     await act(async () => resolve({ sessionId: 'saved', nullifiedExtras: [], shots: [shot] }));
     expect(result.current.shots).toEqual([shot]);
-    expect(useSessionStore.getState().totalScore).toBe(100);
   });
 
   describe('initial state', () => {
@@ -110,10 +109,6 @@ describe('useShot', () => {
       });
 
       expect(result.current.shots).toEqual(mockShots);
-
-      // Verify scores have been calculated
-      const storeState = useSessionStore.getState();
-      expect(storeState.totalScore).toBeCloseTo(20.0, 5); // 10.2 + 9.8
     });
 
     it('does nothing when session ID is null', async () => {
@@ -158,145 +153,6 @@ describe('useShot', () => {
 
       // Verify the error does not propagate and the shots stay as they were
       expect(result.current.shots).toEqual([]);
-    });
-  });
-
-  describe('score calculation', () => {
-    it('includes only match mode shots in score calculation', () => {
-      const { setShots } = useSessionStore.getState();
-      const mockShots: ShotDto[] = [
-        {
-          id: 'shot-1',
-          shotNumber: 1,
-          x: 10.5,
-          y: 20.3,
-          score: 10.2,
-          timestamp: '2026-01-15T10:00:00Z',
-          mode: 'SIGHTING',
-          isRecorded: false, // sighting mode
-          innerTen: false,
-        },
-        {
-          id: 'shot-2',
-          shotNumber: 2,
-          x: 15.2,
-          y: 18.7,
-          score: 9.8,
-          timestamp: '2026-01-15T10:01:00Z',
-          mode: 'MATCH',
-          isRecorded: true, // match mode
-          innerTen: false,
-        },
-        {
-          id: 'shot-3',
-          shotNumber: 3,
-          x: 12.1,
-          y: 19.5,
-          score: 10.0,
-          timestamp: '2026-01-15T10:02:00Z',
-          mode: 'MATCH',
-          isRecorded: true, // match mode
-          innerTen: false,
-        },
-      ];
-
-      act(() => {
-        setShots(mockShots);
-      });
-
-      renderHook(() => useShot());
-
-      // Total score for match mode only (9.8 + 10.0 = 19.8)
-      const storeState = useSessionStore.getState();
-      expect(storeState.totalScore).toBeCloseTo(19.8, 5);
-    });
-
-    it('calculates series scores every 10 shots', () => {
-      const { setShots } = useSessionStore.getState();
-      const mockShots: ShotDto[] = [];
-
-      // Create 25 shots (series 1: 10 shots, series 2: 10 shots, series 3: 5 shots)
-      for (let i = 0; i < 25; i++) {
-        mockShots.push({
-          id: `shot-${i + 1}`,
-          shotNumber: i + 1,
-          x: 10.0,
-          y: 10.0,
-          score: 10.0,
-          timestamp: `2026-01-15T10:${String(i).padStart(2, '0')}:00Z`,
-          mode: 'MATCH',
-          isRecorded: true,
-          innerTen: false,
-        });
-      }
-
-      act(() => {
-        setShots(mockShots);
-      });
-
-      renderHook(() => useShot());
-
-      const storeState = useSessionStore.getState();
-      expect(storeState.totalScore).toBeCloseTo(250.0, 5); // 25 * 10.0
-      expect(storeState.seriesScores).toEqual([100.0, 100.0, 50.0]);
-    });
-
-    it('returns total score of 0 for an empty shots array', () => {
-      const { setShots } = useSessionStore.getState();
-
-      act(() => {
-        setShots([]);
-      });
-
-      renderHook(() => useShot());
-
-      const storeState = useSessionStore.getState();
-      expect(storeState.totalScore).toBe(0);
-      expect(storeState.seriesScores).toEqual([]);
-    });
-
-    it('recalculates scores each time a shot is added', () => {
-      renderHook(() => useShot());
-
-      const shot1: ShotDto = {
-        id: 'shot-1',
-        shotNumber: 1,
-        x: 10.0,
-        y: 10.0,
-        score: 10.0,
-        timestamp: '2026-01-15T10:00:00Z',
-        mode: 'MATCH',
-        isRecorded: true,
-        innerTen: false,
-      };
-
-      act(() => {
-        const { addShot } = useSessionStore.getState();
-        addShot(shot1);
-      });
-
-      let storeState = useSessionStore.getState();
-      expect(storeState.totalScore).toBe(10.0);
-
-      const shot2: ShotDto = {
-        id: 'shot-2',
-        shotNumber: 2,
-        x: 9.0,
-        y: 9.0,
-        score: 9.5,
-        timestamp: '2026-01-15T10:01:00Z',
-        mode: 'MATCH',
-        isRecorded: true,
-        innerTen: false,
-      };
-
-      act(() => {
-        const { addShot } = useSessionStore.getState();
-        addShot(shot2);
-      });
-
-      storeState = useSessionStore.getState();
-      expect(storeState.totalScore).toBe(19.5);
     });
   });
 
@@ -355,7 +211,7 @@ describe('useShot', () => {
   });
 
   describe('integration scenario', () => {
-    it('full scenario of shot history fetch, shot addition, and score update works correctly', async () => {
+    it('full scenario of shot history fetch and shot addition works correctly', async () => {
       const { setSessionId } = useSessionStore.getState();
       setSessionId('session-integration');
 
@@ -388,9 +244,6 @@ describe('useShot', () => {
       expect(result.current.shots).toEqual(initialShots);
       expect(result.current.shots.at(-1)).toEqual(initialShots[0]);
 
-      let storeState = useSessionStore.getState();
-      expect(storeState.totalScore).toBe(10.0);
-
       const newShot: ShotDto = {
         id: 'shot-2',
         shotNumber: 2,
@@ -408,9 +261,7 @@ describe('useShot', () => {
         addShot(newShot);
       });
 
-      storeState = useSessionStore.getState();
-      expect(storeState.shots).toHaveLength(2);
-      expect(storeState.totalScore).toBeCloseTo(19.8, 5);
+      expect(useSessionStore.getState().shots).toHaveLength(2);
 
       expect(result.current.shots.at(-1)).toEqual(newShot);
     });

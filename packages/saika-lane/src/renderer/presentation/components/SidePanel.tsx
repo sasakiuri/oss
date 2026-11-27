@@ -8,7 +8,7 @@ import { useCompetitionStore } from '../stores/competitionStore';
 import { useDirectorMembershipStore } from '../stores/directorMembershipStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { withDisplayShotNumbers } from '../utils/displayShotNumbers';
-import { DISCIPLINE_LABELS, calculateSeriesScores, formatScore } from '../utils/scoreUtils';
+import { DISCIPLINE_LABELS, calculateMatchSeriesScores, calculateSeriesScores, formatScore } from '../utils/scoreUtils';
 
 import { ModeIndicator } from './ModeIndicator';
 import { SeriesScoreGrid } from './side-panel/SeriesScoreGrid';
@@ -30,8 +30,6 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
   const recordingError = useSessionStore((s) => s.recordingError);
   const nullificationMessage = useSessionStore((s) => s.nullificationMessage);
   const preparationShotNumberResetIndices = useSessionStore((s) => s.preparationShotNumberResetIndices);
-  const totalScore = useSessionStore((s) => s.totalScore);
-  const seriesScores = useSessionStore((s) => s.seriesScores);
   const phase = useCompetitionStore((s) => s.phase);
   const athleteTargetControl = useCompetitionStore((s) => s.athleteTargetControl);
   const athleteTargetControlLoaded = useCompetitionStore((s) => s.athleteTargetControlLoaded);
@@ -58,27 +56,19 @@ export const SidePanel: React.FC<SidePanelProps> = ({ className = '' }) => {
     [scoreMode, shots],
   );
 
-  const displayTotalScore = useMemo(
-    () =>
-      scoreMode === 'MATCH' && seriesScores.length > 0
-        ? totalScore
-        : scoringShots.reduce((sum, shot) => sum + shot.score, 0),
-    [scoreMode, seriesScores, totalScore, scoringShots],
-  );
+  const displayTotalScore = useMemo(() => scoringShots.reduce((sum, shot) => sum + shot.score, 0), [scoringShots]);
 
   const averageScore = useMemo(
     () => (scoringShots.length > 0 ? displayTotalScore / scoringShots.length : 0),
     [scoringShots, displayTotalScore],
   );
 
-  const calculatedSeriesScores = useMemo(
-    () => calculateSeriesScores(scoringShots, shotsPerSeries),
-    [scoringShots, shotsPerSeries],
-  );
-
   const displaySeriesScores = useMemo(
-    () => (scoreMode === 'MATCH' && seriesScores.length > 0 ? seriesScores : calculatedSeriesScores),
-    [scoreMode, seriesScores, calculatedSeriesScores],
+    () =>
+      scoreMode === 'MATCH'
+        ? calculateMatchSeriesScores(scoringShots, shotsPerSeries)
+        : calculateSeriesScores(scoringShots, shotsPerSeries),
+    [scoreMode, scoringShots, shotsPerSeries],
   );
 
   return (

@@ -27,8 +27,6 @@ interface SessionState {
   currentSeriesStartIndex: number;
   /** Shot indices where Preparation display shot numbers are initialized */
   preparationShotNumberResetIndices: number[];
-  seriesScores: number[];
-  totalScore: number;
   /** Connected device ID (MT201, BPT216, etc.; null when disconnected) */
   deviceId: string | null;
   /** Impact sound volume (0-100) */
@@ -55,8 +53,6 @@ interface SessionActions {
    * Mark the current shot position as a Preparation display shot number reset.
    */
   markPreparationShotNumberReset: () => void;
-
-  updateScores: (totalScore: number, seriesScores: number[]) => void;
 
   setDeviceId: (deviceId: string | null) => void;
 
@@ -85,8 +81,6 @@ const initialState: SessionState = {
   nullificationMessage: null,
   currentSeriesStartIndex: 0,
   preparationShotNumberResetIndices: [],
-  seriesScores: [],
-  totalScore: 0,
   deviceId: null,
   audioVolume: 50,
 };
@@ -156,13 +150,6 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
     });
   },
 
-  updateScores: (totalScore, seriesScores) => {
-    set({
-      totalScore,
-      seriesScores: [...seriesScores], // Create a new array to preserve immutability
-    });
-  },
-
   setDeviceId: (deviceId) => {
     set({ deviceId });
   },
@@ -176,8 +163,6 @@ export const useSessionStore = create<SessionState & SessionActions>((set) => ({
       nullificationMessage: null,
       currentSeriesStartIndex: 0,
       preparationShotNumberResetIndices: [],
-      seriesScores: [],
-      totalScore: 0,
     });
   },
 

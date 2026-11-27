@@ -65,8 +65,6 @@ export function useAppNavigation() {
         shots,
         nullifiedExtras: history.nullifiedExtras,
         currentSeriesStartIndex: state.currentSeriesStartIndex,
-        totalScore: score.totalScore,
-        seriesScores: score.seriesScores,
       });
       useCompetitionStore.setState({
         competitionId: competition.id,

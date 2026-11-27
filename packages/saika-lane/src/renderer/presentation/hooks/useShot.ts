@@ -4,7 +4,6 @@
 import { useCallback, useEffect } from 'react';
 
 import { mergeShots, useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import { calculateSeriesScores } from '@/renderer/presentation/utils/scoreUtils';
 import { sessionService } from '@/renderer/services/sessionService';
 import type { ShotDto } from '@/shared/ipc/contracts';
 
@@ -22,27 +21,6 @@ export function useShot(): UseShotResult {
   const currentSessionId = useSessionStore((state) => state.currentSessionId);
   const shots = useSessionStore((state) => state.shots);
   const setShots = useSessionStore((state) => state.setShots);
-  const updateScores = useSessionStore((state) => state.updateScores);
-
-  /**
-   * Calculate scores and update the store
-   */
-  const calculateScores = useCallback(
-    (shotList: ShotDto[]) => {
-      // Only target match-mode shots
-      const recordedShots = shotList.filter((shot) => shot.isRecorded);
-
-      // Total score
-      const totalScore = recordedShots.reduce((sum, shot) => sum + shot.score, 0);
-
-      // Score per series (every 10 shots) -- using shared utility
-      const seriesScores = calculateSeriesScores(recordedShots);
-
-      // Update the store
-      updateScores(totalScore, seriesScores);
-    },
-    [updateScores],
-  );
 
   /**
    * Re-fetch shot history
@@ -64,24 +42,13 @@ export function useShot(): UseShotResult {
       const current = useSessionStore.getState();
       if (resetDuringQuery || current.currentSessionId !== currentSessionId) return;
       current.setNullifiedExtras(nullifiedExtras);
-      const merged = mergeShots(fetchedShots, current.shots);
-      setShots(merged);
-      calculateScores(merged);
+      setShots(mergeShots(fetchedShots, current.shots));
     } catch {
       // Shot history refresh failure — non-critical, will retry on next event
     } finally {
       unsubscribe();
     }
-  }, [currentSessionId, setShots, calculateScores]);
-
-  /**
-   * Recalculate scores when shots are updated
-   */
-  useEffect(() => {
-    if (shots.length > 0) {
-      calculateScores(shots);
-    }
-  }, [shots, calculateScores]);
+  }, [currentSessionId, setShots]);
 
   /**
    * Initial fetch of shot history when the session changes
