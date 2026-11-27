@@ -246,6 +246,12 @@ function validateApplication(props: CreateScoringDecisionProps): void {
   }
 }
 
+/** Orders decisions by decision time, then by ID for decisions made at the same time. */
+export function compareDecisionOrder(left: ScoringDecision, right: ScoringDecision): number {
+  const timeDifference = left.decidedAt.getTime() - right.decidedAt.getTime();
+  return timeDifference === 0 ? left.id.localeCompare(right.id) : timeDifference;
+}
+
 /** Returns current decisions without erasing the append-only revocation history. */
 export function getActiveScoringDecisions(decisions: readonly ScoringDecision[]): ScoringDecision[] {
   const reversed = new Set(

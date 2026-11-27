@@ -1,4 +1,4 @@
-import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
+import { GetEventByIdToken } from '@/main/modules/championship';
 import type { IQualificationResultsReader } from '@/main/modules/results';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
@@ -25,7 +25,7 @@ export class QualificationResultVerificationSource implements IResultVerificatio
   ) {}
 
   async load(eventId: string): Promise<ResultVerificationSourceSnapshot> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
+    const event = await this.queryBus.execute(GetEventByIdToken, { eventId });
     if (!event) throw new Error(`Event ${eventId} not found`);
     const definition = this.competitionTypes.get(event.eventType);
     const policy = definition.resultVerification ?? { topIndividualResults: 0, topTeamResults: 0 };

@@ -1,4 +1,4 @@
-import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
+import { GetEventByIdToken } from '@/main/modules/championship';
 import type {
   IScoringDecisionTargetResolver,
   ScoringDecisionTargetSnapshot,
@@ -51,9 +51,9 @@ export class ScoringDecisionTargetResolver implements IScoringDecisionTargetReso
   private async resolveFinal(resultId: string): Promise<ScoringDecisionTargetSnapshot | null> {
     const result = this.finalResults.findById(resultId);
     if (!result) return null;
-    const event = (await this.queryBus.execute(GetEventByIdToken, {
+    const event = await this.queryBus.execute(GetEventByIdToken, {
       eventId: result.eventId.value,
-    })) as GetEventByIdResponse | null;
+    });
     if (!event) throw new Error(`Event ${result.eventId.value} not found`);
     const definition = this.competitionTypes.get(event.eventType);
     const seriesShotCounts = getAvailableSeriesShotCounts(

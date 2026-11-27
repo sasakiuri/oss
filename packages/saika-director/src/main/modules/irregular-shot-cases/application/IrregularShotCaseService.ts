@@ -109,7 +109,7 @@ export class IrregularShotCaseService {
   }
 
   private async requireEvent(eventId: string): Promise<GetEventByIdResponse> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
+    const event = await this.queryBus.execute(GetEventByIdToken, { eventId });
     if (!event) throw new Error(`Event ${eventId} not found`);
     return event;
   }
@@ -180,10 +180,8 @@ export class IrregularShotCaseService {
     const entries = this.repository.findEntries(ids);
     const evidence = this.repository.findEvidence(ids);
     const blockedIds = new Set<string>();
-    for (const key of new Set(values.map((value) => `${value.eventId}:${value.resultScope}`))) {
-      const separator = key.lastIndexOf(':');
-      const eventId = key.slice(0, separator);
-      const resultScope = key.slice(separator + 1) as IrregularShotCase['resultScope'];
+    const scopes = new Map(values.map((value) => [`${value.eventId}:${value.resultScope}`, value]));
+    for (const { eventId, resultScope } of scopes.values()) {
       for (const caseId of this.publicationBlocker.getCaseIssues(eventId, resultScope).keys()) blockedIds.add(caseId);
     }
     return values.map((value) => {

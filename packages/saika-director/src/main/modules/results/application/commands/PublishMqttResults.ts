@@ -22,3 +22,8 @@ export interface PublishResultsResponse {
   savedCount: number;
   errors: string[];
 }
+
+/** A publication that saved nothing because of one error. */
+export function failure(message: string): PublishResultsResponse {
+  return { savedCount: 0, errors: [message] };
+}
