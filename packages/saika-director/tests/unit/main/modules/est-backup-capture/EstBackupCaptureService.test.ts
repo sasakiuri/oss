@@ -6,6 +6,10 @@ import {
   EstBackupCaptureService,
   type IEstBackupFeed,
 } from '@/main/modules/est-backup-capture/application/EstBackupCaptureService';
+import type {
+  EstBackupCapturePlan,
+  IEstBackupCapturePersistence,
+} from '@/main/modules/est-backup-capture/application/EstBackupCapturePersistence';
 import type { SelectedEstBackupRecordFile } from '@/main/modules/est-backup-verification/application/EstBackupRecordFileGateway';
 
 function snapshot(content = '[{"key":"101","totalScore":600}]'): SelectedEstBackupRecordFile {
@@ -23,6 +27,24 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
+function memoryPersistence(): IEstBackupCapturePersistence {
+  const plans = new Map<string, EstBackupCapturePlan>();
+  return {
+    plans: {
+      find: (eventId) => plans.get(eventId) ?? null,
+      list: () => [...plans.values()],
+      save: (plan) => {
+        plans.set(plan.eventId, plan);
+      },
+      remove: (eventId) => {
+        plans.delete(eventId);
+      },
+    },
+    restoreFeed: vi.fn(),
+    describeParser: vi.fn(),
+    restoreParser: vi.fn(),
+  };
+}
 const services: EstBackupCaptureService[] = [];
 function setup() {
   let current = snapshot();
@@ -30,7 +52,13 @@ function setup() {
   const read = vi.fn(async () => current);
   const choose = vi.fn<() => Promise<IEstBackupFeed | null>>(async () => ({ label: 'backup.json', read }));
   const captureSource = vi.fn(() => ({ sourceId: 'saved-source' }));
-  const service = new EstBackupCaptureService({ choose }, { captureSource }, () => exists, ['.json']);
+  const service = new EstBackupCaptureService(
+    { choose },
+    { captureSource },
+    () => exists,
+    ['.json'],
+    memoryPersistence(),
+  );
   services.push(service);
   return {
     service,

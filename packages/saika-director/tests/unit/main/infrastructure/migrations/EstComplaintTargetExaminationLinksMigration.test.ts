@@ -25,7 +25,7 @@ describe('migration061EstComplaintTargetExaminationLinks', () => {
 
   it('round-trips a verified Lane snapshot and protects the provenance link', () => {
     const targetService = new TargetExaminationService(new SqliteTargetExaminationRepository(database));
-    const examination = targetService.createNow({
+    const examination = targetService.create({
       scopes: [{ scopeType: 'COMPETITION', scopeId: competitionId }],
       issueKind: 'SCORE_VALUE_PROTEST',
       occurredAt: '2026-09-04T01:00:00.000Z',

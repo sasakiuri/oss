@@ -23,6 +23,7 @@ describe('EstBackupRecordImportService', () => {
     const service = new EstBackupRecordImportService(
       files,
       new EstBackupRecordParserRegistry([new CanonicalJsonEstBackupRecordParser()]),
+      { retain: vi.fn() },
     );
     const parser = new ColumnMappedEstBackupRecordParser({
       delimiter: ';',
@@ -45,6 +46,7 @@ describe('EstBackupRecordImportService', () => {
     const service = new EstBackupRecordImportService(
       files,
       new EstBackupRecordParserRegistry([new CanonicalJsonEstBackupRecordParser()]),
+      { retain: vi.fn() },
     );
 
     await expect(service.importRecords()).resolves.toEqual({ status: 'CANCELLED' });
@@ -62,6 +64,7 @@ describe('EstBackupRecordImportService', () => {
     const service = new EstBackupRecordImportService(
       files,
       new EstBackupRecordParserRegistry([new CanonicalJsonEstBackupRecordParser()]),
+      { retain: vi.fn() },
     );
 
     await expect(service.importRecords()).resolves.toEqual({

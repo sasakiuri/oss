@@ -4,17 +4,16 @@ import { estComplaintsContract } from '@/shared/ipc/contracts';
 import { EstComplaintCaseService } from './application/EstComplaintCaseService';
 import { ObservedEstComplaintSignalSource } from './infra/ObservedEstComplaintSignalSource';
 import { SqliteEstComplaintCaseLinkRepository } from './infra/SqliteEstComplaintCaseLinkRepository';
-import { TargetExaminationCaseGateway } from './infra/TargetExaminationCaseGateway';
 
 export const estComplaintsModule = defineModule({
   name: 'estComplaints',
-  deps: ['database', 'eventBus', 'ipcRouter', 'targetExaminationRepository'],
-  register({ database, eventBus, ipcRouter, targetExaminationRepository }) {
+  deps: ['database', 'eventBus', 'ipcRouter', 'targetExaminationService'],
+  register({ database, eventBus, ipcRouter, targetExaminationService }) {
     const signals = new ObservedEstComplaintSignalSource();
     const service = new EstComplaintCaseService(
       signals,
       new SqliteEstComplaintCaseLinkRepository(database),
-      new TargetExaminationCaseGateway(targetExaminationRepository),
+      targetExaminationService,
     );
     ipcRouter.register(estComplaintsContract, {
       listByCompetition: async ({ competitionId }) => service.listByCompetition(competitionId),

@@ -684,6 +684,7 @@ describe('EST backup verification', () => {
           { key: PARTICIPANT_B, name: 'Zoë Müller', rank: 2, totalScore: 248.9, interventionCount: 1 },
         ],
       },
+      { get: vi.fn() },
     );
 
     const run = await service.verify({

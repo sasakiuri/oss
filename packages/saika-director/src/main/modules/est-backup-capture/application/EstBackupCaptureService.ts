@@ -47,13 +47,13 @@ export class EstBackupCaptureService {
     private readonly capture: IEstBackupSnapshotCapture,
     private readonly eventExists: (id: string) => boolean,
     private readonly extensions: readonly string[],
+    private readonly persistence: IEstBackupCapturePersistence,
     private readonly now: () => Date = () => new Date(),
     private readonly snapshotPolicy: IEstBackupSnapshotPolicy = new EstBackupSnapshotPolicy(),
-    private readonly persistence?: IEstBackupCapturePersistence,
   ) {}
 
   status(eventId: string): EstBackupCaptureStatusDto {
-    const plan = this.persistence?.plans.find(eventId);
+    const plan = this.persistence.plans.find(eventId);
     return {
       ...(this.runs.get(eventId)?.status ?? {
         eventId,
@@ -95,41 +95,38 @@ export class EstBackupCaptureService {
     this.selections.delete(eventId);
     if (!feed) return this.status(eventId);
     if (!this.eventExists(eventId)) throw new Error('The selected event no longer exists');
-    if (options.resumeOnStartup && (!this.persistence || !feed.reference))
+    if (options.resumeOnStartup && !feed.reference)
       throw new Error('This backup source cannot be restored after a restart');
-    if (this.persistence) {
-      if (feed.reference)
-        this.persistence.plans.save({
-          eventId,
-          sourceLabel: feed.label,
-          feed: feed.reference,
-          parser: parser ? this.persistence.describeParser(parser) : null,
-          intervalMilliseconds,
-          snapshotMode,
-          resumeOnStartup: options.resumeOnStartup ?? false,
-          enabled: true,
-        });
-      else this.persistence.plans.remove(eventId);
-    }
+    if (feed.reference)
+      this.persistence.plans.save({
+        eventId,
+        sourceLabel: feed.label,
+        feed: feed.reference,
+        parser: parser ? this.persistence.describeParser(parser) : null,
+        intervalMilliseconds,
+        snapshotMode,
+        resumeOnStartup: options.resumeOnStartup ?? false,
+        enabled: true,
+      });
+    else this.persistence.plans.remove(eventId);
     return this.begin(eventId, feed, intervalMilliseconds, snapshotMode, options.resumeOnStartup ?? false, parser);
   }
 
   async resume(eventId: string): Promise<EstBackupCaptureStatusDto> {
     if (this.disposed) throw new Error('Backup capture is shutting down');
-    const persistence = this.persistence;
-    const plan = persistence?.plans.find(eventId);
-    if (!persistence || !plan) throw new Error('No saved capture source is available');
+    const plan = this.persistence.plans.find(eventId);
+    if (!plan) throw new Error('No saved capture source is available');
     if (!this.eventExists(eventId)) throw new Error('The selected event no longer exists');
     if (this.runs.get(eventId)?.status.state !== 'STOPPED' && this.runs.has(eventId))
       throw new Error('Stop the current capture before resuming the saved source');
     const selection = {};
     this.selections.set(eventId, selection);
     try {
-      const parser = plan.parser ? persistence.restoreParser(plan.parser) : undefined;
-      const feed = await persistence.restoreFeed(plan.feed);
+      const parser = plan.parser ? this.persistence.restoreParser(plan.parser) : undefined;
+      const feed = await this.persistence.restoreFeed(plan.feed);
       if (this.disposed || this.selections.get(eventId) !== selection) return this.status(eventId);
       if (!this.eventExists(eventId)) throw new Error('The selected event no longer exists');
-      persistence.plans.save({ ...plan, enabled: true });
+      this.persistence.plans.save({ ...plan, enabled: true });
       this.selections.delete(eventId);
       return this.begin(eventId, feed, plan.intervalMilliseconds, plan.snapshotMode, plan.resumeOnStartup, parser);
     } catch (error) {
@@ -142,10 +139,10 @@ export class EstBackupCaptureService {
   }
 
   async restoreSavedRuns(): Promise<void> {
-    for (const plan of this.persistence?.plans.list() ?? []) {
+    for (const plan of this.persistence.plans.list()) {
       if (this.disposed) return;
       if (!this.eventExists(plan.eventId)) {
-        this.persistence!.plans.remove(plan.eventId);
+        this.persistence.plans.remove(plan.eventId);
         continue;
       }
       if (plan.enabled && plan.resumeOnStartup) {
@@ -159,7 +156,7 @@ export class EstBackupCaptureService {
   forgetSaved(eventId: string): EstBackupCaptureStatusDto {
     const run = this.runs.get(eventId);
     if (run && run.status.state !== 'STOPPED') throw new Error('Stop capture before forgetting the saved source');
-    this.persistence?.plans.remove(eventId);
+    this.persistence.plans.remove(eventId);
     this.selections.delete(eventId);
     this.resumeErrors.delete(eventId);
     this.runs.delete(eventId);
@@ -189,7 +186,7 @@ export class EstBackupCaptureService {
         intervalMilliseconds,
         snapshotMode,
         resumeOnStartup,
-        canResume: !!this.persistence?.plans.find(eventId),
+        canResume: !!this.persistence.plans.find(eventId),
         checkedAt: null,
         capturedAt: null,
         retainedSourceCheckedAt: null,
@@ -205,8 +202,8 @@ export class EstBackupCaptureService {
 
   stop(eventId: string, runId: string): EstBackupCaptureStatusDto {
     const run = this.requireRun(eventId, runId);
-    const plan = this.persistence?.plans.find(eventId);
-    if (plan) this.persistence!.plans.save({ ...plan, enabled: false });
+    const plan = this.persistence.plans.find(eventId);
+    if (plan) this.persistence.plans.save({ ...plan, enabled: false });
     this.selections.delete(eventId);
     this.cancel(run);
     run.status.state = 'STOPPED';

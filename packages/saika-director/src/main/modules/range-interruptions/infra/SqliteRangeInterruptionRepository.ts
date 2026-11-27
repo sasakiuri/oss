@@ -279,7 +279,7 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
           occurredAt: batch.occurredAt.toISOString(),
           recordedAt: batch.recordedAt.toISOString(),
         });
-      if (transitionEntry) this.insertEntry(transitionEntry);
+      if (transitionEntry) this.appendEntry(transitionEntry);
     })();
   }
 
@@ -358,29 +358,6 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
          )`,
       )
       .run({ ...scope, linkedAt: scope.linkedAt.toISOString() });
-  }
-
-  private insertEntry(entry: RangeInterruptionEntry): void {
-    this.db
-      .prepare(
-        `INSERT INTO range_interruption_entries (
-           id, case_id, entry_type, occurred_at, statement, official_name,
-           rule_reference, lost_time_seconds, extension_seconds,
-           authorized_remaining_seconds, unlimited_sighting_shots,
-           incident_report_reference, command_id, recorded_at
-         ) VALUES (
-           @id, @caseId, @type, @occurredAt, @statement, @officialName,
-           @ruleReference, @lostTimeSeconds, @extensionSeconds,
-           @authorizedRemainingSeconds, @unlimitedSightingShots,
-           @incidentReportReference, @commandId, @recordedAt
-         )`,
-      )
-      .run({
-        ...entry,
-        occurredAt: entry.occurredAt.toISOString(),
-        unlimitedSightingShots: entry.unlimitedSightingShots === null ? null : entry.unlimitedSightingShots ? 1 : 0,
-        recordedAt: entry.recordedAt.toISOString(),
-      });
   }
 }
 

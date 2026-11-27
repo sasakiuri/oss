@@ -29,25 +29,20 @@ export class TargetExaminationService {
     private readonly workflowPolicy: ITargetExaminationWorkflowPolicy = new IssfTargetExaminationWorkflowPolicy(),
   ) {}
 
-  async listAll(): Promise<TargetExaminationCaseDto[]> {
+  listAll(): TargetExaminationCaseDto[] {
     return this.projectCases(this.repository.findAllCases());
   }
 
-  async listByScope(scope: TargetExaminationScopePayload): Promise<TargetExaminationCaseDto[]> {
+  listByScope(scope: TargetExaminationScopePayload): TargetExaminationCaseDto[] {
     return this.projectCases(this.repository.findCasesByScope(scope));
   }
 
-  async getById(caseId: string): Promise<TargetExaminationCaseDto> {
+  getById(caseId: string): TargetExaminationCaseDto {
     const examination = this.requireCase(caseId);
     return this.projectCases([examination])[0]!;
   }
 
-  async create(input: CreateTargetExaminationCasePayload): Promise<TargetExaminationCaseDto> {
-    return this.createNow(input);
-  }
-
-  /** Synchronous variant used when a caller owns the surrounding SQLite transaction. */
-  createNow(input: CreateTargetExaminationCasePayload): TargetExaminationCaseDto {
+  create(input: CreateTargetExaminationCasePayload): TargetExaminationCaseDto {
     validateUniqueScopes(input.scopes);
     const examination = TargetExaminationCase.create({
       ...input,
@@ -65,7 +60,7 @@ export class TargetExaminationService {
     return toDto(examination, scopes, [], [], this.workflowPolicy);
   }
 
-  async linkScope(input: LinkTargetExaminationScopePayload): Promise<TargetExaminationCaseDto> {
+  linkScope(input: LinkTargetExaminationScopePayload): TargetExaminationCaseDto {
     this.requireChangeableCase(input.caseId, { allowClosed: true });
     const existing = this.repository.findScopesByCaseIds([input.caseId]).get(input.caseId) ?? [];
     if (existing.some((scope) => scope.scopeType === input.scope.scopeType && scope.scopeId === input.scope.scopeId)) {
@@ -81,7 +76,7 @@ export class TargetExaminationService {
     return this.getById(input.caseId);
   }
 
-  async addEvidence(input: AddTargetExaminationEvidencePayload): Promise<TargetExaminationCaseDto> {
+  addEvidence(input: AddTargetExaminationEvidencePayload): TargetExaminationCaseDto {
     this.requireChangeableCase(input.caseId);
     const evidence = TargetExaminationEvidence.create({
       ...input,
@@ -91,7 +86,7 @@ export class TargetExaminationService {
     return this.getById(input.caseId);
   }
 
-  async appendEntry(input: AppendTargetExaminationEntryPayload): Promise<TargetExaminationCaseDto> {
+  appendEntry(input: AppendTargetExaminationEntryPayload): TargetExaminationCaseDto {
     const { state } = this.requireChangeableCase(input.caseId, {
       allowClosed: input.type === 'REOPENED' || input.type === 'VOID',
     });

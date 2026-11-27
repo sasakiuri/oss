@@ -69,7 +69,7 @@ function harness() {
   };
 }
 
-async function openCase(service: TargetExaminationService, laneId: string | null = LANE_ID) {
+function openCase(service: TargetExaminationService, laneId: string | null = LANE_ID) {
   return service.create({
     scopes: [{ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }],
     issueKind: 'NO_SHOT_INDICATION',
@@ -85,13 +85,13 @@ async function openCase(service: TargetExaminationService, laneId: string | null
 }
 
 describe('TargetExaminationService', () => {
-  it('keeps evidence and decisions append-only while deriving hold and case state', async () => {
+  it('keeps evidence and decisions append-only while deriving hold and case state', () => {
     const { service } = harness();
-    const opened = await openCase(service);
+    const opened = openCase(service);
 
     expect(opened).toMatchObject({ status: 'OPEN', evidenceHoldActive: true, evidence: [], entries: [] });
 
-    const withEvidence = await service.addEvidence({
+    const withEvidence = service.addEvidence({
       caseId: opened.id,
       type: 'EST_LOG_PRINT',
       description: 'Independent backup-memory LOG printout',
@@ -105,7 +105,7 @@ describe('TargetExaminationService', () => {
       contentHashSha256: 'a'.repeat(64),
     });
 
-    const decided = await service.appendEntry({
+    const decided = service.appendEntry({
       caseId: opened.id,
       type: 'DECISION',
       statement: 'EST record confirms the shot; scoring correction must be recorded separately.',
@@ -114,16 +114,16 @@ describe('TargetExaminationService', () => {
     });
     expect(decided).toMatchObject({ status: 'OPEN', evidenceHoldActive: true });
 
-    await expect(
+    expect(() =>
       service.appendEntry({
         caseId: opened.id,
         type: 'CLOSED',
         statement: 'Review complete',
         officialName: 'RTS Jury A',
       }),
-    ).rejects.toThrow('Release the evidence hold');
+    ).toThrow('Release the evidence hold');
 
-    const released = await service.appendEntry({
+    const released = service.appendEntry({
       caseId: opened.id,
       type: 'HOLD_RELEASED',
       statement: 'RTS Jury authorized CLEAR LOG after all examination items were secured.',
@@ -132,14 +132,14 @@ describe('TargetExaminationService', () => {
     expect(released.entries.at(-1)).toMatchObject({ type: 'HOLD_RELEASED', ruleReference: 'ISSF 6.10.8.3' });
     expect(released.evidenceHoldActive).toBe(false);
 
-    const closed = await service.appendEntry({
+    const closed = service.appendEntry({
       caseId: opened.id,
       type: 'CLOSED',
       statement: 'Examination completed',
       officialName: 'RTS Jury A',
     });
     expect(closed.status).toBe('CLOSED');
-    await expect(
+    expect(() =>
       service.addEvidence({
         caseId: opened.id,
         type: 'OTHER',
@@ -147,9 +147,9 @@ describe('TargetExaminationService', () => {
         collectedBy: 'RTS Officer A',
         collectedAt: '2026-08-31T01:10:00.000Z',
       }),
-    ).rejects.toThrow('reopened');
+    ).toThrow('reopened');
 
-    const reopened = await service.appendEntry({
+    const reopened = service.appendEntry({
       caseId: opened.id,
       type: 'REOPENED',
       statement: 'New material requires review',
@@ -158,11 +158,11 @@ describe('TargetExaminationService', () => {
     expect(reopened).toMatchObject({ status: 'OPEN', evidenceHoldActive: true });
   });
 
-  it('supports append-only event linking without depending on the championship module', async () => {
+  it('supports append-only event linking without depending on the championship module', () => {
     const { service } = harness();
-    const opened = await openCase(service);
+    const opened = openCase(service);
 
-    const linked = await service.linkScope({
+    const linked = service.linkScope({
       caseId: opened.id,
       scope: { scopeType: 'EVENT', scopeId: EVENT_ID },
       linkedBy: 'Competition Jury A',
@@ -170,20 +170,20 @@ describe('TargetExaminationService', () => {
     });
 
     expect(linked.scopes.map((scope) => scope.scopeType)).toEqual(['COMPETITION', 'EVENT']);
-    expect(await service.listAll()).toHaveLength(1);
-    expect(await service.listByScope({ scopeType: 'EVENT', scopeId: EVENT_ID })).toHaveLength(1);
-    await expect(
+    expect(service.listAll()).toHaveLength(1);
+    expect(service.listByScope({ scopeType: 'EVENT', scopeId: EVENT_ID })).toHaveLength(1);
+    expect(() =>
       service.linkScope({
         caseId: opened.id,
         scope: { scopeType: 'EVENT', scopeId: EVENT_ID },
         linkedBy: 'Competition Jury A',
       }),
-    ).rejects.toThrow('already linked');
+    ).toThrow('already linked');
   });
 
-  it('blocks only data operations covered by an active Lane or competition hold', async () => {
+  it('blocks only data operations covered by an active Lane or competition hold', () => {
     const { service, guard } = harness();
-    const laneCase = await openCase(service);
+    const laneCase = openCase(service);
 
     expect(() =>
       guard.assertAllowed({ operation: 'RESET_LANE_SESSION', competitionId: COMPETITION_ID, laneId: LANE_ID }),
@@ -199,7 +199,7 @@ describe('TargetExaminationService', () => {
       'Evidence hold is active',
     );
 
-    await service.appendEntry({
+    service.appendEntry({
       caseId: laneCase.id,
       type: 'HOLD_RELEASED',
       statement: 'Evidence secured and data release authorized',
@@ -209,7 +209,7 @@ describe('TargetExaminationService', () => {
       guard.assertAllowed({ operation: 'RESET_LANE_SESSION', competitionId: COMPETITION_ID, laneId: LANE_ID }),
     ).not.toThrow();
 
-    await openCase(service, null);
+    openCase(service, null);
     expect(() =>
       guard.assertAllowed({
         operation: 'LEAVE_LANE',

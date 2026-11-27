@@ -18,8 +18,12 @@ import {
   type QualificationRecoveryExecutionStart,
 } from '../domain/QualificationRecoveryExecution';
 import { requireQualificationSighting } from '../domain/QualificationSightingReadiness';
-import { getRangeInterruptionState } from '../domain/RangeInterruptionEntry';
 import { requiredText } from '@/main/domain/guards';
+import {
+  assertCompetitionLinked,
+  errorMessage,
+  requireLatestQualificationRecoveryDecision,
+} from './qualificationRecoveryPreconditions';
 
 export interface StartQualificationRecoveryExecutionInput {
   readonly caseId: string;
@@ -54,28 +58,15 @@ export class QualificationRecoveryExecutionService {
     const interruption = this.interruptionRepository.findCaseById(input.caseId);
     if (!interruption) throw new Error(`Range interruption ${input.caseId} not found`);
     if (!interruption.laneId) throw new Error('Qualification recovery execution requires one affected Lane');
-    const scopes = this.interruptionRepository.findScopesByCaseIds([input.caseId]).get(input.caseId) ?? [];
-    if (!scopes.some((scope) => scope.scopeType === 'COMPETITION' && scope.scopeId === input.competitionId)) {
-      throw new Error(`Competition ${input.competitionId} is not linked to range interruption ${input.caseId}`);
-    }
+    assertCompetitionLinked(this.interruptionRepository, input.caseId, input.competitionId);
     const context = interruption.qualificationTimedTargetContext;
     if (!context) throw new Error('This interruption has no Qualification timed-target policy snapshot');
-    const interruptionState = getRangeInterruptionState(
-      this.interruptionRepository.findEntriesByCaseIds([input.caseId]).get(input.caseId) ?? [],
+    const decision = requireLatestQualificationRecoveryDecision(
+      this.interruptionRepository,
+      input.caseId,
+      input.decisionId,
+      'execution',
     );
-    if (interruptionState.status !== 'ENDED') {
-      throw new Error('Qualification recovery can only execute while the ended interruption remains open');
-    }
-
-    const decisions =
-      this.interruptionRepository
-        .findQualificationTimedTargetRecoveryDecisionsByCaseIds([input.caseId])
-        .get(input.caseId) ?? [];
-    const decision = decisions.at(-1);
-    if (!decision) throw new Error('Record an official Qualification recovery decision before execution');
-    if (decision.id !== input.decisionId) {
-      throw new Error(`Only the latest Qualification recovery decision ${decision.id} can be executed`);
-    }
 
     const sightingPrerequisite =
       input.phase === 'SERIES_RECOVERY'
@@ -382,10 +373,6 @@ function shotBindingError(
   return mismatches.length > 0
     ? `Recovery shot does not match immutable execution fields: ${mismatches.join(', ')}`
     : null;
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function assertCompleteObservedEvidence(execution: QualificationRecoveryExecutionRecord): void {
