@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { MixedTeamFinalResultDto } from '@/shared/ipc/contracts';
 import type { FinalRankedResultDto, RankedResultDto } from '@/shared/ipc/contracts';
 import { resultsService, teamResultsService } from '@/renderer/services';
-import { errorMessage, unwrap } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap, type DataResponse } from '@/renderer/services/serviceError';
 
 interface UseResultsState {
   results: RankedResultDto[];
@@ -12,8 +12,9 @@ interface UseResultsState {
 }
 
 /**
- * Qualification results of an event or relay and their confirmation. Queries and the confirmation share one request
- * counter and loading flag: the latest request wins, and an older one changes nothing and resolves null.
+ * Qualification results of an event or relay and their confirmation. A query resolves the loaded data and the
+ * confirmation its response, or null when they failed. Queries and the confirmation share one request counter and
+ * loading flag: the latest request wins, and an older one changes nothing and resolves null.
  * A failed query replaces the results with `error`; a failed confirmation keeps them and sets `confirmError`,
  * which the next request clears.
  */
@@ -33,61 +34,49 @@ export function useResults() {
     [],
   );
 
-  const getEventResults = useCallback(async (eventId: string) => {
-    const requestId = ++latestResultsRequestIdRef.current;
-    setState((prev) => ({ ...prev, loading: true, error: null, confirmError: null }));
+  const loadResults = useCallback(
+    async <T extends { results: RankedResultDto[] }>(
+      request: () => Promise<DataResponse<T>>,
+      failure: string,
+    ): Promise<T | null> => {
+      const requestId = ++latestResultsRequestIdRef.current;
+      setState((prev) => ({ ...prev, loading: true, error: null, confirmError: null }));
 
-    try {
-      const response = await resultsService.getByEvent({ eventId });
-      const data = unwrap(response, 'Failed to load results');
-      if (requestId === latestResultsRequestIdRef.current) {
-        setState({
-          results: data.results,
-          loading: false,
-          error: null,
-          confirmError: null,
-        });
+      try {
+        const data = unwrap(await request(), failure);
+        if (requestId === latestResultsRequestIdRef.current) {
+          setState({
+            results: data.results,
+            loading: false,
+            error: null,
+            confirmError: null,
+          });
+        }
+        return data;
+      } catch (err) {
+        if (requestId === latestResultsRequestIdRef.current) {
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            error: errorMessage(err, failure),
+          }));
+        }
+        return null;
       }
-      return response;
-    } catch (err) {
-      if (requestId === latestResultsRequestIdRef.current) {
-        setState((prev) => ({
-          ...prev,
-          loading: false,
-          error: errorMessage(err, 'Failed to load results'),
-        }));
-      }
-      return null;
-    }
-  }, []);
+    },
+    [],
+  );
 
-  const getRelayResults = useCallback(async (eventId: string, relayNumber: number) => {
-    const requestId = ++latestResultsRequestIdRef.current;
-    setState((prev) => ({ ...prev, loading: true, error: null, confirmError: null }));
+  const getEventResults = useCallback(
+    (eventId: string) => loadResults(() => resultsService.getByEvent({ eventId }), 'Failed to load results'),
+    [loadResults],
+  );
 
-    try {
-      const response = await resultsService.getByRelay({ eventId, relayNumber });
-      const data = unwrap(response, 'Failed to load relay results');
-      if (requestId === latestResultsRequestIdRef.current) {
-        setState({
-          results: data.results,
-          loading: false,
-          error: null,
-          confirmError: null,
-        });
-      }
-      return response;
-    } catch (err) {
-      if (requestId === latestResultsRequestIdRef.current) {
-        setState((prev) => ({
-          ...prev,
-          loading: false,
-          error: errorMessage(err, 'Failed to load relay results'),
-        }));
-      }
-      return null;
-    }
-  }, []);
+  const getRelayResults = useCallback(
+    (eventId: string, relayNumber: number) =>
+      loadResults(() => resultsService.getByRelay({ eventId, relayNumber }), 'Failed to load relay results'),
+    [loadResults],
+  );
 
   const confirmResults = useCallback(async (eventId: string, resultIds: string[]) => {
     const requestId = ++latestResultsRequestIdRef.current;
