@@ -30,7 +30,7 @@ export function StartupRecovery({ state, onRetry }: { state: StartupStateDto; on
         }
       })
       .catch((cause: unknown) => {
-        if (!cancelled) setError(String(cause));
+        if (!cancelled) setError(errorMessage(cause));
       });
     return () => {
       cancelled = true;

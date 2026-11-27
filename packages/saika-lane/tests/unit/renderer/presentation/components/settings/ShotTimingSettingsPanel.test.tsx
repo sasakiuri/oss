@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
 import { ShotTimingSettingsPanel } from '@/renderer/presentation/components/settings/ShotTimingSettingsPanel';
+import { ServiceError } from '@/renderer/services/createServiceMethod';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
 
 vi.mock('@/renderer/services/timedTargetService', () => ({
@@ -43,5 +44,13 @@ describe('ShotTimingSettingsPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save shot timing' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Finish the active competition'));
     expect(screen.queryByText('Shot timing saved.')).not.toBeInTheDocument();
+  });
+
+  it('shows a failed load by its message', async () => {
+    vi.mocked(timedTargetService.getTimingSettings).mockRejectedValue(
+      new ServiceError('Timing settings are unavailable', 'IPC_ERROR'),
+    );
+    render(<ShotTimingSettingsPanel />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/^Timing settings are unavailable$/));
   });
 });

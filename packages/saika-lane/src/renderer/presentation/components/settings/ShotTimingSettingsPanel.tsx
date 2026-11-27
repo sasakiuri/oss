@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { InlineError } from '@/renderer/presentation/components/common/InlineError';
 import { useBusyAction } from '@/renderer/presentation/hooks/useBusyAction';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import { TimingProfilesPanel } from './TimingProfilesPanel';
 
@@ -21,7 +22,7 @@ export function ShotTimingSettingsPanel() {
         if (mounted) setSettings(value);
       })
       .catch((caught: unknown) => {
-        if (mounted) setError(String(caught));
+        if (mounted) setError(errorMessage(caught));
       });
     return () => {
       mounted = false;
