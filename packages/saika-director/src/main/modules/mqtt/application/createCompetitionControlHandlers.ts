@@ -25,7 +25,7 @@ import { getLaneCompetitionMetadata, getNextSeriesTimer } from './CompetitionSer
 interface Dependencies {
   readonly mqttService: Pick<
     DirectorMqttService,
-    | 'getSnapshot'
+    | 'getCompetition'
     | 'getClockStartIssues'
     | 'getTimingEvidenceStartIssues'
     | 'getTimedTargetStartIssues'
@@ -98,9 +98,7 @@ export function createCompetitionControlHandlers({
 }: Dependencies): Handlers {
   return {
     getStartReadiness: async (input) => {
-      const competition = mqttService
-        .getSnapshot()
-        .competitions.find((item) => item.competitionId === input.competitionId);
+      const competition = mqttService.getCompetition(input.competitionId);
       if (!competition) throw new Error('Competition not found');
       const scope = { ...input, laneIds: competition.laneIds };
       return {

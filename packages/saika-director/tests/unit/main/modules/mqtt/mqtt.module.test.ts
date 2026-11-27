@@ -89,6 +89,11 @@ vi.mock('@/main/modules/mqtt/application/DirectorMqttService', () => ({
     createCompetition = createDirectorCompetition;
     disconnect = disconnectDirector;
     getSnapshot = getSnapshot;
+    getCompetition = (competitionId: string) =>
+      getSnapshot()?.competitions?.find(
+        (competition: { competitionId: string }) => competition.competitionId === competitionId,
+      );
+    getLane = (laneId: string) => getSnapshot()?.lanes?.find((lane: { laneId: string }) => lane.laneId === laneId);
     getClockStartIssues = getClockStartIssues;
     getTimedTargetStartIssues = getTimedTargetStartIssues;
     setTimedTargetReadinessPolicy = vi.fn();
