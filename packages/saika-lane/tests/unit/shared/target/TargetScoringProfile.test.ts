@@ -5,6 +5,8 @@ import {
   getDefaultTargetScoringProfile,
   getScoringGaugeProfile,
   getTargetScoringProfile,
+  knownScoringGaugeProfileId,
+  knownTargetProfileId,
   SCORING_GAUGE_PROFILES,
   TARGET_SCORING_PROFILES,
 } from '@/shared/target';
@@ -67,5 +69,17 @@ describe('TargetScoringProfile registry', () => {
     expect(centreFire.diameterMm).toBe(9.65);
     expect(centreFire.authority.ruleRefs).toContain('Paper Target Scoring 1.4.1');
     expect(Object.isFrozen(SCORING_GAUGE_PROFILES.ISSF_CENTER_FIRE_9_65_2026.authority.ruleRefs)).toBe(true);
+  });
+});
+
+describe('known profile IDs', () => {
+  it('keeps a known ID and drops a missing or unknown one', () => {
+    expect(knownTargetProfileId('ISSF_AIR_PISTOL_10M_2026')).toBe('ISSF_AIR_PISTOL_10M_2026');
+    expect(knownTargetProfileId('UNKNOWN')).toBeUndefined();
+    expect(knownTargetProfileId('')).toBeUndefined();
+    expect(knownTargetProfileId(undefined)).toBeUndefined();
+    expect(knownScoringGaugeProfileId('ISSF_SMALLBORE_5_60_2026')).toBe('ISSF_SMALLBORE_5_60_2026');
+    expect(knownScoringGaugeProfileId('UNKNOWN')).toBeUndefined();
+    expect(knownScoringGaugeProfileId(undefined)).toBeUndefined();
   });
 });

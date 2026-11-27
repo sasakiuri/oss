@@ -23,6 +23,11 @@ export function isTargetScoringProfileId(value: string): value is TargetScoringP
   return (TARGET_SCORING_PROFILE_IDS as readonly string[]).includes(value);
 }
 
+/** The ID when it names a known target scoring profile, otherwise undefined. */
+export function knownTargetProfileId(value: string | undefined): TargetScoringProfileId | undefined {
+  return value && isTargetScoringProfileId(value) ? value : undefined;
+}
+
 export type TargetScoringGranularity = 'DECIMAL' | 'INTEGER';
 
 export interface TargetRingLine {

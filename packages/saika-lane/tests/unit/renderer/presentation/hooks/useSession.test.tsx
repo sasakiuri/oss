@@ -27,17 +27,6 @@ describe('useSession', () => {
     vi.clearAllMocks();
   });
 
-  it('returns the current session id from the store', () => {
-    const { result } = renderHook(() => useSession());
-    expect(result.current.currentSessionId).toBeNull();
-
-    act(() => {
-      useSessionStore.getState().setSessionId('session-1');
-    });
-
-    expect(result.current.currentSessionId).toBe('session-1');
-  });
-
   describe('switchMode', () => {
     it.each(['SIGHTING', 'MATCH'] as const)('starts an empty %s series without discarding history', async (mode) => {
       const shot: ShotDto = {

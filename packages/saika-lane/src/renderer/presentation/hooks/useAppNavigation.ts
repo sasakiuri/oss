@@ -9,7 +9,7 @@ import { sessionService } from '@/renderer/services/sessionService';
 import { startupService } from '@/renderer/services/startupService';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import type { StartupStateDto } from '@/shared/ipc/contracts';
-import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/target';
+import { knownScoringGaugeProfileId, knownTargetProfileId } from '@/shared/target';
 
 export function useAppNavigation() {
   const [screen, setScreen] = useState<'splash' | 'main' | 'recovery'>('splash');
@@ -86,14 +86,8 @@ export function useAppNavigation() {
         athleteTargetControl: competition.athleteTargetControl,
         athleteTargetControlLoaded: true,
         athleteTargetControlPending: false,
-        targetProfileId:
-          competition.targetProfileId && isTargetScoringProfileId(competition.targetProfileId)
-            ? competition.targetProfileId
-            : undefined,
-        scoringGaugeProfileId:
-          competition.scoringGaugeProfileId && isScoringGaugeProfileId(competition.scoringGaugeProfileId)
-            ? competition.scoringGaugeProfileId
-            : undefined,
+        targetProfileId: knownTargetProfileId(competition.targetProfileId),
+        scoringGaugeProfileId: knownScoringGaugeProfileId(competition.scoringGaugeProfileId),
       });
     };
     void (async () => {

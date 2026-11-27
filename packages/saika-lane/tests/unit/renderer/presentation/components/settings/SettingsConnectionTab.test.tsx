@@ -54,7 +54,7 @@ vi.mock('@/renderer/presentation/hooks/usePortList', () => ({
 
 const mockSetSelectedDeviceId = vi.fn();
 const mockFetchDevices = vi.fn();
-const mockSetDiscipline = vi.fn();
+const mockSelectDevice = vi.fn();
 
 const defaultDeviceListResult = {
   deviceOptions: [
@@ -68,10 +68,10 @@ const defaultDeviceListResult = {
   ] as TargetDeviceDto[],
   selectedDeviceId: '',
   setSelectedDeviceId: mockSetSelectedDeviceId,
+  selectDevice: mockSelectDevice,
   isLoadingDevices: false,
   deviceError: null,
   fetchDevices: mockFetchDevices,
-  setDiscipline: mockSetDiscipline,
 };
 
 vi.mock('@/renderer/presentation/hooks/useDeviceList', () => ({
@@ -526,7 +526,7 @@ describe('SettingsConnectionTab', () => {
     });
   });
 
-  describe('discipline setting on device selection', () => {
+  describe('device selection', () => {
     it.each(['RIFLE_300M', 'PISTOL_50M'] as const)(
       'preserves %s when restoring and selecting Custom input',
       async (discipline) => {
@@ -552,40 +552,19 @@ describe('SettingsConnectionTab', () => {
         render(<SettingsConnectionTab />);
         await waitFor(() => expect(screen.getByTestId('selected-manufacturer')).toHaveTextContent('CUSTOM'));
         fireEvent.click(screen.getByTestId('device-select-trigger'));
-        expect(mockSetDiscipline).not.toHaveBeenCalled();
+        expect(mockSelectDevice).toHaveBeenCalledWith('CUSTOM');
         fireEvent.click(screen.getByText('Connect'));
         await waitFor(() => expect(mockConnect).toHaveBeenCalledWith('/dev/ttyUSB0', 'CUSTOM', 'CUSTOM', 9600));
         await waitFor(() => expect(mockSaveUserPreferences).toHaveBeenCalledWith({ discipline }));
       },
     );
 
-    it('sets the first supportedDiscipline when device changes', () => {
+    it('selects the chosen device through the device list', () => {
       render(<SettingsConnectionTab />);
 
       fireEvent.click(screen.getByTestId('device-select-trigger'));
 
-      expect(mockSetDiscipline).toHaveBeenCalledWith('AIR_RIFLE_10M');
-    });
-
-    it('does not call setDiscipline for devices with empty supportedDisciplines', () => {
-      mockUseDeviceList.mockReturnValue({
-        ...defaultDeviceListResult,
-        deviceOptions: [
-          {
-            id: 'CUSTOM1',
-            manufacturer: 'KOHTO',
-            displayName: 'Custom Device',
-            baudRate: 9600,
-            supportedDisciplines: [],
-          },
-        ],
-      });
-
-      render(<SettingsConnectionTab />);
-
-      fireEvent.click(screen.getByTestId('device-select-trigger'));
-
-      expect(mockSetDiscipline).not.toHaveBeenCalled();
+      expect(mockSelectDevice).toHaveBeenCalledWith('MT201');
     });
   });
 
@@ -838,7 +817,8 @@ describe('SettingsConnectionTab', () => {
       });
 
       // discipline is not restored from connectionSettings
-      expect(mockSetDiscipline).not.toHaveBeenCalled();
+      expect(useSessionStore.getState().discipline).toBeNull();
+      expect(mockSelectDevice).not.toHaveBeenCalled();
     });
 
     it('does not error when saved settings are empty', async () => {

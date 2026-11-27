@@ -61,7 +61,6 @@ vi.mock('@/renderer/presentation/screens/MainScreen', () => ({
 
 describe('App', () => {
   const defaultMockSession: UseSessionResult = {
-    currentSessionId: null,
     switchMode: vi.fn(),
   };
 

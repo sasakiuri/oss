@@ -40,10 +40,10 @@ export const SettingsConnectionTab: React.FC = () => {
     deviceOptions,
     selectedDeviceId,
     setSelectedDeviceId,
+    selectDevice,
     isLoadingDevices,
     deviceError,
     fetchDevices,
-    setDiscipline,
   } = useDeviceList(selectedManufacturer);
 
   const selectedDevice = deviceOptions.find(
@@ -135,18 +135,10 @@ export const SettingsConnectionTab: React.FC = () => {
   const handleDeviceChange = useCallback(
     (value: string) => {
       setPendingSavedDeviceId(null);
-      setSelectedDeviceId(value);
-      const selectedDevice = deviceOptions.find((d) => d.id === value);
-      const current = useSessionStore.getState().discipline;
-      if (selectedDevice && (!current || !selectedDevice.supportedDisciplines.includes(current))) {
-        const firstDiscipline = selectedDevice.supportedDisciplines[0];
-        if (firstDiscipline) {
-          setDiscipline(firstDiscipline);
-        }
-      }
+      selectDevice(value);
       clearError();
     },
-    [deviceOptions, setSelectedDeviceId, setDiscipline, clearError],
+    [selectDevice, clearError],
   );
 
   const handleConnect = useCallback(async () => {

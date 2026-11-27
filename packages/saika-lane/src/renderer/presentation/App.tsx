@@ -9,15 +9,16 @@ import { useAppNavigation } from '@/renderer/presentation/hooks/useAppNavigation
 import { useEventSubscriptions } from '@/renderer/presentation/hooks/useEventSubscriptions';
 import { useModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
 import { useSavedSettingsRestore } from '@/renderer/presentation/hooks/useSavedSettingsRestore';
-import { useSession } from '@/renderer/presentation/hooks/useSession';
 import { MainScreen } from '@/renderer/presentation/screens/MainScreen';
 import { SplashScreen } from '@/renderer/presentation/screens/SplashScreen';
 import { StartupRecovery } from '@/renderer/presentation/screens/StartupRecovery';
 import { usePrintStore } from '@/renderer/presentation/stores/printStore';
+import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { windowService } from '@/renderer/services/windowService';
 
 function App() {
-  const { currentSessionId } = useSession();
+  const currentSessionId = useSessionStore((state) => state.currentSessionId);
+  const printCurrentSession = usePrintStore((state) => state.printCurrentSession);
 
   useSavedSettingsRestore();
   useEventSubscriptions();
@@ -27,11 +28,6 @@ function App() {
   const modeSwitchActions = useModeSwitchActions();
   const { handlePreparationClick, handleMatchClick, handleNextStageClick, confirmation, confirm, cancelConfirmation } =
     modeSwitchActions;
-
-  const handlePrint = useCallback(async () => {
-    if (!currentSessionId) return;
-    await usePrintStore.getState().print(currentSessionId);
-  }, [currentSessionId]);
 
   const handleToggleFullscreen = useCallback(async () => {
     try {
@@ -46,7 +42,7 @@ function App() {
     onPreparationClick: handlePreparationClick,
     onMatchClick: handleMatchClick,
     onNextStageClick: handleNextStageClick,
-    onPrint: currentSessionId ? handlePrint : undefined,
+    onPrint: currentSessionId ? printCurrentSession : undefined,
     onToggleFullscreen: handleToggleFullscreen,
   });
 

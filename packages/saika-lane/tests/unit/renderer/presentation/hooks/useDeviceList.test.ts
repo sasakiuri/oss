@@ -63,4 +63,51 @@ describe('useDeviceList', () => {
     expect(result.current.selectedDeviceId).toBe('');
     expect(result.current.deviceOptions).toEqual([]);
   });
+
+  describe('selectDevice', () => {
+    const mt201: TargetDeviceDto = {
+      id: 'MT201',
+      manufacturer: 'KOHTO',
+      displayName: 'MT201',
+      baudRate: 9600,
+      supportedDisciplines: ['AIR_RIFLE_10M'],
+    };
+    const unsupported: TargetDeviceDto = { ...mt201, id: 'CUSTOM1', supportedDisciplines: [] };
+
+    async function listed(devices: TargetDeviceDto[]) {
+      vi.mocked(connectionService.getDevicesByManufacturer).mockResolvedValue({ devices });
+      const { result } = renderHook(() => useDeviceList('KOHTO'));
+      await act(() => result.current.fetchDevices('KOHTO'));
+      return result;
+    }
+
+    it('selects the device and its first discipline when the current one is not supported', async () => {
+      const result = await listed([mt201, unsupported]);
+      useSessionStore.getState().setDiscipline('BEAM_PISTOL_10M');
+
+      act(() => result.current.selectDevice('MT201'));
+
+      expect(result.current.selectedDeviceId).toBe('MT201');
+      expect(useSessionStore.getState().discipline).toBe('AIR_RIFLE_10M');
+    });
+
+    it.each(['RIFLE_300M', 'PISTOL_50M'] as const)('preserves %s when choosing Custom input', async (discipline) => {
+      const result = await listed([custom, mt201]);
+      useSessionStore.getState().setDiscipline(discipline);
+
+      act(() => result.current.selectDevice('CUSTOM'));
+
+      expect(result.current.selectedDeviceId).toBe('CUSTOM');
+      expect(useSessionStore.getState().discipline).toBe(discipline);
+    });
+
+    it('keeps the discipline for a device without supported disciplines', async () => {
+      const result = await listed([mt201, unsupported]);
+
+      act(() => result.current.selectDevice('CUSTOM1'));
+
+      expect(result.current.selectedDeviceId).toBe('CUSTOM1');
+      expect(useSessionStore.getState().discipline).toBeNull();
+    });
+  });
 });

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect } from 'react';
 
-import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/target';
+import { knownScoringGaugeProfileId, knownTargetProfileId } from '@/shared/target';
 
 import { useCompetitionStore } from '../stores/competitionStore';
 import { useSessionStore } from '../stores/sessionStore';
@@ -33,10 +33,8 @@ export function usePhaseEvents(): void {
         data.stageIndex,
         data.seriesIndex,
         data.scored,
-        data.targetProfileId && isTargetScoringProfileId(data.targetProfileId) ? data.targetProfileId : undefined,
-        data.scoringGaugeProfileId && isScoringGaugeProfileId(data.scoringGaugeProfileId)
-          ? data.scoringGaugeProfileId
-          : undefined,
+        knownTargetProfileId(data.targetProfileId),
+        knownScoringGaugeProfileId(data.scoringGaugeProfileId),
       );
     });
     return () => unsubPhaseChanged();

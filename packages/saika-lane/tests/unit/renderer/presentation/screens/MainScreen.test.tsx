@@ -2,8 +2,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import type { UseSessionResult } from '@/renderer/presentation/hooks/useSession';
-import * as useSessionModule from '@/renderer/presentation/hooks/useSession';
 import type { UseShotResult } from '@/renderer/presentation/hooks/useShot';
 import * as useShotModule from '@/renderer/presentation/hooks/useShot';
 import { MainScreen } from '@/renderer/presentation/screens/MainScreen';
@@ -53,6 +51,16 @@ function mockStoreState(store: Mock, state: unknown): void {
   store.mockImplementation((selector?: (current: unknown) => unknown) => (selector ? selector(state) : state));
 }
 
+/** The session ID the mocked session store reports; set per test. */
+let currentSessionId: string | null = null;
+
+function mockSessionStoreState(state: unknown): void {
+  vi.mocked(useSessionStoreModule.useSessionStore).mockImplementation(((selector?: (current: unknown) => unknown) => {
+    const current = { currentSessionId, ...(state as object) };
+    return selector ? selector(current) : current;
+  }) as never);
+}
+
 const modeSwitchActions = {
   handlePreparationClick: vi.fn(),
   handleMatchClick: vi.fn(),
@@ -66,7 +74,6 @@ const setMockWindowChrome = (hasNativeWindowFrame: boolean) => {
 };
 
 // Mock hooks and stores
-vi.mock('@/renderer/presentation/hooks/useSession');
 vi.mock('@/renderer/presentation/hooks/useShot');
 vi.mock('@/renderer/presentation/stores/sessionStore', async () => {
   const actual = await vi.importActual<typeof import('@/renderer/presentation/stores/sessionStore')>(
@@ -167,11 +174,6 @@ describe('MainScreen', () => {
     act(() => useCompetitionStore.setState({ interruption: null }));
   });
   // Default mock values
-  const defaultMockSession: UseSessionResult = {
-    currentSessionId: null,
-    switchMode: vi.fn(),
-  };
-
   const defaultMockShot: UseShotResult = {
     shots: [],
     refreshShotHistory: vi.fn(),
@@ -187,17 +189,18 @@ describe('MainScreen', () => {
     useConnectionNotificationStore.getState().dismiss();
     capturedSideMenuProps = {};
     setMockWindowChrome(false);
-    vi.mocked(useSessionModule.useSession).mockReturnValue(defaultMockSession);
+    currentSessionId = null;
     vi.mocked(useShotModule.useShot).mockReturnValue(defaultMockShot);
 
     // useSessionStore is both a hook (called as function) and has getState()
     const mockUseSessionStore = vi.mocked(useSessionStoreModule.useSessionStore);
-    mockStoreState(mockUseSessionStore, {
+    mockSessionStoreState({
       discipline: 'AIR_RIFLE_10M',
       mode: 'SIGHTING',
     } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
     // Attach getState for the useEffect in MainScreen
     (mockUseSessionStore as unknown as { getState: () => unknown }).getState = () => ({
+      currentSessionId,
       setDiscipline: mockSetDiscipline,
       setLaneNumber: mockSetLaneNumber,
     });
@@ -283,10 +286,7 @@ describe('MainScreen', () => {
 
   describe('before session start', () => {
     it('does not display TargetDisplay', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: null,
-      });
+      currentSessionId = null;
 
       render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
@@ -294,10 +294,7 @@ describe('MainScreen', () => {
     });
 
     it('displays the no session message', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: null,
-      });
+      currentSessionId = null;
 
       render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
@@ -306,11 +303,8 @@ describe('MainScreen', () => {
     });
 
     it('displays the message when discipline is null', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      currentSessionId = 'session-123';
+      mockSessionStoreState({
         discipline: null,
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -324,11 +318,8 @@ describe('MainScreen', () => {
 
   describe('after session start', () => {
     it('displays TargetDisplay', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      currentSessionId = 'session-123';
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -339,11 +330,8 @@ describe('MainScreen', () => {
     });
 
     it('does not display the no session message', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      currentSessionId = 'session-123';
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -368,15 +356,12 @@ describe('MainScreen', () => {
         },
       ];
 
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
+      currentSessionId = 'session-123';
       vi.mocked(useShotModule.useShot).mockReturnValue({
         ...defaultMockShot,
         shots: mockShots,
       });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -388,11 +373,8 @@ describe('MainScreen', () => {
     });
 
     it('passes discipline to TargetDisplay', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      currentSessionId = 'session-123';
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -484,15 +466,12 @@ describe('MainScreen', () => {
 
   describe('complex states', () => {
     it('displays correctly right after session start (no shots)', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
+      currentSessionId = 'session-123';
       vi.mocked(useShotModule.useShot).mockReturnValue({
         ...defaultMockShot,
         shots: [],
       });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -516,15 +495,12 @@ describe('MainScreen', () => {
         innerTen: false,
       }));
 
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
+      currentSessionId = 'session-123';
       vi.mocked(useShotModule.useShot).mockReturnValue({
         ...defaultMockShot,
         shots: mockShots,
       });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'MATCH',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -571,15 +547,12 @@ describe('MainScreen', () => {
         },
       ];
 
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
+      currentSessionId = 'session-123';
       vi.mocked(useShotModule.useShot).mockReturnValue({
         ...defaultMockShot,
         shots: mockShots,
       });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'MATCH',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -598,11 +571,8 @@ describe('MainScreen', () => {
       }).not.toThrow();
     });
 
-    it('does not error when useSession returns null', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: null,
-      });
+    it('does not error without a session', () => {
+      currentSessionId = null;
 
       expect(() => {
         render(<MainScreen modeSwitchActions={modeSwitchActions} />);
@@ -641,10 +611,7 @@ describe('MainScreen', () => {
     });
 
     it('no session message is readable', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: null,
-      });
+      currentSessionId = null;
 
       render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
@@ -766,10 +733,7 @@ describe('MainScreen', () => {
 
   describe('View menu zoom', () => {
     it('steps Zoom In and Zoom Out through the zoom modes in opposite directions', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
+      currentSessionId = 'session-123';
       render(<MainScreen modeSwitchActions={modeSwitchActions} />);
       const chooseFromViewMenu = (label: string) => {
         fireEvent.click(screen.getByRole('menuitem', { name: 'View' }));
@@ -820,11 +784,8 @@ describe('MainScreen', () => {
       expect(screen.queryByTestId('target-display')).not.toBeInTheDocument();
 
       // Session started
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      currentSessionId = 'session-123';
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
@@ -835,11 +796,8 @@ describe('MainScreen', () => {
     });
 
     it('updates the display when shot count increases', () => {
-      vi.mocked(useSessionModule.useSession).mockReturnValue({
-        ...defaultMockSession,
-        currentSessionId: 'session-123',
-      });
-      mockStoreState(vi.mocked(useSessionStoreModule.useSessionStore), {
+      currentSessionId = 'session-123';
+      mockSessionStoreState({
         discipline: 'AIR_RIFLE_10M',
         mode: 'SIGHTING',
       } as ReturnType<typeof useSessionStoreModule.useSessionStore>);
