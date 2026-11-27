@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { findEntry, type AppState, type Selection, type SourceView } from '../../shared/model';
-import { stateLabel } from '../viewModel';
+import { participantKey, stateLabel } from '../viewModel';
 
 import type { Run } from './types';
 
@@ -33,12 +33,12 @@ export function SelectionEditor({
       sourceId,
       subjectId,
       label: '',
-      participantIds: snapshot?.participants.map((p) => (selection.follow === 'lane' ? p.laneId : p.id)) ?? [],
+      participantIds: snapshot?.participants.map((p) => participantKey(selection.follow, p)) ?? [],
     });
     if (sourceId && subjectId) void inspect({ type: 'inspectSubject', sourceId, subjectId });
   };
   const chosen = selection.participantIds;
-  const availableIds = participants.map((p) => (selection.follow === 'lane' ? p.laneId : p.id));
+  const availableIds = participants.map((p) => participantKey(selection.follow, p));
   return (
     <fieldset className="selection-card">
       <legend>Source {index + 1}</legend>
@@ -95,8 +95,8 @@ export function SelectionEditor({
                 ...selection,
                 follow,
                 participantIds: participants
-                  .filter((p) => !chosen.length || chosen.includes(selection.follow === 'lane' ? p.laneId : p.id))
-                  .map((p) => (follow === 'lane' ? p.laneId : p.id)),
+                  .filter((p) => !chosen.length || chosen.includes(participantKey(selection.follow, p)))
+                  .map((p) => participantKey(follow, p)),
               });
             }}
           >
@@ -133,7 +133,7 @@ export function SelectionEditor({
         )}
         <div className="participant-options">
           {participants.map((p) => {
-            const id = selection.follow === 'lane' ? p.laneId : p.id;
+            const id = participantKey(selection.follow, p);
             return (
               <label key={id} className="check-field">
                 <input

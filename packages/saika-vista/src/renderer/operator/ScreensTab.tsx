@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { AppState, NodeState, ScreenConfig, ScreenStatus } from '../../shared/model';
-import { defaultConfig } from '../viewModel';
+import { defaultConfig, displayConfirmed, VIEW_LABEL } from '../viewModel';
 
 import { ScreenEditor } from './ScreenEditor';
 import { StatusPill } from './StatusPill';
@@ -52,12 +52,7 @@ export function ScreensTab({
           <span>
             Display confirmed{' '}
             <strong>
-              {
-                screens.filter(
-                  ({ screen: s }) => s.renderAlive && s.monitorAvailable && s.renderedRevision === s.config.revision,
-                ).length
-              }{' '}
-              / {screens.length}
+              {screens.filter(({ screen }) => displayConfirmed(screen)).length} / {screens.length}
             </strong>
           </span>
           <span>
@@ -135,28 +130,14 @@ export function ScreensTab({
                           {node.monitors.find((monitor) => monitor.id === screen.config.monitorId)?.name ||
                             'Disconnected monitor'}
                           {' · '}
-                          {screen.config.standby
-                            ? 'Standby'
-                            : screen.config.view === 'targets'
-                              ? 'Target grid'
-                              : screen.config.view === 'focus'
-                                ? 'Athlete focus'
-                                : screen.config.view === 'ranking'
-                                  ? 'Ranking'
-                                  : 'Final'}{' '}
-                          · {screen.config.selections.length}{' '}
+                          {screen.config.standby ? 'Standby' : VIEW_LABEL[screen.config.view]} ·{' '}
+                          {screen.config.selections.length}{' '}
                           {screen.config.selections.length === 1 ? 'source' : 'sources'}
                         </p>
-                        <StatusPill
-                          good={
-                            screen.renderAlive &&
-                            screen.renderedRevision === screen.config.revision &&
-                            screen.monitorAvailable
-                          }
-                        >
+                        <StatusPill good={displayConfirmed(screen)}>
                           {!screen.monitorAvailable
                             ? 'Monitor missing'
-                            : screen.renderAlive && screen.renderedRevision === screen.config.revision
+                            : displayConfirmed(screen)
                               ? screen.config.standby
                                 ? 'On standby'
                                 : 'Displaying'
