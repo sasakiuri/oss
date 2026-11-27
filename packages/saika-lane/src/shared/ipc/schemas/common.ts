@@ -23,3 +23,26 @@ export const DisciplineSchema = z.union([
 ]);
 
 export type Discipline = z.infer<typeof DisciplineSchema>;
+
+/** Scoring method: RING scores whole rings, DECIMAL scores tenths. */
+export const ScoringAccSchema = z.enum(['RING', 'DECIMAL']);
+
+export type ScoringAcc = z.infer<typeof ScoringAccSchema>;
+
+export const InterruptionStatusSchema = z.enum(['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH']);
+
+export const MqttConnectionStatusSchema = z.enum(['connected', 'disconnected', 'connecting']);
+
+/** Matches an mqtt:// or mqtts:// URL. */
+export const MQTT_URL_PATTERN = /^mqtts?:\/\//;
+
+/** Matches a broker URL with userinfo (username:password@). */
+export const MQTT_USERINFO_PATTERN = /^mqtts?:\/\/[^@/]+@/;
+
+/** A saved broker URL: empty, or an mqtt:// / mqtts:// URL without credentials. */
+export const MqttBrokerUrlSchema = z
+  .string()
+  .refine((v) => v === '' || MQTT_URL_PATTERN.test(v), { message: 'Must be empty or a valid mqtt:// / mqtts:// URL' })
+  .refine((v) => !MQTT_USERINFO_PATTERN.test(v), {
+    message: 'Broker URL must not contain credentials (username:password@)',
+  });

@@ -13,6 +13,19 @@ const standardRadii = {
 };
 
 describe('calculateFixedZoom', () => {
+  it('returns 0 for AUTO mode', () => {
+    expect(calculateFixedZoom('AUTO', 'AIR_RIFLE_10M', standardRadii)).toBe(0);
+  });
+
+  it.each([
+    // 400 / (ring radius * 1.1) / 5
+    ['RING_8', 7.27],
+    ['RING_6', 3.64],
+    ['RING_4', 2.42],
+  ] as const)('fits the ring of %s mode to the canvas', (mode, zoom) => {
+    expect(calculateFixedZoom(mode, 'AIR_RIFLE_10M', standardRadii)).toBeCloseTo(zoom, 1);
+  });
+
   it('canvasRadius parameter affects the zoom factor', () => {
     // FULL mode (score 1 = 45mm) is less likely to be clamped
     const zoom200 = calculateFixedZoom('FULL', 'AIR_RIFLE_10M', standardRadii, 200);

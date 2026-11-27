@@ -2,17 +2,7 @@
 import { command, CommandResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { z } from 'zod';
 
-import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';
-
-// ============================================================
-// Shared enums / literals
-// ============================================================
-
-/** Regex for validating MQTT broker URLs (mqtt:// or mqtts://) */
-const mqttUrlPattern = /^mqtts?:\/\//;
-
-/** Regex to detect userinfo (username:password@) in a URL */
-const mqttUserinfoPattern = /^mqtts?:\/\/[^@/]+@/;
+import { DisciplineSchema, MqttBrokerUrlSchema, TargetManufacturerSchema } from '../schemas/common';
 
 // ============================================================
 // Settings data schemas
@@ -52,12 +42,7 @@ const AppSettingsInputUserPreferencesSchema = z.object({
 
 const AppSettingsInputMqttSchema = z.object({
   enabled: z.boolean(),
-  brokerUrl: z
-    .string()
-    .refine((v) => v === '' || mqttUrlPattern.test(v), { message: 'Must be empty or a valid mqtt:// / mqtts:// URL' })
-    .refine((v) => !mqttUserinfoPattern.test(v), {
-      message: 'Broker URL must not contain credentials (username:password@)',
-    }),
+  brokerUrl: MqttBrokerUrlSchema,
   laneAlias: z.string(),
   autoConnect: z.boolean(),
   laneId: z.string().uuid().optional(),
@@ -97,13 +82,7 @@ const PersistedUserPreferencesSchema = z.object({
 
 const PersistedMqttSettingsDraftSchema = z.object({
   enabled: z.boolean().default(false),
-  brokerUrl: z
-    .string()
-    .refine((v) => v === '' || mqttUrlPattern.test(v), { message: 'Must be empty or a valid mqtt:// / mqtts:// URL' })
-    .refine((v) => !mqttUserinfoPattern.test(v), {
-      message: 'Broker URL must not contain credentials (username:password@)',
-    })
-    .default(''),
+  brokerUrl: MqttBrokerUrlSchema.default(''),
   laneAlias: z.string().default(''),
   autoConnect: z.boolean().default(false),
   laneId: z.string().uuid().optional(),

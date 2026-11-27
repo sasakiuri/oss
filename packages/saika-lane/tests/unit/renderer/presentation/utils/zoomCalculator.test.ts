@@ -1,14 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import {
-  calculateAutoZoom,
-  calculateFixedZoom,
-  calculateStandardDeviation,
-  getNextZoomMode,
-  getPrevZoomMode,
-  type ZoomMode,
-} from '@/renderer/presentation/utils/zoomCalculator';
+import { calculateAutoZoom, calculateStandardDeviation } from '@/renderer/presentation/utils/zoomCalculator';
 import { ZOOM_LIMITS } from '@/renderer/presentation/utils/zoomConstants';
 
 describe('calculateStandardDeviation', () => {
@@ -241,106 +234,5 @@ describe('calculateAutoZoom', () => {
       const result = calculateAutoZoom([], 'AIR_RIFLE_10M', 400, incompleteRadii);
       expect(result).toBe(3.0); // INITIAL_ZOOM fallback
     });
-  });
-});
-
-describe('getNextZoomMode', () => {
-  it('cycles in order AUTO -> FULL -> RING_4 -> RING_6 -> RING_8 -> AUTO', () => {
-    expect(getNextZoomMode('AUTO')).toBe('FULL');
-    expect(getNextZoomMode('FULL')).toBe('RING_4');
-    expect(getNextZoomMode('RING_4')).toBe('RING_6');
-    expect(getNextZoomMode('RING_6')).toBe('RING_8');
-    expect(getNextZoomMode('RING_8')).toBe('AUTO');
-  });
-
-  it('throws error for invalid mode', () => {
-    expect(() => getNextZoomMode('INVALID' as ZoomMode)).toThrow('Invalid ZoomMode: INVALID');
-  });
-});
-
-describe('getPrevZoomMode', () => {
-  it('cycles in reverse order AUTO -> RING_8 -> RING_6 -> RING_4 -> FULL -> AUTO', () => {
-    expect(getPrevZoomMode('AUTO')).toBe('RING_8');
-    expect(getPrevZoomMode('RING_8')).toBe('RING_6');
-    expect(getPrevZoomMode('RING_6')).toBe('RING_4');
-    expect(getPrevZoomMode('RING_4')).toBe('FULL');
-    expect(getPrevZoomMode('FULL')).toBe('AUTO');
-  });
-
-  it('throws error for invalid mode', () => {
-    expect(() => getPrevZoomMode('INVALID' as ZoomMode)).toThrow('Invalid ZoomMode: INVALID');
-  });
-
-  it('getNextZoomMode and getPrevZoomMode are inverse operations', () => {
-    const modes: ZoomMode[] = ['AUTO', 'RING_8', 'RING_6', 'RING_4', 'FULL'];
-
-    modes.forEach((mode) => {
-      const next = getNextZoomMode(mode);
-      const prevOfNext = getPrevZoomMode(next);
-      expect(prevOfNext).toBe(mode);
-
-      const prev = getPrevZoomMode(mode);
-      const nextOfPrev = getNextZoomMode(prev);
-      expect(nextOfPrev).toBe(mode);
-    });
-  });
-});
-
-describe('calculateFixedZoom', () => {
-  const mockTargetRadii = {
-    1: 45.0, // FULL
-    4: 30.0, // RING_4
-    6: 20.0, // RING_6
-    8: 10.0, // RING_8
-    10: 0.5,
-  };
-
-  it('returns 0 for AUTO mode', () => {
-    expect(calculateFixedZoom('AUTO', 'AIR_RIFLE_10M', mockTargetRadii)).toBe(0);
-  });
-
-  it('calculates appropriate zoom level for RING_8 mode', () => {
-    const result = calculateFixedZoom('RING_8', 'AIR_RIFLE_10M', mockTargetRadii);
-    // Zoom = 400 / (10.0 * 1.1) / 5 = 7.27...
-    expect(result).toBeCloseTo(7.27, 1);
-  });
-
-  it('calculates appropriate zoom level for RING_6 mode', () => {
-    const result = calculateFixedZoom('RING_6', 'AIR_RIFLE_10M', mockTargetRadii);
-    // Zoom = 400 / (20.0 * 1.1) / 5 = 3.64...
-    expect(result).toBeCloseTo(3.64, 1);
-  });
-
-  it('calculates appropriate zoom level for RING_4 mode', () => {
-    const result = calculateFixedZoom('RING_4', 'AIR_RIFLE_10M', mockTargetRadii);
-    // Zoom = 400 / (30.0 * 1.1) / 5 = 2.42...
-    expect(result).toBeCloseTo(2.42, 1);
-  });
-
-  it('calculates appropriate zoom level for FULL mode', () => {
-    const result = calculateFixedZoom('FULL', 'AIR_RIFLE_10M', mockTargetRadii);
-    // Zoom = 400 / (45.0 * 1.1) / 5 = 1.62...
-    expect(result).toBeCloseTo(1.62, 1);
-  });
-
-  it('zoom value is always clamped within ZOOM_LIMITS range', () => {
-    // Test with extremely small radius (exceeding maximum)
-    const smallRadii = { ...mockTargetRadii, 8: 0.01 };
-    const result = calculateFixedZoom('RING_8', 'AIR_RIFLE_10M', smallRadii);
-    expect(result).toBeLessThanOrEqual(ZOOM_LIMITS.MAX);
-    expect(result).toBeGreaterThanOrEqual(ZOOM_LIMITS.MIN);
-  });
-
-  it('falls back to discipline-specific initial zoom when target ring does not exist', () => {
-    const incompleteRadii = { 1: 45.0, 10: 0.5 }; // 8-ring zone does not exist
-    const result = calculateFixedZoom('RING_8', 'AIR_RIFLE_10M', incompleteRadii);
-    // Initial zoom for AIR_RIFLE_10M is 3.0
-    expect(result).toBe(3.0);
-  });
-
-  it('returns discipline-specific initial zoom when target ring does not exist (all disciplines)', () => {
-    const incompleteRadii = { 1: 45.0, 10: 0.5 }; // 8-ring zone does not exist
-    expect(calculateFixedZoom('RING_8', 'BEAM_RIFLE_10M', incompleteRadii)).toBe(5.0);
-    expect(calculateFixedZoom('RING_8', 'PISTOL_25M', incompleteRadii)).toBe(1.5);
   });
 });

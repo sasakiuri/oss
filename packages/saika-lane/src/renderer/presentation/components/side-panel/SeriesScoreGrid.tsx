@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 import React, { memo, useLayoutEffect, useRef } from 'react';
 
+import type { ScoringAcc } from '@/shared/ipc/schemas/common';
+
 import { formatScore } from '../../utils/scoreUtils';
 
 const SCROLL_THRESHOLD_PX = 50;
@@ -8,7 +10,7 @@ const SERIES_COLUMNS = 3;
 
 export interface SeriesScoreGridProps {
   scores: readonly number[];
-  acc: 'RING' | 'DECIMAL';
+  acc: ScoringAcc;
 }
 
 export const SeriesScoreGrid: React.FC<SeriesScoreGridProps> = memo(({ scores, acc }) => {

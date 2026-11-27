@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 
 import type { CompetitionStateDto } from '@/shared/ipc/contracts';
+import type { ScoringAcc } from '@/shared/ipc/schemas/common';
 import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 import type { Phase } from '@/shared/types/Phase';
 
@@ -23,17 +24,11 @@ interface CompetitionState {
   waitingForDirector: boolean;
   isTimerExpired: boolean;
   shotsPerSeries: number;
-  /** Scoring method (RING=integer score, DECIMAL=decimal score) */
-  acc: 'RING' | 'DECIMAL';
+  acc: ScoringAcc;
   competitionId: string | null;
   savedCompetitionTypeId: string | null;
-  interruption: {
-    interruptionId: string;
-    status: 'PAUSED' | 'RESUME_PENDING' | 'SIGHTING' | 'RUNNING_MATCH';
-    remainingSeconds: number;
-    unlimitedSightingShots: boolean;
-    remainingTimeVerified?: boolean;
-  } | null;
+  /** The running interruption as the competition reports it, without the restart hold its events omit. */
+  interruption: Omit<NonNullable<CompetitionStateDto['interruption']>, 'restartHold'> | null;
   targetProfileId?: TargetScoringProfileId;
   scoringGaugeProfileId?: ScoringGaugeProfileId;
 }
@@ -47,7 +42,7 @@ interface CompetitionActions {
   advanceStage: (stageIndex: number, stageName: string, scored: boolean) => void;
   advanceSeries: (seriesIndex: number) => void;
   setShotsPerSeries: (shots: number) => void;
-  setAcc: (acc: 'RING' | 'DECIMAL') => void;
+  setAcc: (acc: ScoringAcc) => void;
   setCompetitionId: (id: string | null) => void;
   setSavedCompetitionTypeId: (id: string | null) => void;
   /** Set the stage-authoritative target scoring profile. */

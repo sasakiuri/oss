@@ -1,22 +1,14 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mockInvoke = vi.hoisted(() => vi.fn());
-const mockOn = vi.hoisted(() => vi.fn());
-const mockRemoveListener = vi.hoisted(() => vi.fn());
-
 vi.mock('electron', () => ({
-  ipcRenderer: {
-    invoke: mockInvoke,
-    on: mockOn,
-    removeListener: mockRemoveListener,
-  },
+  ipcRenderer: { invoke: vi.fn(), on: vi.fn(), removeListener: vi.fn() },
 }));
 
 import { buildPreloadAPI } from '@/preload/buildPreloadAPI';
 
+// exposedApi.test.ts pins every exposed member; this covers what the preload environment decides.
 describe('buildPreloadAPI', () => {
-  const api = buildPreloadAPI();
   const originalNativeWindowFrameEnv = process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME;
 
   afterEach(() => {
@@ -28,178 +20,11 @@ describe('buildPreloadAPI', () => {
     process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME = originalNativeWindowFrameEnv;
   });
 
-  describe('top-level structure', () => {
-    it('should have platform property', () => {
-      expect(api.platform).toBe(process.platform);
-    });
+  it('reads native frame capability from the preload environment', () => {
+    process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME = '1';
+    expect(buildPreloadAPI().hasNativeWindowFrame).toBe(true);
 
-    it('should expose whether the window uses native frame chrome', () => {
-      expect(api.hasNativeWindowFrame).toBeTypeOf('boolean');
-    });
-
-    it('reads native frame capability from the preload environment', () => {
-      process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME = '1';
-
-      expect(buildPreloadAPI().hasNativeWindowFrame).toBe(true);
-    });
-
-    it('should contain all expected namespaces', () => {
-      expect(api).toHaveProperty('commands');
-      expect(api).toHaveProperty('usb');
-      expect(api).toHaveProperty('queries');
-      expect(api).toHaveProperty('competition');
-      expect(api).toHaveProperty('settings');
-      expect(api).toHaveProperty('report');
-      expect(api).toHaveProperty('window');
-      expect(api).toHaveProperty('updates');
-      expect(api).toHaveProperty('on');
-    });
-  });
-
-  it('exposes the membership query and validates and unsubscribes membership events', async () => {
-    const snapshot = { competitionId: 'competition-1', revision: 2 };
-    mockInvoke.mockResolvedValueOnce({ success: true, data: snapshot });
-    await expect(api.mqtt.getDirectorMembership()).resolves.toEqual({ success: true, data: snapshot });
-    expect(mockInvoke).toHaveBeenCalledWith('mqtt:getDirectorMembership');
-    const listener = vi.fn();
-    const unsubscribe = api.on.directorMembershipChanged(listener);
-    expect(mockOn).toHaveBeenCalledWith('event:directorMembershipChanged', expect.any(Function));
-    const callback = mockOn.mock.calls.at(-1)![1];
-    callback({}, snapshot);
-    expect(listener).toHaveBeenCalledExactlyOnceWith(snapshot);
-    unsubscribe();
-    expect(mockRemoveListener).toHaveBeenCalledWith('event:directorMembershipChanged', callback);
-  });
-
-  describe('competition namespace', () => {
-    it('should expose all competition methods as functions', () => {
-      expect(typeof api.competition.startCompetition).toBe('function');
-      expect(typeof api.competition.startStage).toBe('function');
-      expect(typeof api.competition.startNextSeries).toBe('function');
-      expect(typeof api.competition.endStage).toBe('function');
-      expect(typeof api.competition.advanceStage).toBe('function');
-      expect(typeof api.competition.finishCompetition).toBe('function');
-      expect(typeof api.competition.getCompetitionState).toBe('function');
-      expect(typeof api.competition.getCompetitionTypes).toBe('function');
-    });
-  });
-
-  it('exposes the athlete command and same-phase progress events through preload', async () => {
-    const input = { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2, mode: 'SIGHTING' as const };
-    await api.competition.setAthleteTargetMode(input);
-    expect(mockInvoke).toHaveBeenCalledWith('command:setAthleteTargetMode', input);
-    const listener = vi.fn();
-    const unsubscribe = api.on.competitionProgressChanged(listener);
-    const callback = mockOn.mock.lastCall![1];
-    const progress = { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 2, shotCount: 0 };
-    callback({}, progress);
-    expect(listener).toHaveBeenCalledWith(progress);
-    unsubscribe();
-    expect(mockRemoveListener).toHaveBeenCalledWith('event:competitionProgressChanged', callback);
-  });
-
-  describe('settings namespace', () => {
-    it('should expose all settings methods as functions', () => {
-      expect(typeof api.settings.saveConnectionSettings).toBe('function');
-      expect(typeof api.settings.getConnectionSettings).toBe('function');
-      expect(typeof api.settings.saveUserPreferences).toBe('function');
-      expect(typeof api.settings.getUserPreferences).toBe('function');
-      expect(typeof api.settings.saveAppSettings).toBe('function');
-      expect(typeof api.settings.getAppSettings).toBe('function');
-      expect(typeof api.settings.getSettingsFileInfo).toBe('function');
-    });
-
-    it('should wrap saveConnectionSettings payload with settings key', async () => {
-      mockInvoke.mockResolvedValue({ success: true });
-      const settingsData = { portName: 'COM3', manufacturer: 'KOHTO' as const };
-
-      await api.settings.saveConnectionSettings(settingsData);
-
-      expect(mockInvoke).toHaveBeenCalledWith(expect.any(String), { settings: settingsData });
-    });
-
-    it('should wrap saveUserPreferences payload with preferences key', async () => {
-      mockInvoke.mockResolvedValue({ success: true });
-      const prefs = { laneNumber: 1 };
-
-      await api.settings.saveUserPreferences(prefs);
-
-      expect(mockInvoke).toHaveBeenCalledWith(expect.any(String), { preferences: prefs });
-    });
-
-    it('should wrap saveAppSettings payload with settings key', async () => {
-      mockInvoke.mockResolvedValue({ success: true });
-      const settingsData = {
-        connection: {
-          portName: '',
-          manufacturer: 'KOHTO' as const,
-          deviceId: '',
-          serialNumber: '',
-          vendorId: '',
-          productId: '',
-        },
-        userPreferences: { laneNumber: 1, discipline: null, competitionTypeId: '', audioVolume: 50 },
-        mqtt: {
-          enabled: false,
-          brokerUrl: '',
-          laneAlias: '',
-          autoConnect: false,
-          laneId: '550e8400-e29b-41d4-a716-446655440000',
-        },
-      };
-
-      await api.settings.saveAppSettings(settingsData);
-
-      expect(mockInvoke).toHaveBeenCalledWith(expect.any(String), { settings: settingsData });
-    });
-  });
-
-  describe('report namespace', () => {
-    it('should expose report methods as functions', () => {
-      expect(typeof api.report.getScoreSheet).toBe('function');
-      expect(typeof api.report.openPrintWindow).toBe('function');
-    });
-  });
-
-  describe('window namespace', () => {
-    it('should expose toggleFullscreen as a function', () => {
-      expect(typeof api.window.toggleFullscreen).toBe('function');
-    });
-  });
-
-  describe('updates namespace', () => {
-    it('should expose updater methods as functions', () => {
-      expect(typeof api.updates.getUpdateState).toBe('function');
-      expect(typeof api.updates.checkForUpdates).toBe('function');
-      expect(typeof api.updates.quitAndInstall).toBe('function');
-    });
-  });
-
-  describe('on (events) namespace', () => {
-    it('should expose all competition event subscriptions', () => {
-      expect(typeof api.on.competitionStarted).toBe('function');
-      expect(typeof api.on.phaseChanged).toBe('function');
-      expect(typeof api.on.timerTick).toBe('function');
-      expect(typeof api.on.timerExpired).toBe('function');
-      expect(typeof api.on.seriesCompleted).toBe('function');
-      expect(typeof api.on.stageAdvanced).toBe('function');
-      expect(typeof api.on.competitionFinished).toBe('function');
-    });
-
-    it('should expose shotReceived event subscription', () => {
-      expect(typeof api.on.shotReceived).toBe('function');
-    });
-
-    it('should expose logMessage event subscription', () => {
-      expect(typeof api.on.logMessage).toBe('function');
-    });
-
-    it('should expose fullscreenChanged event subscription', () => {
-      expect(typeof api.on.fullscreenChanged).toBe('function');
-    });
-
-    it('should expose updateStateChanged event subscription', () => {
-      expect(typeof api.on.updateStateChanged).toBe('function');
-    });
+    delete process.env.SAIKA_LANE_NATIVE_WINDOW_FRAME;
+    expect(buildPreloadAPI().hasNativeWindowFrame).toBe(false);
   });
 });

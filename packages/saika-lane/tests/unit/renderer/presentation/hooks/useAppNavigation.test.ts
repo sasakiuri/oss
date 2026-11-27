@@ -7,7 +7,7 @@ import { useCompetitionStore } from '@/renderer/presentation/stores/competitionS
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { StartupStateDto } from '@/shared/ipc/contracts';
 
-import { createMockElectronAPI } from '../../../helpers/mockElectronAPI';
+import { createMockElectronAPI } from '../../../../helpers/mockElectronAPI';
 
 const ready: StartupStateDto = {
   status: 'READY',

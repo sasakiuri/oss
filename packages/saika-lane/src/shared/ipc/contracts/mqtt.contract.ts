@@ -16,24 +16,20 @@ import { QualificationMalfunctionSignalPayloadSchema } from '@sasakiuri/saika-pr
 import { RangeOfficerRequestPayloadSchema } from '@sasakiuri/saika-protocol/RangeOfficerRequest';
 import { z } from 'zod';
 
+import {
+  MQTT_URL_PATTERN,
+  MQTT_USERINFO_PATTERN,
+  MqttBrokerUrlSchema,
+  MqttConnectionStatusSchema,
+} from '../schemas/common';
+
 // ============================================================
 // Shared schemas
 // ============================================================
 
-/** Regex for validating MQTT broker URLs (mqtt:// or mqtts://) */
-const mqttUrlPattern = /^mqtts?:\/\//;
-
-/** Regex to detect userinfo (username:password@) in a URL */
-const userinfoPattern = /^mqtts?:\/\/[^@/]+@/;
-
 const MqttSettingsSchema = z.object({
   enabled: z.boolean(),
-  brokerUrl: z
-    .string()
-    .refine((v) => v === '' || mqttUrlPattern.test(v), { message: 'Must be empty or a valid mqtt:// / mqtts:// URL' })
-    .refine((v) => !userinfoPattern.test(v), {
-      message: 'Broker URL must not contain credentials (username:password@)',
-    }),
+  brokerUrl: MqttBrokerUrlSchema,
   laneAlias: z.string().default(''),
   autoConnect: z.boolean().default(false),
   laneId: z.string().uuid(),
@@ -41,14 +37,8 @@ const MqttSettingsSchema = z.object({
 
 const MqttStatusSchema = z.object({
   error: z.string().optional(),
-  status: z.union([z.literal('connected'), z.literal('disconnected'), z.literal('connecting')]),
-  brokerUrl: z
-    .string()
-    .refine((v) => v === '' || mqttUrlPattern.test(v), { message: 'Must be empty or a valid mqtt:// / mqtts:// URL' })
-    .refine((v) => !userinfoPattern.test(v), {
-      message: 'Broker URL must not contain credentials (username:password@)',
-    })
-    .optional(),
+  status: MqttConnectionStatusSchema,
+  brokerUrl: MqttBrokerUrlSchema.optional(),
   laneId: z.string().optional(),
 });
 
@@ -83,8 +73,8 @@ export const LaneSafetyStateDtoSchema = z.object({
 const ConnectMqttInputSchema = z.object({
   brokerUrl: z
     .string()
-    .regex(mqttUrlPattern)
-    .refine((v) => !userinfoPattern.test(v), {
+    .regex(MQTT_URL_PATTERN)
+    .refine((v) => !MQTT_USERINFO_PATTERN.test(v), {
       message: 'Broker URL must not contain credentials (username:password@)',
     }),
   laneAlias: z.string().optional(),

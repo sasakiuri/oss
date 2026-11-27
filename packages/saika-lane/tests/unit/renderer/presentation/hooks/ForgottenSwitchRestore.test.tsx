@@ -32,8 +32,8 @@ import { useAppNavigation } from '@/renderer/presentation/hooks/useAppNavigation
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
-import { createIdleShotRoutingReaders, createMockStorage } from '../../../helpers/mockDependencies';
-import { createMockElectronAPI } from '../../../helpers/mockElectronAPI';
+import { createIdleShotRoutingReaders, createMockStorage } from '../../../../helpers/mockDependencies';
+import { createMockElectronAPI } from '../../../../helpers/mockElectronAPI';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({ error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() }),

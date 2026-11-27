@@ -7,19 +7,24 @@ import { z } from 'zod';
 import { LOG_LEVELS, LOG_SOURCES } from '@/shared/types/log';
 import { PHASE_VALUES } from '@/shared/types/Phase';
 
-import { DisciplineSchema, TargetManufacturerSchema } from '../schemas/common';
+import {
+  DisciplineSchema,
+  InterruptionStatusSchema,
+  MqttConnectionStatusSchema,
+  ScoringAccSchema,
+  TargetManufacturerSchema,
+} from '../schemas/common';
 
 import { DirectorMembershipDtoSchema, LaneSafetyStateDtoSchema } from './mqtt.contract';
-import { ShotCompetitionContextSchema } from './session.contract';
+import { SessionModeSchema, ShotDtoSchema } from './session.contract';
 import { AppUpdateStateSchema } from './updater.contract';
+import { FullscreenStateDtoSchema } from './window.contract';
 
 // ============================================================
 // Shared enums / literals
 // ============================================================
 
 const ConnectionStatusSchema = z.union([z.literal('connected'), z.literal('disconnected')]);
-
-const SessionModeSchema = z.union([z.literal('SIGHTING'), z.literal('MATCH')]);
 
 const ErrorSeveritySchema = z.union([z.literal('error'), z.literal('warning'), z.literal('info')]);
 
@@ -30,25 +35,6 @@ const LogSourceSchema = z.enum(LOG_SOURCES);
 // ============================================================
 // Event payload schemas
 // ============================================================
-
-/**
- * ShotDto schema matching the application DTO
- */
-const ShotDtoSchema = z.object({
-  id: z.string(),
-  shotNumber: z.number(),
-  seriesNumber: z.number().optional(),
-  x: z.number().nullable(),
-  y: z.number().nullable(),
-  score: z.number().int(),
-  innerTen: z.boolean(),
-  timestamp: z.string(),
-  mode: z.string(),
-  isRecorded: z.boolean(),
-  receivedAt: z.string().optional(),
-  reportedMode: SessionModeSchema.nullable().optional(),
-  competitionContext: ShotCompetitionContextSchema.nullable().optional(),
-});
 
 const ShotRecordedEventSchema = z.object({
   sessionId: z.string(),
@@ -110,7 +96,7 @@ const CompetitionStartedEventSchema = z.object({
   sessionId: z.string(),
   config: z.unknown(),
   shotsPerSeries: z.number(),
-  acc: z.union([z.literal('RING'), z.literal('DECIMAL')]),
+  acc: ScoringAccSchema,
 });
 
 const PhaseChangedEventSchema = z.object({
@@ -144,7 +130,7 @@ const TimerExpiredEventSchema = z.object({
 const CompetitionInterruptionChangedEventSchema = z.object({
   competitionId: z.string(),
   interruptionId: z.string().uuid(),
-  status: z.enum(['PAUSED', 'RESUME_PENDING', 'SIGHTING', 'RUNNING_MATCH']),
+  status: InterruptionStatusSchema,
   remainingSeconds: z.number().int().nonnegative(),
   unlimitedSightingShots: z.boolean(),
   remainingTimeVerified: z.boolean().optional(),
@@ -178,14 +164,12 @@ const CompetitionFinishedEventSchema = z.object({
 
 const MqttStatusChangedEventSchema = z.object({
   error: z.string().optional(),
-  status: z.union([z.literal('connected'), z.literal('disconnected'), z.literal('connecting')]),
+  status: MqttConnectionStatusSchema,
   brokerUrl: z.string().optional(),
   laneId: z.string().optional(),
 });
 
-const FullscreenChangedEventSchema = z.object({
-  isFullscreen: z.boolean(),
-});
+const FullscreenChangedEventSchema = FullscreenStateDtoSchema;
 
 const UpdateStateChangedEventSchema = AppUpdateStateSchema;
 
