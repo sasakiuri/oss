@@ -41,8 +41,8 @@ import type { LaneTimingEvidencePolicy } from '../domain/LaneTimingEvidencePolic
 import type { ITimedTargetReadinessPolicy } from '../domain/TimedTargetReadinessPolicy';
 
 import { CompetitionExpiryScheduler } from './CompetitionExpiryScheduler';
-import { createLaneCommandFailure } from './createLaneCommandFailure';
-import type { DirectorCommandPort } from './DirectorCommandPort';
+import { createLaneCommandFailure, fanOutLaneCommands } from './laneCommandBatch';
+import { createDirectorCommandPort, type DirectorCommandPort } from './DirectorCommandPort';
 import { DirectorLaneReadiness } from './DirectorLaneReadiness';
 import { DirectorMqttConnection } from './DirectorMqttConnection';
 import { DirectorMqttReceiver } from './DirectorMqttReceiver';
@@ -92,9 +92,11 @@ type BroadcastCommandAction = Extract<
 
 const broadcastCommandSchemas = commandSchemasForScope(MQTT_COMMAND_SCHEMAS, 'competition');
 
+type MembershipCommandAction = Extract<MqttCommandActionOf<'lane'>, 'join-competition' | 'leave-competition'>;
+
 export class DirectorMqttService {
   private readonly transport: IMqttTransport;
-  private readonly directorId: string;
+  private readonly commands: DirectorCommandPort;
   private readonly commandTimeoutMs: number;
   private readonly startDelayMs: number;
   private readonly callbacks: DirectorMqttCallbacks;
@@ -124,7 +126,6 @@ export class DirectorMqttService {
     transport: IMqttTransport,
     clockQualityPolicy: IClockQualityPolicy = new ClockQualityPolicy(),
   ) {
-    this.directorId = options.directorId;
     this.commandTimeoutMs = options.commandTimeoutMs ?? 10_000;
     this.startDelayMs = options.startDelayMs ?? 3_000;
     this.callbacks = callbacks;
@@ -149,11 +150,7 @@ export class DirectorMqttService {
     this.connection = new DirectorMqttConnection(transport, options, {
       onMessage: (topic, payload) => this.receiver.handleMessage(topic, payload),
       onSessionReset: () => this.resetBrokerState(),
-      onDisconnecting: () => {
-        this.expiry.stop();
-        this.hardwareMonitor.clear();
-        this.commandDispatcher.cancelPending();
-      },
+      onDisconnecting: () => this.stopBrokerScopedWork(),
       onReady: () => this.expiry.restoreAll(),
       onStateChanged: () => this.emitStateChanged(),
       onError: (error) => this.handleError(error),
@@ -163,12 +160,9 @@ export class DirectorMqttService {
       { isReady: () => this.connection.ready, getHardware: (laneId) => this.state.getLane(laneId)?.hardware },
       clockQualityPolicy,
     );
-    const commands: DirectorCommandPort = {
-      commandBase: (fields) => this.commandBase(fields),
-      publishCommand: (options) => this.publishCommand(options),
-    };
+    this.commands = createDirectorCommandPort(options.directorId, (command) => this.publishCommand(command));
     this.qualificationRecovery = new QualificationRecoveryCommands(
-      commands,
+      this.commands,
       {
         requireCompetition: (competitionId) => this.requireCompetition(competitionId),
         requireCompetitionPhase: (competitionId, phase, operation) =>
@@ -181,13 +175,13 @@ export class DirectorMqttService {
       },
       this.startDelayMs,
     );
-    this.safety = new RangeSafetyCommands(commands, {
+    this.safety = new RangeSafetyCommands(this.commands, {
       hasLane: (laneId) => Boolean(this.state.getLane(laneId)),
       onResult: (result) => this.setLastCommand(result),
       log: (message) => this.log(message),
     });
     this.interruptions = new RangeInterruptionCommands(
-      commands,
+      this.commands,
       {
         requireCompetition: (competitionId) => this.requireCompetition(competitionId),
         requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
@@ -198,7 +192,7 @@ export class DirectorMqttService {
       },
       this.startDelayMs,
     );
-    this.reserveTransfers = new ReserveLaneTransferCommands(commands, {
+    this.reserveTransfers = new ReserveLaneTransferCommands(this.commands, {
       requireCompetitionPhase: (competitionId, phase, operation) =>
         this.requireCompetitionPhase(competitionId, phase, operation),
       requireCompetitionLane: (competitionId, laneId) => this.requireCompetitionLane(competitionId, laneId),
@@ -206,7 +200,7 @@ export class DirectorMqttService {
       retainCompetitionState: (state, patch) => this.publishCompetitionState(this.updateCompetitionState(state, patch)),
     });
     this.timedTargets = new TimedTargetCommands(
-      commands,
+      this.commands,
       {
         requireCompetition: (competitionId) => this.requireCompetition(competitionId),
         requireCompetitionPhase: (competitionId, phase, operation) =>
@@ -223,7 +217,7 @@ export class DirectorMqttService {
       this.startDelayMs,
     );
     this.finals = new FinalCompetitionCommands(
-      commands,
+      this.commands,
       {
         requireCompetitionPhase: (competitionId, phase, operation) =>
           this.requireCompetitionPhase(competitionId, phase, operation),
@@ -255,18 +249,9 @@ export class DirectorMqttService {
             Date.parse(this.state.getCompetition(this.activeCompetitionId)?.publishedAt ?? '1970-01-01')
         )
           this.activeCompetitionId = state.competitionId;
-        this.state.projectCompetitionLaneData();
-        this.emitStateChanged();
+        this.refreshProjection();
       },
-      onCompetitionCleared: (competitionId) => {
-        this.state.removeCompetition(competitionId);
-        this.competitionCleanupLaneIds.delete(competitionId);
-        this.expiry.clear(competitionId);
-        if (this.activeCompetitionId === competitionId)
-          this.activeCompetitionId = this.state.getMostRecentCompetitionId();
-        this.state.projectCompetitionLaneData();
-        this.emitStateChanged();
-      },
+      onCompetitionCleared: (competitionId) => this.forgetCompetition(competitionId),
       onLaneUpdate: (laneId, patch) => this.state.updateLane(laneId, patch),
       onCompetitionLaneUpdate: (competitionId, laneId, patch, lastSeenAt) =>
         this.state.updateCompetitionLane(competitionId, laneId, patch, lastSeenAt),
@@ -341,14 +326,10 @@ export class DirectorMqttService {
     this.assertConnected();
     if (!this.state.getLane(laneId)) throw new Error(`Lane not found: ${laneId}`);
     const directorSentAt = new Date();
-    const command = ProbeClockCommandSchema.parse(this.commandBase({ directorSentAt: directorSentAt.toISOString() }));
-    const result = await this.publishCommand({
-      action: 'probe-clock',
-      topic: mqttTopics.laneCommand(laneId, 'probe-clock'),
-      acknowledgementTopic: () => mqttTopics.laneCommandAcknowledgement(laneId, 'probe-clock'),
-      payload: command,
-      expectedLaneIds: [laneId],
-    });
+    const command = ProbeClockCommandSchema.parse(
+      this.commands.commandBase({ directorSentAt: directorSentAt.toISOString() }),
+    );
+    const result = await this.commands.publishLaneCommand(laneId, 'probe-clock', command);
     return this.readiness.recordClockProbe(laneId, directorSentAt, result);
   }
 
@@ -421,8 +402,7 @@ export class DirectorMqttService {
 
     await this.publishCompetitionState(state);
     this.activeCompetitionId = state.competitionId;
-    this.state.projectCompetitionLaneData();
-    this.emitStateChanged();
+    this.refreshProjection();
     return state;
   }
 
@@ -448,26 +428,11 @@ export class DirectorMqttService {
     });
     await this.publishCompetitionState(provisional);
 
-    const commands = await Promise.all(
-      uniqueLaneIds.map(async (laneId) => {
-        const command = JoinCompetitionCommandSchema.parse(this.commandBase({ competitionId }));
-        try {
-          return await this.publishCommand({
-            action: 'join-competition',
-            topic: mqttTopics.laneCommand(laneId, 'join-competition'),
-            acknowledgementTopic: () => mqttTopics.laneCommandAcknowledgement(laneId, 'join-competition'),
-            payload: command,
-            expectedLaneIds: [laneId],
-          });
-        } catch (error) {
-          return this.commandPublishFailure(command.commandId, 'join-competition', laneId, error);
-        }
-      }),
-    );
+    const result = await this.publishMembershipCommands(competitionId, uniqueLaneIds, 'join-competition');
 
     const requestedLaneIds = new Set(uniqueLaneIds);
     const outcomeByLaneId = new Map(
-      commands.flatMap((command) => command.lanes.map((lane) => [lane.laneId, lane] as const)),
+      result.commands.flatMap((command) => command.lanes.map((lane) => [lane.laneId, lane] as const)),
     );
     const ambiguousLaneIds = provisionalPendingJoinLaneIds.filter((laneId) => {
       if (!requestedLaneIds.has(laneId)) return true;
@@ -487,7 +452,7 @@ export class DirectorMqttService {
     });
     await this.publishCompetitionState(finalState);
 
-    return { success: commands.every((command) => command.success), commands };
+    return result;
   }
 
   private assertDefinitionCompatibility(state: CompetitionStatePayload, laneIds: readonly string[]): void {
@@ -522,7 +487,7 @@ export class DirectorMqttService {
         `Cannot leave competition ${competitionId} while it is in phase ${state.phase}; only Lanes still pending sighting may leave after the competition starts`,
       );
     }
-    const result = await this.publishLeaveCompetitionCommands(competitionId, uniqueLaneIds);
+    const result = await this.publishMembershipCommands(competitionId, uniqueLaneIds, 'leave-competition');
 
     const leftLaneIds = new Set(
       result.commands
@@ -570,15 +535,8 @@ export class DirectorMqttService {
   ): Promise<CommandExecutionResult> {
     this.requireAthleteAssignmentAllowed(competitionId);
     this.requireCompetitionLane(competitionId, laneId);
-    const command = AssignAthleteCommandSchema.parse(this.commandBase({ athlete }));
-    return this.publishCommand({
-      action: 'assign-athlete',
-      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'assign-athlete'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'assign-athlete'),
-      payload: command,
-      expectedLaneIds: [laneId],
-    });
+    const command = AssignAthleteCommandSchema.parse(this.commands.commandBase({ athlete }));
+    return this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'assign-athlete', command);
   }
 
   async retireFinalist(
@@ -628,15 +586,8 @@ export class DirectorMqttService {
   ): Promise<CommandExecutionResult> {
     this.requireCompetitionPhase(competitionId, 'NOT_STARTED', 'reset a session');
     this.requireCompetitionLane(competitionId, laneId);
-    const command = ResetSessionCommandSchema.parse(this.commandBase({ ...(reason ? { reason } : {}) }));
-    const result = await this.publishCommand({
-      action: 'reset-session',
-      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'reset-session'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'reset-session'),
-      payload: command,
-      expectedLaneIds: [laneId],
-    });
+    const command = ResetSessionCommandSchema.parse(this.commands.commandBase({ ...(reason ? { reason } : {}) }));
+    const result = await this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'reset-session', command);
     const scopedResult: CommandExecutionResult = { ...result, competitionId };
     this.setLastCommand(scopedResult);
     if (result.success) this.state.clearCompetitionShotHistory(competitionId, laneId);
@@ -813,20 +764,18 @@ export class DirectorMqttService {
       activeTimer = prepared.timer;
     }
     const command = StartSightingCommandSchema.parse(
-      this.commandBase({
+      this.commands.commandBase({
         timerStartAt: activeTimer.timerStartAt,
         timerDurationSeconds: activeTimer.timerDurationSeconds,
         ...(targetLaneIds ? { targetLaneIds } : {}),
       }),
     );
-    const result = await this.publishCommand({
-      action: 'start-sighting',
-      topic: mqttTopics.competitionCommand(competitionId, 'start-sighting'),
-      acknowledgementTopic: (laneId) =>
-        mqttTopics.competitionCommandAcknowledgement(competitionId, 'start-sighting', laneId),
-      payload: command,
+    const result = await this.commands.publishCompetitionCommand(
+      competitionId,
+      'start-sighting',
+      command,
       expectedLaneIds,
-      onPublished: () =>
+      () =>
         this.emitFiringBoundary({
           competitionId,
           phase: 'SIGHTING',
@@ -836,7 +785,7 @@ export class DirectorMqttService {
           commandIssuedAt: new Date(command.issuedAt),
           sourceAction: 'start-sighting',
         }),
-    });
+    );
     const completedLaneIds = new Set(result.lanes.filter((lane) => lane.status === 'done').map((lane) => lane.laneId));
     if (state.phase === 'SIGHTING' || completedLaneIds.size > 0) {
       const pendingCandidates =
@@ -1182,7 +1131,7 @@ export class DirectorMqttService {
 
       // Keep the retained membership unchanged until every cleanup operation
       // succeeds. Already-left Lanes return an idempotent done result on retry.
-      const leaveResult = await this.publishLeaveCompetitionCommands(competitionId, laneIds);
+      const leaveResult = await this.publishMembershipCommands(competitionId, laneIds, 'leave-competition');
       if (!leaveResult.success) {
         const failedResult: CommandExecutionResult = {
           ...result,
@@ -1212,16 +1161,15 @@ export class DirectorMqttService {
     fields: Record<string, unknown>,
   ): Promise<CommandExecutionResult> {
     const state = this.requireCompetition(competitionId);
-    const command = broadcastCommandSchemas[action].parse(this.commandBase(fields));
+    const command = broadcastCommandSchemas[action].parse(this.commands.commandBase(fields));
     const firingBoundary = this.toFiringBoundarySignal(competitionId, state.phase, action, fields, command);
-    return this.publishCommand({
+    return this.commands.publishCompetitionCommand(
+      competitionId,
       action,
-      topic: mqttTopics.competitionCommand(competitionId, action),
-      acknowledgementTopic: (laneId) => mqttTopics.competitionCommandAcknowledgement(competitionId, action, laneId),
-      payload: command,
-      expectedLaneIds: state.laneIds,
-      ...(firingBoundary ? { onPublished: () => this.emitFiringBoundary(firingBoundary) } : {}),
-    });
+      command,
+      state.laneIds,
+      firingBoundary ? () => this.emitFiringBoundary(firingBoundary) : undefined,
+    );
   }
 
   private toFiringBoundarySignal(
@@ -1299,24 +1247,23 @@ export class DirectorMqttService {
     }
   }
 
-  private async publishLeaveCompetitionCommands(competitionId: string, laneIds: string[]): Promise<CommandBatchResult> {
-    const commands = await Promise.all(
-      laneIds.map(async (laneId) => {
-        const command = LeaveCompetitionCommandSchema.parse(this.commandBase({ competitionId }));
-        try {
-          return await this.publishCommand({
-            action: 'leave-competition',
-            topic: mqttTopics.laneCommand(laneId, 'leave-competition'),
-            acknowledgementTopic: () => mqttTopics.laneCommandAcknowledgement(laneId, 'leave-competition'),
-            payload: command,
-            expectedLaneIds: [laneId],
-          });
-        } catch (error) {
-          return this.commandPublishFailure(command.commandId, 'leave-competition', laneId, error);
-        }
-      }),
+  /** A command that cannot be published becomes that Lane's failure, keyed by the command it would have sent. */
+  private publishMembershipCommands(
+    competitionId: string,
+    laneIds: readonly string[],
+    action: MembershipCommandAction,
+  ): Promise<CommandBatchResult> {
+    const schema = action === 'join-competition' ? JoinCompetitionCommandSchema : LeaveCompetitionCommandSchema;
+    const commandIds = new Map<string, string>();
+    return fanOutLaneCommands(
+      laneIds,
+      async (laneId) => {
+        const command = schema.parse(this.commands.commandBase({ competitionId }));
+        commandIds.set(laneId, command.commandId);
+        return this.commands.publishLaneCommand(laneId, action, command);
+      },
+      (laneId, error) => this.commandPublishFailure(commandIds.get(laneId), action, laneId, error),
     );
-    return { success: commands.every((command) => command.success), commands };
   }
 
   private async publishCompetitionState(state: CompetitionStatePayload): Promise<void> {
@@ -1328,8 +1275,7 @@ export class DirectorMqttService {
     });
     this.state.setCompetition(validated);
     this.expiry.restore(validated);
-    this.state.projectCompetitionLaneData();
-    this.emitStateChanged();
+    this.refreshProjection();
   }
 
   private updateCompetitionState(
@@ -1355,16 +1301,6 @@ export class DirectorMqttService {
       ...patch,
       publishedAt: new Date().toISOString(),
     });
-  }
-
-  private commandBase(fields: Record<string, unknown>): Record<string, unknown> & { commandId: string } {
-    return {
-      commandId: crypto.randomUUID(),
-      issuedBy: this.directorId,
-      issuerId: this.directorId,
-      issuedAt: new Date().toISOString(),
-      ...fields,
-    };
   }
 
   private runCompetitionOperation<T>(
@@ -1450,10 +1386,19 @@ export class DirectorMqttService {
       throw new Error('Failed to clear 1 retained MQTT competition topic(s)');
     }
 
+    this.forgetCompetition(competitionId);
+  }
+
+  /** Drops a cleared competition from the read model, its expiry timer and its cleanup Lanes. */
+  private forgetCompetition(competitionId: string): void {
     this.state.removeCompetition(competitionId);
     this.competitionCleanupLaneIds.delete(competitionId);
-    if (this.activeCompetitionId === competitionId) this.activeCompetitionId = this.state.getMostRecentCompetitionId();
     this.expiry.clear(competitionId);
+    if (this.activeCompetitionId === competitionId) this.activeCompetitionId = this.state.getMostRecentCompetitionId();
+    this.refreshProjection();
+  }
+
+  private refreshProjection(): void {
     this.state.projectCompetitionLaneData();
     this.emitStateChanged();
   }
@@ -1480,8 +1425,8 @@ export class DirectorMqttService {
   }
 
   private commandPublishFailure(
-    commandId: string,
-    action: Extract<MqttCommandActionOf<'lane'>, 'join-competition' | 'leave-competition'>,
+    commandId: string | undefined,
+    action: MembershipCommandAction,
     laneId: string,
     error: unknown,
   ): CommandExecutionResult {
@@ -1490,10 +1435,15 @@ export class DirectorMqttService {
     return result;
   }
 
-  private resetBrokerState(): void {
+  /** Stops expiry timers, heartbeat expiry and pending acknowledgements of the current broker session. */
+  private stopBrokerScopedWork(): void {
     this.expiry.stop();
     this.hardwareMonitor.clear();
     this.commandDispatcher.cancelPending();
+  }
+
+  private resetBrokerState(): void {
+    this.stopBrokerScopedWork();
     this.activeCompetitionId = null;
     this.state.reset();
     this.competitionCleanupLaneIds.clear();

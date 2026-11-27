@@ -322,7 +322,7 @@ module.exports = {
       comment: 'Focused MQTT components use consumer-owned ports, not the competition coordinator.',
       severity: 'error',
       from: {
-        path: '^src/main/modules/mqtt/application/(DirectorMqttConnection|DirectorLaneReadiness|CompetitionExpiryScheduler|LaneHardwareMonitor|DirectorMqttReceiver|DirectorMqttState|MqttCommandDispatcher|DirectorCommandPort|QualificationRecoveryCommands|RangeInterruptionCommands|RangeSafetyCommands|ReserveLaneTransferCommands|TimedTargetCommands|FinalCompetitionCommands|createLaneCommandFailure|operationalProfileTargets|MqttObservationRecorder|mqttEventForwarding)\\.ts$',
+        path: '^src/main/modules/mqtt/application/(DirectorMqttConnection|DirectorLaneReadiness|CompetitionExpiryScheduler|LaneHardwareMonitor|DirectorMqttReceiver|DirectorMqttState|MqttCommandDispatcher|DirectorCommandPort|QualificationRecoveryCommands|RangeInterruptionCommands|RangeSafetyCommands|ReserveLaneTransferCommands|TimedTargetCommands|FinalCompetitionCommands|laneCommandBatch|operationalProfileTargets|MqttObservationRecorder|mqttEventForwarding)\\.ts$',
       },
       to: { path: '^src/main/modules/mqtt/application/DirectorMqttService\\.ts$' },
     },

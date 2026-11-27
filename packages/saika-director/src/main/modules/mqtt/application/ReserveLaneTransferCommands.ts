@@ -6,7 +6,6 @@ import {
   type ReserveLaneTransferAction,
   type ReserveLaneTransferBundle,
 } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
-import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type { DirectorLaneSnapshot } from './DirectorMqttTypes';
@@ -49,14 +48,12 @@ export class ReserveLaneTransferCommands {
       throw new Error('Apply and retain the Lane safety STOP during transfer');
     const transfer = ReserveLaneTransferActionSchema.parse(input.transfer);
     const command = this.commands.commandBase({ transfer });
-    const result = await this.commands.publishCommand({
-      action: 'reserve-lane-transfer',
-      payload: command,
-      topic: mqttTopics.laneCompetitionCommand(input.competitionId, input.laneId, 'reserve-lane-transfer'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(input.competitionId, input.laneId, 'reserve-lane-transfer'),
-      expectedLaneIds: [input.laneId],
-    });
+    const result = await this.commands.publishCompetitionLaneCommand(
+      input.competitionId,
+      input.laneId,
+      'reserve-lane-transfer',
+      command,
+    );
     const response = result.lanes.find((lane) => lane.laneId === input.laneId);
     if (!result.success || response?.status !== 'done')
       throw new Error(response?.error?.message ?? 'Reserve transfer was not acknowledged; retry the same transfer');

@@ -18,7 +18,7 @@ export interface PublishCommandOptions {
   topic: string;
   acknowledgementTopic: (laneId: string) => string;
   payload: Record<string, unknown> & { commandId: string };
-  expectedLaneIds: string[];
+  expectedLaneIds: readonly string[];
   onPublished?: () => void;
 }
 

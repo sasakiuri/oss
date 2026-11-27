@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createDirectorCommandPort } from '@/main/modules/mqtt/application/DirectorCommandPort';
 import type { CommandExecutionResult } from '@/main/modules/mqtt/application/DirectorMqttTypes';
 import type { PublishCommandOptions } from '@/main/modules/mqtt/application/MqttCommandDispatcher';
 import { RangeInterruptionCommands } from '@/main/modules/mqtt/application/RangeInterruptionCommands';
@@ -12,21 +13,13 @@ const LANE_2 = '33333333-3333-4333-8333-333333333333';
 const INTERRUPTION_ID = '44444444-4444-4444-8444-444444444444';
 
 function createPorts() {
-  const commands = {
-    commandBase: vi.fn((fields: Record<string, unknown>) => ({
-      commandId: crypto.randomUUID(),
-      issuerId: 'director',
-      issuedBy: 'CRO',
-      issuedAt: new Date().toISOString(),
-      ...fields,
-    })),
-    publishCommand: vi.fn(async (options: PublishCommandOptions): Promise<CommandExecutionResult> => ({
-      commandId: options.payload.commandId,
-      action: options.action,
-      success: true,
-      lanes: options.expectedLaneIds.map((laneId) => ({ laneId, status: 'done' })),
-    })),
-  };
+  const publishCommand = vi.fn(async (options: PublishCommandOptions): Promise<CommandExecutionResult> => ({
+    commandId: options.payload.commandId,
+    action: options.action,
+    success: true,
+    lanes: options.expectedLaneIds.map((laneId) => ({ laneId, status: 'done' })),
+  }));
+  const commands = { ...createDirectorCommandPort('director', publishCommand), publishCommand };
   const context = {
     requireCompetition: vi.fn().mockReturnValue({ competitionId: COMPETITION_ID, phase: 'MATCH' }),
     requireCompetitionLane: vi.fn((_competitionId: string, laneId: string) => {

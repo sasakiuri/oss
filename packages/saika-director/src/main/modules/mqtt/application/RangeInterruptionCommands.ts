@@ -6,9 +6,8 @@ import {
   type MqttCommandActionOf,
 } from '@sasakiuri/saika-protocol/commands';
 import type { CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
-import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
-import { createLaneCommandFailure } from './createLaneCommandFailure';
+import { createLaneCommandFailure, fanOutLaneCommands } from './laneCommandBatch';
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type { CommandBatchResult, CommandExecutionResult } from './DirectorMqttTypes';
 
@@ -34,16 +33,9 @@ export class RangeInterruptionCommands {
     this.context.requireCompetitionLane(competitionId, laneId);
     const pausedAt = new Date().toISOString();
     const command = PauseTimerCommandSchema.parse(this.commands.commandBase({ interruptionId, pausedAt }));
-    return this.commands.publishCommand({
-      action: 'pause-timer',
-      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'pause-timer'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'pause-timer'),
-      payload: command,
-      expectedLaneIds: [laneId],
-      onPublished: () =>
-        this.context.log(`Lane-specific STOP published for ${laneId} during ${state.phase} (${interruptionId})`),
-    });
+    return this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'pause-timer', command, () =>
+      this.context.log(`Lane-specific STOP published for ${laneId} during ${state.phase} (${interruptionId})`),
+    );
   }
 
   async pauseRangeTimers(
@@ -51,15 +43,11 @@ export class RangeInterruptionCommands {
     laneIds: string[],
     interruptionId: string,
   ): Promise<CommandBatchResult> {
-    const uniqueLaneIds = this.requireRangeOperationLanes(competitionId, laneIds);
-    const commands = await Promise.all(
-      uniqueLaneIds.map((laneId) =>
-        this.pauseLaneTimer(competitionId, laneId, interruptionId).catch((error) =>
-          this.interruptionCommandFailure('pause-timer', laneId, error),
-        ),
-      ),
+    return fanOutLaneCommands(
+      this.requireRangeOperationLanes(competitionId, laneIds),
+      (laneId) => this.pauseLaneTimer(competitionId, laneId, interruptionId),
+      (laneId, error) => this.interruptionCommandFailure('pause-timer', laneId, error),
     );
-    return { success: commands.every((command) => command.success), commands };
   }
 
   async resumeLaneTimer(
@@ -99,14 +87,7 @@ export class RangeInterruptionCommands {
         unlimitedSightingShots,
       }),
     );
-    return this.commands.publishCommand({
-      action: 'resume-timer',
-      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'resume-timer'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'resume-timer'),
-      payload: command,
-      expectedLaneIds: [laneId],
-    });
+    return this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'resume-timer', command);
   }
 
   async resumeRangeTimers(
@@ -119,8 +100,9 @@ export class RangeInterruptionCommands {
     const uniqueLaneIds = this.requireRangeOperationLanes(competitionId, laneIds);
     this.context.assertTimedCommandReadiness(uniqueLaneIds);
     const timerStartAt = new Date(Date.now() + this.startDelayMs).toISOString();
-    const commands = await Promise.all(
-      uniqueLaneIds.map((laneId) =>
+    return fanOutLaneCommands(
+      uniqueLaneIds,
+      (laneId) =>
         this.resumeLaneTimerNow(
           competitionId,
           laneId,
@@ -129,10 +111,9 @@ export class RangeInterruptionCommands {
           unlimitedSightingShots,
           true,
           timerStartAt,
-        ).catch((error) => this.interruptionCommandFailure('resume-timer', laneId, error)),
-      ),
+        ),
+      (laneId, error) => this.interruptionCommandFailure('resume-timer', laneId, error),
     );
-    return { success: commands.every((command) => command.success), commands };
   }
 
   async resumeLaneMatch(
@@ -144,14 +125,7 @@ export class RangeInterruptionCommands {
     this.context.requireCompetitionLane(competitionId, laneId);
     this.context.assertSafetyCleared([laneId], 'resume MATCH fire on a Lane');
     const command = ResumeMatchCommandSchema.parse(this.commands.commandBase({ interruptionId }));
-    return this.commands.publishCommand({
-      action: 'resume-match',
-      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'resume-match'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'resume-match'),
-      payload: command,
-      expectedLaneIds: [laneId],
-    });
+    return this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'resume-match', command);
   }
 
   async resumeRangeMatch(
@@ -159,15 +133,11 @@ export class RangeInterruptionCommands {
     laneIds: string[],
     interruptionId: string,
   ): Promise<CommandBatchResult> {
-    const uniqueLaneIds = this.requireRangeOperationLanes(competitionId, laneIds);
-    const commands = await Promise.all(
-      uniqueLaneIds.map((laneId) =>
-        this.resumeLaneMatch(competitionId, laneId, interruptionId).catch((error) =>
-          this.interruptionCommandFailure('resume-match', laneId, error),
-        ),
-      ),
+    return fanOutLaneCommands(
+      this.requireRangeOperationLanes(competitionId, laneIds),
+      (laneId) => this.resumeLaneMatch(competitionId, laneId, interruptionId),
+      (laneId, error) => this.interruptionCommandFailure('resume-match', laneId, error),
     );
-    return { success: commands.every((command) => command.success), commands };
   }
 
   private requireActiveFiringPhase(competitionId: string, operation: string): CompetitionStatePayload {
