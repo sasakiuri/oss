@@ -29,7 +29,7 @@ const outputs = new OutputWindows({
   icon: appIcon,
   preload,
   load: loadRenderer,
-  closed: () => operator?.webContents.send(VISTA_CHANNEL.changed),
+  closed: notifyOperator,
 });
 const updater = createUpdater({ shutdown, operator: () => operator, stop: () => requireApplication().stop() });
 
@@ -54,6 +54,11 @@ function createOperator(): void {
     operator = null;
   });
   loadRenderer(operator);
+}
+
+/** Asks the operator window, while it is open, to reload its state. */
+function notifyOperator(): void {
+  if (operator && !operator.isDestroyed()) operator.webContents.send(VISTA_CHANNEL.changed);
 }
 
 function requireApplication(): VistaApplication {
@@ -99,7 +104,7 @@ else {
         status: (id) => outputs.status(id),
         loginStart: setLoginStart,
         changed: () => {
-          if (operator && !operator.isDestroyed()) operator.webContents.send(VISTA_CHANNEL.changed);
+          notifyOperator();
           outputs.notify();
         },
       });
@@ -107,9 +112,9 @@ else {
       screen.on('display-removed', (_event, removed) => {
         for (const config of requireApplication().state.document.screens)
           if (config.monitorId === String(removed.id)) outputs.close(config.id);
-        operator?.webContents.send(VISTA_CHANNEL.changed);
+        notifyOperator();
       });
-      screen.on('display-added', () => operator?.webContents.send(VISTA_CHANNEL.changed));
+      screen.on('display-added', notifyOperator);
       powerMonitor.on('resume', () => {
         for (const entry of requireApplication().state.getEntries())
           void requireApplication()
