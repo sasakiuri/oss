@@ -86,6 +86,13 @@ describe('Vista updates', () => {
     expect(screen.getByText('Technical details').closest('details')).not.toHaveAttribute('open');
   });
 
+  it('shows a failed status request with the same message text as a failed action', async () => {
+    const bridge = updateBridge();
+    vi.mocked(bridge.getState).mockRejectedValue(new Error('Vista is restarting to install an update.'));
+    render(<UpdateControls bridge={bridge} />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/^Vista is restarting to install an update\.$/);
+  });
+
   it('keeps a failed or cancelled install retryable', async () => {
     const bridge = updateBridge({ ...updateState, status: 'downloaded', errorMessage: null, canInstallUpdate: true });
     vi.mocked(bridge.install).mockRejectedValue(new Error('Update installation was cancelled.'));

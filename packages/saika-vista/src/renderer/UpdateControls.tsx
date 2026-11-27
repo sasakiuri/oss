@@ -14,6 +14,7 @@ const labels: Record<AppUpdateStateDto['status'], string> = {
   'no-update': 'Vista is up to date.',
   error: 'Update could not be completed.',
 };
+const errorText = (caught: unknown): string => (caught instanceof Error ? caught.message : String(caught));
 
 export function UpdateControls({ bridge = window.vistaUpdates }: { bridge?: UpdateBridge }) {
   const [state, setState] = useState<AppUpdateStateDto | null>(null);
@@ -33,7 +34,7 @@ export function UpdateControls({ bridge = window.vistaUpdates }: { bridge?: Upda
         if (active && !receivedChange) setState(next);
       },
       (caught: unknown) => {
-        if (active) setError(String(caught));
+        if (active) setError(errorText(caught));
       },
     );
     return () => {
@@ -47,7 +48,7 @@ export function UpdateControls({ bridge = window.vistaUpdates }: { bridge?: Upda
     try {
       await operation();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught));
+      setError(errorText(caught));
     } finally {
       setBusy(false);
     }
