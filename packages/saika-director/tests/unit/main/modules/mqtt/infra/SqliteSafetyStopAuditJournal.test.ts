@@ -1,21 +1,19 @@
-import Database from 'better-sqlite3';
-import { afterEach, describe, expect, it } from 'vitest';
+import type Database from 'better-sqlite3';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration022ShotObservationEvidence } from '@/main/infrastructure/database/migrations/022_shot_observation_evidence';
-import { migration035RangeSafetyStop } from '@/main/infrastructure/database/migrations/035_range_safety_stop';
-import { migration062RangeSafetyLaneClearances } from '@/main/infrastructure/database/migrations/062_range_safety_lane_clearances';
 import { SqliteSafetyStopAuditJournal } from '@/main/modules/mqtt/infra/SqliteSafetyStopAuditJournal';
 
-describe('SqliteSafetyStopAuditJournal', () => {
-  let database: Database.Database | undefined;
+import { migratedDatabase } from '../../../../../helpers/database';
 
-  afterEach(() => database?.close());
+describe('SqliteSafetyStopAuditJournal', () => {
+  let database: Database.Database;
+
+  beforeEach(() => {
+    database = migratedDatabase();
+  });
+  afterEach(() => database.close());
 
   it('round-trips append-only Lane acknowledgement evidence', () => {
-    database = new Database(':memory:');
-    migration022ShotObservationEvidence.up(database);
-    migration035RangeSafetyStop.up(database);
-    migration062RangeSafetyLaneClearances.up(database);
     const journal = new SqliteSafetyStopAuditJournal(database);
     journal.append({
       id: '11111111-1111-4111-8111-111111111111',
@@ -46,15 +44,11 @@ describe('SqliteSafetyStopAuditJournal', () => {
         laneOutcomes: [{ status: 'timeout', acknowledgedAt: null }],
       },
     ]);
-    expect(() => database!.prepare('DELETE FROM range_safety_stop_audit').run()).toThrow('append-only');
+    expect(() => database.prepare('DELETE FROM range_safety_stop_audit').run()).toThrow('append-only');
   }, 10_000);
 
   it('round-trips append-only per-Lane and per-athlete physical clearance evidence', () => {
-    database = new Database(':memory:');
     database.pragma('foreign_keys = ON');
-    migration022ShotObservationEvidence.up(database);
-    migration035RangeSafetyStop.up(database);
-    migration062RangeSafetyLaneClearances.up(database);
     const journal = new SqliteSafetyStopAuditJournal(database);
     journal.append({
       id: '11111111-1111-4111-8111-111111111111',
@@ -105,19 +99,15 @@ describe('SqliteSafetyStopAuditJournal', () => {
       },
     ]);
     expect(() =>
-      database!
+      database
         .prepare('UPDATE range_safety_lane_clearances SET verified_by = ? WHERE id = ?')
         .run('Other', '33333333-3333-4333-8333-333333333333'),
     ).toThrow('append-only');
   });
 
   it('accepts quarantined shot evidence after the safety migration', () => {
-    database = new Database(':memory:');
-    migration022ShotObservationEvidence.up(database);
-    migration035RangeSafetyStop.up(database);
-    migration062RangeSafetyLaneClearances.up(database);
     expect(() =>
-      database!
+      database
         .prepare(
           `INSERT INTO mqtt_shot_observation_evidence (
              evidence_id, observation_id, competition_id, lane_id, outcome,

@@ -1,13 +1,13 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration003CreateSchema } from '@/main/infrastructure/database/migrations/003_create_schema';
-import { migration016FinalPlacementReviews } from '@/main/infrastructure/database/migrations/016_final_placement_reviews';
 import {
   FinalPlacementReviewEntry,
   getCurrentFinalPlacementReview,
 } from '@/main/modules/final-placement-review/domain/FinalPlacementReviewEntry';
 import { SqliteFinalPlacementReviewRepository } from '@/main/modules/final-placement-review/infra/SqliteFinalPlacementReviewRepository';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 const CHAMPIONSHIP_ID = '11111111-1111-4111-8111-111111111111';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
@@ -17,10 +17,8 @@ describe('SqliteFinalPlacementReviewRepository', () => {
   let repository: SqliteFinalPlacementReviewRepository;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration003CreateSchema.up(database);
-    migration016FinalPlacementReviews.up(database);
     database
       .prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)')
       .run(CHAMPIONSHIP_ID, 'Championship', '2026-08-29', 'Tokyo');

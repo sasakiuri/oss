@@ -7,7 +7,7 @@ import { ClockQualityPolicy } from '@/main/modules/mqtt/domain/ClockQualityPolic
 import { LaneTimingEvidencePolicy } from '@/main/modules/mqtt/domain/LaneTimingEvidencePolicy';
 import { TimedTargetReadinessPolicy } from '@/main/modules/mqtt/domain/TimedTargetReadinessPolicy';
 
-import { FakeMqttTransport } from '../../../helpers/FakeMqttTransport';
+import { FakeMqttTransport } from '../../../../../helpers/FakeMqttTransport';
 
 const LANE_ID = '11111111-1111-4111-8111-111111111111';
 const SECOND_LANE_ID = '55555555-5555-4555-8555-555555555555';

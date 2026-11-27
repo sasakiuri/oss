@@ -1,12 +1,13 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration019TargetExaminations } from '@/main/infrastructure/database/migrations/019_target_examinations';
 import { TargetExaminationCase } from '@/main/modules/target-examinations/domain/TargetExaminationCase';
 import { TargetExaminationEntry } from '@/main/modules/target-examinations/domain/TargetExaminationEntry';
 import { TargetExaminationEvidence } from '@/main/modules/target-examinations/domain/TargetExaminationEvidence';
 import { TargetExaminationScopeLink } from '@/main/modules/target-examinations/domain/TargetExaminationScopeLink';
 import { SqliteTargetExaminationRepository } from '@/main/modules/target-examinations/infra/SqliteTargetExaminationRepository';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const LANE_ID = '33333333-3333-4333-8333-333333333333';
@@ -16,9 +17,8 @@ describe('SqliteTargetExaminationRepository', () => {
   let repository: SqliteTargetExaminationRepository;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration019TargetExaminations.up(database);
     repository = new SqliteTargetExaminationRepository(database);
   });
 

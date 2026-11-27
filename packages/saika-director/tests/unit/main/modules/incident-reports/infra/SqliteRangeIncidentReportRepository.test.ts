@@ -1,19 +1,19 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration014RangeIncidentReports } from '@/main/infrastructure/database/migrations/014_range_incident_reports';
 import { RangeIncidentReport } from '@/main/modules/incident-reports/domain/RangeIncidentReport';
 import { RangeIncidentReportEntry } from '@/main/modules/incident-reports/domain/RangeIncidentReportEntry';
 import { SqliteRangeIncidentReportRepository } from '@/main/modules/incident-reports/infra/SqliteRangeIncidentReportRepository';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 describe('SqliteRangeIncidentReportRepository', () => {
   let database: Database.Database;
   let repository: SqliteRangeIncidentReportRepository;
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration014RangeIncidentReports.up(database);
     repository = new SqliteRangeIncidentReportRepository(database);
   });
 

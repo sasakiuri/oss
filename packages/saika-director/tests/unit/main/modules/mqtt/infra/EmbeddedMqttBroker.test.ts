@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { connectAsync, type MqttClient } from 'mqtt';
 import { createConnection, type Socket } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { migration007MqttRetainedMessages } from '@/main/infrastructure/database/migrations/007_mqtt_retained_messages';
 import { EmbeddedMqttBroker } from '@/main/modules/mqtt/infra/EmbeddedMqttBroker';
 import { SqliteMqttRetainedMessageStore } from '@/main/modules/mqtt/infra/SqliteMqttRetainedMessageStore';
+
+import { migratedDatabase } from '../../../../../helpers/database';
 
 describe('EmbeddedMqttBroker', () => {
   let broker: EmbeddedMqttBroker | null = null;
@@ -101,8 +102,7 @@ describe('EmbeddedMqttBroker', () => {
   });
 
   it('restores retained messages from SQLite after the embedded broker restarts', async () => {
-    database = new Database(':memory:');
-    migration007MqttRetainedMessages.up(database);
+    database = migratedDatabase();
     const store = new SqliteMqttRetainedMessageStore(database);
     const security = {
       mode: 'REQUIRED',
