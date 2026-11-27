@@ -135,4 +135,13 @@ describe('EST backup import preview', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Import JSON / CSV' }));
     expect(await screen.findByText('Failed to import the EST backup source')).toBeVisible();
   });
+
+  it.each([
+    ['a failed response', () => list.mockResolvedValue(fail('Backup ledger unavailable')), 'Backup ledger unavailable'],
+    ['a rejected query', () => list.mockRejectedValue('offline'), 'Failed to load EST backup verifications'],
+  ])('shows %s of the verification list in the panel error', async (_name, failList, message) => {
+    failList();
+    render(<EstBackupVerificationPanel eventId="event" onClose={() => {}} />);
+    expect(await screen.findByText(message)).toBeVisible();
+  });
 });
