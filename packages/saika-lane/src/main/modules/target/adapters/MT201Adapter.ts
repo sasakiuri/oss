@@ -8,6 +8,7 @@ import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import { ITargetAdapter } from './ITargetAdapter';
 import { MT201CoordinateConverter } from './mt201/MT201CoordinateConverter';
@@ -92,7 +93,7 @@ export class MT201Adapter implements ITargetAdapter {
         {
           manufacturer: 'MT201',
           rawDataLength: rawData.raw.length,
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: errorMessage(error),
         },
         error instanceof Error ? error : undefined,
       );

@@ -2,8 +2,8 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { TimedTargetStateDto } from '@/shared/ipc/contracts';
 import { isTargetScoringProfileId } from '@/shared/target';
 

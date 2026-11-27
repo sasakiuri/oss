@@ -3,8 +3,8 @@ import { useEffect } from 'react';
 
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { logRendererError } from '@/renderer/presentation/stores/logStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { mqttService } from '@/renderer/services/mqttService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 /** Subscribe before querying so a delayed snapshot cannot overwrite a newer membership. */
 export function useDirectorMembershipEvents(): void {

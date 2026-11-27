@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { mergeShots, useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
 import { sessionService } from '@/renderer/services/sessionService';
 import { startupService } from '@/renderer/services/startupService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { StartupStateDto } from '@/shared/ipc/contracts';
 import { DisciplineSchema } from '@/shared/ipc/schemas/common';
 import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/target';

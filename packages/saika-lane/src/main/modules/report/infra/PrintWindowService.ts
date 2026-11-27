@@ -7,6 +7,7 @@ import type { IPrintWindowOpener } from '@/main/modules/report/domain/IPrintWind
 import { protectWindow } from '@/main/shared-infra/window/protectWindow';
 import { DomainError } from '@/shared/errors/DomainError';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { PrintSettingsSchema, type PrinterDto, type PrintSettingsDto } from '@/shared/ipc/contracts';
 
 interface PrintJob {
@@ -130,7 +131,7 @@ export class PrintWindowService implements IPrintWindowOpener {
     } catch (error) {
       if (error instanceof DomainError) throw error;
       throw ErrorCatalog.createError('PRINT_FAILED', {
-        reason: error instanceof Error ? error.message : String(error),
+        reason: errorMessage(error),
       });
     } finally {
       clearTimeout(timeout);

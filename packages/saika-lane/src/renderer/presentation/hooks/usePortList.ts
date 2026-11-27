@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { SelectOption } from '@/renderer/presentation/components/common/Select';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { connectionService } from '@/renderer/services/connectionService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { PortInfo } from '@/shared/ipc/contracts';
 
 /** Lists USB ports. Cancels updates from the initial request on unmount. */

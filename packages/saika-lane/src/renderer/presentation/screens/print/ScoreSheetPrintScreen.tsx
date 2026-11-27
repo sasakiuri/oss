@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { useCallback, useEffect, useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { reportService } from '@/renderer/services/reportService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { PrintSettingsSchema, type ScoreSheetDto } from '@/shared/ipc/contracts';
 
 import { ScoreSheet } from './components/ScoreSheet';

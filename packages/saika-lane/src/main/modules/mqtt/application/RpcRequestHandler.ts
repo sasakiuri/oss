@@ -10,6 +10,7 @@ import { RpcRequestSchema } from '@/main/modules/mqtt/domain/MqttRpcSchemas';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 type RpcRequestTopic = ParsedMqttTopicOf<'laneQueryRequest'>;
@@ -113,13 +114,13 @@ export class RpcRequestHandler {
 
       await this.publishSuccess(responseTopic, parsed.requestId, request.method, result);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       const errorCode = (error as { code?: string }).code ?? 'INTERNAL_ERROR';
       logger.error(`[RpcRequestHandler] Failed to handle RPC request: ${request.method}`, 'mqtt', {
-        error: errorMessage,
+        error: message,
         requestId: parsed.requestId,
       });
-      await this.publishError(responseTopic, parsed.requestId, errorCode, errorMessage, request.method);
+      await this.publishError(responseTopic, parsed.requestId, errorCode, message, request.method);
     }
   }
 
@@ -160,7 +161,7 @@ export class RpcRequestHandler {
       await this.mqttClient.publish(topic, response, { qos: 1, retain: false });
     } catch (err) {
       getLogger().error('[RpcRequestHandler] Failed to publish error response', 'mqtt', {
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
     }
   }

@@ -14,6 +14,7 @@ import {
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { vistaContract } from '@/shared/ipc/contracts/vista.contract';
 
 import { readVistaLaneAlias } from './application/readVistaLaneAlias';
@@ -93,7 +94,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
         readShootOffSeries: (competitionId, sessionId) => shotContexts.readShootOffSeries(competitionId, sessionId),
       });
     } catch (cause) {
-      const error = cause instanceof Error ? cause.message : 'Vista source initialization failed';
+      const error = errorMessage(cause, 'Vista source initialization failed');
       const unavailable = { enabled: false, sourceId: '', secret: '', endpoints: [], error };
       ipcRouter.register(vistaContract, {
         getStatus: async () => unavailable,
@@ -149,7 +150,7 @@ export const vistaModule: ModuleDefinition<Deps> = {
       });
       // Recorded before the next queued change starts, as that change clears it first.
       void next.catch((cause: unknown) => {
-        error = cause instanceof Error ? cause.message : 'Vista source failed';
+        error = errorMessage(cause, 'Vista source failed');
       });
       return next;
     };

@@ -3,6 +3,7 @@ import type { Connection } from '@/main/modules/connection/domain/Connection';
 import type { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 /**
  * Holds the disconnected state of a target whose port closed unexpectedly.
@@ -32,7 +33,7 @@ export class UnexpectedDisconnectRecorder {
         return activeConnection.disconnect();
       } catch (err: unknown) {
         getLogger().warn('Failed to propagate unexpected USB disconnect', 'main', {
-          err: err instanceof Error ? err.message : String(err),
+          err: errorMessage(err),
         });
         return null;
       }
@@ -66,7 +67,7 @@ export class UnexpectedDisconnectRecorder {
       await this.finalize();
     } catch (err: unknown) {
       getLogger().warn('Failed to finalize pending unexpected USB disconnect before manual connect', 'main', {
-        err: err instanceof Error ? err.message : String(err),
+        err: errorMessage(err),
       });
     }
   }
@@ -77,7 +78,7 @@ export class UnexpectedDisconnectRecorder {
       await this.finalize();
     } catch (err: unknown) {
       getLogger().warn('Failed to finalize unexpected USB disconnect', 'main', {
-        err: err instanceof Error ? err.message : String(err),
+        err: errorMessage(err),
       });
     }
   }
@@ -88,7 +89,7 @@ export class UnexpectedDisconnectRecorder {
       await this.take();
     } catch (err: unknown) {
       getLogger().warn('Failed to discard pending unexpected USB disconnect before manual disconnect', 'main', {
-        err: err instanceof Error ? err.message : String(err),
+        err: errorMessage(err),
       });
     }
   }

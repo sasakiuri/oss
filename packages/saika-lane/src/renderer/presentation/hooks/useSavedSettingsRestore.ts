@@ -4,8 +4,8 @@ import { useEffect } from 'react';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { logRendererError } from '@/renderer/presentation/stores/logStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { settingsService } from '@/renderer/services/settingsService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 /**
  * Hook that restores saved user settings on mount.

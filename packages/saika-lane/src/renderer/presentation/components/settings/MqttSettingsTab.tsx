@@ -5,8 +5,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert';
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { mqttService } from '@/renderer/services/mqttService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 export const MqttSettingsTab: React.FC = () => {
   const { status, error, isLoading, setStatus, setSettings, setError, setLoading } = useMqttStore();

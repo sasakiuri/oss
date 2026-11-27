@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { updateService } from '@/renderer/services/updateService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { AppUpdateStateDto } from '@/shared/ipc/contracts';
 
 function formatUpdateTimestamp(value: string | null): string | null {

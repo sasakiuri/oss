@@ -4,6 +4,7 @@ import type { DisagRedDotTargetType } from '@/main/modules/target/domain/targetD
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import { type ProtocolTimerClock, SerializedProtocolTimer } from '../SerializedProtocolTimer';
 
@@ -624,7 +625,7 @@ export class RedDotProtocolSession {
       {
         command,
         stage,
-        reason: cause instanceof Error ? cause.message : String(cause),
+        reason: errorMessage(cause),
       },
       cause instanceof Error ? cause : undefined,
     );

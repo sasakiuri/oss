@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { isDomainError } from '@/shared/errors/isDomainError';
 
 export class MT201CoordinateConverter {
@@ -38,7 +39,7 @@ export class MT201CoordinateConverter {
         {
           field: 'hexString',
           value: hexString,
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: errorMessage(error),
         },
         error instanceof Error ? error : undefined,
       );
@@ -67,7 +68,7 @@ export class MT201CoordinateConverter {
           field: 'impactPoint',
           x,
           y,
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: errorMessage(error),
         },
         error instanceof Error ? error : undefined,
       );

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { isDomainError } from '@/shared/errors/isDomainError';
 
 export interface MT201ParsedData {
@@ -100,7 +101,7 @@ export class MT201DataParser {
         'DATA_CONVERSION_ERROR',
         {
           stage: 'MT201 data parsing',
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: errorMessage(error),
         },
         error instanceof Error ? error : undefined,
       );

@@ -6,6 +6,7 @@ import { Mode } from '@/main/modules/session/domain/Mode';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 /** The cached session context that USB parsing reads synchronously. */
 export interface TargetModeContext {
@@ -55,7 +56,7 @@ export class TargetModeSynchronizer {
     await this.settled();
     this.deps.target.sendMode(this.currentMode()).catch((err: unknown) => {
       getLogger().warn('Failed to restore device mode after automatic USB reconnect', 'main', {
-        err: err instanceof Error ? err.message : String(err),
+        err: errorMessage(err),
       });
     });
   }
@@ -88,7 +89,7 @@ export class TargetModeSynchronizer {
       })
       .catch((err: unknown) => {
         getLogger().warn('Failed to refresh competition target mode', 'main', {
-          err: err instanceof Error ? err.message : String(err),
+          err: errorMessage(err),
         });
       });
   }
@@ -97,7 +98,7 @@ export class TargetModeSynchronizer {
     this.deps.target.sendMode(mode).catch((err: unknown) => {
       getLogger().warn(`sendMode failed on ${eventType}`, 'main', {
         mode: mode.value,
-        err: err instanceof Error ? err.message : String(err),
+        err: errorMessage(err),
       });
     });
   }

@@ -5,10 +5,10 @@ import { FinishSavedRun } from '@/renderer/presentation/components/FinishSavedRu
 import { ModeSwitchConfirmation } from '@/renderer/presentation/components/ModeSwitchConfirmation';
 import { SettingsModal } from '@/renderer/presentation/components/SettingsModal';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
 import { settingsService } from '@/renderer/services/settingsService';
 import { startupService } from '@/renderer/services/startupService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { StartupStateDto } from '@/shared/ipc/contracts';
 
 export function StartupRecovery({ state, onRetry }: { state: StartupStateDto; onRetry: () => Promise<void> }) {

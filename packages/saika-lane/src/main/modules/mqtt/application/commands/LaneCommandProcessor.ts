@@ -6,6 +6,7 @@ import type { ICommandAuthorizationPolicy } from '@/main/modules/mqtt/domain/Com
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import type { CommandIdempotencyGuard } from './CommandIdempotencyGuard';
 
@@ -137,7 +138,7 @@ export class LaneCommandProcessor {
         ...(warning ? { warning } : {}),
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       const code = stringProperty(error, 'code') ?? 'MQTT_COMMAND_EXECUTION_FAILED';
       logger.error(`[${logContext}] Command failed: ${action}`, 'mqtt', { error: message, commandId });
       await this.publishAck(logContext, topic, { commandId, status: 'error', error: { code, message } });
@@ -160,7 +161,7 @@ export class LaneCommandProcessor {
       await this.deps.mqttClient.publish(topic, JSON.stringify(ack), { qos: 1, retain: false });
     } catch (error) {
       getLogger().error(`[${logContext}] Failed to publish ACK`, 'mqtt', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
     }
   }

@@ -7,6 +7,7 @@ import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufactu
 import { resolveAutoConnectSettings } from '@/main/resolveAutoConnectSettings';
 import { CommandBus } from '@/main/shared-infra/cqrs';
 import { getLogger } from '@/main/shared-infra/logging';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { StartupStateDto } from '@/shared/ipc/contracts/startup.contract';
 
 export function scheduleAutoConnect(
@@ -58,7 +59,7 @@ export function scheduleAutoConnect(
       }
     } catch (err) {
       logger.warn('Auto-connect: failed to inspect current ports, falling back to saved port.', 'main', {
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
     }
 
@@ -67,7 +68,7 @@ export function scheduleAutoConnect(
       manufacturer = TargetManufacturer.fromValue(settings.manufacturer);
     } catch (err) {
       logger.warn('Auto-connect: invalid manufacturer in saved settings, skipping.', 'main', {
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
       return;
     }
@@ -88,7 +89,7 @@ export function scheduleAutoConnect(
       })
       .catch((err: unknown) => {
         logger.warn('Auto-connect: connection failed, manual connection required.', 'main', {
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMessage(err),
         });
       });
   })();

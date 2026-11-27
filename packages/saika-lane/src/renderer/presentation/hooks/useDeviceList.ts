@@ -2,8 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { connectionService } from '@/renderer/services/connectionService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { TargetDeviceDto, TargetManufacturer } from '@/shared/ipc/contracts';
 
 /**

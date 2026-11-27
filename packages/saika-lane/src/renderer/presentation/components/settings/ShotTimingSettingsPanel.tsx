@@ -2,8 +2,8 @@
 import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { useEffect, useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import { TimingProfilesPanel } from './TimingProfilesPanel';
 

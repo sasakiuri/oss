@@ -21,6 +21,7 @@ import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientS
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 const DEFAULT_STATE_TIMEOUT_MS = 5_000;
 
@@ -81,7 +82,7 @@ export class CompetitionStateSubscriber {
       } catch (cleanupError) {
         getLogger().warn('[CompetitionStateSubscriber] Failed to clean up competition subscription', 'mqtt', {
           competitionId,
-          error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+          error: errorMessage(cleanupError),
         });
       }
       throw error;

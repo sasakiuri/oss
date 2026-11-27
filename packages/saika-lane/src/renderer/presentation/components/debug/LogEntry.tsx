@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import React from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { LogEntry as LogEntryType } from '@/shared/types/log';
 
 import { LogLevelIndicator } from './LogLevelIndicator';

@@ -8,6 +8,7 @@ import type { ShotObservationEvidence } from '@/main/modules/shot-observation/do
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
@@ -41,7 +42,7 @@ export class ShotObservationEvidencePublisher {
       .run(() => this.drain())
       .catch((error: unknown) => {
         getLogger().error('[ShotObservationEvidencePublisher] Failed to drain evidence outbox', 'mqtt', {
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         });
       });
   }

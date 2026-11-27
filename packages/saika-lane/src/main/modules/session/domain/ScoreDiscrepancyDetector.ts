@@ -3,6 +3,7 @@ import type { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import type { IScoreDiscrepancyLogger } from '@/main/modules/session/domain/IScoreDiscrepancyLogger';
 import { Score } from '@/main/modules/session/domain/Score';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 export interface DiscrepancyContext {
   deviceScore: number;
@@ -54,10 +55,7 @@ export class ScoreDiscrepancyDetector {
         y: ctx.impactPoint.y,
       });
     } catch (csvError) {
-      getLogger().error(
-        `Failed to write CSV discrepancy log: ${csvError instanceof Error ? csvError.message : String(csvError)}`,
-        'domain',
-      );
+      getLogger().error(`Failed to write CSV discrepancy log: ${errorMessage(csvError)}`, 'domain');
     }
   }
 }

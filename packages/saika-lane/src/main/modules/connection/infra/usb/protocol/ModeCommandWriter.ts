@@ -3,6 +3,7 @@ import type { SerialPort } from 'serialport';
 
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 /** Sends the MT-201-compatible, unterminated S/R mode command. */
 export function writeModeCommand(port: SerialPort, mode: Mode, protocolId: string): Promise<void> {
@@ -36,7 +37,7 @@ export function writeModeCommand(port: SerialPort, mode: Mode, protocolId: strin
         protocolId,
         mode: mode.value,
         byte,
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
       resolve();
     }

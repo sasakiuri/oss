@@ -6,6 +6,7 @@ import { z } from 'zod';
 
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { isDomainError } from '@/shared/errors/isDomainError';
 
 /** Command response shape */
@@ -75,7 +76,7 @@ export class IpcRouter {
             const zodErrors = parseResult.error.issues
               .map((issue: z.ZodIssue) => `${issue.path.join('.')}: ${issue.message}`)
               .join(', ');
-            const errorMessage = `[${key}] Invalid IPC payload: ${zodErrors}`;
+            const message = `[${key}] Invalid IPC payload: ${zodErrors}`;
 
             logger.warn(`Validation failed for "${channel}"`, 'main', {
               operation: key,
@@ -84,7 +85,7 @@ export class IpcRouter {
 
             const validationError: IpcErrorDto = {
               code: VALIDATION_ERROR_CODE,
-              message: errorMessage,
+              message,
               metadata: {
                 context: key,
                 validationErrors: parseResult.error.issues.map((issue: z.ZodIssue) => ({
@@ -143,7 +144,7 @@ export class IpcRouter {
       const logger = getLogger();
       logger.error(`Command failed: ${operationName}`, 'main', {
         operation: operationName,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
       return this.validateOutput(
         {
@@ -174,7 +175,7 @@ export class IpcRouter {
       const logger = getLogger();
       logger.error(`Query failed: ${operationName}`, 'main', {
         operation: operationName,
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       });
       return this.validateOutput(
         {

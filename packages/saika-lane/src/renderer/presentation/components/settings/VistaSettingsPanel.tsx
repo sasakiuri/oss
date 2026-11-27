@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { vistaService } from '@/renderer/services/vistaService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { LaneVistaStatus } from '@/shared/ipc/contracts/vista.contract';
 
 export function VistaSettingsPanel() {

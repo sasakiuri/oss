@@ -20,6 +20,7 @@ import type { ITimedTargetControl, TimedTargetShotDecision } from '@/main/module
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import {
   CLOSED_SHOOT_OFF_WINDOW,
@@ -78,7 +79,7 @@ export class ShotRoutingService {
         this.deps.onObservationFinalized?.(evidence.evidenceId);
       } catch (notificationError) {
         logger.warn('Shot observation evidence notification failed', 'usb', {
-          error: notificationError instanceof Error ? notificationError.message : String(notificationError),
+          error: errorMessage(notificationError),
         });
       }
     };
@@ -224,7 +225,7 @@ export class ShotRoutingService {
           await finalizeObservation({
             observationId: observation.id,
             type: 'PROCESSING_FAILED',
-            detail: error instanceof Error ? error.message : String(error),
+            detail: errorMessage(error),
           });
         } catch (outcomeError) {
           logger.error(
@@ -290,7 +291,7 @@ export class ShotRoutingService {
       });
     } catch (error) {
       getLogger().error('Failed to reset Sighting after nullifying an extra', 'usb', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
       eventBus.emit({
         type: 'PositionExtraNullified',

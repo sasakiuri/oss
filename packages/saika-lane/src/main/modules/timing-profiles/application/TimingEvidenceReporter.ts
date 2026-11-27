@@ -2,6 +2,7 @@
 import type { TimingEvidenceReport } from '@sasakiuri/saika-protocol/TimingEvidenceReport';
 
 import { DEFAULT_TIMED_TARGET_TIMING_SETTINGS } from '@/main/modules/timing-profiles/domain/DefaultTimingSettings';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ConnectionSettingsDto } from '@/shared/ipc/contracts';
 import type { TimingProfileStatus } from '@/shared/ipc/contracts/timingProfiles.schema';
 
@@ -39,7 +40,7 @@ export class TimingEvidenceReporter {
         measurementSha256 = recomputed.sourceSha256;
       } catch (error) {
         invalid = true;
-        issues.push(error instanceof Error ? error.message : 'Measurement evidence could not be verified');
+        issues.push(errorMessage(error, 'Measurement evidence could not be verified'));
       }
     }
     return {

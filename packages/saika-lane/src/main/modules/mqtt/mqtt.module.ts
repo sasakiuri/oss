@@ -7,6 +7,7 @@ import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { MalfunctionFiringService, SqliteMalfunctionFiringRepository } from '@/main/modules/malfunction-firing';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { mqttContract } from '@/shared/ipc/contracts';
 
 import { AssignedFinalRecoveryFiringContextSource } from './application/AssignedFinalRecoveryFiringContextSource';
@@ -495,7 +496,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
 /** Keeps a Lane-owned signal locally when its retained publication fails; the reconnect republish retries it. */
 function publishRetainedOrWarn(publisher: { publishCurrentState(): Promise<void> }, message: string): Promise<void> {
   return publisher.publishCurrentState().catch((error: unknown) => {
-    getLogger().warn(message, 'mqtt', { error: error instanceof Error ? error.message : String(error) });
+    getLogger().warn(message, 'mqtt', { error: errorMessage(error) });
   });
 }
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { mqttService } from '@/renderer/services/mqttService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 /**
  * State of one retained Lane incident signal (Range Officer request, possible malfunction, EST complaint):
