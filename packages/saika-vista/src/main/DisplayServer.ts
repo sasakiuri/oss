@@ -75,12 +75,19 @@ export class DisplayServer {
     await this.server?.close();
   }
 
-  /** Revokes the controller locally with a new pairing secret and restarts the listener. */
+  /**
+   * Revokes the controller locally with a new pairing secret and restarts the listener. If the revocation
+   * cannot be saved, the controller stays registered and the listener restarts for it.
+   */
   async revoke(): Promise<void> {
     await this.releaseTask;
     await this.server?.close();
-    await this.state.transact(withoutController);
-    await this.listen();
+    this.server = null;
+    try {
+      await this.state.transact(withoutController);
+    } finally {
+      await this.listen();
+    }
   }
 
   private async handle(method: string, path: string, input: unknown): Promise<unknown> {
