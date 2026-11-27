@@ -1,5 +1,7 @@
 import type { FinalCommandScriptCapability, RuleCommandScriptStep, RuleCommandSeriesTarget } from '../RulePack';
 
+import { checkpoint, step, withEffect } from './commandScriptSteps';
+
 interface FinalStageSpec {
   readonly stageId: string;
   readonly stageIndex: number;
@@ -26,15 +28,14 @@ interface Issf10mFinalCommandScriptOptions {
   };
 }
 
-const NO_EFFECT = { type: 'NONE' } as const;
-
 /** Builds the official 2026 10m Final command order without application concerns. */
 export function buildIssf10mFinalCommandScript(
   options: Issf10mFinalCommandScriptOptions,
 ): FinalCommandScriptCapability {
+  const prefix = options.idPrefix;
   const main: RuleCommandScriptStep[] = [
     step(
-      options,
+      prefix,
       'reporting',
       'OFFICIAL',
       'CHECK',
@@ -45,12 +46,12 @@ export function buildIssf10mFinalCommandScript(
         offsetSeconds: -1800,
       },
     ),
-    step(options, 'athletes-to-line', 'CRO', 'COMMAND', 'ATHLETES TO THE LINE', options.ruleReferences.callToLine, {
+    step(prefix, 'athletes-to-line', 'CRO', 'COMMAND', 'ATHLETES TO THE LINE', options.ruleReferences.callToLine, {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -options.callToLineLeadSeconds,
     }),
     step(
-      options,
+      prefix,
       'presentation',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -58,13 +59,13 @@ export function buildIssf10mFinalCommandScript(
       options.ruleReferences.callToLine,
       { mode: 'MANUAL' },
     ),
-    step(options, 'take-positions', 'CRO', 'COMMAND', 'TAKE YOUR POSITIONS', options.ruleReferences.preparation, {
+    step(prefix, 'take-positions', 'CRO', 'COMMAND', 'TAKE YOUR POSITIONS', options.ruleReferences.preparation, {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -options.takePositionsLeadSeconds,
     }),
-    {
-      ...step(
-        options,
+    withEffect(
+      step(
+        prefix,
         'preparation-start',
         'CRO',
         'COMMAND',
@@ -72,15 +73,15 @@ export function buildIssf10mFinalCommandScript(
         options.ruleReferences.preparation,
         { mode: 'SCHEDULED_START_OFFSET', offsetSeconds: -365 },
       ),
-      effect: {
+      {
         type: 'OPEN_FIRING',
         purpose: 'SIGHTING',
         participantSelection: 'ALL_ACTIVE',
         durationSeconds: 300,
       },
-    },
+    ),
     step(
-      options,
+      prefix,
       'welcome-and-format',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -88,19 +89,19 @@ export function buildIssf10mFinalCommandScript(
       options.ruleReferences.preparation,
       { mode: 'MANUAL' },
     ),
-    step(options, 'preparation-warning', 'CRO', 'COMMAND', '30 SECONDS', options.ruleReferences.preparation, {
+    step(prefix, 'preparation-warning', 'CRO', 'COMMAND', '30 SECONDS', options.ruleReferences.preparation, {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -95,
     }),
-    {
-      ...step(options, 'preparation-stop', 'CRO', 'COMMAND', 'STOP ... UNLOAD', options.ruleReferences.preparation, {
+    withEffect(
+      step(prefix, 'preparation-stop', 'CRO', 'COMMAND', 'STOP ... UNLOAD', options.ruleReferences.preparation, {
         mode: 'SCHEDULED_START_OFFSET',
         offsetSeconds: -65,
       }),
-      effect: { type: 'CLOSE_FIRING', purpose: 'SIGHTING' },
-    },
+      { type: 'CLOSE_FIRING', purpose: 'SIGHTING' },
+    ),
     step(
-      options,
+      prefix,
       'brief-explanation',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -109,7 +110,7 @@ export function buildIssf10mFinalCommandScript(
       { mode: 'MANUAL' },
     ),
     step(
-      options,
+      prefix,
       'match-targets-ready',
       'OFFICIAL',
       'CHECK',
@@ -132,83 +133,86 @@ export function buildIssf10mFinalCommandScript(
         : singleShot
           ? 'FOR THE NEXT COMPETITION SHOT ... LOAD'
           : 'FOR THE NEXT COMPETITION SERIES ... LOAD';
-      main.push({
-        ...step(
-          options,
-          `load-${stage.stageId}-${seriesNumber}`,
-          'CRO',
-          'COMMAND',
-          loadText,
-          singleShot ? options.ruleReferences.singleShot : options.ruleReferences.multiShot,
-          firstSeries ? { mode: 'SCHEDULED_START_OFFSET', offsetSeconds: -5 } : { mode: 'MANUAL' },
+      main.push(
+        withEffect(
+          step(
+            prefix,
+            `load-${stage.stageId}-${seriesNumber}`,
+            'CRO',
+            'COMMAND',
+            loadText,
+            singleShot ? options.ruleReferences.singleShot : options.ruleReferences.multiShot,
+            firstSeries ? { mode: 'SCHEDULED_START_OFFSET', offsetSeconds: -5 } : { mode: 'MANUAL' },
+          ),
+          {
+            type: 'LOAD',
+            purpose: 'MATCH',
+            participantSelection: 'ALL_ACTIVE',
+            target,
+          },
         ),
-        effect: {
-          type: 'LOAD',
-          purpose: 'MATCH',
-          participantSelection: 'ALL_ACTIVE',
-          target,
-        },
-      });
-      main.push({
-        ...step(
-          options,
-          `start-${stage.stageId}-${seriesNumber}`,
-          'CRO',
-          'COMMAND',
-          'START',
-          singleShot ? options.ruleReferences.singleShot : options.ruleReferences.multiShot,
-          firstSeries
-            ? { mode: 'SCHEDULED_START_OFFSET', offsetSeconds: 0 }
-            : { mode: 'AFTER_PREVIOUS', delaySeconds: 5 },
+      );
+      main.push(
+        withEffect(
+          step(
+            prefix,
+            `start-${stage.stageId}-${seriesNumber}`,
+            'CRO',
+            'COMMAND',
+            'START',
+            singleShot ? options.ruleReferences.singleShot : options.ruleReferences.multiShot,
+            firstSeries
+              ? { mode: 'SCHEDULED_START_OFFSET', offsetSeconds: 0 }
+              : { mode: 'AFTER_PREVIOUS', delaySeconds: 5 },
+          ),
+          {
+            type: 'OPEN_FIRING',
+            purpose: 'MATCH',
+            participantSelection: 'ALL_ACTIVE',
+            durationSeconds: stage.durationSeconds,
+            shotsPerParticipant: stage.shotsPerSeries,
+            target,
+          },
         ),
-        effect: {
-          type: 'OPEN_FIRING',
-          purpose: 'MATCH',
-          participantSelection: 'ALL_ACTIVE',
-          durationSeconds: stage.durationSeconds,
-          shotsPerParticipant: stage.shotsPerSeries,
-          target,
-        },
-      });
+      );
 
       cumulativeMatchShots += stage.shotsPerSeries;
       const lastSeries = stageIndex === options.stages.length - 1 && seriesIndex === stage.seriesCount - 1;
-      main.push({
-        ...step(
-          options,
-          `stop-${stage.stageId}-${seriesNumber}`,
-          'CRO',
-          'COMMAND',
-          lastSeries ? 'STOP ... UNLOAD' : 'STOP',
-          singleShot ? options.ruleReferences.singleShot : options.ruleReferences.multiShot,
-          {
-            mode: 'TIME_OR_ALL_SHOTS',
-            durationSeconds: stage.durationSeconds,
-            shotsPerParticipant: stage.shotsPerSeries,
-          },
+      main.push(
+        withEffect(
+          step(
+            prefix,
+            `stop-${stage.stageId}-${seriesNumber}`,
+            'CRO',
+            'COMMAND',
+            lastSeries ? 'STOP ... UNLOAD' : 'STOP',
+            singleShot ? options.ruleReferences.singleShot : options.ruleReferences.multiShot,
+            {
+              mode: 'TIME_OR_ALL_SHOTS',
+              durationSeconds: stage.durationSeconds,
+              shotsPerParticipant: stage.shotsPerSeries,
+            },
+          ),
+          { type: 'CLOSE_FIRING', purpose: 'MATCH', target },
         ),
-        effect: { type: 'CLOSE_FIRING', purpose: 'MATCH', target },
-      });
+      );
 
       if (stage.checkpointEverySeries && (seriesIndex + 1) % stage.checkpointEverySeries === 0) {
         const finalCheckpoint = lastSeries;
-        main.push({
-          ...step(
-            options,
+        main.push(
+          checkpoint(
+            prefix,
             `checkpoint-${cumulativeMatchShots}`,
-            'OFFICIAL',
-            'CHECK',
+            cumulativeMatchShots,
             finalCheckpoint
               ? 'Confirm the gold and silver medal positions and resolve any tie before Final completion.'
               : 'Confirm the Final checkpoint, resolve any tie, and retire only the confirmed lowest participant.',
             options.ruleReferences.checkpoint,
-            { mode: 'MANUAL' },
           ),
-          effect: { type: 'CHECKPOINT', afterMatchShot: cumulativeMatchShots },
-        });
+        );
         main.push(
           step(
-            options,
+            prefix,
             `safety-${cumulativeMatchShots}`,
             'OFFICIAL',
             'CHECK',
@@ -229,7 +233,7 @@ export function buildIssf10mFinalCommandScript(
       if (!lastSeries) {
         main.push(
           step(
-            options,
+            prefix,
             `commentary-${stage.stageId}-${seriesNumber}`,
             'ANNOUNCER',
             'ANNOUNCEMENT',
@@ -252,7 +256,7 @@ export function buildIssf10mFinalCommandScript(
   if (!previousTarget) throw new Error('A Final command script requires at least one MATCH series');
   main.push(
     step(
-      options,
+      prefix,
       'completion-clearance',
       'OFFICIAL',
       'CHECK',
@@ -261,15 +265,17 @@ export function buildIssf10mFinalCommandScript(
       { mode: 'MANUAL' },
     ),
   );
-  main.push({
-    ...step(options, 'declare-results', 'CRO', 'DECLARATION', 'RESULTS ARE FINAL', options.ruleReferences.completion, {
-      mode: 'MANUAL',
-    }),
-    effect: { type: 'DECLARE_RESULTS' },
-  });
+  main.push(
+    withEffect(
+      step(prefix, 'declare-results', 'CRO', 'DECLARATION', 'RESULTS ARE FINAL', options.ruleReferences.completion, {
+        mode: 'MANUAL',
+      }),
+      { type: 'DECLARE_RESULTS' },
+    ),
+  );
   main.push(
     step(
-      options,
+      prefix,
       'medallist-presentation',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -281,7 +287,7 @@ export function buildIssf10mFinalCommandScript(
 
   const shootOff: RuleCommandScriptStep[] = [
     step(
-      options,
+      prefix,
       'shoot-off-announce',
       'CRO',
       'ANNOUNCEMENT',
@@ -289,9 +295,9 @@ export function buildIssf10mFinalCommandScript(
       options.ruleReferences.shootOff,
       { mode: 'MANUAL' },
     ),
-    {
-      ...step(
-        options,
+    withEffect(
+      step(
+        prefix,
         'shoot-off-load',
         'CRO',
         'COMMAND',
@@ -299,31 +305,31 @@ export function buildIssf10mFinalCommandScript(
         options.ruleReferences.shootOff,
         { mode: 'MANUAL' },
       ),
-      effect: { type: 'LOAD', purpose: 'SHOOT_OFF', participantSelection: 'TIED_ONLY' },
-    },
-    {
-      ...step(options, 'shoot-off-start', 'CRO', 'COMMAND', 'START', options.ruleReferences.shootOff, {
+      { type: 'LOAD', purpose: 'SHOOT_OFF', participantSelection: 'TIED_ONLY' },
+    ),
+    withEffect(
+      step(prefix, 'shoot-off-start', 'CRO', 'COMMAND', 'START', options.ruleReferences.shootOff, {
         mode: 'AFTER_PREVIOUS',
         delaySeconds: 5,
       }),
-      effect: {
+      {
         type: 'OPEN_FIRING',
         purpose: 'SHOOT_OFF',
         participantSelection: 'TIED_ONLY',
         durationSeconds: 50,
         shotsPerParticipant: 1,
       },
-    },
-    {
-      ...step(options, 'shoot-off-stop', 'CRO', 'COMMAND', 'STOP', options.ruleReferences.shootOff, {
+    ),
+    withEffect(
+      step(prefix, 'shoot-off-stop', 'CRO', 'COMMAND', 'STOP', options.ruleReferences.shootOff, {
         mode: 'TIME_OR_ALL_SHOTS',
         durationSeconds: 50,
         shotsPerParticipant: 1,
       }),
-      effect: { type: 'CLOSE_FIRING', purpose: 'SHOOT_OFF' },
-    },
+      { type: 'CLOSE_FIRING', purpose: 'SHOOT_OFF' },
+    ),
     step(
-      options,
+      prefix,
       'shoot-off-commentary',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -331,9 +337,9 @@ export function buildIssf10mFinalCommandScript(
       options.ruleReferences.shootOff,
       { mode: 'MANUAL' },
     ),
-    {
-      ...step(
-        options,
+    withEffect(
+      step(
+        prefix,
         'shoot-off-checkpoint',
         'OFFICIAL',
         'CHECK',
@@ -341,8 +347,8 @@ export function buildIssf10mFinalCommandScript(
         options.ruleReferences.shootOff,
         { mode: 'MANUAL' },
       ),
-      effect: { type: 'CHECKPOINT' },
-    },
+      { type: 'CHECKPOINT' },
+    ),
   ];
 
   return {
@@ -354,25 +360,5 @@ export function buildIssf10mFinalCommandScript(
     },
     main,
     shootOff,
-  };
-}
-
-function step(
-  options: Issf10mFinalCommandScriptOptions,
-  suffix: string,
-  actor: RuleCommandScriptStep['actor'],
-  kind: RuleCommandScriptStep['kind'],
-  text: string,
-  ruleReference: string,
-  timing: RuleCommandScriptStep['timing'],
-): RuleCommandScriptStep {
-  return {
-    id: `${options.idPrefix}.${suffix}`,
-    actor,
-    kind,
-    text,
-    ruleReference,
-    timing,
-    effect: NO_EFFECT,
   };
 }

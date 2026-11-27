@@ -1,21 +1,23 @@
 import type { FinalCommandScriptCapability, RuleCommandScriptStep, RuleCommandSeriesTarget } from '../RulePack';
 
+import { checkpoint, step, withEffect } from './commandScriptSteps';
+
 const PREFIX = 'issf.2026.r3p-final';
-const NO_EFFECT = { type: 'NONE' } as const;
 
 /** Official February 2026 command order for the 50m Rifle 3 Positions Final. */
 export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScriptCapability {
   const firstBlock = target('KNEELING_PRONE_CHANGEOVER', 1, 0, 2);
   const main: RuleCommandScriptStep[] = [
-    step('reporting', 'OFFICIAL', 'CHECK', 'Finalists must report to the Preparation Area.', '6.17.1.3', {
+    step(PREFIX, 'reporting', 'OFFICIAL', 'CHECK', 'Finalists must report to the Preparation Area.', '6.17.1.3', {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -1800,
     }),
-    step('athletes-to-line', 'CRO', 'COMMAND', 'ATHLETES TO THE LINE', '6.17.3(d)', {
+    step(PREFIX, 'athletes-to-line', 'CRO', 'COMMAND', 'ATHLETES TO THE LINE', '6.17.3(d)', {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -600,
     }),
     step(
+      PREFIX,
       'presentation',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -23,15 +25,23 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       '6.17.3(d)',
       { mode: 'MANUAL' },
     ),
-    step('take-positions', 'CRO', 'COMMAND', 'TAKE YOUR POSITIONS', '6.17.3(d)', {
+    step(PREFIX, 'take-positions', 'CRO', 'COMMAND', 'TAKE YOUR POSITIONS', '6.17.3(d)', {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -395,
     }),
     withEffect(
-      step('preparation-start', 'CRO', 'COMMAND', 'FIVE MINUTES PREPARATION AND SIGHTING TIME ... START', '6.17.3(d)', {
-        mode: 'SCHEDULED_START_OFFSET',
-        offsetSeconds: -365,
-      }),
+      step(
+        PREFIX,
+        'preparation-start',
+        'CRO',
+        'COMMAND',
+        'FIVE MINUTES PREPARATION AND SIGHTING TIME ... START',
+        '6.17.3(d)',
+        {
+          mode: 'SCHEDULED_START_OFFSET',
+          offsetSeconds: -365,
+        },
+      ),
       {
         type: 'OPEN_FIRING',
         purpose: 'SIGHTING',
@@ -40,6 +50,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       },
     ),
     step(
+      PREFIX,
       'welcome-and-format',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -47,18 +58,19 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       '6.17.3(d)',
       { mode: 'MANUAL' },
     ),
-    step('preparation-warning', 'CRO', 'COMMAND', '30 SECONDS', '6.17.3(d)', {
+    step(PREFIX, 'preparation-warning', 'CRO', 'COMMAND', '30 SECONDS', '6.17.3(d)', {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: -95,
     }),
     withEffect(
-      step('preparation-stop', 'CRO', 'COMMAND', 'STOP', '6.17.3(d)', {
+      step(PREFIX, 'preparation-stop', 'CRO', 'COMMAND', 'STOP', '6.17.3(d)', {
         mode: 'SCHEDULED_START_OFFSET',
         offsetSeconds: -65,
       }),
       { type: 'CLOSE_FIRING', purpose: 'SIGHTING' },
     ),
     step(
+      PREFIX,
       'brief-explanation',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -67,6 +79,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       { mode: 'MANUAL' },
     ),
     step(
+      PREFIX,
       'match-targets-ready',
       'OFFICIAL',
       'CHECK',
@@ -75,6 +88,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       { mode: 'MANUAL' },
     ),
     step(
+      PREFIX,
       'twenty-two-minute-command',
       'CRO',
       'COMMAND',
@@ -83,7 +97,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       { mode: 'SCHEDULED_START_OFFSET', offsetSeconds: -15 },
     ),
     withEffect(
-      step('start-kneeling-prone', 'CRO', 'COMMAND', 'MATCH FIRING ... START', '6.17.3(e)', {
+      step(PREFIX, 'start-kneeling-prone', 'CRO', 'COMMAND', 'MATCH FIRING ... START', '6.17.3(e)', {
         mode: 'SCHEDULED_START_OFFSET',
         offsetSeconds: 0,
       }),
@@ -97,6 +111,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       },
     ),
     step(
+      PREFIX,
       'kneeling-prone-commentary',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -104,22 +119,23 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       '6.17.3(e)-(f)',
       { mode: 'MANUAL' },
     ),
-    step('five-minutes', 'CRO', 'COMMAND', 'FIVE MINUTES', '6.17.3(f)', {
+    step(PREFIX, 'five-minutes', 'CRO', 'COMMAND', 'FIVE MINUTES', '6.17.3(f)', {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: 1020,
     }),
-    step('thirty-seconds', 'CRO', 'COMMAND', '30 SECONDS', '6.17.3(f)', {
+    step(PREFIX, 'thirty-seconds', 'CRO', 'COMMAND', '30 SECONDS', '6.17.3(f)', {
       mode: 'SCHEDULED_START_OFFSET',
       offsetSeconds: 1290,
     }),
     withEffect(
-      step('stop-kneeling-prone', 'CRO', 'COMMAND', 'STOP', '6.17.3(f)', {
+      step(PREFIX, 'stop-kneeling-prone', 'CRO', 'COMMAND', 'STOP', '6.17.3(f)', {
         mode: 'SCHEDULED_START_OFFSET',
         offsetSeconds: 1320,
       }),
       { type: 'CLOSE_FIRING', purpose: 'MATCH', target: firstBlock },
     ),
     step(
+      PREFIX,
       'standing-format-commentary',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -134,6 +150,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
     main.push(
       withEffect(
         step(
+          PREFIX,
           `load-standing-series-${seriesIndex + 1}`,
           'CRO',
           'COMMAND',
@@ -144,7 +161,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
         { type: 'LOAD', purpose: 'MATCH', participantSelection: 'ALL_ACTIVE', target: seriesTarget },
       ),
       withEffect(
-        step(`start-standing-series-${seriesIndex + 1}`, 'CRO', 'COMMAND', 'START', '6.17.3(g)', {
+        step(PREFIX, `start-standing-series-${seriesIndex + 1}`, 'CRO', 'COMMAND', 'START', '6.17.3(g)', {
           mode: 'AFTER_PREVIOUS',
           delaySeconds: 5,
         }),
@@ -158,7 +175,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
         },
       ),
       withEffect(
-        step(`stop-standing-series-${seriesIndex + 1}`, 'CRO', 'COMMAND', 'STOP', '6.17.3(g)', {
+        step(PREFIX, `stop-standing-series-${seriesIndex + 1}`, 'CRO', 'COMMAND', 'STOP', '6.17.3(g)', {
           mode: 'TIME_OR_ALL_SHOTS',
           durationSeconds: 250,
           shotsPerParticipant: 5,
@@ -166,6 +183,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
         { type: 'CLOSE_FIRING', purpose: 'MATCH', target: seriesTarget },
       ),
       step(
+        PREFIX,
         `commentary-standing-series-${seriesIndex + 1}`,
         'ANNOUNCER',
         'ANNOUNCEMENT',
@@ -180,16 +198,21 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
 
   main.push(
     checkpoint(
+      PREFIX,
       'checkpoint-30-rank-8',
       30,
       'Confirm rank 8, resolving the special countback or a shoot-off before retiring the finalist.',
+      '6.17.3(h)-(i)',
     ),
     checkpoint(
+      PREFIX,
       'checkpoint-30-rank-7',
       30,
       'Confirm rank 7 after rank 8 is recorded, resolving the special countback or a shoot-off as required.',
+      '6.17.3(h)-(i)',
     ),
     step(
+      PREFIX,
       'safety-30',
       'OFFICIAL',
       'CHECK',
@@ -205,13 +228,21 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
     const last = shotNumber === 35;
     main.push(
       withEffect(
-        step(`load-shot-${shotNumber}`, 'CRO', 'COMMAND', 'FOR THE NEXT COMPETITION SHOT ... LOAD', '6.17.3(h)', {
-          mode: 'MANUAL',
-        }),
+        step(
+          PREFIX,
+          `load-shot-${shotNumber}`,
+          'CRO',
+          'COMMAND',
+          'FOR THE NEXT COMPETITION SHOT ... LOAD',
+          '6.17.3(h)',
+          {
+            mode: 'MANUAL',
+          },
+        ),
         { type: 'LOAD', purpose: 'MATCH', participantSelection: 'ALL_ACTIVE', target: singleTarget },
       ),
       withEffect(
-        step(`start-shot-${shotNumber}`, 'CRO', 'COMMAND', 'START', '6.17.3(h)', {
+        step(PREFIX, `start-shot-${shotNumber}`, 'CRO', 'COMMAND', 'START', '6.17.3(h)', {
           mode: 'AFTER_PREVIOUS',
           delaySeconds: 5,
         }),
@@ -225,7 +256,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
         },
       ),
       withEffect(
-        step(`stop-shot-${shotNumber}`, 'CRO', 'COMMAND', last ? 'STOP ... UNLOAD' : 'STOP', '6.17.3(h)', {
+        step(PREFIX, `stop-shot-${shotNumber}`, 'CRO', 'COMMAND', last ? 'STOP ... UNLOAD' : 'STOP', '6.17.3(h)', {
           mode: 'TIME_OR_ALL_SHOTS',
           durationSeconds: 50,
           shotsPerParticipant: 1,
@@ -233,13 +264,16 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
         { type: 'CLOSE_FIRING', purpose: 'MATCH', target: singleTarget },
       ),
       checkpoint(
+        PREFIX,
         `checkpoint-${shotNumber}`,
         shotNumber,
         last
           ? 'Confirm the gold and silver medal positions and resolve any tie before Final completion.'
           : `Confirm the finalist in rank ${37 - shotNumber}, resolving any tie before retiring that finalist.`,
+        '6.17.3(h)-(i)',
       ),
       step(
+        PREFIX,
         `safety-${shotNumber}`,
         'OFFICIAL',
         'CHECK',
@@ -253,6 +287,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
     if (!last) {
       main.push(
         step(
+          PREFIX,
           `commentary-shot-${shotNumber}`,
           'ANNOUNCER',
           'ANNOUNCEMENT',
@@ -266,6 +301,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
 
   main.push(
     step(
+      PREFIX,
       'completion-clearance',
       'OFFICIAL',
       'CHECK',
@@ -273,10 +309,14 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
       '6.17.3(j)',
       { mode: 'MANUAL' },
     ),
-    withEffect(step('declare-results', 'CRO', 'DECLARATION', 'RESULTS ARE FINAL', '6.17.3(j)', { mode: 'MANUAL' }), {
-      type: 'DECLARE_RESULTS',
-    }),
+    withEffect(
+      step(PREFIX, 'declare-results', 'CRO', 'DECLARATION', 'RESULTS ARE FINAL', '6.17.3(j)', { mode: 'MANUAL' }),
+      {
+        type: 'DECLARE_RESULTS',
+      },
+    ),
     step(
+      PREFIX,
       'medallist-presentation',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -301,6 +341,7 @@ export function buildIssf50mThreePositionsFinalCommandScript(): FinalCommandScri
 function shootOffSteps(): RuleCommandScriptStep[] {
   return [
     step(
+      PREFIX,
       'shoot-off-announce',
       'CRO',
       'ANNOUNCEMENT',
@@ -309,13 +350,13 @@ function shootOffSteps(): RuleCommandScriptStep[] {
       { mode: 'MANUAL' },
     ),
     withEffect(
-      step('shoot-off-load', 'CRO', 'COMMAND', 'FOR THE SHOOT-OFF SHOT ... LOAD', '6.17.3(i)', {
+      step(PREFIX, 'shoot-off-load', 'CRO', 'COMMAND', 'FOR THE SHOOT-OFF SHOT ... LOAD', '6.17.3(i)', {
         mode: 'MANUAL',
       }),
       { type: 'LOAD', purpose: 'SHOOT_OFF', participantSelection: 'TIED_ONLY' },
     ),
     withEffect(
-      step('shoot-off-start', 'CRO', 'COMMAND', 'START', '6.17.3(i)', {
+      step(PREFIX, 'shoot-off-start', 'CRO', 'COMMAND', 'START', '6.17.3(i)', {
         mode: 'AFTER_PREVIOUS',
         delaySeconds: 5,
       }),
@@ -328,7 +369,7 @@ function shootOffSteps(): RuleCommandScriptStep[] {
       },
     ),
     withEffect(
-      step('shoot-off-stop', 'CRO', 'COMMAND', 'STOP', '6.17.3(i)', {
+      step(PREFIX, 'shoot-off-stop', 'CRO', 'COMMAND', 'STOP', '6.17.3(i)', {
         mode: 'TIME_OR_ALL_SHOTS',
         durationSeconds: 50,
         shotsPerParticipant: 1,
@@ -336,6 +377,7 @@ function shootOffSteps(): RuleCommandScriptStep[] {
       { type: 'CLOSE_FIRING', purpose: 'SHOOT_OFF' },
     ),
     step(
+      PREFIX,
       'shoot-off-commentary',
       'ANNOUNCER',
       'ANNOUNCEMENT',
@@ -345,6 +387,7 @@ function shootOffSteps(): RuleCommandScriptStep[] {
     ),
     withEffect(
       step(
+        PREFIX,
         'shoot-off-checkpoint',
         'OFFICIAL',
         'CHECK',
@@ -357,13 +400,6 @@ function shootOffSteps(): RuleCommandScriptStep[] {
   ];
 }
 
-function checkpoint(suffix: string, afterMatchShot: number, text: string): RuleCommandScriptStep {
-  return withEffect(step(suffix, 'OFFICIAL', 'CHECK', text, '6.17.3(h)-(i)', { mode: 'MANUAL' }), {
-    type: 'CHECKPOINT',
-    afterMatchShot,
-  });
-}
-
 function target(
   stageId: string,
   stageIndex: number,
@@ -371,19 +407,4 @@ function target(
   seriesCount?: number,
 ): RuleCommandSeriesTarget {
   return { stageId, stageIndex, seriesIndex, ...(seriesCount ? { seriesCount } : {}) };
-}
-
-function withEffect(source: RuleCommandScriptStep, effect: RuleCommandScriptStep['effect']): RuleCommandScriptStep {
-  return { ...source, effect };
-}
-
-function step(
-  suffix: string,
-  actor: RuleCommandScriptStep['actor'],
-  kind: RuleCommandScriptStep['kind'],
-  text: string,
-  ruleReference: string,
-  timing: RuleCommandScriptStep['timing'],
-): RuleCommandScriptStep {
-  return { id: `${PREFIX}.${suffix}`, actor, kind, text, ruleReference, timing, effect: NO_EFFECT };
 }

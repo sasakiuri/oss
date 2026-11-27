@@ -7,6 +7,7 @@ import {
   type TimedTargetPurpose,
 } from '../RulePack';
 
+import { FINAL_VERIFICATION, ISSF_2026_AUTHORITY, PUBLICATION, VERIFICATION } from './common';
 import { ISSF_2026_FINAL_EST_COMPLAINTS } from './estComplaint';
 import {
   buildIssf25mPistolWomenFinalCommandScript,
@@ -15,14 +16,9 @@ import {
 import { buildIssf25mQualificationMalfunction } from './qualificationMalfunction';
 
 const authority = {
-  organization: 'ISSF',
-  edition: '2025 Edition (Second Print 07/2026)',
-  effectiveFrom: '2026-07-01',
+  ...ISSF_2026_AUTHORITY,
   ruleReferences: ['6.4.12', '6.4.13', '8.7.6', '8.8.1', '8.8.2.3', '8.9.1'],
 } as const;
-
-const publication = { preliminaryRequired: true, scoreProtestWindowSeconds: 600 } as const;
-const verification = { topIndividualResults: 10, topTeamResultsWhenPublished: 3 } as const;
 
 const preparationStage = {
   id: 'PREPARATION',
@@ -141,8 +137,8 @@ export const ISSF_2026_RFPM: RulePack = defineRulePack({
       stages: [preparationStage, rapidFireStage(1), rapidFireStage(2)],
     },
     ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 12 },
-    verification,
-    publication,
+    verification: VERIFICATION,
+    publication: PUBLICATION,
     qualificationMalfunction: buildIssf25mQualificationMalfunction({
       claimLimit: { sightingClaims: 'PROHIBITED', maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
       stages: [1, 2].map((stageNumber) => ({
@@ -272,8 +268,8 @@ function precisionRapidPack(input: { eventCode: 'P25' | 'CFP'; displayName: stri
         ],
       },
       ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 12 },
-      verification,
-      publication,
+      verification: VERIFICATION,
+      publication: PUBLICATION,
       qualificationMalfunction: buildIssf25mQualificationMalfunction({
         claimLimit: { sightingClaims: 'PROHIBITED', maximum: 1, scope: 'EACH_30_SHOT_STAGE' },
         stages: [
@@ -421,8 +417,8 @@ export const ISSF_2026_STDP: RulePack = defineRulePack({
       stages: [preparationStage, standardStage(150, 1), standardStage(20, 2), standardStage(10, 3)],
     },
     ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 12 },
-    verification,
-    publication,
+    verification: VERIFICATION,
+    publication: PUBLICATION,
     qualificationMalfunction: buildIssf25mQualificationMalfunction({
       claimLimit: {
         sightingClaims: 'PROHIBITED',
@@ -709,7 +705,7 @@ export const ISSF_2026_RFPM_FINAL: RulePack = defineRulePack({
         { afterMatchShot: 40, rank: 2, tieResolution: shootOffTieResolution },
       ],
     },
-    verification: { topIndividualResults: 10, topTeamResultsWhenPublished: 0 },
+    verification: FINAL_VERIFICATION,
     commands: {
       athleteCallToLineLeadSeconds: 660,
       preparationAndSightingSeconds: 60,
@@ -824,7 +820,7 @@ export const ISSF_2026_P25_FINAL: RulePack = defineRulePack({
         { afterMatchShot: 50, rank: 2, tieResolution: shootOffTieResolution },
       ],
     },
-    verification: { topIndividualResults: 10, topTeamResultsWhenPublished: 0 },
+    verification: FINAL_VERIFICATION,
     commands: {
       athleteCallToLineLeadSeconds: 600,
       preparationAndSightingSeconds: 120,

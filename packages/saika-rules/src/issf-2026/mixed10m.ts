@@ -1,13 +1,12 @@
 import { defineRulePack, type RulePack } from '../RulePack';
 
+import { ISSF_2026_AUTHORITY, PUBLICATION } from './common';
 import { ISSF_2026_FINAL_EST_COMPLAINTS } from './estComplaint';
 import { buildIssf10mFinalCommandScript } from './finalCommandScript';
 import { buildIssfGeneralQualificationMalfunction } from './qualificationMalfunction';
 
 const authority = {
-  organization: 'ISSF',
-  edition: '2025 Edition (Second Print 07/2026)',
-  effectiveFrom: '2026-07-01',
+  ...ISSF_2026_AUTHORITY,
   ruleReferences: ['6.3.3.3', '6.6.6', '6.11.8', '6.18'],
 } as const;
 
@@ -131,7 +130,7 @@ function mixedQualification(
       },
       verification: { topIndividualResults: 0, topTeamResultsWhenPublished: 3 },
       team: { format: 'MIXED_PAIR', membersPerTeam: 2, maximumTeamsPerNation: 2, requiredGenders: ['F', 'M'] },
-      publication: { preliminaryRequired: true, scoreProtestWindowSeconds: 600 },
+      publication: PUBLICATION,
       qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
       firingWindowReview: mixedQualificationFiringWindowReview,
       commands: {
