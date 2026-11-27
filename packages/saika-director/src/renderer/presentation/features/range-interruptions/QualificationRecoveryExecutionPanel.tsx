@@ -12,7 +12,7 @@ import { Button } from '../shared/common/Button';
 import { FormButtons } from './InterruptionFields';
 import {
   activeRecoveryFiring,
-  adjudicableRecoveryRun,
+  canAdjudicateRecoveryRun,
   authorizedRecoveryShots,
   cancellableRecoveryRun,
   recoveryAdjudicationRequest,
@@ -121,7 +121,7 @@ export function QualificationRecoveryExecutionPanel({
               cancellableRecoveryRun(series) ? () => setAction({ kind: 'CANCEL', execution: series }) : undefined
             }
             onAdjudicate={
-              adjudicableRecoveryRun(series)
+              canAdjudicateRecoveryRun(series)
                 ? () =>
                     setAction({
                       kind: 'ADJUDICATE',
