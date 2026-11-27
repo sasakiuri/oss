@@ -3,13 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { migration071FinalRecoveryFiring } from '@/main/infrastructure/database/migrations/071_final_recovery_firing';
 import { FinalRecoveryCase, FinalRecoveryEntry, type IFinalRecoveryRepository } from '@/main/modules/final-recoveries';
-import { AuthorizedFinalFiringSource } from '@/main/modules/final-recovery-firing/AuthorizedFinalFiringSource';
-import {
-  FinalRecoveryFiringService,
-  type FinalFiringIntent,
-  type IFinalFiringAuthorizationSource,
-} from '@/main/modules/final-recovery-firing/FinalRecoveryFiringService';
-import { SqliteFinalFiringRepository } from '@/main/modules/final-recovery-firing/SqliteFinalFiringRepository';
+import { AuthorizedFinalFiringSource } from '@/main/modules/final-recovery-firing/application/AuthorizedFinalFiringSource';
+import { FinalRecoveryFiringService } from '@/main/modules/final-recovery-firing/application/FinalRecoveryFiringService';
+import type { FinalFiringIntent } from '@/main/modules/final-recovery-firing/domain/IFinalFiringRepository';
+import type { IFinalFiringAuthorizationSource } from '@/main/modules/final-recovery-firing/domain/IFinalFiringTransport';
+import { SqliteFinalFiringRepository } from '@/main/modules/final-recovery-firing/infra/SqliteFinalFiringRepository';
 import type {
   MalfunctionFiringRequestPayload,
   MalfunctionFiringEvidencePayload,

@@ -10,9 +10,6 @@ import {
   type VistaServer,
 } from '@sasakiuri/saika-protocol/vista-node';
 import { VISTA_PROTOCOL_VERSION, parseVistaSourcePath, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
-import { SqliteFinalControlRepository } from '@/main/modules/final-control';
-import { SqliteFinalOperationRepository } from '@/main/modules/final-operations';
-import { SqliteReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { ResultBoardSnapshotService, ResultPublicationService } from '@/main/modules/result-publication';
 import { vistaContract } from '@/shared/ipc/contracts';
@@ -37,6 +34,9 @@ export const vistaModule = defineModule({
     'finalResultDeclarationService',
     'qualificationResultsReader',
     'finalResultsReader',
+    'finalOperationRepository',
+    'finalControlRepository',
+    'reserveTransferRepository',
   ],
   register(ctx) {
     let credentials: VistaCredentials;
@@ -83,9 +83,9 @@ export const vistaModule = defineModule({
     const source = new DirectorVistaSource(
       new SqliteVistaSourceStore(ctx.database),
       {
-        finalOperations: new SqliteFinalOperationRepository(ctx.database),
-        finalControls: new SqliteFinalControlRepository(ctx.database),
-        reserveTransfers: new SqliteReserveTransferRepository(ctx.database),
+        finalOperations: ctx.finalOperationRepository,
+        finalControls: ctx.finalControlRepository,
+        reserveTransfers: ctx.reserveTransferRepository,
       },
       ctx.competitionTypeRegistry,
       ctx.competitionShotJournal,

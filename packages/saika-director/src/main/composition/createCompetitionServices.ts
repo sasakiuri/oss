@@ -7,7 +7,9 @@ import {
   SqliteAthleteSanctionRepository,
 } from '@/main/modules/athlete-sanctions';
 import { SqliteParticipantRepository } from '@/main/modules/championship';
+import { SqliteFinalControlRepository } from '@/main/modules/final-control';
 import { SqliteFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
+import { SqliteFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import { SqliteRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import { SqliteIrregularShotCaseRepository } from '@/main/modules/irregular-shot-cases';
 import { SqliteLaneControlRepository } from '@/main/modules/lane-control';
@@ -53,8 +55,12 @@ export function createCompetitionServices({ database }: CompetitionServicesDepen
   const rangeIncidentReportRepository = new SqliteRangeIncidentReportRepository(database);
   const targetExaminationRepository = new SqliteTargetExaminationRepository(database);
   const rangeInterruptionRepository = new SqliteRangeInterruptionRepository(database);
+  const finalControlRepository = new SqliteFinalControlRepository(database);
+  const finalRecoveryRepository = new SqliteFinalRecoveryRepository(database);
+  const reserveTransferRepository = new SqliteReserveTransferRepository(database);
+  const reserveTransferDataGuard = new ReserveTransferDataGuard(reserveTransferRepository);
   const competitionDataGuard = new CompositeCompetitionDataGuard([
-    new ReserveTransferDataGuard(new SqliteReserveTransferRepository(database)),
+    reserveTransferDataGuard,
     new EvidenceHoldCompetitionDataGuard(targetExaminationRepository),
     new InterruptionCompetitionDataGuard(rangeInterruptionRepository),
   ]);
@@ -88,6 +94,10 @@ export function createCompetitionServices({ database }: CompetitionServicesDepen
     rangeIncidentReportRepository,
     targetExaminationRepository,
     rangeInterruptionRepository,
+    finalControlRepository,
+    finalRecoveryRepository,
+    reserveTransferRepository,
+    reserveTransferDataGuard,
     competitionDataGuard,
     finalPlacementReviewRepository,
     resultPublicationRepository,

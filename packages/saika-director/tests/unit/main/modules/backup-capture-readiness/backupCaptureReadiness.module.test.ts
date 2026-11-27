@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it, vi } from 'vitest';
 
-import { registerBackupCaptureReadiness } from '@/main/modules/backup-capture-readiness';
-import type { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
+import { backupCaptureReadinessModule } from '@/main/modules/backup-capture-readiness';
 import { backupCaptureReadinessContract } from '@/shared/ipc/contracts';
 
 type Handlers = {
@@ -14,24 +13,28 @@ type Handlers = {
 function register() {
   const service = { get: vi.fn(() => 'current'), save: vi.fn(() => 'saved') };
   const router = { register: vi.fn() };
-  registerBackupCaptureReadiness(router as unknown as IpcRouter, service as never, {
-    plans: {
-      list: () => [
-        { eventId: 'event-1', sourceLabel: 'Range feed' },
-        { eventId: 'removed', sourceLabel: 'Old feed' },
-        { eventId: 'event-2', sourceLabel: 'Final feed' },
-      ],
-    },
-    events: {
-      findById: (eventId) =>
-        eventId === 'removed' ? null : { name: eventId === 'event-1' ? 'Air Rifle' : 'Air Pistol' },
+  backupCaptureReadinessModule.register({
+    ipcRouter: router as never,
+    backupCaptureReadinessService: service as never,
+    backupCaptureSources: {
+      plans: {
+        list: () => [
+          { eventId: 'event-1', sourceLabel: 'Range feed' },
+          { eventId: 'removed', sourceLabel: 'Old feed' },
+          { eventId: 'event-2', sourceLabel: 'Final feed' },
+        ],
+      },
+      events: {
+        findById: (eventId) =>
+          eventId === 'removed' ? null : { name: eventId === 'event-1' ? 'Air Rifle' : 'Air Pistol' },
+      },
     },
   });
   expect(router.register).toHaveBeenCalledExactlyOnceWith(backupCaptureReadinessContract, expect.any(Object));
   return { service, handlers: router.register.mock.calls[0]![1] as Handlers };
 }
 
-describe('registerBackupCaptureReadiness', () => {
+describe('backupCaptureReadinessModule', () => {
   it('reads and saves the readiness settings through the service', async () => {
     const { service, handlers } = register();
     const input = { competitionId: 'competition-1', mode: 'REQUIRED' };

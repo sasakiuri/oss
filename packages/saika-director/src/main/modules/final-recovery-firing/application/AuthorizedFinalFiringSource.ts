@@ -2,21 +2,13 @@ import type { IFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import { finalRecoveryStatus } from '@/main/modules/final-recoveries';
 import { MalfunctionFiringRequestSchema } from '@sasakiuri/saika-protocol/MalfunctionFiring';
 
-import type { FinalFiringIntent, IFinalFiringAuthorizationSource } from './FinalRecoveryFiringService';
+import type { FinalFiringIntent } from '../domain/IFinalFiringRepository';
+import type { FinalFiringContext, IFinalFiringAuthorizationSource } from '../domain/IFinalFiringTransport';
 
-type Context = {
-  sessionId: string;
-  participantId: string;
-  rulePackFingerprint: string;
-  stageIndex: number;
-  seriesIndex: number;
-  recordedShots: number;
-  seriesShotLimit: number;
-};
 export class AuthorizedFinalFiringSource implements IFinalFiringAuthorizationSource {
   constructor(
     private readonly recoveries: IFinalRecoveryRepository,
-    private readonly context: (competitionId: string, laneId: string) => Promise<Context>,
+    private readonly context: (competitionId: string, laneId: string) => Promise<FinalFiringContext>,
   ) {}
   assertAuthorized(intent: FinalFiringIntent): void {
     this.authorization(intent);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { FinalFiringTransportInput } from '@/main/modules/final-recovery-firing';
+import type { FinalFiringContext, FinalFiringTransportInput } from '@/main/modules/final-recovery-firing';
 import {
   RetireFinalistCommandSchema,
   StartShootOffCommandSchema,
@@ -115,7 +115,7 @@ export class FinalCompetitionCommands {
     return this.commands.publishCompetitionCommand(competitionId, 'stop-shoot-off', command, targetLaneIds);
   }
 
-  getFinalFiringContext(competitionId: string, laneId: string) {
+  getFinalFiringContext(competitionId: string, laneId: string): FinalFiringContext {
     const competition = this.context.requireCompetitionPhase(competitionId, 'MATCH', 'prepare Final recovery firing');
     if (competition.roundName !== 'Final') throw new Error('Final recovery requires a Final competition');
     this.context.requireCompetitionLane(competitionId, laneId);

@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3';
 
 import type { ReserveLaneTransferRequest } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
-import type { IReserveTransferRepository, ReserveTransferEntry } from './ReserveLaneTransferService';
+import type { IReserveTransferRepository, ReserveTransferEntry } from '../domain/IReserveTransferRepository';
 
 export class SqliteReserveTransferRepository implements IReserveTransferRepository {
   constructor(private readonly db: Database.Database) {}

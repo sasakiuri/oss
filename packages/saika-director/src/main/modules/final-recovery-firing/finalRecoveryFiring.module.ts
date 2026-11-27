@@ -1,22 +1,18 @@
-import { SqliteFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { finalRecoveryFiringContract } from '@/shared/ipc/contracts';
-import { AuthorizedFinalFiringSource } from './AuthorizedFinalFiringSource';
-import {
-  FinalFiringContextToken,
-  FinalFiringTransportToken,
-  FinalRecoveryFiringService,
-} from './FinalRecoveryFiringService';
-import { SqliteFinalFiringRepository } from './SqliteFinalFiringRepository';
+import { AuthorizedFinalFiringSource } from './application/AuthorizedFinalFiringSource';
+import { FinalRecoveryFiringService } from './application/FinalRecoveryFiringService';
+import { FinalFiringContextToken, FinalFiringTransportToken } from './domain/IFinalFiringTransport';
+import { SqliteFinalFiringRepository } from './infra/SqliteFinalFiringRepository';
 
 export const finalRecoveryFiringModule = defineModule({
   name: 'finalRecoveryFiring',
-  deps: ['database', 'ipcRouter', 'commandBus'],
-  register({ database, ipcRouter, commandBus }) {
+  deps: ['database', 'ipcRouter', 'commandBus', 'queryBus', 'finalRecoveryRepository'],
+  register({ database, ipcRouter, commandBus, queryBus, finalRecoveryRepository }) {
     const service = new FinalRecoveryFiringService(
       new SqliteFinalFiringRepository(database),
-      new AuthorizedFinalFiringSource(new SqliteFinalRecoveryRepository(database), (competitionId, laneId) =>
-        commandBus.execute(FinalFiringContextToken, { competitionId, laneId }),
+      new AuthorizedFinalFiringSource(finalRecoveryRepository, (competitionId, laneId) =>
+        queryBus.execute(FinalFiringContextToken, { competitionId, laneId }),
       ),
       (input) => commandBus.execute(FinalFiringTransportToken, input),
     );

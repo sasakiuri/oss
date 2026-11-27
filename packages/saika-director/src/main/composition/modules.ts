@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { adjudicationCasesModule } from '@/main/modules/adjudication-cases';
 import { athleteSanctionsModule } from '@/main/modules/athlete-sanctions';
+import { backupCaptureReadinessModule } from '@/main/modules/backup-capture-readiness';
 import { boardModule } from '@/main/modules/board';
 import { championshipModule } from '@/main/modules/championship';
 import { competitionAnnouncementsModule } from '@/main/modules/competition-announcements';
@@ -25,9 +26,11 @@ import { mqttModule } from '@/main/modules/mqtt';
 import { observationReviewsModule } from '@/main/modules/observation-reviews';
 import { operationalArchivesModule } from '@/main/modules/operational-archives';
 import { operationalTemplatesModule } from '@/main/modules/operational-templates';
+import { operatorAccessModule } from '@/main/modules/operator-access';
 import { postCompetitionEquipmentControlModule } from '@/main/modules/post-competition-equipment-control';
 import { productionOperationsModule } from '@/main/modules/production-operations';
 import { protestsModule } from '@/main/modules/protests';
+import { publicationReviewPoliciesModule } from '@/main/modules/publication-review-policies';
 import { qualificationMalfunctionsModule } from '@/main/modules/qualification-malfunctions';
 import { rangeInterruptionsModule } from '@/main/modules/range-interruptions';
 import { relayAthleteLifecycleModule } from '@/main/modules/relay-athlete-lifecycle';
@@ -49,6 +52,9 @@ import type { ModuleDefinition } from '@/main/shared-infra/module/ModuleDefiniti
 
 // Static module list (Vite/Electron safe — no dynamic import)
 export const directorModules = [
+  operatorAccessModule,
+  publicationReviewPoliciesModule,
+  backupCaptureReadinessModule,
   observationReviewsModule,
   malfunctionScoreApplicationsModule,
   scoreCorrectionsModule,
