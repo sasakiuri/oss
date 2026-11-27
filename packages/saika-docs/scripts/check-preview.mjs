@@ -13,7 +13,7 @@ try {
     ['GET', '/'],
     ['GET', '/api/health/'],
     ['GET', '/api/catalog/'],
-    ['GET', '/rss.xml/'],
+    ['GET', '/rss.xml'],
     ['GET', '/icon-192.png'],
     ['POST', '/api/vitals/'],
   ]) {
