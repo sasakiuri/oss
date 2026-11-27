@@ -3,11 +3,7 @@ import type Database from 'better-sqlite3';
 import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
 import type { ITargetExaminationRepository, TargetExaminationScope } from '../domain/ITargetExaminationRepository';
 import { TargetExaminationCase, type TargetExaminationIssueKind } from '../domain/TargetExaminationCase';
-import {
-  getTargetExaminationState,
-  TargetExaminationEntry,
-  type TargetExaminationEntryType,
-} from '../domain/TargetExaminationEntry';
+import { TargetExaminationEntry, type TargetExaminationEntryType } from '../domain/TargetExaminationEntry';
 import { TargetExaminationEvidence, type TargetExaminationEvidenceType } from '../domain/TargetExaminationEvidence';
 import { TargetExaminationScopeLink, type TargetExaminationScopeType } from '../domain/TargetExaminationScopeLink';
 
@@ -187,16 +183,6 @@ export class SqliteTargetExaminationRepository implements ITargetExaminationRepo
          ORDER BY recorded_at, rowid`,
       (row: EntryRow) => row.case_id,
       toEntry,
-    );
-  }
-
-  findActiveEvidenceHolds(scope: TargetExaminationScope, laneId?: string): TargetExaminationCase[] {
-    const cases = this.findCasesByScope(scope).filter(
-      (examination) => laneId === undefined || examination.laneId === null || examination.laneId === laneId,
-    );
-    const entries = this.findEntriesByCaseIds(cases.map((examination) => examination.id));
-    return cases.filter(
-      (examination) => getTargetExaminationState(entries.get(examination.id) ?? []).evidenceHoldActive,
     );
   }
 

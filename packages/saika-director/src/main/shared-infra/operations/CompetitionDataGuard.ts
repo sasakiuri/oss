@@ -8,6 +8,18 @@ export interface CompetitionDataOperationContext {
   laneId?: string;
 }
 
+/** Names the operation in a guard's refusal, e.g. "before resetting the Lane session". */
+export function competitionDataOperationLabel(operation: CompetitionDataOperation): string {
+  switch (operation) {
+    case 'LEAVE_LANE':
+      return 'removing the Lane';
+    case 'RESET_LANE_SESSION':
+      return 'resetting the Lane session';
+    case 'CLEAR_COMPETITION_DATA':
+      return 'clearing competition data';
+  }
+}
+
 /** Port used by competition-control consumers before an evidence-destructive operation. */
 export interface ICompetitionDataGuard {
   assertAllowed(context: CompetitionDataOperationContext): void;

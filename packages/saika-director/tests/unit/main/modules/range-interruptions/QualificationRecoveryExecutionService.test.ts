@@ -6,6 +6,7 @@ import { QualificationRecoveryExecutionService } from '@/main/modules/range-inte
 import { RangeInterruptionService } from '@/main/modules/range-interruptions/application/RangeInterruptionService';
 import type { IQualificationRecoveryExecutionTransport } from '@/main/modules/range-interruptions/domain/IQualificationRecoveryExecutionTransport';
 import { SqliteQualificationRecoveryExecutionRepository } from '@/main/modules/range-interruptions/infra/SqliteQualificationRecoveryExecutionRepository';
+import { SqliteQualificationRecoverySettlementRepository } from '@/main/modules/range-interruptions/infra/SqliteQualificationRecoverySettlementRepository';
 import { SqliteRangeInterruptionRepository } from '@/main/modules/range-interruptions/infra/SqliteRangeInterruptionRepository';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';
 import type {
@@ -34,7 +35,12 @@ describe('QualificationRecoveryExecutionService', () => {
     const executionRepository = new SqliteQualificationRecoveryExecutionRepository(database);
     const competitionTypes = new CompetitionTypeRegistry();
     competitionTypes.register(competitionTypeFromRulePack(ISSF_2026_P25));
-    rangeService = new RangeInterruptionService(rangeRepository, competitionTypes, executionRepository);
+    rangeService = new RangeInterruptionService(
+      rangeRepository,
+      competitionTypes,
+      executionRepository,
+      new SqliteQualificationRecoverySettlementRepository(database),
+    );
     now = new Date('2026-09-03T01:16:00.000Z');
     startTransport = vi.fn(async (input) => ({
       commandId: crypto.randomUUID(),

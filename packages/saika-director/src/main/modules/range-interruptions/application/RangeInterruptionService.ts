@@ -40,9 +40,9 @@ import { toRangeInterruptionCaseDto } from './RangeInterruptionDto';
 export class RangeInterruptionService {
   constructor(
     private readonly repository: IRangeInterruptionRepository,
-    private readonly competitionTypes?: CompetitionTypeRegistry,
-    private readonly qualificationRecoveryExecutions?: Pick<IQualificationRecoveryExecutionRepository, 'findByCaseIds'>,
-    private readonly qualificationRecoverySettlements?: Pick<
+    private readonly competitionTypes: CompetitionTypeRegistry,
+    private readonly qualificationRecoveryExecutions: Pick<IQualificationRecoveryExecutionRepository, 'findByCaseIds'>,
+    private readonly qualificationRecoverySettlements: Pick<
       IQualificationRecoverySettlementRepository,
       'findByCaseIds'
     >,
@@ -93,7 +93,6 @@ export class RangeInterruptionService {
       throw new Error('Qualification series recovery requires a MATCH interruption');
     }
     if (!input.laneId) throw new Error('Qualification series recovery requires an affected Lane');
-    if (!this.competitionTypes) throw new Error('Competition type policy registry is unavailable');
 
     const definition = this.competitionTypes.get(requested.competitionTypeId);
     const recovery = definition.timedTarget?.recovery;
@@ -167,14 +166,14 @@ export class RangeInterruptionService {
         throw new Error('Record an official Qualification recovery decision before closing this interruption');
       }
       if (decision.authorizedRecovery.seriesRecovery.treatment === 'KEEP_RECORDED_SERIES') {
-        const settlement = this.requireQualificationSettlements(input.caseId).find(
+        const settlement = this.qualificationSettlements(input.caseId).find(
           (candidate) => candidate.decisionId === decision.id,
         );
         if (settlement?.status !== 'APPLIED') {
           throw new Error('Apply the Qualification retain-series settlement before closing this interruption');
         }
       } else {
-        const seriesExecution = this.requireQualificationExecutions(input.caseId).find(
+        const seriesExecution = this.qualificationExecutions(input.caseId).find(
           (execution) => execution.decisionId === decision.id && execution.phase === 'SERIES_RECOVERY',
         );
         if (seriesExecution?.status !== 'ADJUDICATED') {
@@ -252,7 +251,7 @@ export class RangeInterruptionService {
     if (!latest && input.supersedesDecisionId !== undefined) {
       throw new Error('The first recovery decision must not supersede another decision');
     }
-    if (latest && this.requireQualificationExecutions(input.caseId).some(blocksDecisionSupersession)) {
+    if (latest && this.qualificationExecutions(input.caseId).some(blocksDecisionSupersession)) {
       throw new Error(
         'A Qualification recovery decision cannot be superseded while an execution remains active or requires adjudication',
       );
@@ -260,7 +259,7 @@ export class RangeInterruptionService {
     if (
       latest &&
       latest.authorizedRecovery.seriesRecovery.treatment === 'KEEP_RECORDED_SERIES' &&
-      this.requireQualificationSettlements(input.caseId).some((settlement) => settlement.decisionId === latest.id)
+      this.qualificationSettlements(input.caseId).some((settlement) => settlement.decisionId === latest.id)
     ) {
       throw new Error('A Qualification recovery decision cannot be superseded after settlement was requested');
     }
@@ -350,17 +349,11 @@ export class RangeInterruptionService {
     return interruption;
   }
 
-  private requireQualificationExecutions(caseId: string): QualificationRecoveryExecutionRecord[] {
-    if (!this.qualificationRecoveryExecutions) {
-      throw new Error('Qualification recovery execution status is unavailable');
-    }
+  private qualificationExecutions(caseId: string): QualificationRecoveryExecutionRecord[] {
     return this.qualificationRecoveryExecutions.findByCaseIds([caseId]).get(caseId) ?? [];
   }
 
-  private requireQualificationSettlements(caseId: string): QualificationRecoverySettlementRecord[] {
-    if (!this.qualificationRecoverySettlements) {
-      throw new Error('Qualification recovery settlement status is unavailable');
-    }
+  private qualificationSettlements(caseId: string): QualificationRecoverySettlementRecord[] {
     return this.qualificationRecoverySettlements.findByCaseIds([caseId]).get(caseId) ?? [];
   }
 
@@ -385,8 +378,8 @@ export class RangeInterruptionService {
     const targetRecoveryAssessments = this.repository.findTargetRecoveryAssessmentsByCaseIds(ids);
     const commandBatches = this.repository.findCommandBatchesByCaseIds(ids);
     const qualificationDecisions = this.repository.findQualificationTimedTargetRecoveryDecisionsByCaseIds(ids);
-    const qualificationExecutions = this.qualificationRecoveryExecutions?.findByCaseIds(ids) ?? new Map();
-    const qualificationSettlements = this.qualificationRecoverySettlements?.findByCaseIds(ids) ?? new Map();
+    const qualificationExecutions = this.qualificationRecoveryExecutions.findByCaseIds(ids);
+    const qualificationSettlements = this.qualificationRecoverySettlements.findByCaseIds(ids);
     return interruptions.map((interruption) =>
       toRangeInterruptionCaseDto(
         interruption,

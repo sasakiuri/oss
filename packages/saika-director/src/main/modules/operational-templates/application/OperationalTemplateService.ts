@@ -2,8 +2,6 @@ import { randomUUID } from 'node:crypto';
 
 import {
   OperationalTemplateSchema,
-  RemoveOperationalTemplateSchema,
-  SaveOperationalTemplateSchema,
   type OperationalTemplateDto,
   type SaveOperationalTemplateInput,
 } from '@/shared/ipc/contracts';
@@ -25,8 +23,7 @@ export class OperationalTemplateService {
     return this.repository.list();
   }
 
-  save(input: SaveOperationalTemplateInput): OperationalTemplateDto {
-    const data = SaveOperationalTemplateSchema.parse(input);
+  save(data: SaveOperationalTemplateInput): OperationalTemplateDto {
     const template = OperationalTemplateSchema.parse({
       id: data.id ?? randomUUID(),
       name: data.name,
@@ -40,7 +37,6 @@ export class OperationalTemplateService {
   }
 
   remove(input: { id: string; expectedRevision: number }): void {
-    const data = RemoveOperationalTemplateSchema.parse(input);
-    this.repository.remove(data.id, data.expectedRevision);
+    this.repository.remove(input.id, input.expectedRevision);
   }
 }

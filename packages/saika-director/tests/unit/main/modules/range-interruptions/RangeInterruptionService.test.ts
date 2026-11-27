@@ -8,7 +8,6 @@ import type {
   RangeInterruptionScope,
 } from '@/main/modules/range-interruptions/domain/IRangeInterruptionRepository';
 import type { RangeInterruptionCase } from '@/main/modules/range-interruptions/domain/RangeInterruptionCase';
-import { getRangeInterruptionState } from '@/main/modules/range-interruptions/domain/RangeInterruptionEntry';
 import type { RangeInterruptionEntry } from '@/main/modules/range-interruptions/domain/RangeInterruptionEntry';
 import type { RangeInterruptionScopeLink } from '@/main/modules/range-interruptions/domain/RangeInterruptionScopeLink';
 import type { TargetRecoveryAssessment } from '@/main/modules/range-interruptions/domain/TargetRecoveryAssessment';
@@ -21,7 +20,7 @@ import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/c
 const COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const LANE_ID = '33333333-3333-4333-8333-333333333333';
 
-function harness(competitionTypes?: CompetitionTypeRegistry) {
+function harness(competitionTypes = new CompetitionTypeRegistry()) {
   const cases: RangeInterruptionCase[] = [];
   const scopes: RangeInterruptionScopeLink[] = [];
   const entries: RangeInterruptionEntry[] = [];
@@ -67,12 +66,6 @@ function harness(competitionTypes?: CompetitionTypeRegistry) {
     findCommandBatchesByCaseIds: vi.fn((ids) => group(ids, commandBatches)),
     appendQualificationTimedTargetRecoveryDecision: vi.fn((decision) => qualificationDecisions.push(decision)),
     findQualificationTimedTargetRecoveryDecisionsByCaseIds: vi.fn((ids) => group(ids, qualificationDecisions)),
-    findActiveDataHolds: vi.fn((scope, laneId) => {
-      return repository.findCasesByScope(scope).filter((interruption) => {
-        if (laneId !== undefined && interruption.laneId !== null && interruption.laneId !== laneId) return false;
-        return getRangeInterruptionState(entries.filter((entry) => entry.caseId === interruption.id)).dataHoldActive;
-      });
-    }),
   };
   return {
     service: new RangeInterruptionService(

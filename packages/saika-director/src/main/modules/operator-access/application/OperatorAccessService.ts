@@ -3,12 +3,12 @@ import { randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import type { z } from 'zod';
 
 import type { IpcInvocation, IpcInvocationMiddleware } from '@/main/shared-infra/ipc/IpcInvocationMiddleware';
-import {
+import type {
   saveOperatorAccountSchema,
-  type OperatorAccount,
-  type OperatorAccessStatus,
-  type OperatorAuditEntry,
-  type OperatorPermission,
+  OperatorAccount,
+  OperatorAccessStatus,
+  OperatorAuditEntry,
+  OperatorPermission,
 } from '@/shared/ipc/contracts';
 
 export interface StoredOperatorAccount extends OperatorAccount {
@@ -104,8 +104,7 @@ export class OperatorAccessService implements IpcInvocationMiddleware {
     this.assertAdmin(senderId);
     return { accounts: this.store.accounts().map(publicAccount), audit: this.store.audit() };
   }
-  async saveAccount(senderId: number, input: z.input<typeof saveOperatorAccountSchema>) {
-    const data = saveOperatorAccountSchema.parse(input);
+  async saveAccount(senderId: number, data: z.infer<typeof saveOperatorAccountSchema>) {
     if (this.store.accounts().length > 0) this.assertAdmin(senderId);
     // Hash before the final state check so another request cannot race initial administrator setup.
     const salt = data.password ? randomBytes(16).toString('hex') : null;

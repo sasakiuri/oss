@@ -1,5 +1,5 @@
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
-import { equipmentRegistryContract, type EquipmentAthlete } from '@/shared/ipc/contracts';
+import { equipmentRegistryContract } from '@/shared/ipc/contracts';
 
 import { EquipmentRegistryService } from './application/EquipmentRegistryService';
 import { SqliteEquipmentRegistryRepository } from './infra/SqliteEquipmentRegistryRepository';
@@ -8,15 +8,8 @@ export const equipmentRegistryModule = defineModule({
   name: 'equipmentRegistry',
   deps: ['database', 'ipcRouter'],
   register({ database, ipcRouter }) {
-    const service = new EquipmentRegistryService(
-      new SqliteEquipmentRegistryRepository(database),
-      (championshipId) =>
-        database
-          .prepare(
-            'SELECT id, display_name AS name, issf_id AS issfId FROM athlete_identities WHERE championship_id = ? ORDER BY display_name, id',
-          )
-          .all(championshipId) as EquipmentAthlete[],
-    );
+    const repository = new SqliteEquipmentRegistryRepository(database);
+    const service = new EquipmentRegistryService(repository, (championshipId) => repository.athletes(championshipId));
     ipcRouter.register(equipmentRegistryContract, {
       getWorkspace: async (input) => service.getWorkspace(input),
       saveEquipment: async (input) => service.saveEquipment(input),

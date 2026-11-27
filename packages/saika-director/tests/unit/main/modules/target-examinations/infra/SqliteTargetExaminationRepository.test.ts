@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { EvidenceHoldCompetitionDataGuard } from '@/main/modules/target-examinations/application/EvidenceHoldCompetitionDataGuard';
 import { TargetExaminationCase } from '@/main/modules/target-examinations/domain/TargetExaminationCase';
 import { TargetExaminationEntry } from '@/main/modules/target-examinations/domain/TargetExaminationEntry';
 import { TargetExaminationEvidence } from '@/main/modules/target-examinations/domain/TargetExaminationEvidence';
@@ -69,9 +70,13 @@ describe('SqliteTargetExaminationRepository', () => {
     expect(repository.findScopesByCaseIds([examination.id]).get(examination.id)).toEqual([scope]);
     expect(repository.findEvidenceByCaseIds([examination.id]).get(examination.id)).toEqual([item]);
     expect(repository.findEntriesByCaseIds([examination.id]).get(examination.id)).toEqual([note, release]);
-    expect(repository.findActiveEvidenceHolds({ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }, LANE_ID)).toEqual(
-      [],
-    );
+    expect(() =>
+      new EvidenceHoldCompetitionDataGuard(repository).assertAllowed({
+        operation: 'RESET_LANE_SESSION',
+        competitionId: COMPETITION_ID,
+        laneId: LANE_ID,
+      }),
+    ).not.toThrow();
   });
 
   it('applies whole-competition holds to every Lane and rejects mutation or deletion', () => {
@@ -84,12 +89,13 @@ describe('SqliteTargetExaminationRepository', () => {
     });
     repository.appendCase(examination, [scope]);
 
-    expect(
-      repository.findActiveEvidenceHolds(
-        { scopeType: 'COMPETITION', scopeId: COMPETITION_ID },
-        '44444444-4444-4444-8444-444444444444',
-      ),
-    ).toEqual([examination]);
+    expect(() =>
+      new EvidenceHoldCompetitionDataGuard(repository).assertAllowed({
+        operation: 'RESET_LANE_SESSION',
+        competitionId: COMPETITION_ID,
+        laneId: '44444444-4444-4444-8444-444444444444',
+      }),
+    ).toThrow(`Evidence hold is active for target examination ${examination.id.slice(0, 8)};`);
     expect(() =>
       database.prepare('UPDATE target_examination_cases SET summary = ? WHERE id = ?').run('Changed', examination.id),
     ).toThrow('append-only');

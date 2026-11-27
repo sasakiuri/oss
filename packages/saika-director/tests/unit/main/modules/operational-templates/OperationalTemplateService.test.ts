@@ -3,11 +3,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { z } from 'zod';
 
 import { migration085OperationalSettingTemplates } from '@/main/infrastructure/database/migrations/085_operational_setting_templates';
 import { OperationalProfileService } from '@/main/modules/operational-profiles';
 import { OperationalTemplateService } from '@/main/modules/operational-templates/application/OperationalTemplateService';
 import { SqliteOperationalTemplateRepository } from '@/main/modules/operational-templates/infra/SqliteOperationalTemplateRepository';
+import { RemoveOperationalTemplateSchema, SaveOperationalTemplateSchema } from '@/shared/ipc/contracts';
 
 let db: Database.Database;
 let directory: string;
@@ -18,6 +20,11 @@ const input = {
   modes: { relay: 'ADVISORY' as const },
   expectedRevision: 0,
 };
+/** Saves and removes through the contract schemas, as the IPC router does. */
+const save = (value: z.input<typeof SaveOperationalTemplateSchema>) =>
+  service.save(SaveOperationalTemplateSchema.parse(value));
+const remove = (value: z.input<typeof RemoveOperationalTemplateSchema>) =>
+  service.remove(RemoveOperationalTemplateSchema.parse(value));
 function open() {
   db = new Database(join(directory, 'templates.sqlite'));
   service = new OperationalTemplateService(new SqliteOperationalTemplateRepository(db));
@@ -34,7 +41,7 @@ afterEach(() => {
 
 describe('Operational templates', () => {
   it('persists selected modes across restarts without copying competition-specific facts or applying them', async () => {
-    const saved = service.save(input);
+    const saved = save(input);
     expect(saved).toMatchObject({
       name: 'Club evening',
       description: 'Manual equipment',
@@ -69,29 +76,29 @@ describe('Operational templates', () => {
   });
 
   it('rejects stale replacement and removal and cannot recreate a removed template through an old revision', () => {
-    const saved = service.save(input);
-    const edited = service.save({ ...input, name: 'Updated', id: saved.id, expectedRevision: saved.revision });
+    const saved = save(input);
+    const edited = save({ ...input, name: 'Updated', id: saved.id, expectedRevision: saved.revision });
     expect(edited.revision).toBe(2);
-    expect(() => service.save({ ...input, id: saved.id, expectedRevision: 1 })).toThrow('changed or was removed');
-    expect(() => service.remove({ id: saved.id, expectedRevision: 1 })).toThrow('changed or was removed');
+    expect(() => save({ ...input, id: saved.id, expectedRevision: 1 })).toThrow('changed or was removed');
+    expect(() => remove({ id: saved.id, expectedRevision: 1 })).toThrow('changed or was removed');
     expect(service.list()).toEqual([edited]);
-    service.remove({ id: edited.id, expectedRevision: 2 });
-    expect(() => service.save({ ...input, id: edited.id, expectedRevision: 2 })).toThrow('changed or was removed');
+    remove({ id: edited.id, expectedRevision: 2 });
+    expect(() => save({ ...input, id: edited.id, expectedRevision: 2 })).toThrow('changed or was removed');
     expect(service.list()).toEqual([]);
   });
 
   it('validates inputs and names without changing existing templates on failure', () => {
-    const saved = service.save(input);
-    expect(() => service.save({ ...input, name: 'club EVENING' })).toThrow('already uses this name');
-    expect(() => service.save({ ...input, name: ' ', modes: {} })).toThrow();
-    expect(() => service.save({ ...input, expectedRevision: 1 })).toThrow('Reload');
-    expect(() => service.save({ ...input, id: saved.id })).toThrow('Reload');
-    expect(() => service.save({ ...input, modes: { relay: 'UNKNOWN' as never } })).toThrow();
+    const saved = save(input);
+    expect(() => save({ ...input, name: 'club EVENING' })).toThrow('already uses this name');
+    expect(() => save({ ...input, name: ' ', modes: {} })).toThrow();
+    expect(() => save({ ...input, expectedRevision: 1 })).toThrow('Reload');
+    expect(() => save({ ...input, id: saved.id })).toThrow('Reload');
+    expect(() => save({ ...input, modes: { relay: 'UNKNOWN' as never } })).toThrow();
     expect(service.list()).toEqual([saved]);
   });
 
   it('retains portable choices for absent components while active settings reject their application', async () => {
-    const saved = service.save({ ...input, modes: { external: 'REQUIRED' } });
+    const saved = save({ ...input, modes: { external: 'REQUIRED' } });
     const profiles = new OperationalProfileService([], () => {});
     await expect(profiles.preview({ competitionId: 'competition', modes: saved.modes })).rejects.toThrow('Unknown');
     expect(service.list()).toEqual([saved]);
