@@ -5,7 +5,6 @@ import {
   StartTimedTargetCommandSchema,
 } from '@sasakiuri/saika-protocol/commands';
 import type { CompetitionPhase, CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
-import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type { CommandExecutionResult, DirectorLaneSnapshot } from './DirectorMqttTypes';
@@ -124,14 +123,7 @@ export class TimedTargetCommands {
         targetLaneIds,
       }),
     );
-    return this.commands.publishCommand({
-      action: 'start-timed-target',
-      topic: mqttTopics.competitionCommand(input.competitionId, 'start-timed-target'),
-      acknowledgementTopic: (laneId) =>
-        mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'start-timed-target', laneId),
-      payload: command,
-      expectedLaneIds: targetLaneIds,
-    });
+    return this.commands.publishCompetitionCommand(input.competitionId, 'start-timed-target', command, targetLaneIds);
   }
 
   async recordTimedTargetUnload(input: RecordTimedTargetUnloadInput): Promise<CommandExecutionResult> {
@@ -153,14 +145,12 @@ export class TimedTargetCommands {
         targetLaneIds,
       }),
     );
-    return this.commands.publishCommand({
-      action: 'record-timed-target-unload',
-      topic: mqttTopics.competitionCommand(input.competitionId, 'record-timed-target-unload'),
-      acknowledgementTopic: (laneId) =>
-        mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'record-timed-target-unload', laneId),
-      payload: command,
-      expectedLaneIds: targetLaneIds,
-    });
+    return this.commands.publishCompetitionCommand(
+      input.competitionId,
+      'record-timed-target-unload',
+      command,
+      targetLaneIds,
+    );
   }
 
   async cancelTimedTarget(input: CancelTimedTargetInput): Promise<CommandExecutionResult> {
@@ -171,13 +161,6 @@ export class TimedTargetCommands {
     const command = CancelTimedTargetCommandSchema.parse(
       this.commands.commandBase({ sequenceId: input.sequenceId, reason: input.reason, targetLaneIds }),
     );
-    return this.commands.publishCommand({
-      action: 'cancel-timed-target',
-      topic: mqttTopics.competitionCommand(input.competitionId, 'cancel-timed-target'),
-      acknowledgementTopic: (laneId) =>
-        mqttTopics.competitionCommandAcknowledgement(input.competitionId, 'cancel-timed-target', laneId),
-      payload: command,
-      expectedLaneIds: targetLaneIds,
-    });
+    return this.commands.publishCompetitionCommand(input.competitionId, 'cancel-timed-target', command, targetLaneIds);
   }
 }

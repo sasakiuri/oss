@@ -4,9 +4,8 @@ import {
   ClearSafetyStopCommandSchema,
   type MqttCommandActionOf,
 } from '@sasakiuri/saika-protocol/commands';
-import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
-import { createLaneCommandFailure } from './createLaneCommandFailure';
+import { createLaneCommandFailure, fanOutLaneCommands } from './laneCommandBatch';
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type { CommandBatchResult, CommandExecutionResult } from './DirectorMqttTypes';
 
@@ -29,15 +28,11 @@ export class RangeSafetyCommands {
     reason: string,
     officialName: string,
   ): Promise<CommandBatchResult> {
-    const targets = this.requireKnownLanes(laneIds);
-    const commands = await Promise.all(
-      targets.map((laneId) =>
-        this.activateLaneSafetyStopNow(laneId, safetyStopId, reason, officialName).catch((error) =>
-          this.safetyCommandFailure('activate-safety-stop', laneId, error),
-        ),
-      ),
+    return fanOutLaneCommands(
+      this.requireKnownLanes(laneIds),
+      (laneId) => this.activateLaneSafetyStopNow(laneId, safetyStopId, reason, officialName),
+      (laneId, error) => this.safetyCommandFailure('activate-safety-stop', laneId, error),
     );
-    return { success: commands.every((command) => command.success), commands };
   }
 
   async clearSafetyStop(
@@ -46,15 +41,11 @@ export class RangeSafetyCommands {
     clearanceReason: string,
     officialName: string,
   ): Promise<CommandBatchResult> {
-    const targets = this.requireKnownLanes(laneIds);
-    const commands = await Promise.all(
-      targets.map((laneId) =>
-        this.clearLaneSafetyStopNow(laneId, safetyStopId, clearanceReason, officialName).catch((error) =>
-          this.safetyCommandFailure('clear-safety-stop', laneId, error),
-        ),
-      ),
+    return fanOutLaneCommands(
+      this.requireKnownLanes(laneIds),
+      (laneId) => this.clearLaneSafetyStopNow(laneId, safetyStopId, clearanceReason, officialName),
+      (laneId, error) => this.safetyCommandFailure('clear-safety-stop', laneId, error),
     );
-    return { success: commands.every((command) => command.success), commands };
   }
 
   private activateLaneSafetyStopNow(
@@ -66,14 +57,9 @@ export class RangeSafetyCommands {
     const command = ActivateSafetyStopCommandSchema.parse(
       this.commands.commandBase({ safetyStopId, reason, issuedBy: officialName }),
     );
-    return this.commands.publishCommand({
-      action: 'activate-safety-stop',
-      topic: mqttTopics.laneCommand(laneId, 'activate-safety-stop'),
-      acknowledgementTopic: () => mqttTopics.laneCommandAcknowledgement(laneId, 'activate-safety-stop'),
-      payload: command,
-      expectedLaneIds: [laneId],
-      onPublished: () => this.context.log(`Emergency STOP published for Lane ${laneId} (${safetyStopId})`),
-    });
+    return this.commands.publishLaneCommand(laneId, 'activate-safety-stop', command, () =>
+      this.context.log(`Emergency STOP published for Lane ${laneId} (${safetyStopId})`),
+    );
   }
 
   private clearLaneSafetyStopNow(
@@ -85,13 +71,7 @@ export class RangeSafetyCommands {
     const command = ClearSafetyStopCommandSchema.parse(
       this.commands.commandBase({ safetyStopId, clearanceReason, confirmedSafe: true, issuedBy: officialName }),
     );
-    return this.commands.publishCommand({
-      action: 'clear-safety-stop',
-      topic: mqttTopics.laneCommand(laneId, 'clear-safety-stop'),
-      acknowledgementTopic: () => mqttTopics.laneCommandAcknowledgement(laneId, 'clear-safety-stop'),
-      payload: command,
-      expectedLaneIds: [laneId],
-    });
+    return this.commands.publishLaneCommand(laneId, 'clear-safety-stop', command);
   }
 
   private requireKnownLanes(laneIds: readonly string[]): string[] {

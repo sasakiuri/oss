@@ -7,7 +7,6 @@ import {
 } from '@sasakiuri/saika-protocol/commands';
 import type { CompetitionPhase, CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
 import { MalfunctionFiringEvidenceSchema } from '@sasakiuri/saika-protocol/MalfunctionFiring';
-import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type { CommandExecutionResult, DirectorLaneSnapshot, ShootOffTiming } from './DirectorMqttTypes';
@@ -43,14 +42,7 @@ export class FinalCompetitionCommands {
     if (competition.roundName !== 'Final') throw new Error('Only a Final competitor can be retired');
     this.context.requireCompetitionLane(competitionId, laneId);
     const command = RetireFinalistCommandSchema.parse(this.commands.commandBase({ checkpointId, rank, afterShot }));
-    return this.commands.publishCommand({
-      action: 'retire-finalist',
-      topic: mqttTopics.laneCompetitionCommand(competitionId, laneId, 'retire-finalist'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, laneId, 'retire-finalist'),
-      payload: command,
-      expectedLaneIds: [laneId],
-    });
+    return this.commands.publishCompetitionLaneCommand(competitionId, laneId, 'retire-finalist', command);
   }
 
   async startShootOff(
@@ -109,14 +101,7 @@ export class FinalCompetitionCommands {
         targetLaneIds,
       }),
     );
-    return this.commands.publishCommand({
-      action: 'start-shoot-off',
-      topic: mqttTopics.competitionCommand(competitionId, 'start-shoot-off'),
-      acknowledgementTopic: (laneId) =>
-        mqttTopics.competitionCommandAcknowledgement(competitionId, 'start-shoot-off', laneId),
-      payload: command,
-      expectedLaneIds: targetLaneIds,
-    });
+    return this.commands.publishCompetitionCommand(competitionId, 'start-shoot-off', command, targetLaneIds);
   }
 
   async stopShootOff(
@@ -131,14 +116,7 @@ export class FinalCompetitionCommands {
     if (targetLaneIds.length < 2) throw new Error('A shoot-off requires at least two eligible Lanes');
     targetLaneIds.forEach((laneId) => this.context.requireCompetitionLane(competitionId, laneId));
     const command = StopShootOffCommandSchema.parse(this.commands.commandBase({ runId, iteration, targetLaneIds }));
-    return this.commands.publishCommand({
-      action: 'stop-shoot-off',
-      topic: mqttTopics.competitionCommand(competitionId, 'stop-shoot-off'),
-      acknowledgementTopic: (laneId) =>
-        mqttTopics.competitionCommandAcknowledgement(competitionId, 'stop-shoot-off', laneId),
-      payload: command,
-      expectedLaneIds: targetLaneIds,
-    });
+    return this.commands.publishCompetitionCommand(competitionId, 'stop-shoot-off', command, targetLaneIds);
   }
 
   getFinalFiringContext(competitionId: string, laneId: string) {
@@ -196,13 +174,7 @@ export class FinalCompetitionCommands {
             ...(input.reason ? { reason: input.reason } : {}),
           },
     );
-    const result = await this.commands.publishCommand({
-      action,
-      payload: command,
-      topic: mqttTopics.laneCompetitionCommand(competitionId, input.laneId, action),
-      acknowledgementTopic: () => mqttTopics.laneCompetitionCommandAcknowledgement(competitionId, input.laneId, action),
-      expectedLaneIds: [input.laneId],
-    });
+    const result = await this.commands.publishCompetitionLaneCommand(competitionId, input.laneId, action, command);
     const response = result.lanes.find((lane) => lane.laneId === input.laneId);
     if (!result.success || response?.status !== 'done')
       throw new Error(response?.error?.message ?? 'Final firing was not acknowledged; read or retry the same run');

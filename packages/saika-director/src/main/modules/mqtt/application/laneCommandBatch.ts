@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { MqttCommandAction } from '@sasakiuri/saika-protocol/commands';
-import type { CommandExecutionResult } from './DirectorMqttTypes';
+import type { CommandBatchResult, CommandExecutionResult } from './DirectorMqttTypes';
 
 /** Keep partial batch failures in the same Lane result format as acknowledged commands. */
 export function createLaneCommandFailure(input: {
@@ -25,4 +25,20 @@ export function createLaneCommandFailure(input: {
       },
     ],
   };
+}
+
+/**
+ * Sends one command per Lane at the same time. A rejected Lane command becomes that Lane's failure
+ * result, so the other Lanes' outcomes are kept; an error thrown before `run` returns a promise
+ * rejects the whole batch.
+ */
+export async function fanOutLaneCommands(
+  laneIds: readonly string[],
+  run: (laneId: string) => Promise<CommandExecutionResult>,
+  onFailure: (laneId: string, error: unknown) => CommandExecutionResult,
+): Promise<CommandBatchResult> {
+  const commands = await Promise.all(
+    laneIds.map((laneId) => run(laneId).catch((error: unknown) => onFailure(laneId, error))),
+  );
+  return { success: commands.every((command) => command.success), commands };
 }

@@ -6,7 +6,6 @@ import {
   StartQualificationRecoveryCommandSchema,
 } from '@sasakiuri/saika-protocol/commands';
 import type { CompetitionPhase, CompetitionStatePayload } from '@sasakiuri/saika-protocol/CompetitionState';
-import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { DirectorCommandPort } from './DirectorCommandPort';
 import type {
@@ -118,18 +117,12 @@ export class QualificationRecoveryCommands {
         issuedBy: input.officialName,
       }),
     );
-    return this.commands.publishCommand({
-      action: 'start-qualification-recovery',
-      topic: mqttTopics.laneCompetitionCommand(input.competitionId, input.laneId, 'start-qualification-recovery'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(
-          input.competitionId,
-          input.laneId,
-          'start-qualification-recovery',
-        ),
-      payload: command,
-      expectedLaneIds: [input.laneId],
-    });
+    return this.commands.publishCompetitionLaneCommand(
+      input.competitionId,
+      input.laneId,
+      'start-qualification-recovery',
+      command,
+    );
   }
 
   async cancelQualificationRecovery(input: CancelQualificationRecoveryInput): Promise<CommandExecutionResult> {
@@ -142,18 +135,12 @@ export class QualificationRecoveryCommands {
     const command = CancelQualificationRecoveryCommandSchema.parse(
       this.commands.commandBase({ runId: input.runId, reason: input.reason }),
     );
-    return this.commands.publishCommand({
-      action: 'cancel-qualification-recovery',
-      topic: mqttTopics.laneCompetitionCommand(input.competitionId, input.laneId, 'cancel-qualification-recovery'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(
-          input.competitionId,
-          input.laneId,
-          'cancel-qualification-recovery',
-        ),
-      payload: command,
-      expectedLaneIds: [input.laneId],
-    });
+    return this.commands.publishCompetitionLaneCommand(
+      input.competitionId,
+      input.laneId,
+      'cancel-qualification-recovery',
+      command,
+    );
   }
 
   async applyQualificationRecovery(input: ApplyQualificationRecoveryInput): Promise<CommandExecutionResult> {
@@ -178,18 +165,12 @@ export class QualificationRecoveryCommands {
         issuedBy: input.appliedBy,
       }),
     );
-    return this.commands.publishCommand({
-      action: 'apply-qualification-recovery',
-      topic: mqttTopics.laneCompetitionCommand(input.competitionId, input.laneId, 'apply-qualification-recovery'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(
-          input.competitionId,
-          input.laneId,
-          'apply-qualification-recovery',
-        ),
-      payload: command,
-      expectedLaneIds: [input.laneId],
-    });
+    return this.commands.publishCompetitionLaneCommand(
+      input.competitionId,
+      input.laneId,
+      'apply-qualification-recovery',
+      command,
+    );
   }
 
   async settleQualificationRecovery(input: SettleQualificationRecoveryInput): Promise<CommandExecutionResult> {
@@ -218,17 +199,11 @@ export class QualificationRecoveryCommands {
         issuedBy: input.appliedBy,
       }),
     );
-    return this.commands.publishCommand({
-      action: 'settle-qualification-recovery',
-      topic: mqttTopics.laneCompetitionCommand(input.competitionId, input.laneId, 'settle-qualification-recovery'),
-      acknowledgementTopic: () =>
-        mqttTopics.laneCompetitionCommandAcknowledgement(
-          input.competitionId,
-          input.laneId,
-          'settle-qualification-recovery',
-        ),
-      payload: command,
-      expectedLaneIds: [input.laneId],
-    });
+    return this.commands.publishCompetitionLaneCommand(
+      input.competitionId,
+      input.laneId,
+      'settle-qualification-recovery',
+      command,
+    );
   }
 }
