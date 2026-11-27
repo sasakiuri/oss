@@ -79,7 +79,19 @@ describe('useSessionEvents', () => {
       useSessionStore.getState().setSessionId('sess-123');
       useSessionStore.getState().setMode('MATCH');
       useSessionStore.getState().setDiscipline('AIR_RIFLE_10M');
-      useSessionStore.getState().updateScores(105, [105]);
+      useSessionStore.getState().setShots([
+        {
+          id: 'shot-1',
+          shotNumber: 1,
+          x: 0,
+          y: 0,
+          score: 105,
+          innerTen: false,
+          timestamp: '2026-01-15T10:00:00Z',
+          mode: 'MATCH',
+          isRecorded: true,
+        },
+      ]);
 
       renderHook(() => useSessionEvents());
 
@@ -90,8 +102,6 @@ describe('useSessionEvents', () => {
       expect(state.mode).toBe('MATCH');
       expect(state.discipline).toBe('AIR_RIFLE_10M');
       expect(state.shots).toEqual([]);
-      expect(state.totalScore).toBe(0);
-      expect(state.seriesScores).toEqual([]);
     });
   });
 });

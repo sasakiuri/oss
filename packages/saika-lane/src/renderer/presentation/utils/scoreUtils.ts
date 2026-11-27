@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { Discipline } from '@/shared/ipc/contracts';
+import type { Discipline, ShotDto } from '@/shared/ipc/contracts';
 import type { ScoringAcc } from '@/shared/ipc/schemas/common';
 
 const CLOCK_HOUR_DEGREES = 30;
@@ -72,10 +72,7 @@ export function toArrowDirection(x: number | null, y: number | null): string {
 /**
  * Calculates series scores (per shotsPerSeries shots)
  */
-export function calculateSeriesScores(
-  scoringShots: readonly { score: number }[],
-  shotsPerSeries: number = 10,
-): number[] {
+export function calculateSeriesScores(scoringShots: readonly { score: number }[], shotsPerSeries: number): number[] {
   const scores: number[] = [];
   for (let i = 0; i < scoringShots.length; i += shotsPerSeries) {
     const seriesShots = scoringShots.slice(i, i + shotsPerSeries);
@@ -83,4 +80,24 @@ export function calculateSeriesScores(
     scores.push(seriesTotal);
   }
   return scores;
+}
+
+/**
+ * Totals MATCH shots per competition series, placing each shot by its stage and series as main does.
+ * Shots recorded outside a competition fill series of shotsPerSeries.
+ */
+export function calculateMatchSeriesScores(
+  matchShots: readonly Pick<ShotDto, 'score' | 'competitionContext'>[],
+  shotsPerSeries: number,
+): number[] {
+  const totals = new Map<string, number>();
+  let unplacedShots = 0;
+  for (const shot of matchShots) {
+    const context = shot.competitionContext;
+    const series = context
+      ? `${context.stageIndex}:${context.seriesIndex}`
+      : `unplaced:${Math.floor(unplacedShots++ / shotsPerSeries)}`;
+    totals.set(series, (totals.get(series) ?? 0) + shot.score);
+  }
+  return [...totals.values()];
 }

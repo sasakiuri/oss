@@ -33,17 +33,6 @@ describe('sessionStore', () => {
       const { preparationShotNumberResetIndices } = useSessionStore.getState();
       expect(preparationShotNumberResetIndices).toEqual([]);
     });
-
-    it('seriesScores is an empty array', () => {
-      const { seriesScores } = useSessionStore.getState();
-      expect(seriesScores).toEqual([]);
-      expect(seriesScores).toHaveLength(0);
-    });
-
-    it('totalScore is 0', () => {
-      const { totalScore } = useSessionStore.getState();
-      expect(totalScore).toBe(0);
-    });
   });
 
   describe('setSessionId', () => {
@@ -68,14 +57,13 @@ describe('sessionStore', () => {
     });
 
     it('changing session ID does not affect other state', () => {
-      const { setSessionId, mode, shots, totalScore } = useSessionStore.getState();
+      const { setSessionId, mode, shots } = useSessionStore.getState();
 
       setSessionId('test-session-123');
 
       const stateAfter = useSessionStore.getState();
       expect(stateAfter.mode).toBe(mode);
       expect(stateAfter.shots).toEqual(shots);
-      expect(stateAfter.totalScore).toBe(totalScore);
     });
   });
 
@@ -100,14 +88,13 @@ describe('sessionStore', () => {
     });
 
     it('changing mode does not affect other state', () => {
-      const { setMode, currentSessionId, shots, totalScore } = useSessionStore.getState();
+      const { setMode, currentSessionId, shots } = useSessionStore.getState();
 
       setMode('MATCH');
 
       const stateAfter = useSessionStore.getState();
       expect(stateAfter.currentSessionId).toBe(currentSessionId);
       expect(stateAfter.shots).toEqual(shots);
-      expect(stateAfter.totalScore).toBe(totalScore);
     });
   });
 
@@ -220,55 +207,9 @@ describe('sessionStore', () => {
     });
   });
 
-  describe('updateScores', () => {
-    it('can update scores', () => {
-      const { updateScores } = useSessionStore.getState();
-
-      updateScores(105.5, [52.5, 53.0]);
-
-      const { totalScore, seriesScores } = useSessionStore.getState();
-      expect(totalScore).toBe(105.5);
-      expect(seriesScores).toEqual([52.5, 53.0]);
-    });
-
-    it('can reset scores to 0', () => {
-      const { updateScores } = useSessionStore.getState();
-
-      updateScores(105.5, [52.5, 53.0]);
-      updateScores(0, []);
-
-      const { totalScore, seriesScores } = useSessionStore.getState();
-      expect(totalScore).toBe(0);
-      expect(seriesScores).toEqual([]);
-    });
-
-    it('does not mutate existing seriesScores array when updating (immutability)', () => {
-      const { updateScores, seriesScores: initialScores } = useSessionStore.getState();
-
-      updateScores(105.5, [52.5, 53.0]);
-
-      const { seriesScores: newScores } = useSessionStore.getState();
-      expect(newScores).not.toBe(initialScores);
-      expect(initialScores).toHaveLength(0);
-      expect(newScores).toHaveLength(2);
-    });
-
-    it('updating scores does not affect other state', () => {
-      const { updateScores, currentSessionId, mode, shots } = useSessionStore.getState();
-
-      updateScores(105.5, [52.5, 53.0]);
-
-      const stateAfter = useSessionStore.getState();
-      expect(stateAfter.currentSessionId).toBe(currentSessionId);
-      expect(stateAfter.mode).toBe(mode);
-      expect(stateAfter.shots).toEqual(shots);
-    });
-  });
-
   describe('clearSessionData', () => {
-    it('clears shots and scores while preserving the active session context', () => {
-      const { setSessionId, setMode, setDiscipline, addShot, updateScores, clearSessionData } =
-        useSessionStore.getState();
+    it('clears shots while preserving the active session context', () => {
+      const { setSessionId, setMode, setDiscipline, addShot, clearSessionData } = useSessionStore.getState();
       setSessionId('test-session-123');
       setMode('MATCH');
       setDiscipline('AIR_RIFLE_10M');
@@ -283,7 +224,6 @@ describe('sessionStore', () => {
         isRecorded: true,
         innerTen: false,
       });
-      updateScores(105, [105]);
       useSessionStore.getState().setCurrentSeriesStartIndex(1);
 
       clearSessionData();
@@ -294,14 +234,12 @@ describe('sessionStore', () => {
       expect(state.discipline).toBe('AIR_RIFLE_10M');
       expect(state.currentSeriesStartIndex).toBe(0);
       expect(state.shots).toEqual([]);
-      expect(state.seriesScores).toEqual([]);
-      expect(state.totalScore).toBe(0);
     });
   });
 
   describe('resetSession', () => {
     it('can reset session state to initial state', () => {
-      const { setSessionId, setMode, addShot, updateScores, resetSession } = useSessionStore.getState();
+      const { setSessionId, setMode, addShot, resetSession } = useSessionStore.getState();
 
       // Change state
       setSessionId('test-session-123');
@@ -317,7 +255,6 @@ describe('sessionStore', () => {
         isRecorded: true,
         innerTen: false,
       });
-      updateScores(105.5, [52.5, 53.0]);
 
       useSessionStore.getState().setCurrentSeriesStartIndex(1);
       // Execute reset
@@ -330,12 +267,10 @@ describe('sessionStore', () => {
       expect(state.shots).toEqual([]);
       expect(state.preparationShotNumberResetIndices).toEqual([]);
       expect(state.currentSeriesStartIndex).toBe(0);
-      expect(state.seriesScores).toEqual([]);
-      expect(state.totalScore).toBe(0);
     });
 
     it('preserves deviceId on reset', () => {
-      const { setDeviceId, setSessionId, setMode, addShot, updateScores, resetSession } = useSessionStore.getState();
+      const { setDeviceId, setSessionId, setMode, addShot, resetSession } = useSessionStore.getState();
 
       // Set device info and session state
       setDeviceId('MT201');
@@ -352,7 +287,6 @@ describe('sessionStore', () => {
         isRecorded: true,
         innerTen: false,
       });
-      updateScores(10.5, [10.5]);
 
       // Execute reset
       resetSession();
@@ -362,8 +296,6 @@ describe('sessionStore', () => {
       expect(state.currentSessionId).toBeNull();
       expect(state.mode).toBe('SIGHTING');
       expect(state.shots).toEqual([]);
-      expect(state.totalScore).toBe(0);
-      expect(state.seriesScores).toEqual([]);
       expect(state.deviceId).toBe('MT201');
     });
 
@@ -378,8 +310,6 @@ describe('sessionStore', () => {
       expect(state.currentSessionId).toBeNull();
       expect(state.mode).toBe('SIGHTING');
       expect(state.shots).toEqual([]);
-      expect(state.seriesScores).toEqual([]);
-      expect(state.totalScore).toBe(0);
     });
   });
 
@@ -448,8 +378,8 @@ describe('sessionStore', () => {
   });
 
   describe('integration scenarios', () => {
-    it('session start -> add shots -> update scores -> reset flow works correctly', () => {
-      const { setSessionId, setMode, addShot, updateScores, resetSession } = useSessionStore.getState();
+    it('session start -> add shots -> reset flow works correctly', () => {
+      const { setSessionId, setMode, addShot, resetSession } = useSessionStore.getState();
 
       // Start session
       setSessionId('session-123');
@@ -481,16 +411,11 @@ describe('sessionStore', () => {
       addShot(shot1);
       addShot(shot2);
 
-      // Update scores
-      updateScores(21.3, [21.3]);
-
       // Verify state
       let state = useSessionStore.getState();
       expect(state.currentSessionId).toBe('session-123');
       expect(state.mode).toBe('MATCH');
       expect(state.shots).toHaveLength(2);
-      expect(state.totalScore).toBe(21.3);
-      expect(state.seriesScores).toEqual([21.3]);
 
       // Reset
       resetSession();
@@ -500,12 +425,10 @@ describe('sessionStore', () => {
       expect(state.currentSessionId).toBeNull();
       expect(state.mode).toBe('SIGHTING');
       expect(state.shots).toEqual([]);
-      expect(state.totalScore).toBe(0);
-      expect(state.seriesScores).toEqual([]);
     });
 
     it('scenario of switching from sighting mode to match mode', () => {
-      const { setSessionId, setMode, addShot, updateScores } = useSessionStore.getState();
+      const { setSessionId, setMode, addShot } = useSessionStore.getState();
 
       // Start session (sighting mode)
       setSessionId('session-456');
@@ -542,16 +465,11 @@ describe('sessionStore', () => {
       };
       addShot(matchShot);
 
-      // Update scores (match shots only)
-      updateScores(10.7, [10.7]);
-
       // Verify state
       const state = useSessionStore.getState();
       expect(state.currentSessionId).toBe('session-456');
       expect(state.mode).toBe('MATCH');
       expect(state.shots).toHaveLength(2);
-      expect(state.totalScore).toBe(10.7);
-      expect(state.seriesScores).toEqual([10.7]);
     });
   });
 

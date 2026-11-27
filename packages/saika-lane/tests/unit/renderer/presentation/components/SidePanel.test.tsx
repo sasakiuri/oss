@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 import { render, screen, within } from '@testing-library/react';
+import type React from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { SidePanel } from '@/renderer/presentation/components/SidePanel';
+import { useShot } from '@/renderer/presentation/hooks/useShot';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { ShotDto } from '@/shared/ipc/contracts';
@@ -18,6 +20,22 @@ const createShotDto = (shotNumber: number, score: number, x = 0, y = 0, isRecord
   mode: 'MATCH',
   isRecorded,
 });
+
+const placedShot = (shotNumber: number, score: number, stageIndex: number, seriesIndex: number): ShotDto => ({
+  ...createShotDto(shotNumber, score),
+  competitionContext: { competitionId: 'competition', stageIndex, seriesIndex },
+});
+
+/** The side panel next to the shot history hook, as the main screen mounts them. */
+const MatchScreen: React.FC = () => {
+  useShot();
+  return <SidePanel />;
+};
+
+const seriesTotals = () =>
+  within(screen.getByRole('region', { name: 'Series scores' }))
+    .getAllByText(/\d/)
+    .map((total) => total.textContent);
 
 describe('SidePanel', () => {
   beforeEach(() => {
@@ -117,15 +135,6 @@ describe('SidePanel', () => {
       expect(elements.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('displays totalScore when seriesScores exist in MATCH mode', () => {
-      useSessionStore.getState().setMode('MATCH');
-      useSessionStore.getState().updateScores(1955, [1000, 955]);
-      useSessionStore.getState().setShots([createShotDto(1, 100)]);
-      render(<SidePanel />);
-      // totalScore(1955) -> display 195.5
-      expect(screen.getByText('195.5')).toBeInTheDocument();
-    });
-
     it('displays the sum of recorded shots when seriesScores is empty in MATCH mode', () => {
       useSessionStore.getState().setMode('MATCH');
       useSessionStore.getState().setShots([
@@ -183,13 +192,33 @@ describe('SidePanel', () => {
       },
     );
 
-    it('displays seriesScores when they exist in MATCH mode', () => {
-      useSessionStore.getState().setMode('MATCH');
-      useSessionStore.getState().updateScores(2950, [1000, 985, 965]);
-      render(<SidePanel />);
-      expect(screen.getByText('100.0')).toBeInTheDocument();
-      expect(screen.getByText('98.5')).toBeInTheDocument();
-      expect(screen.getByText('96.5')).toBeInTheDocument();
+    it('totals each 5-shot Final series and each single-shot elimination series', () => {
+      useCompetitionStore.setState({ phase: 'ACTIVE', scored: true, shotsPerSeries: 5 });
+      useSessionStore
+        .getState()
+        .setShots([
+          ...Array.from({ length: 5 }, (_, i) => placedShot(i + 1, 100, 1, 0)),
+          ...Array.from({ length: 5 }, (_, i) => placedShot(i + 6, 101, 1, 1)),
+          placedShot(11, 104, 2, 0),
+          placedShot(12, 98, 2, 1),
+        ]);
+      render(<MatchScreen />);
+      expect(seriesTotals()).toEqual(['50.0', '50.5', '10.4', '9.8']);
+      expect(screen.getByText('120.7')).toBeInTheDocument();
+    });
+
+    it('totals each 10-shot Qualification series, including the series in progress', () => {
+      useCompetitionStore.setState({ phase: 'ACTIVE', scored: true, shotsPerSeries: 10 });
+      useSessionStore
+        .getState()
+        .setShots([
+          ...Array.from({ length: 10 }, (_, i) => placedShot(i + 1, 100, 1, 0)),
+          placedShot(11, 105, 1, 1),
+          placedShot(12, 105, 1, 1),
+        ]);
+      render(<MatchScreen />);
+      expect(seriesTotals()).toEqual(['100.0', '21.0']);
+      expect(screen.getByText('121.0')).toBeInTheDocument();
     });
 
     it('displays values calculated by calculateSeriesScores in SIGHTING mode', () => {

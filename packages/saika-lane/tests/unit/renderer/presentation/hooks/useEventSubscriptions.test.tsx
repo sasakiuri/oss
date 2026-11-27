@@ -139,7 +139,19 @@ describe('useEventSubscriptions', () => {
     it('clears shooting data while preserving session context on sessionReset', () => {
       useSessionStore.getState().setSessionId('session-abc');
       useSessionStore.getState().setMode('MATCH');
-      useSessionStore.getState().updateScores(105, [105]);
+      useSessionStore.getState().setShots([
+        {
+          id: 'shot-1',
+          shotNumber: 1,
+          x: 0,
+          y: 0,
+          score: 105,
+          innerTen: false,
+          timestamp: '2026-01-15T10:00:00Z',
+          mode: 'MATCH',
+          isRecorded: true,
+        },
+      ]);
 
       renderHook(() => useEventSubscriptions());
 
@@ -151,8 +163,6 @@ describe('useEventSubscriptions', () => {
       expect(sessionState.currentSessionId).toBe('session-abc');
       expect(sessionState.mode).toBe('MATCH');
       expect(sessionState.shots).toEqual([]);
-      expect(sessionState.totalScore).toBe(0);
-      expect(sessionState.seriesScores).toEqual([]);
     });
   });
 
