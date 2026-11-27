@@ -211,16 +211,21 @@ export class LaneTier1CommandHandler {
             issuedBy: command.issuedBy,
             issuedAt: new Date(command.issuedAt),
           });
-        } finally {
+        } catch (error) {
           // The STOP latches before the timer freezes, so a failed freeze still ends the timed target.
-          this.cancelTimedTargetOfSafetyStop();
+          // The ACK reports the freeze failure; a cancellation failure is only logged.
+          const cancellationError = this.cancelTimedTargetOfSafetyStop();
+          if (cancellationError !== undefined) logSafetyStopCancellationFailure(cancellationError);
+          throw error;
         }
+        const cancellationError = this.cancelTimedTargetOfSafetyStop();
         const shootOff = this.deps.competitionShootOffControl.getState();
         if (shootOff) {
           this.deps.competitionShootOffControl.close(shootOff.competitionId, shootOff.runId, shootOff.iteration);
         }
         // A completed ACK means the retained state has also reached the broker.
         await this.deps.safetyStatePublisher.publishCurrentState();
+        if (cancellationError !== undefined) throw cancellationError;
         return toSafetyCommandData(state);
       }
 
@@ -238,10 +243,16 @@ export class LaneTier1CommandHandler {
     }
   }
 
-  private cancelTimedTargetOfSafetyStop(): void {
+  /** Cancels the timed target of a latched STOP and returns the failure instead of throwing it. */
+  private cancelTimedTargetOfSafetyStop(): unknown {
     const stop = this.deps.safetyStopControl.getState();
-    if (stop?.status !== 'STOPPED') return;
-    cancelActiveTimedTarget(this.deps.timedTargetControl, `Safety stop ${stop.safetyStopId}: ${stop.reason}`);
+    if (stop?.status !== 'STOPPED') return undefined;
+    try {
+      cancelActiveTimedTarget(this.deps.timedTargetControl, `Safety stop ${stop.safetyStopId}: ${stop.reason}`);
+      return undefined;
+    } catch (error) {
+      return error;
+    }
   }
 
   private async activateCompetitionSubscriptions(competitionId: string): Promise<void> {
@@ -263,6 +274,12 @@ export class LaneTier1CommandHandler {
       this.deps.competitionCueSubscriber.unsubscribe(),
     ]);
   }
+}
+
+function logSafetyStopCancellationFailure(error: unknown): void {
+  getLogger().error('[LaneTier1CommandHandler] Failed to cancel the timed target of a safety stop', 'mqtt', {
+    error: errorMessage(error),
+  });
 }
 
 function toSafetyCommandData(state: LaneSafetyStopState): Record<string, unknown> {
