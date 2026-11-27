@@ -176,6 +176,21 @@ describe('LaneCommandProcessor', () => {
     },
   );
 
+  it('acknowledges a competition phase failure with its detail', async () => {
+    const { processor, publications, execute, request } = setup();
+    execute.mockRejectedValue(
+      ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
+        detail: 'reset-session is only allowed before competition start; current phase is ACTIVE',
+      }),
+    );
+    await processor.handle(request);
+    expect(publications[1]?.error).toEqual({
+      code: 'INVALID_PHASE_TRANSITION',
+      message:
+        'Invalid phase transition: reset-session is only allowed before competition start; current phase is ACTIVE',
+    });
+  });
+
   it('continues execution when acknowledgement publication fails', async () => {
     const { processor, mqtt, execute, request } = setup();
     mqtt.publish.mockRejectedValue(new Error('broker unavailable'));

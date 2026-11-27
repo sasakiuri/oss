@@ -257,8 +257,7 @@ export class CompetitionState {
 
     if (this.currentSeriesConfig.purpose === 'POSITION_CHANGE_AND_SIGHTING') {
       throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
-        from: 'POSITION_CHANGE_AND_SIGHTING',
-        to: 'MATCH_SHOT',
+        detail: 'Cannot record a Match shot during POSITION_CHANGE_AND_SIGHTING',
       });
     }
 
