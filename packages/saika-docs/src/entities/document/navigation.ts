@@ -31,3 +31,13 @@ export function createNavigation(documents: DocumentRecord[]): NavigationGroup[]
   }
   return groups;
 }
+
+/** The documents before and after one document in the navigation order. */
+export function adjacentDocuments(documents: DocumentRecord[], href: string) {
+  const order = createNavigation(documents).flatMap((group) => group.items.map((item) => item.href));
+  const index = order.indexOf(href);
+  return {
+    previous: documents.find((doc) => doc.href === order[index - 1]),
+    next: documents.find((doc) => doc.href === order[index + 1]),
+  };
+}

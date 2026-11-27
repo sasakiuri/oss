@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { documentHref, resolveDocLink } from '@/entities/document/links';
+import { adjacentDocuments } from '@/entities/document/navigation';
 import { documentLinks, parseDocument } from '@/entities/document/parse';
 import { createSearchIndex } from '@/features/search/search-index';
 
@@ -59,6 +60,19 @@ describe('Markdown catalog', () => {
     expect(doc.title).toBe('TEST.md');
     expect(documentLinks(doc)).toEqual(['/getting-started/']);
     expect(parseDocument('EMPTY.md', '').description).toBe('');
+  });
+  it('finds the previous and next documents in navigation order', () => {
+    const documents = ['README.md', 'GETTING_STARTED.md', 'admin/BACKUP.md', 'NOTICE.md'].map((path) =>
+      parseDocument(path, `# ${path}`),
+    );
+    const adjacent = (href: string) => {
+      const { previous, next } = adjacentDocuments(documents, href);
+      return [previous?.title, next?.title];
+    };
+    expect(adjacent('/')).toEqual([undefined, 'GETTING_STARTED.md']);
+    expect(adjacent('/getting-started/')).toEqual(['README.md', undefined]);
+    expect(adjacent('/admin/backup/')).toEqual([undefined, 'NOTICE.md']);
+    expect(adjacent('/notice/')).toEqual(['admin/BACKUP.md', undefined]);
   });
 });
 

@@ -3,12 +3,26 @@ import type { z } from 'zod';
 
 import type { publicEnvSchema, serverEnvSchema } from './env';
 
-export function securityHeaders(
-  publicConfig: z.output<typeof publicEnvSchema>,
-  serverConfig: z.output<typeof serverEnvSchema>,
-  development = false,
+type PublicConfig = z.output<typeof publicEnvSchema>;
+type ServerConfig = z.output<typeof serverEnvSchema>;
+
+/**
+ * The site's Content Security Policy. A static page passes the hashes of its inline scripts: its
+ * policy then allows inline scripts only by hash, forbids script attributes, and leaves out the
+ * directives that a meta element cannot deliver.
+ */
+export function contentSecurityPolicy(
+  publicConfig: PublicConfig,
+  serverConfig: ServerConfig,
+  { development = false, scriptHashes }: { development?: boolean; scriptHashes?: string[] } = {},
 ) {
-  const script = ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'", ...(development ? ["'unsafe-eval'"] : [])];
+  const meta = scriptHashes !== undefined;
+  const script = [
+    "'self'",
+    ...(meta ? [] : ["'unsafe-inline'"]),
+    "'wasm-unsafe-eval'",
+    ...(development ? ["'unsafe-eval'"] : []),
+  ];
   const connect = ["'self'", ...(development ? ['ws:', 'wss:'] : [])];
   const images = ["'self'", 'data:', 'blob:', ...serverConfig.DOCS_IMAGE_HOSTS.map((host) => `https://${host}`)];
   if (publicConfig.NEXT_PUBLIC_SENTRY_DSN) connect.push(new URL(publicConfig.NEXT_PUBLIC_SENTRY_DSN).origin);
@@ -28,7 +42,7 @@ export function securityHeaders(
   }
   const directives = [
     "default-src 'self'",
-    `script-src ${script.join(' ')}`,
+    `script-src ${[...script, ...(scriptHashes ?? [])].join(' ')}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src ${images.join(' ')}`,
     "font-src 'self' data:",
@@ -38,10 +52,19 @@ export function securityHeaders(
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
   ];
+  if (!meta) directives.push("frame-ancestors 'none'");
+  if (serverConfig.SENTRY_CSP_REPORT_URI) {
+    if (!meta) directives.push(`report-uri ${serverConfig.SENTRY_CSP_REPORT_URI}`);
+    directives.push('report-to csp-endpoint');
+  }
+  if (meta) directives.push("script-src-attr 'none'");
+  return directives.join('; ');
+}
+
+export function securityHeaders(publicConfig: PublicConfig, serverConfig: ServerConfig, development = false) {
   const headers = [
-    { key: 'Content-Security-Policy', value: directives.join('; ') },
+    { key: 'Content-Security-Policy', value: contentSecurityPolicy(publicConfig, serverConfig, { development }) },
     { key: 'X-Content-Type-Options', value: 'nosniff' },
     { key: 'X-Frame-Options', value: 'DENY' },
     { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -50,8 +73,7 @@ export function securityHeaders(
   ];
   if (publicConfig.NEXT_PUBLIC_SITE_URL.startsWith('https:'))
     headers.push({ key: 'Strict-Transport-Security', value: 'max-age=31536000' });
-  if (serverConfig.SENTRY_CSP_REPORT_URI) {
-    headers[0]!.value += `; report-uri ${serverConfig.SENTRY_CSP_REPORT_URI}; report-to csp-endpoint`;
+  if (serverConfig.SENTRY_CSP_REPORT_URI)
     headers.push({
       key: 'Report-To',
       value: JSON.stringify({
@@ -60,6 +82,5 @@ export function securityHeaders(
         endpoints: [{ url: serverConfig.SENTRY_CSP_REPORT_URI }],
       }),
     });
-  }
   return headers;
 }

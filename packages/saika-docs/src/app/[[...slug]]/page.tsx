@@ -2,7 +2,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-import { createNavigation } from '@/entities/document/navigation';
+import { adjacentDocuments } from '@/entities/document/navigation';
 import { getDocument, getDocuments } from '@/entities/document/server/repository';
 import { DocumentPage } from '@/features/reading/document-page';
 import { pageMetadata } from '@/shared/config/metadata';
@@ -25,9 +25,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function Page({ params }: PageProps) {
   const document = getDocument((await params).slug ?? []);
   if (!document) notFound();
-  const documents = getDocuments();
-  const order = createNavigation(documents).flatMap((group) => group.items.map((item) => item.href));
-  const index = order.indexOf(document.href);
   return (
     <>
       <script
@@ -45,11 +42,7 @@ export default async function Page({ params }: PageProps) {
           }),
         }}
       />
-      <DocumentPage
-        document={document}
-        previous={documents.find((doc) => doc.href === order[index - 1])}
-        next={documents.find((doc) => doc.href === order[index + 1])}
-      />
+      <DocumentPage document={document} {...adjacentDocuments(getDocuments(), document.href)} />
     </>
   );
 }

@@ -14,7 +14,7 @@ import { documentHref, resolveDocLink } from './links';
 import type { DocumentRecord } from './model';
 
 const date = z.preprocess((value) => (value instanceof Date ? value.toISOString().slice(0, 10) : value), z.iso.date());
-export const metadataSchema = z
+const metadataSchema = z
   .object({
     title: z.string().min(1).optional(),
     description: z.string().min(1).optional(),

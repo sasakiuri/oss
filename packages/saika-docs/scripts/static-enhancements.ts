@@ -5,7 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 
 import { publicEnv, readServerEnv } from '../src/shared/config/env';
-import { securityHeaders } from '../src/shared/config/security';
+import { contentSecurityPolicy } from '../src/shared/config/security';
 
 // @ts-expect-error Shared Node artifact helpers.
 import { files, inventory, sha256 } from './lib/artifact.mjs';
@@ -16,8 +16,7 @@ await writeFile(
   `${root}/sw-register.js`,
   `if('serviceWorker' in navigator){const worker=new URL('sw.js',document.currentScript.src);window.addEventListener('load',()=>navigator.serviceWorker.register(worker.href,{scope:new URL('./',worker).pathname}));}\n`,
 );
-const headers = securityHeaders(publicEnv, readServerEnv());
-const policy = headers.find(({ key }) => key.toLowerCase() === 'content-security-policy')!.value;
+const serverEnv = readServerEnv();
 for (const file of ((await files(root)) as string[]).filter((name) => name.endsWith('.html'))) {
   const dom = new JSDOM(await readFile(`${root}/${file}`, 'utf8'));
   const document = dom.window.document;
@@ -31,16 +30,9 @@ for (const file of ((await files(root)) as string[]).filter((name) => name.endsW
         .update(script.textContent ?? '')
         .digest('base64')}'`,
   );
-  const csp = policy
-    .replace(
-      /script-src ([^;]+)/,
-      (_, sources: string) => `script-src ${sources.replaceAll("'unsafe-inline'", '')} ${hashes.join(' ')}`,
-    )
-    .replace(/frame-ancestors [^;]+;?\s*/g, '')
-    .replace(/report-uri [^;]+;?\s*/g, '');
   const meta = document.createElement('meta');
   meta.httpEquiv = 'Content-Security-Policy';
-  meta.content = `${csp}; script-src-attr 'none'`;
+  meta.content = contentSecurityPolicy(publicEnv, serverEnv, { scriptHashes: hashes });
   document.head.prepend(meta);
   await writeFile(`${root}/${file}`, dom.serialize());
   dom.window.close();
@@ -57,5 +49,8 @@ await writeFile(
   `${root}/sw.js`,
   `// SPDX-License-Identifier: MIT\nconst CACHE='saika-docs-${version}',URLS=${JSON.stringify(urls)};\nself.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS)).then(()=>self.skipWaiting())));\nself.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('saika-docs-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));\nself.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==self.location.origin||u.search||!URLS.includes(u.pathname))return;e.respondWith(caches.open(CACHE).then(c=>c.match(u.pathname)).then(hit=>hit||fetch(e.request)));});\n`,
 );
-await writeFile(`${root}/security-policy.json`, JSON.stringify({ contentSecurityPolicy: policy }, null, 2) + '\n');
+await writeFile(
+  `${root}/security-policy.json`,
+  JSON.stringify({ contentSecurityPolicy: contentSecurityPolicy(publicEnv, serverEnv) }, null, 2) + '\n',
+);
 console.log(`Added per-page CSP hashes and a versioned offline cache (${assets.length} files).`);

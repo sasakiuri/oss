@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { parseEnvironment, publicEnvSchema, serverEnvSchema } from '@/shared/config/env';
 import { createQueryClient } from '@/shared/config/query';
-import { securityHeaders } from '@/shared/config/security';
+import { contentSecurityPolicy, securityHeaders } from '@/shared/config/security';
 import { positiveIntegerParam } from '@/shared/lib/search-params';
 import { structuredData } from '@/shared/lib/structured-data';
 import { redact } from '@/shared/telemetry/redact';
@@ -92,6 +92,18 @@ describe('security header contract', () => {
     });
     expect(headers({ NEXT_PUBLIC_SITE_URL: 'https://example.test' })['Strict-Transport-Security']).toBe(
       'max-age=31536000',
+    );
+  });
+
+  it('allows inline scripts on static pages only by hash and omits directives a meta element cannot carry', () => {
+    expect(
+      contentSecurityPolicy(
+        publicEnvSchema.parse({}),
+        serverEnvSchema.parse({ SENTRY_CSP_REPORT_URI: 'https://errors.example.test/csp' }),
+        { scriptHashes: ["'sha256-one'", "'sha256-two'"] },
+      ),
+    ).toBe(
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-one' 'sha256-two'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; report-to csp-endpoint; script-src-attr 'none'",
     );
   });
 

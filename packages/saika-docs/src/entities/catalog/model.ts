@@ -10,4 +10,3 @@ export const catalogItemSchema: z.ZodType<components['schemas']['CatalogItem']> 
   description: z.string(),
 });
 export const catalogSchema = z.array(catalogItemSchema);
-export type CatalogItem = z.infer<typeof catalogItemSchema>;

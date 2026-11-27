@@ -6,16 +6,16 @@ import { cn } from '../lib/classes';
 
 import { Button } from './button';
 
-export const fieldClass =
+const fieldClass =
   'border-line bg-surface min-h-11 w-full rounded-lg border px-3 py-2 focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-50';
-export function FieldError({ id, children }: { id: string; children: ReactNode }) {
+function FieldError({ id, children }: { id: string; children: ReactNode }) {
   return (
     <p id={id} role="alert" className="text-sm text-red-700 dark:text-red-300">
       {children}
     </p>
   );
 }
-export function RequiredMark() {
+function RequiredMark() {
   return <span className="text-subtle ml-2 text-xs">必須</span>;
 }
 type FieldProps = { label: string; error?: string; hint?: string };
