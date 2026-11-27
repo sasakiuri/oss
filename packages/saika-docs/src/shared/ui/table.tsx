@@ -41,7 +41,7 @@ export function Pagination({
   onChange,
   href,
   totalItems,
-  pageSize = 5,
+  pageSize,
   label = 'ページ切り替え',
 }: {
   page: number;
@@ -49,7 +49,7 @@ export function Pagination({
   onChange?: (page: number) => void;
   href?: (page: number) => Route;
   totalItems?: number;
-  pageSize?: number;
+  pageSize: number;
   label?: string;
 }) {
   const total = Math.max(1, totalPages);
@@ -104,15 +104,7 @@ export function Pagination({
     </nav>
   );
 }
-export function FilterPanel({
-  children,
-  onSubmit,
-  mobileActions,
-}: {
-  children: ReactNode;
-  onSubmit: () => void;
-  mobileActions?: ReactNode;
-}) {
+export function FilterPanel({ children, onSubmit }: { children: ReactNode; onSubmit: () => void }) {
   const [open, setOpen] = useState(false);
   const form = (
     <form
@@ -143,7 +135,6 @@ export function FilterPanel({
         >
           {form}
         </Dialog>
-        {mobileActions}
       </div>
     </>
   );

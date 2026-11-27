@@ -15,6 +15,11 @@ import { TextField } from '@/shared/ui/form';
 import { NoticeBanner, Skeleton } from '@/shared/ui/panels';
 import { FilterPanel, Pagination, SortableTh, TableFrame } from '@/shared/ui/table';
 
+const pageSize = 5;
+function catalogHref(filter: string, page?: number, descending = false) {
+  return `/reference/${toQueryString({ q: filter, page, sort: descending ? 'desc' : undefined })}`;
+}
+
 export function Catalog() {
   const query = useQuery({
     queryKey: ['catalog'],
@@ -40,15 +45,11 @@ export function Catalog() {
   const items = [...(query.data ?? [])]
     .filter((item) => item.title.toLowerCase().includes(filter.toLowerCase()))
     .sort((a, b) => a.title.localeCompare(b.title, 'ja') * (ascending ? 1 : -1));
-  const total = Math.max(1, Math.ceil(items.length / 5));
+  const total = Math.max(1, Math.ceil(items.length / pageSize));
   const current = Math.min(page, total);
   function changePage(value: number) {
     setPage(positiveIntegerParam({ page: String(value) }, 'page'));
-    window.history.replaceState(
-      null,
-      '',
-      `${withBasePath('/reference/')}${toQueryString({ q: filter, page: value, sort: ascending ? undefined : 'desc' })}`,
-    );
+    window.history.replaceState(null, '', withBasePath(catalogHref(filter, value, !ascending)));
   }
   if (query.isPending) return <Skeleton />;
   if (query.isError)
@@ -63,7 +64,7 @@ export function Catalog() {
         onSubmit={() => {
           setFilter(search);
           setPage(1);
-          window.history.replaceState(null, '', `${withBasePath('/reference/')}${toQueryString({ q: search })}`);
+          window.history.replaceState(null, '', withBasePath(catalogHref(search)));
         }}
       >
         <TextField label="文書名で検索" value={search} onChange={(event) => setSearch(event.target.value)} />
@@ -76,10 +77,9 @@ export function Catalog() {
         page={current}
         totalPages={total}
         totalItems={items.length}
+        pageSize={pageSize}
         onChange={changePage}
-        href={(value) =>
-          `/reference/${toQueryString({ q: filter, page: value, sort: ascending ? undefined : 'desc' })}` as Route
-        }
+        href={(value) => catalogHref(filter, value, !ascending) as Route}
       />
       <TableFrame caption="文書一覧">
         <thead>
@@ -88,11 +88,7 @@ export function Catalog() {
               direction={ascending ? 'ascending' : 'descending'}
               onSort={() => {
                 setAscending(!ascending);
-                window.history.replaceState(
-                  null,
-                  '',
-                  `${withBasePath('/reference/')}${toQueryString({ q: filter, page: current, sort: ascending ? 'desc' : undefined })}`,
-                );
+                window.history.replaceState(null, '', withBasePath(catalogHref(filter, current, ascending)));
               }}
             >
               文書名
@@ -103,7 +99,7 @@ export function Catalog() {
           </tr>
         </thead>
         <tbody>
-          {items.slice((current - 1) * 5, current * 5).map((item) => (
+          {items.slice((current - 1) * pageSize, current * pageSize).map((item) => (
             <tr key={item.id} className="border-line border-t">
               <td className="p-3">
                 <Link className="text-brand underline" href={item.href}>
@@ -115,7 +111,13 @@ export function Catalog() {
           ))}
         </tbody>
       </TableFrame>
-      <Pagination page={current} totalPages={total} totalItems={items.length} onChange={changePage} />
+      <Pagination
+        page={current}
+        totalPages={total}
+        totalItems={items.length}
+        pageSize={pageSize}
+        onChange={changePage}
+      />
       <Button variant="outline" onClick={() => void query.refetch()}>
         一覧を再取得
       </Button>
