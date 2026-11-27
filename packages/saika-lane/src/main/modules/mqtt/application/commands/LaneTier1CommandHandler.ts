@@ -203,17 +203,22 @@ export class LaneTier1CommandHandler {
       }
 
       case 'activate-safety-stop': {
-        const state = await this.deps.safetyStopControl.activate({
-          safetyStopId: command.safetyStopId,
-          reason: command.reason,
-          issuedBy: command.issuedBy,
-          issuedAt: new Date(command.issuedAt),
-        });
+        let state: LaneSafetyStopState;
+        try {
+          state = await this.deps.safetyStopControl.activate({
+            safetyStopId: command.safetyStopId,
+            reason: command.reason,
+            issuedBy: command.issuedBy,
+            issuedAt: new Date(command.issuedAt),
+          });
+        } finally {
+          // The STOP latches before the timer freezes, so a failed freeze still ends the timed target.
+          this.cancelTimedTargetOfSafetyStop();
+        }
         const shootOff = this.deps.competitionShootOffControl.getState();
         if (shootOff) {
           this.deps.competitionShootOffControl.close(shootOff.competitionId, shootOff.runId, shootOff.iteration);
         }
-        cancelActiveTimedTarget(this.deps.timedTargetControl, `Safety stop activated: ${state.reason}`);
         // A completed ACK means the retained state has also reached the broker.
         await this.deps.safetyStatePublisher.publishCurrentState();
         return toSafetyCommandData(state);
@@ -231,6 +236,12 @@ export class LaneTier1CommandHandler {
         return toSafetyCommandData(state);
       }
     }
+  }
+
+  private cancelTimedTargetOfSafetyStop(): void {
+    const stop = this.deps.safetyStopControl.getState();
+    if (stop?.status !== 'STOPPED') return;
+    cancelActiveTimedTarget(this.deps.timedTargetControl, `Safety stop ${stop.safetyStopId}: ${stop.reason}`);
   }
 
   private async activateCompetitionSubscriptions(competitionId: string): Promise<void> {
