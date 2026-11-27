@@ -29,8 +29,6 @@ import { createStartCompetitionHandler } from './application/handlers/StartCompe
 import { createStartNextSeriesHandler } from './application/handlers/StartNextSeriesHandler';
 import { createStartStageHandler } from './application/handlers/StartStageHandler';
 import { SessionLifecycleService } from './application/SessionLifecycleService';
-import { CompetitionTypeRegistry } from './domain/CompetitionTypeRegistry';
-import { ALL_COMPETITION_TYPES } from './domain/competitionTypes';
 
 type CompetitionDeps =
   | 'membership'
@@ -43,7 +41,8 @@ type CompetitionDeps =
   | 'competitionRepository'
   | 'ipcRouter'
   | 'timerService'
-  | 'competitionInterruptionControl';
+  | 'competitionInterruptionControl'
+  | 'competitionTypes';
 
 export const competitionModule: ModuleDefinition<CompetitionDeps> = {
   name: 'competition',
@@ -59,6 +58,7 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     'ipcRouter',
     'timerService',
     'competitionInterruptionControl',
+    'competitionTypes',
   ] as const,
   register({
     membership,
@@ -72,20 +72,15 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
     ipcRouter,
     timerService,
     competitionInterruptionControl,
+    competitionTypes,
   }) {
-    // 1. Register competition types in CompetitionTypeRegistry
-    const registry = new CompetitionTypeRegistry();
-    for (const typeDef of ALL_COMPETITION_TYPES) {
-      registry.register(typeDef);
-    }
-
-    // 2. Instantiate SessionLifecycleService
+    // 1. Instantiate SessionLifecycleService
     const sessionLifecycle = new SessionLifecycleService(sessionRepository, eventBus);
 
-    // 3. Register CQRS handlers (7 commands + 2 queries)
+    // 2. Register CQRS handlers (7 commands + 2 queries)
     commandBus.register(
       StartCompetitionToken,
-      createStartCompetitionHandler(registry, competitionRepository, sessionRepository, eventBus),
+      createStartCompetitionHandler(competitionTypes, competitionRepository, sessionRepository, eventBus),
     );
     commandBus.register(StartStageToken, createStartStageHandler(competitionRepository, sessionLifecycle, eventBus));
     commandBus.register(StartNextSeriesToken, createStartNextSeriesHandler(competitionRepository, eventBus));
@@ -111,16 +106,16 @@ export const competitionModule: ModuleDefinition<CompetitionDeps> = {
       GetCompetitionStateToken,
       createGetCompetitionStateHandler(competitionRepository, sessionRepository, competitionInterruptionControl),
     );
-    queryBus.register(GetCompetitionTypesToken, createGetCompetitionTypesHandler(registry));
+    queryBus.register(GetCompetitionTypesToken, createGetCompetitionTypesHandler(competitionTypes));
 
-    // 4. Register event listeners
+    // 3. Register event listeners
     eventBus.on('PhaseChanged', createPhaseChangedHandler({ competitionRepository, timerService }));
     eventBus.on(
       'TimedTargetSequenceChanged',
       createTimedTargetSequenceChangedHandler({ competitionRepository, eventBus }),
     );
 
-    // 5. Register IPC handlers
+    // 4. Register IPC handlers
     const requireLocalProgress = async (create = false) => {
       // While joined, Director alone runs the competition; its commands do not pass through these handlers.
       if (membership.snapshot.competitionId !== null) {

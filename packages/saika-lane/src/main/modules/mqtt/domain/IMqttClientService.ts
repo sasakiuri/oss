@@ -2,17 +2,9 @@
 export interface MqttConnectOptions {
   brokerUrl: string;
   clientId: string;
-  keepalive?: number;
-  reconnectPeriod?: number;
   credentials?: {
     username: string;
     password: string;
-  };
-  will?: {
-    topic: string;
-    payload: string;
-    qos: 0 | 1 | 2;
-    retain: boolean;
   };
 }
 

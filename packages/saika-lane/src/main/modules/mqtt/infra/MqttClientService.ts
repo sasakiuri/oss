@@ -23,7 +23,7 @@ export class MqttClientService implements IMqttClientService {
       const logger = getLogger();
       const sanitizedUrl = sanitizeBrokerUrl(options.brokerUrl);
 
-      const willOption = options.will ?? this.pendingWill ?? undefined;
+      const will = this.pendingWill;
 
       try {
         this.client = mqtt.connect(options.brokerUrl, {
@@ -31,14 +31,14 @@ export class MqttClientService implements IMqttClientService {
           ...(options.credentials
             ? { username: options.credentials.username, password: options.credentials.password }
             : {}),
-          keepalive: options.keepalive ?? 60,
-          reconnectPeriod: options.reconnectPeriod ?? 5000,
-          will: willOption
+          keepalive: 60,
+          reconnectPeriod: 5000,
+          will: will
             ? {
-                topic: willOption.topic,
-                payload: Buffer.from(willOption.payload),
-                qos: willOption.qos,
-                retain: willOption.retain,
+                topic: will.topic,
+                payload: Buffer.from(will.payload),
+                qos: will.qos,
+                retain: will.retain,
               }
             : undefined,
         });

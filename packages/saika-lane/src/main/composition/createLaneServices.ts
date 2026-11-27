@@ -9,6 +9,8 @@ import {
 } from '@/main/modules/command-observations/application/TimedTargetCommandPause';
 import { SqliteCommandObservationRepository } from '@/main/modules/command-observations/infra/SqliteCommandObservationRepository';
 import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
+import { CompetitionTypeRegistry } from '@/main/modules/competition/domain/CompetitionTypeRegistry';
+import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import { CompetitionInterruptionService } from '@/main/modules/competition-interruption';
@@ -38,12 +40,10 @@ import { RangeOfficerRequestService } from '@/main/modules/range-officer-request
 import { SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request/infra/SqliteRangeOfficerRequestRepository';
 import { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
 import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
+import type { ITransferAssignmentPort } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
 import { ReserveTransferCommandGuard } from '@/main/modules/reserve-lane-transfer/infra/ReserveTransferCommandGuard';
 import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
-import {
-  StoredReserveLaneTransferState,
-  type ITransferAssignmentPort,
-} from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
+import { StoredReserveLaneTransferState } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import { LaneSafetyStopService } from '@/main/modules/safety-stop';
 import { CompetitionSafetyTimerFreezer } from '@/main/modules/safety-stop/infra/CompetitionSafetyTimerFreezer';
 import { SqliteLaneSafetyStopRepository } from '@/main/modules/safety-stop/infra/SqliteLaneSafetyStopRepository';
@@ -101,6 +101,7 @@ export function createLaneServices(
   const sessionRepository = new SqliteSessionRepository(db);
   const connectionRepository = new ConnectionRepositoryImpl(storage);
   const competitionRepository = new CompetitionRepositoryImpl(storage);
+  const competitionTypes = new CompetitionTypeRegistry(ALL_COMPETITION_TYPES);
   const printWindowService = new PrintWindowService(
     preloadPath,
     rendererDirectory,
@@ -253,6 +254,7 @@ export function createLaneServices(
     connectionRepository,
     competitionRepository,
     competitionCatalog: competitionRepository,
+    competitionTypes,
     applyShotProgress: createShotRecordedHandler({ competitionRepository, eventBus }),
     printWindowService,
     adapterRegistry,

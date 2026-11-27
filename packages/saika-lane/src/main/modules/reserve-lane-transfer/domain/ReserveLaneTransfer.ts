@@ -32,6 +32,11 @@ export interface IReserveLaneTransferStatePort {
   retireSource(bundle: ReserveLaneTransferBundle, retry: boolean): Promise<void>;
   activateTarget(bundle: ReserveLaneTransferBundle, retry: boolean): Promise<void>;
 }
+/** The Lane athlete assignment that a transfer reads and restores. */
+export interface ITransferAssignmentPort {
+  read(competitionId: string): { athlete: { id: string; name: string } | null } | null;
+  restore(competitionId: string, json: string | null): Promise<void>;
+}
 export interface IReserveLaneTransferControl {
   assertMutationAllowed(): void;
   execute(competitionId: string, action: ReserveLaneTransferAction): Promise<ReserveLaneTransferBundle>;

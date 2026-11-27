@@ -9,6 +9,10 @@ import type { CompetitionTypeDefinition } from './CompetitionTypeDefinition';
 export class CompetitionTypeRegistry {
   private readonly types = new Map<string, CompetitionTypeDefinition>();
 
+  constructor(definitions: readonly CompetitionTypeDefinition[] = []) {
+    for (const definition of definitions) this.register(definition);
+  }
+
   /**
    * Registers a competition type
    *

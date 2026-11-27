@@ -25,6 +25,8 @@ import {
 } from '@/main/composition/tokens';
 import type { CompetitionStateDto } from '@/main/modules/competition/application/dto';
 import { competitionModule } from '@/main/modules/competition/competition.module';
+import { CompetitionTypeRegistry } from '@/main/modules/competition/domain/CompetitionTypeRegistry';
+import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import { competitionContract } from '@/shared/ipc/contracts';
@@ -76,6 +78,7 @@ describe('competition.module', () => {
       ipcRouter,
       timerService,
       competitionInterruptionControl: { get: () => null } as unknown as ICompetitionInterruptionControl,
+      competitionTypes: new CompetitionTypeRegistry(ALL_COMPETITION_TYPES),
     });
   }
 
@@ -97,6 +100,7 @@ describe('competition.module', () => {
         'ipcRouter',
         'timerService',
         'competitionInterruptionControl',
+        'competitionTypes',
       ]);
     });
   });

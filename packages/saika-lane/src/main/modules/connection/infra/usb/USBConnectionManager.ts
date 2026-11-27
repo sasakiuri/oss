@@ -39,7 +39,7 @@ export class USBConnectionManager implements IUSBConnectionManager {
   private readonly pipeline: USBDataPipeline;
   private readonly targetConnectionSupport: TargetConnectionSupport;
   private sessionContextProvider: SessionContextProvider | null = null;
-  private activeProtocol: { readonly port: SerialPort; readonly session: TargetProtocolSession } | null = null;
+  private activeSession: TargetProtocolSession | null = null;
 
   constructor(
     target: {
@@ -105,12 +105,12 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   async sendMode(mode: Mode): Promise<void> {
-    const activeProtocol = this.activeProtocol;
-    if (!activeProtocol) {
+    const activeSession = this.activeSession;
+    if (!activeSession) {
       getLogger().warn('[USB] sendMode: target protocol is not active, skipping', 'usb', { mode: mode.value });
       return;
     }
-    return activeProtocol.session.sendMode(mode);
+    return activeSession.sendMode(mode);
   }
 
   private async attachProtocol(port: SerialPort, config: USBConnectionConfig): Promise<void> {
@@ -123,12 +123,12 @@ export class USBConnectionManager implements IUSBConnectionManager {
         void this.lifecycle.handleConnectionError(port, error);
       },
     });
-    this.activeProtocol = { port, session };
+    this.activeSession = session;
 
     try {
       await session.start();
     } catch (error) {
-      if (this.activeProtocol?.session === session) {
+      if (this.activeSession === session) {
         this.detachProtocol();
       }
       throw error;
@@ -136,14 +136,14 @@ export class USBConnectionManager implements IUSBConnectionManager {
   }
 
   private detachProtocol(): void {
-    const activeProtocol = this.activeProtocol;
-    this.activeProtocol = null;
-    if (!activeProtocol) {
+    const activeSession = this.activeSession;
+    this.activeSession = null;
+    if (!activeSession) {
       return;
     }
 
     try {
-      activeProtocol.session.stop();
+      activeSession.stop();
     } finally {
       this.pipeline.clearBufferedData();
     }

@@ -65,13 +65,3 @@ export const RpcErrorResponseSchema = z.object({
 });
 
 export const RpcResponseSchema = z.union([RpcSuccessResponseSchema, RpcErrorResponseSchema]);
-
-// ============================================================
-// Type Exports
-// ============================================================
-
-export type GetShotListRequest = z.infer<typeof GetShotListRequestSchema>;
-export type GetScoreRequest = z.infer<typeof GetScoreRequestSchema>;
-export type GetCompetitionStateRequest = z.infer<typeof GetCompetitionStateRequestSchema>;
-export type RpcRequest = z.infer<typeof RpcRequestSchema>;
-export type RpcResponse = z.infer<typeof RpcResponseSchema>;

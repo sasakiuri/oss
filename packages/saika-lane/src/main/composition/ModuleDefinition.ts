@@ -4,6 +4,7 @@
 import type Database from 'better-sqlite3';
 import type { BrowserWindow } from 'electron';
 
+import type { CompetitionTypeRegistry } from '@/main/modules/competition/domain/CompetitionTypeRegistry';
 import type {
   ICompetitionCatalog,
   ICompetitionRepository,
@@ -17,7 +18,6 @@ import type { SessionContextCache } from '@/main/modules/connection/infra/Sessio
 import type { EstComplaintSignalService } from '@/main/modules/est-complaint-signal';
 import type { IMalfunctionFiringContextSource, MalfunctionFiringService } from '@/main/modules/malfunction-firing';
 import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
-import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { QualificationMalfunctionSignalService } from '@/main/modules/qualification-malfunction-signal';
 import type {
   IQualificationRecoveryAdjudicationControl,
@@ -27,8 +27,10 @@ import type {
 } from '@/main/modules/qualification-recovery';
 import type { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
 import type { PrintWindowService } from '@/main/modules/report/infra/PrintWindowService';
-import type { IReserveLaneTransferControl } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
-import type { ITransferAssignmentPort } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
+import type {
+  IReserveLaneTransferControl,
+  ITransferAssignmentPort,
+} from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
@@ -63,11 +65,12 @@ export interface ServiceRegistry {
   competitionRepository: ICompetitionRepository;
   /** The competition store's read-only enumeration; the same instance as competitionRepository. */
   competitionCatalog: ICompetitionCatalog;
+  /** The competition types this Lane can run. */
+  competitionTypes: CompetitionTypeRegistry;
   /** Advances the competition series for a recorded shot; awaited by the shot recording command. */
   applyShotProgress: (event: ShotRecordedEvent) => Promise<void>;
   printWindowService: PrintWindowService;
   adapterRegistry: AdapterRegistry;
-  mqttClient?: IMqttClientService;
   timerService: ICompetitionTimer;
   competitionInterruptionControl: ICompetitionInterruptionControl;
   competitionShootOffControl: ICompetitionShootOffControl;

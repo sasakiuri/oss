@@ -628,10 +628,8 @@ export class BroadcastCommandHandler {
     stageIndex: number,
     seriesIndex: number,
   ): { stageIndex: number; seriesIndex: number } | null {
-    const stage = state.config.stages[stageIndex];
-    if (!stage || !stage.series[seriesIndex]) {
-      throw this.invalidState('advance-series', state, `existing series ${stageIndex}:${seriesIndex}`);
-    }
+    // advance-series has checked that the source series exists.
+    const stage = state.config.stages[stageIndex]!;
     if (seriesIndex + 1 < stage.series.length) return { stageIndex, seriesIndex: seriesIndex + 1 };
     if (stageIndex + 1 < state.config.stages.length) return { stageIndex: stageIndex + 1, seriesIndex: 0 };
     return null;

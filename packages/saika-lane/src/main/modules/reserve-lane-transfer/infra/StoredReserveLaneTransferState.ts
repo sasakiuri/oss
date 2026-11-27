@@ -16,12 +16,7 @@ import { SessionFactory } from '@/main/modules/session/domain/SessionFactory';
 import { parseSessionStorageData } from '@/main/modules/session/domain/SessionStorageSchema';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
-import type { IReserveLaneTransferStatePort } from '../domain/ReserveLaneTransfer';
-
-export interface ITransferAssignmentPort {
-  read(competitionId: string): { athlete: { id: string; name: string } | null } | null;
-  restore(competitionId: string, json: string | null): Promise<void>;
-}
+import type { IReserveLaneTransferStatePort, ITransferAssignmentPort } from '../domain/ReserveLaneTransfer';
 
 /** The first snapshot version supports continuous Qualification match timers. */
 export class StoredReserveLaneTransferState implements IReserveLaneTransferStatePort {
