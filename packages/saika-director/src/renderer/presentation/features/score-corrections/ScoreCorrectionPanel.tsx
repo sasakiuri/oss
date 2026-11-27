@@ -8,6 +8,7 @@ import type {
   ScoreCorrectionPreviewDto,
   ScoreCorrectionRequestDto,
   ScoreCorrectionWorkspaceDto,
+  ResultScope,
 } from '@/shared/ipc/contracts';
 
 const inputClass = 'rounded border border-vscode-border bg-vscode-input p-2 text-vscode-text';
@@ -27,7 +28,7 @@ export function ScoreCorrectionPanel({
   onChanged,
 }: {
   resultId: string;
-  resultScope: 'QUALIFICATION' | 'FINAL';
+  resultScope: ResultScope;
   onChanged: () => void;
 }) {
   const [workspace, setWorkspace] = useState<ScoreCorrectionWorkspaceDto | null>(null);

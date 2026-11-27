@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import { optionalText, requiredText } from '@/main/domain/guards';
 
 export const SCORING_DECISION_TYPES = [

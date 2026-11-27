@@ -6,6 +6,7 @@ import type {
   CreateEstBackupVerificationPayload,
   EstBackupVerificationRunDto,
   EstBackupColumnMappingDto,
+  ResultScope,
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -23,7 +24,7 @@ export function EstBackupVerificationPanel({
   onClose,
 }: {
   eventId: string;
-  resultScope?: 'QUALIFICATION' | 'FINAL';
+  resultScope?: ResultScope;
   initialKind?: CreateEstBackupVerificationPayload['resultKind'];
   onClose: () => void;
 }) {

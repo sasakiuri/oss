@@ -4,10 +4,10 @@ import { command, commandDataResponseSchema, defineContract, query, queryRespons
 
 import { participantEntryStatusSchema } from './championship.contract';
 import { officialSigningEvidenceSchema, officialSigningRequestFields } from './officialSigning.schema';
+import { resultScopeSchema } from './resultScope.schema';
 
 const uuidSchema = z.string().uuid();
 const revisionSchema = z.string().regex(/^[a-f0-9]{64}$/);
-const resultScopeSchema = z.enum(['QUALIFICATION', 'FINAL']);
 const evidenceSourceSchema = z.enum(['TARGET_PRINTOUT', 'INDEPENDENT_MEMORY', 'OTHER']);
 const comparisonStatusSchema = z.enum(['MATCHED', 'MISMATCH', 'UNAVAILABLE']);
 
@@ -36,7 +36,7 @@ const ResultListApprovalDtoSchema = z.object({
   signingEvidence: officialSigningEvidenceSchema.nullable().optional(),
   id: uuidSchema,
   eventId: uuidSchema,
-  resultScope: z.enum(['QUALIFICATION', 'FINAL']),
+  resultScope: resultScopeSchema,
   type: z.enum(['APPROVAL', 'REVOCATION']),
   snapshotRevision: revisionSchema,
   requiredIndividualChecks: z.number().int().nonnegative(),

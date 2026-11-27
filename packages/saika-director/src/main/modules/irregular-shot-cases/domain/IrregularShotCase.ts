@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { CompetitionShotObservation } from '@/main/modules/mqtt';
 import { CASE_ENTRY_TYPES, type CaseEntryType } from '@/main/domain/caseLifecycle';
 import { requiredText, optionalText, validDate } from '@/main/domain/guards';

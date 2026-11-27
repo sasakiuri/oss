@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
 import { participantEntryStatusSchema } from './championship.contract';
+import { resultScopeSchema } from './resultScope.schema';
 
 const uuidSchema = z.string().uuid();
 const revisionSchema = z.string().regex(/^[a-f0-9]{64}$/);
-const resultScopeSchema = z.enum(['QUALIFICATION', 'FINAL']);
 const statusSchema = z.enum(['DRAFT', 'PRELIMINARY', 'PROTEST_PENDING', 'PROTEST_CLOSED', 'OFFICIAL']);
 
 const entryBase = {

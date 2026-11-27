@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { ScoreCorrectionService } from '@/main/modules/score-corrections';
 import type { IScoreCorrectionRepository } from '@/main/modules/score-corrections';
 import type { IReviewCorrectionSource, ReviewSubject } from './ObservationReviewService';

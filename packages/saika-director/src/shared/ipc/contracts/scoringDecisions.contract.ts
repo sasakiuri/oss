@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { resultScopeSchema } from './resultScope.schema';
 
 const uuidSchema = z.string().uuid();
 
@@ -27,7 +28,7 @@ export const ScoringDecisionDtoSchema = z.object({
   eventId: uuidSchema,
   participantId: z.string().min(1),
   relayNumber: z.number().int().positive(),
-  resultScope: z.enum(['QUALIFICATION', 'FINAL']),
+  resultScope: resultScopeSchema,
   resultIdAtDecision: uuidSchema,
   sourceCompetitionId: uuidSchema.nullable(),
   type: ScoringDecisionTypeSchema,
@@ -49,7 +50,7 @@ export const ScoringDecisionDtoSchema = z.object({
 const AddScoringDecisionInputSchema = z
   .object({
     resultId: uuidSchema,
-    resultScope: z.enum(['QUALIFICATION', 'FINAL']),
+    resultScope: resultScopeSchema,
     type: ScoringDecisionTypeSchema.exclude(['REVOCATION']),
     applicationPolicy: ScoringApplicationPolicySchema,
     pointsX10: z.number().int().positive().optional(),
@@ -108,11 +109,11 @@ export const scoringDecisionsContract = defineContract('scoringDecisions', {
   add: command(AddScoringDecisionInputSchema, commandDataResponseSchema(ScoringDecisionDtoSchema)),
   revoke: command(RevokeScoringDecisionInputSchema, commandDataResponseSchema(ScoringDecisionDtoSchema)),
   listByResult: query(
-    z.object({ resultId: uuidSchema, resultScope: z.enum(['QUALIFICATION', 'FINAL']) }),
+    z.object({ resultId: uuidSchema, resultScope: resultScopeSchema }),
     queryResponseSchema(z.object({ decisions: z.array(ScoringDecisionDtoSchema) })),
   ),
   listByEvent: query(
-    z.object({ eventId: uuidSchema, resultScope: z.enum(['QUALIFICATION', 'FINAL']).optional() }),
+    z.object({ eventId: uuidSchema, resultScope: resultScopeSchema.optional() }),
     queryResponseSchema(z.object({ decisions: z.array(ScoringDecisionDtoSchema) })),
   ),
 });

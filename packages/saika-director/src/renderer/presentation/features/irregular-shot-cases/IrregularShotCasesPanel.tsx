@@ -5,7 +5,12 @@ import type { FinalSeriesAdjudicationCapability } from '@sasakiuri/saika-rules';
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { incidentReportsService, irregularShotCasesService, scoringDecisionsService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type { IrregularShotCaseDto, RangeIncidentReportDto, ScoringDecisionDto } from '@/shared/ipc/contracts';
+import type {
+  IrregularShotCaseDto,
+  RangeIncidentReportDto,
+  ScoringDecisionDto,
+  ResultScope,
+} from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 import { InlineError } from '../shared/common/InlineError';
@@ -16,7 +21,7 @@ import { IrregularShotCaseCard } from './IrregularShotCaseCard';
 interface Props {
   eventId: string;
   competitionId: string;
-  resultScope: 'QUALIFICATION' | 'FINAL';
+  resultScope: ResultScope;
   lanes: readonly { laneId: string; label: string }[];
   adjudication?: FinalSeriesAdjudicationCapability;
   disabled?: boolean;

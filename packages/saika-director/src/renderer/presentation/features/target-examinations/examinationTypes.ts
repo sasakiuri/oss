@@ -2,7 +2,7 @@ import type {
   AddTargetExaminationEvidencePayload,
   AppendTargetExaminationEntryPayload,
   CreateTargetExaminationCasePayload,
-  LinkTargetExaminationScopePayload,
+  LinkCaseScopePayload,
 } from '@/shared/ipc/contracts';
 
 export interface TargetExaminationLaneOption {
@@ -17,5 +17,5 @@ export interface TargetExaminationCommands {
   create: (input: CreateTargetExaminationCasePayload) => Promise<boolean>;
   addEvidence: (input: AddTargetExaminationEvidencePayload) => Promise<boolean>;
   appendEntry: (input: AppendTargetExaminationEntryPayload) => Promise<boolean>;
-  linkScope: (input: LinkTargetExaminationScopePayload) => Promise<boolean>;
+  linkScope: (input: LinkCaseScopePayload) => Promise<boolean>;
 }

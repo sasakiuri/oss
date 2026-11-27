@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type Database from 'better-sqlite3';
 
 import type { IResultPublicationRepository } from '../domain/IResultPublicationRepository';

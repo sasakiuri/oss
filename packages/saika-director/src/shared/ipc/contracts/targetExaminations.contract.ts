@@ -2,8 +2,14 @@ import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
+import {
+  caseScopeDtoSchema,
+  caseScopeInputSchema,
+  linkCaseScopeInputSchema,
+  refineUniqueCaseScopes,
+} from './caseScope.schema';
+
 const uuidSchema = z.string().uuid();
-const scopeTypeSchema = z.enum(['COMPETITION', 'EVENT']);
 const issueKindSchema = z.enum([
   'SIGHTING_COMPLAINT',
   'NO_SHOT_INDICATION',
@@ -27,16 +33,6 @@ const evidenceTypeSchema = z.enum([
   'OTHER',
 ]);
 const entryTypeSchema = z.enum(['NOTE', 'DECISION', 'HOLD_RELEASED', 'HOLD_REINSTATED', 'CLOSED', 'REOPENED', 'VOID']);
-
-const TargetExaminationScopeDtoSchema = z.object({
-  id: uuidSchema,
-  caseId: uuidSchema,
-  scopeType: scopeTypeSchema,
-  scopeId: z.string().min(1),
-  linkedBy: z.string().min(1),
-  note: z.string().min(1).nullable(),
-  linkedAt: z.string().datetime(),
-});
 
 const TargetExaminationEvidenceDtoSchema = z.object({
   id: uuidSchema,
@@ -77,7 +73,7 @@ const TargetExaminationCaseDtoSchema = z.object({
   ruleReferences: z.string().min(1),
   openedBy: z.string().min(1),
   createdAt: z.string().datetime(),
-  scopes: z.array(TargetExaminationScopeDtoSchema).min(1),
+  scopes: z.array(caseScopeDtoSchema).min(1),
   evidence: z.array(TargetExaminationEvidenceDtoSchema),
   entries: z.array(TargetExaminationEntryDtoSchema),
   status: z.enum(['OPEN', 'CLOSED', 'VOID']),
@@ -98,14 +94,9 @@ const TargetExaminationCaseDtoSchema = z.object({
   }),
 });
 
-const ScopeInputSchema = z.object({
-  scopeType: scopeTypeSchema,
-  scopeId: z.string().trim().min(1).max(200),
-});
-
 const CreateTargetExaminationCaseInputSchema = z
   .object({
-    scopes: z.array(ScopeInputSchema).min(1).max(4),
+    scopes: z.array(caseScopeInputSchema).min(1).max(4),
     issueKind: issueKindSchema,
     occurredAt: z.string().datetime(),
     laneId: z.string().trim().min(1).max(200).optional(),
@@ -118,19 +109,7 @@ const CreateTargetExaminationCaseInputSchema = z
     ruleReferences: z.string().trim().min(1).max(500),
     openedBy: z.string().trim().min(1).max(200),
   })
-  .superRefine((value, context) => {
-    const keys = value.scopes.map((scope) => `${scope.scopeType}:${scope.scopeId}`);
-    if (new Set(keys).size !== keys.length) {
-      context.addIssue({ code: 'custom', path: ['scopes'], message: 'Scope links must be unique' });
-    }
-  });
-
-const LinkTargetExaminationScopeInputSchema = z.object({
-  caseId: uuidSchema,
-  scope: ScopeInputSchema,
-  linkedBy: z.string().trim().min(1).max(200),
-  note: z.string().trim().min(1).max(1000).optional(),
-});
+  .superRefine(refineUniqueCaseScopes);
 
 const AddTargetExaminationEvidenceInputSchema = z.object({
   caseId: uuidSchema,
@@ -170,26 +149,22 @@ const AppendTargetExaminationEntryInputSchema = z.discriminatedUnion('type', [
   z.object({ ...entryBase, type: z.literal('VOID'), ruleReference: z.string().trim().min(1).max(500).optional() }),
 ]);
 
-export type TargetExaminationScopeTypeDto = z.infer<typeof scopeTypeSchema>;
 export type TargetExaminationIssueKindDto = z.infer<typeof issueKindSchema>;
 export type TargetExaminationEvidenceTypeDto = z.infer<typeof evidenceTypeSchema>;
 export type TargetExaminationEntryTypeDto = z.infer<typeof entryTypeSchema>;
-export type TargetExaminationScopeDto = z.infer<typeof TargetExaminationScopeDtoSchema>;
 export type TargetExaminationEvidenceDto = z.infer<typeof TargetExaminationEvidenceDtoSchema>;
 export type TargetExaminationEntryDto = z.infer<typeof TargetExaminationEntryDtoSchema>;
 export type TargetExaminationCaseDto = z.infer<typeof TargetExaminationCaseDtoSchema>;
-export type TargetExaminationScopePayload = z.infer<typeof ScopeInputSchema>;
 export type CreateTargetExaminationCasePayload = z.infer<typeof CreateTargetExaminationCaseInputSchema>;
-export type LinkTargetExaminationScopePayload = z.infer<typeof LinkTargetExaminationScopeInputSchema>;
 export type AddTargetExaminationEvidencePayload = z.infer<typeof AddTargetExaminationEvidenceInputSchema>;
 export type AppendTargetExaminationEntryPayload = z.infer<typeof AppendTargetExaminationEntryInputSchema>;
 
 export const targetExaminationsContract = defineContract('targetExaminations', {
   listAll: query(queryResponseSchema(z.array(TargetExaminationCaseDtoSchema))),
-  listByScope: query(ScopeInputSchema, queryResponseSchema(z.array(TargetExaminationCaseDtoSchema))),
+  listByScope: query(caseScopeInputSchema, queryResponseSchema(z.array(TargetExaminationCaseDtoSchema))),
   getById: query(z.object({ caseId: uuidSchema }), queryResponseSchema(TargetExaminationCaseDtoSchema)),
   create: command(CreateTargetExaminationCaseInputSchema, commandDataResponseSchema(TargetExaminationCaseDtoSchema)),
-  linkScope: command(LinkTargetExaminationScopeInputSchema, commandDataResponseSchema(TargetExaminationCaseDtoSchema)),
+  linkScope: command(linkCaseScopeInputSchema, commandDataResponseSchema(TargetExaminationCaseDtoSchema)),
   addEvidence: command(
     AddTargetExaminationEvidenceInputSchema,
     commandDataResponseSchema(TargetExaminationCaseDtoSchema),

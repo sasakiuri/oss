@@ -3,7 +3,7 @@ import { CheckCircle2, History, ShieldCheck, TriangleAlert } from 'lucide-react'
 
 import { resultVerificationService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type { ResultVerificationStatusDto, VerificationResultItemDto } from '@/shared/ipc/contracts';
+import type { ResultVerificationStatusDto, VerificationResultItemDto, ResultScope } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { Modal } from '../shared/common/Modal';
 import { PublicationReviewPolicyPanel } from '../result-publication/PublicationReviewPolicyPanel';
@@ -13,7 +13,7 @@ import { InlineError } from '../shared/common/InlineError';
 interface ResultVerificationPanelProps {
   eventId: string;
   eventName?: string;
-  resultScope: 'QUALIFICATION' | 'FINAL';
+  resultScope: ResultScope;
   onClose: () => void;
 }
 

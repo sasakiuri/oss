@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import { GetEventByIdToken } from '@/main/modules/championship';
 import type { IScoringDecisionTargetResolver, ScoringDecisionTargetSnapshot } from '@/main/modules/scoring-decisions';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';

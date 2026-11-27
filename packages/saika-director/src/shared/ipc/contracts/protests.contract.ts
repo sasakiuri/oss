@@ -2,8 +2,9 @@ import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
+import { caseScopeTypeSchema as scopeType } from './caseScope.schema';
+
 const uuid = z.string().uuid();
-const scopeType = z.enum(['COMPETITION', 'EVENT']);
 const kind = z.enum(['VERBAL', 'WRITTEN', 'FINAL_VERBAL', 'APPEAL']);
 const entryType = z.enum([
   'FORWARDED_TO_JURY',

@@ -4,33 +4,11 @@ import type {
   RangeInterruptionCaseDto,
   RecordRangeCommandBatchPayload,
 } from '@/shared/ipc/contracts';
-import type { IpcErrorDto } from '@sasakiuri/saika-ipc';
-
-type ApiResult<T> = { success: true; data: T } | { success: false; error: IpcErrorDto };
+import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
 export interface RangeInterruptionRangeWorkflowPorts {
-  lane: {
-    pauseRangeTimers(input: {
-      competitionId: string;
-      laneIds: string[];
-      interruptionId: string;
-    }): Promise<ApiResult<MqttCommandBatchResultDto>>;
-    resumeRangeTimers(input: {
-      competitionId: string;
-      laneIds: string[];
-      interruptionId: string;
-      authorizedRemainingSeconds: number;
-      unlimitedSightingShots: boolean;
-    }): Promise<ApiResult<MqttCommandBatchResultDto>>;
-    resumeRangeMatch(input: {
-      competitionId: string;
-      laneIds: string[];
-      interruptionId: string;
-    }): Promise<ApiResult<MqttCommandBatchResultDto>>;
-  };
-  ledger: {
-    recordCommandBatch(input: RecordRangeCommandBatchPayload): Promise<ApiResult<RangeInterruptionCaseDto>>;
-  };
+  lane: Pick<ElectronAPI['mqtt'], 'pauseRangeTimers' | 'resumeRangeTimers' | 'resumeRangeMatch'>;
+  ledger: Pick<ElectronAPI['rangeInterruptions'], 'recordCommandBatch'>;
 }
 
 interface RangeActionContext {

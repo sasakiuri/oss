@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { ChampionshipOfficialEntry, EligibleRecordResult } from './ResultsBookModels';
 
 export const CHAMPIONSHIP_OFFICIAL_ROLES = [

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { resultScopeSchema } from './resultScope.schema';
 const uuid = z.string().uuid();
 const subject = z.object({
   id: z.string(),
@@ -32,10 +33,7 @@ const item = z.object({
 });
 export type ObservationReviewItemDto = z.infer<typeof item>;
 export const observationReviewsContract = defineContract('observationReviews', {
-  listEvent: query(
-    z.object({ eventId: uuid, resultScope: z.enum(['QUALIFICATION', 'FINAL']) }),
-    queryResponseSchema(z.array(item)),
-  ),
+  listEvent: query(z.object({ eventId: uuid, resultScope: resultScopeSchema }), queryResponseSchema(z.array(item))),
   list: query(z.object({ competitionId: uuid }), queryResponseSchema(z.array(item))),
   record: command(input, commandDataResponseSchema(z.array(item))),
 });

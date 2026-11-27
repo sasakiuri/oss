@@ -32,6 +32,7 @@ function fixture(): RangeInterruptionCaseDto {
     scopes: [],
     entries: [],
     targetRecoveryAssessments: [],
+    commandBatches: [],
     qualificationTimedTargetContext: null,
     qualificationTimedTargetRecoveryDecisions: [],
     qualificationRecoveryExecutions: [],

@@ -2,11 +2,7 @@
 import { useState } from 'react';
 
 import { rangeInterruptionsService } from '@/renderer/services';
-import type {
-  RangeInterruptionCauseDto,
-  RangeInterruptionPhaseDto,
-  RangeInterruptionScopePayload,
-} from '@/shared/ipc/contracts';
+import type { RangeInterruptionCauseDto, RangeInterruptionPhaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 
@@ -26,7 +22,7 @@ export function CreateInterruptionForm({
   onCreate,
   onCancel,
 }: {
-  scopes: RangeInterruptionScopePayload[];
+  scopes: CaseScopePayload[];
   lanes: readonly RangeInterruptionLaneOption[];
   defaultLaneId?: string;
   defaultPhase: RangeInterruptionPhaseDto;

@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import { validDate, requiredText, sha256Digest } from '@/main/domain/guards';
 
 export type ResultPublicationEntry =

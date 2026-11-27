@@ -1,13 +1,10 @@
-import type { IpcErrorDto } from '@sasakiuri/saika-ipc';
 import { useCallback, useEffect, useRef } from 'react';
 
 import type { EventName } from '@/renderer/events/EventBus';
-import { errorMessage } from '@/renderer/services/serviceError';
+import { errorMessage, type DataResponse } from '@/renderer/services/serviceError';
 import type { IpcEvents } from '@/shared/ipc/contracts';
 
 import { useEvent } from './useEvent';
-
-type QueryResponse<T> = { success: true; data: T } | { success: false; error: IpcErrorDto };
 
 export interface LiveSnapshotOptions<T> {
   /** Receives every live event and every query result that is still current. */
@@ -32,7 +29,7 @@ export interface LiveSnapshot {
  */
 export function useLiveSnapshot<E extends EventName>(
   event: E,
-  query: () => Promise<QueryResponse<IpcEvents[E]>>,
+  query: () => Promise<DataResponse<IpcEvents[E]>>,
   options: LiveSnapshotOptions<IpcEvents[E]>,
 ): LiveSnapshot {
   const optionsRef = useRef(options);

@@ -31,6 +31,7 @@ export function fixture(overrides: Partial<RangeInterruptionCaseDto> = {}): Rang
     ],
     entries: [],
     targetRecoveryAssessments: [],
+    commandBatches: [],
     qualificationTimedTargetContext: null,
     qualificationTimedTargetRecoveryDecisions: [],
     qualificationRecoveryExecutions: [],

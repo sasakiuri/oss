@@ -1,10 +1,10 @@
-import type { ResultScope } from '@/main/domain/resultScope';
 import { OfficialSigningPolicy, type IOfficialSigningPolicy } from '@/main/modules/official-signing';
 import {
   publicationReviewPolicyEntrySchema,
   type PublicationReviewPolicyEntry,
   type PublicationReviewPolicyStatus,
   type SavePublicationReviewPolicy,
+  type ResultScope,
 } from '@/shared/ipc/contracts';
 import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
 import { sha256Json } from '@/main/domain/sha256Json';

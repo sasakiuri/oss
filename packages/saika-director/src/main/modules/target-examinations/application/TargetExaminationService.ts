@@ -2,12 +2,12 @@ import type {
   AddTargetExaminationEvidencePayload,
   AppendTargetExaminationEntryPayload,
   CreateTargetExaminationCasePayload,
-  LinkTargetExaminationScopePayload,
+  LinkCaseScopePayload,
   TargetExaminationCaseDto,
   TargetExaminationEntryDto,
   TargetExaminationEvidenceDto,
-  TargetExaminationScopeDto,
-  TargetExaminationScopePayload,
+  CaseScopeDto,
+  CaseScopePayload,
 } from '@/shared/ipc/contracts';
 
 import type { ITargetExaminationRepository } from '../domain/ITargetExaminationRepository';
@@ -33,7 +33,7 @@ export class TargetExaminationService {
     return this.projectCases(this.repository.findAllCases());
   }
 
-  listByScope(scope: TargetExaminationScopePayload): TargetExaminationCaseDto[] {
+  listByScope(scope: CaseScopePayload): TargetExaminationCaseDto[] {
     return this.projectCases(this.repository.findCasesByScope(scope));
   }
 
@@ -60,7 +60,7 @@ export class TargetExaminationService {
     return toDto(examination, scopes, [], [], this.workflowPolicy);
   }
 
-  linkScope(input: LinkTargetExaminationScopePayload): TargetExaminationCaseDto {
+  linkScope(input: LinkCaseScopePayload): TargetExaminationCaseDto {
     this.requireChangeableCase(input.caseId, { allowClosed: true });
     const existing = this.repository.findScopesByCaseIds([input.caseId]).get(input.caseId) ?? [];
     if (existing.some((scope) => scope.scopeType === input.scope.scopeType && scope.scopeId === input.scope.scopeId)) {
@@ -139,7 +139,7 @@ export class TargetExaminationService {
   }
 }
 
-function validateUniqueScopes(scopes: readonly TargetExaminationScopePayload[]): void {
+function validateUniqueScopes(scopes: readonly CaseScopePayload[]): void {
   const keys = scopes.map((scope) => `${scope.scopeType}:${scope.scopeId}`);
   if (new Set(keys).size !== keys.length) throw new Error('Target examination scopes must be unique');
 }
@@ -196,7 +196,7 @@ function toDto(
   };
 }
 
-function toScopeDto(scope: TargetExaminationScopeLink): TargetExaminationScopeDto {
+function toScopeDto(scope: TargetExaminationScopeLink): CaseScopeDto {
   return {
     id: scope.id,
     caseId: scope.caseId,

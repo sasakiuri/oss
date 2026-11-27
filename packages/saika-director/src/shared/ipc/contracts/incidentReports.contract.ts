@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { ScoringDecisionTypeSchema } from './scoringDecisions.contract';
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { resultScopeSchema } from './resultScope.schema';
 
 const uuidSchema = z.string().uuid();
 const officialRoleSchema = z.enum([
@@ -28,7 +29,7 @@ const IncidentReportLinkedDecisionDtoSchema = z.object({
   id: uuidSchema,
   participantId: z.string().min(1),
   relayNumber: z.number().int().positive(),
-  resultScope: z.enum(['QUALIFICATION', 'FINAL']),
+  resultScope: resultScopeSchema,
   resultId: uuidSchema,
   type: ScoringDecisionTypeSchema,
   ruleReference: z.string().min(1),

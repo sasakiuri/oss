@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { resultScopeSchema } from './resultScope.schema';
 
 const resultKind = z.enum(['INDIVIDUAL', 'TEAM', 'MIXED_TEAM']);
 const keyType = z.enum(['PARTICIPANT_ID', 'START_NUMBER', 'ISSF_ID', 'TEAM_ID']);
@@ -73,7 +74,7 @@ const run = z.object({
   sourceId: z.string().uuid().nullable().optional(),
   id: z.string().uuid(),
   eventId: z.string().uuid(),
-  resultScope: z.enum(['QUALIFICATION', 'FINAL']).optional(),
+  resultScope: resultScopeSchema.optional(),
   resultKind,
   keyType,
   sourceName: z.string(),
@@ -90,7 +91,7 @@ const create = z.object({
   sourceId: z.string().uuid().optional(),
   id: z.string().uuid().optional(),
   eventId: z.string().uuid(),
-  resultScope: z.enum(['QUALIFICATION', 'FINAL']).optional(),
+  resultScope: resultScopeSchema.optional(),
   resultKind,
   keyType,
   sourceName: z.string().trim().min(1).max(200),

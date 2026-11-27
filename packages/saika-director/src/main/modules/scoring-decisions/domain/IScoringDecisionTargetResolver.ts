@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { ScoringDecisionTarget } from './ScoringDecision';
 
 export interface ScoringDecisionTargetSnapshot extends ScoringDecisionTarget {

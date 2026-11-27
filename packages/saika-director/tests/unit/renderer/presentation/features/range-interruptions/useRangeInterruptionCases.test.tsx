@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useRangeInterruptionCases } from '@/renderer/presentation/features/range-interruptions/useRangeInterruptionCases';
 import { rangeInterruptionsService } from '@/renderer/services';
-import type { RangeInterruptionCaseDto, RangeInterruptionScopePayload } from '@/shared/ipc/contracts';
+import type { RangeInterruptionCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { fail, ok } from '../../../../../helpers/renderer/serviceResponses';
 import { fixture } from './fixtures';
@@ -24,7 +24,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 const response = (...data: RangeInterruptionCaseDto[]) => ok(data);
-const scope = (scopeId: string): RangeInterruptionScopePayload => ({ scopeType: 'COMPETITION', scopeId });
+const scope = (scopeId: string): CaseScopePayload => ({ scopeType: 'COMPETITION', scopeId });
 
 beforeEach(() => {
   vi.resetAllMocks();
