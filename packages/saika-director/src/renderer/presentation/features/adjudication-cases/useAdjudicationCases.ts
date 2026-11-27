@@ -34,7 +34,7 @@ export interface AdjudicationCaseCommands {
 }
 
 /**
- * Owns an event's adjudication cases and the official records they can link: the queries, the selection (the first
+ * Owns an event's adjudication cases and the official records they can link: the queries, the selection (the newest
  * case unless the selected one is still listed) and the commands. A command updates the case in the list without
  * querying again.
  */
@@ -74,7 +74,7 @@ export function useAdjudicationCases(eventId: string) {
       const interruptions = unwrap(interruptionResponse);
       const examinations = unwrap(examinationResponse);
       setCases(listed);
-      setSelectedId((current) => (listed.some((value) => value.id === current) ? current : (listed[0]?.id ?? '')));
+      setSelectedId((current) => (listed.some((value) => value.id === current) ? current : (listed.at(-1)?.id ?? '')));
       setCandidates(
         artifactCandidates({
           reports: incidents.reports,

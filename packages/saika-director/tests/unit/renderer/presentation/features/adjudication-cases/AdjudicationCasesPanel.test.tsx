@@ -29,18 +29,18 @@ vi.mock('@/renderer/services', async () =>
 const cases = vi.mocked(adjudicationCasesService);
 
 const EVENT_ID = '11111111-1111-4111-8111-111111111111';
-const FIRST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-const SECOND_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+const LATEST_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const EARLIER_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CREATED_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const LINK_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 
 function adjudicationCase(overrides: Partial<AdjudicationCaseDto> = {}): AdjudicationCaseDto {
   return {
-    id: FIRST_ID,
+    id: LATEST_ID,
     scopeType: 'EVENT',
     scopeId: EVENT_ID,
     category: 'RANGE_INCIDENT',
-    subject: 'First case',
+    subject: 'Latest case',
     summary: 'Target carrier stopped during relay 2',
     openedBy: 'Jury Member',
     openedAt: '2026-11-16T01:00:00.000Z',
@@ -111,13 +111,21 @@ async function renderPanel() {
 describe('AdjudicationCasesPanel', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    // Listed in the order the repository returns them: oldest first.
     mockQueries([
+      adjudicationCase({
+        id: EARLIER_ID,
+        subject: 'Earlier case',
+        category: 'SCORING',
+        status: 'REFERRED',
+        openedAt: '2026-11-16T00:30:00.000Z',
+        createdAt: '2026-11-16T00:30:00.000Z',
+      }),
       adjudicationCase(),
-      adjudicationCase({ id: SECOND_ID, subject: 'Second case', category: 'SCORING', status: 'REFERRED' }),
     ]);
   });
 
-  it('queries the event, lists every case and selects the first one', async () => {
+  it('queries the event, lists every case and selects the newest one', async () => {
     await renderPanel();
 
     expect(cases.list).toHaveBeenCalledWith({ scopeType: 'EVENT', scopeId: EVENT_ID });
@@ -127,13 +135,13 @@ describe('AdjudicationCasesPanel', () => {
     expect(finalRecoveriesService.listByEvent).toHaveBeenCalledWith({ eventId: EVENT_ID });
     expect(rangeInterruptionsService.listByScope).toHaveBeenCalledWith({ scopeType: 'EVENT', scopeId: EVENT_ID });
     expect(targetExaminationsService.listByScope).toHaveBeenCalledWith({ scopeType: 'EVENT', scopeId: EVENT_ID });
-    expect(screen.getByRole('button', { name: 'First case RANGE_INCIDENT · OPEN · 0 links' })).toHaveClass(
+    expect(screen.getByRole('button', { name: 'Latest case RANGE_INCIDENT · OPEN · 0 links' })).toHaveClass(
       'bg-vscode-highlight',
     );
-    expect(screen.getByRole('button', { name: 'Second case SCORING · REFERRED · 0 links' })).toHaveClass(
+    expect(screen.getByRole('button', { name: 'Earlier case SCORING · REFERRED · 0 links' })).toHaveClass(
       'hover:bg-vscode-bg-hover',
     );
-    expect(within(detail()).getByRole('heading', { name: 'First case' })).toBeInTheDocument();
+    expect(within(detail()).getByRole('heading', { name: 'Latest case' })).toBeInTheDocument();
     expect(within(detail()).getByText('Target carrier stopped during relay 2')).toBeInTheDocument();
     expect(screen.queryByText('No case files.')).not.toBeInTheDocument();
   });
@@ -144,7 +152,7 @@ describe('AdjudicationCasesPanel', () => {
         links: [
           {
             id: LINK_ID,
-            caseId: FIRST_ID,
+            caseId: LATEST_ID,
             operation: 'ADD',
             artifactType: 'PROTEST',
             artifactId: protestFixture().id,
@@ -174,13 +182,13 @@ describe('AdjudicationCasesPanel', () => {
     expect(within(detail()).getByText('PROTEST · PROTEST · Protest concerns this incident')).toBeInTheDocument();
   });
 
-  it('keeps the selected case on refresh and selects the first case when it disappears', async () => {
+  it('keeps the selected case on refresh and selects the newest case when it disappears', async () => {
     await renderPanel();
-    fireEvent.click(screen.getByRole('button', { name: /^Second case/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Earlier case/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     await waitFor(() => expect(cases.list).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Refresh' })).toBeEnabled());
-    expect(within(detail()).getByRole('heading', { name: 'Second case' })).toBeInTheDocument();
+    expect(within(detail()).getByRole('heading', { name: 'Earlier case' })).toBeInTheDocument();
 
     cases.list.mockResolvedValue(ok([adjudicationCase({ id: CREATED_ID, subject: 'Remaining case' })]));
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
@@ -305,7 +313,7 @@ describe('AdjudicationCasesPanel', () => {
     fireEvent.click(within(view).getByRole('button', { name: 'Append case entry' }));
 
     expect(cases.appendEntry).toHaveBeenCalledWith({
-      caseId: FIRST_ID,
+      caseId: LATEST_ID,
       type: 'REFERRED',
       statement: 'Referred to the Jury',
       officialName: 'Jury Member',
@@ -315,7 +323,7 @@ describe('AdjudicationCasesPanel', () => {
 
     await act(async () => pending.resolve(ok(resolved)));
 
-    expect(screen.getByRole('button', { name: 'First case RANGE_INCIDENT · RESOLVED · 0 links' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Latest case RANGE_INCIDENT · RESOLVED · 0 links' })).toBeInTheDocument();
     expect(within(detail()).getByText('RESOLVED')).toBeInTheDocument();
     expect(entryTypeSelect()).toHaveValue('NOTE');
     expect([...entryTypeSelect().options].map((option) => option.value)).toEqual([
@@ -341,7 +349,7 @@ describe('AdjudicationCasesPanel', () => {
 
     await waitFor(() =>
       expect(cases.appendEntry).toHaveBeenCalledWith({
-        caseId: FIRST_ID,
+        caseId: LATEST_ID,
         type: 'NOTE',
         statement: 'Note for the file',
         officialName: 'Jury Member',
@@ -381,7 +389,7 @@ describe('AdjudicationCasesPanel', () => {
       links: [
         {
           id: LINK_ID,
-          caseId: FIRST_ID,
+          caseId: LATEST_ID,
           operation: 'ADD',
           artifactType: 'SCORING_DECISION',
           artifactId: 'decision-1',
@@ -406,7 +414,7 @@ describe('AdjudicationCasesPanel', () => {
 
     await within(view).findByText('SCORING_DECISION · DECISION · Penalty decided for this incident');
     expect(cases.linkArtifact).toHaveBeenCalledWith({
-      caseId: FIRST_ID,
+      caseId: LATEST_ID,
       artifactType: 'SCORING_DECISION',
       artifactId: 'decision-1',
       relation: 'DECISION',
@@ -419,7 +427,7 @@ describe('AdjudicationCasesPanel', () => {
       'DEDUCTION · Two points deducted',
     );
     expect(within(view).getByPlaceholderText('Statement / link reason')).toHaveValue('');
-    expect(screen.getByRole('button', { name: 'First case RANGE_INCIDENT · OPEN · 1 links' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Latest case RANGE_INCIDENT · OPEN · 1 links' })).toBeInTheDocument();
   });
 
   it('unlinks a record with the official name and statement', async () => {
@@ -427,7 +435,7 @@ describe('AdjudicationCasesPanel', () => {
       links: [
         {
           id: LINK_ID,
-          caseId: FIRST_ID,
+          caseId: LATEST_ID,
           operation: 'ADD',
           artifactType: 'PROTEST',
           artifactId: protestFixture().id,
@@ -451,7 +459,7 @@ describe('AdjudicationCasesPanel', () => {
 
     await within(view).findByText('No artifacts linked.');
     expect(cases.unlinkArtifact).toHaveBeenCalledWith({
-      caseId: FIRST_ID,
+      caseId: LATEST_ID,
       linkId: LINK_ID,
       statement: 'Linked by mistake',
       officialName: 'Jury Member',
@@ -461,15 +469,15 @@ describe('AdjudicationCasesPanel', () => {
   it('keeps the detail draft when another case is selected', async () => {
     await renderPanel();
     fill('Official name', 'Jury Member', detail());
-    fill('Statement / link reason', 'Draft for the first case', detail());
+    fill('Statement / link reason', 'Draft for the latest case', detail());
     fill('Rule reference (optional)', 'ISSF 6.16', detail());
 
-    fireEvent.click(screen.getByRole('button', { name: /^Second case/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Earlier case/ }));
 
     const view = detail();
-    expect(within(view).getByRole('heading', { name: 'Second case' })).toBeInTheDocument();
+    expect(within(view).getByRole('heading', { name: 'Earlier case' })).toBeInTheDocument();
     expect(within(view).getByPlaceholderText('Official name')).toHaveValue('Jury Member');
-    expect(within(view).getByPlaceholderText('Statement / link reason')).toHaveValue('Draft for the first case');
+    expect(within(view).getByPlaceholderText('Statement / link reason')).toHaveValue('Draft for the latest case');
     expect(within(view).getByPlaceholderText('Rule reference (optional)')).toHaveValue('ISSF 6.16');
   });
 
