@@ -2,11 +2,16 @@
 /** Answers competition query requests through QueryBus and the MQTT response topic. */
 
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
+import type { z } from 'zod';
 
 import { GetCompetitionStateToken, GetSessionScoreToken, GetShotHistoryToken } from '@/main/composition/tokens';
 import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import { RpcRequestSchema } from '@/main/modules/mqtt/domain/MqttRpcSchemas';
+import {
+  RpcRequestSchema,
+  type RpcErrorResponseSchema,
+  type RpcSuccessResponseSchema,
+} from '@/main/modules/mqtt/domain/MqttRpcSchemas';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
@@ -134,7 +139,7 @@ export class RpcRequestHandler {
       ok: true,
       result,
       respondedAt: new Date().toISOString(),
-    });
+    } satisfies z.input<typeof RpcSuccessResponseSchema>);
 
     await this.mqttClient.publish(topic, response, { qos: 1, retain: false });
   }
@@ -155,7 +160,7 @@ export class RpcRequestHandler {
       ok: false,
       error: { code, message },
       respondedAt: new Date().toISOString(),
-    });
+    } satisfies z.input<typeof RpcErrorResponseSchema>);
 
     try {
       await this.mqttClient.publish(topic, response, { qos: 1, retain: false });

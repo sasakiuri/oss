@@ -4,7 +4,6 @@ import { AthleteSchema } from '@sasakiuri/saika-protocol/LaneAssignment';
 import { app } from 'electron';
 
 import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
-import { ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import { toLaneSafetyStateDto } from '@/main/modules/safety-stop';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { errorMessage } from '@/shared/errors/errorMessage';
@@ -55,6 +54,7 @@ type MqttDeps =
   | 'queryBus'
   | 'commandBus'
   | 'competitionRepository'
+  | 'competitionTypes'
   | 'timerService'
   | 'competitionInterruptionControl'
   | 'competitionShootOffControl'
@@ -98,6 +98,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     'queryBus',
     'commandBus',
     'competitionRepository',
+    'competitionTypes',
     'timerService',
     'competitionInterruptionControl',
     'competitionShootOffControl',
@@ -127,6 +128,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     queryBus,
     commandBus,
     competitionRepository,
+    competitionTypes,
     timerService,
     competitionInterruptionControl,
     competitionShootOffControl,
@@ -149,10 +151,9 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
     const mqttClient = new MqttClientService();
     const appVersion = app.getVersion();
     const getLaneId = (): string => settingsStore.getLaneId();
-    const definitionsById = new Map(ALL_COMPETITION_TYPES.map((definition) => [definition.id, definition]));
-    const rulePacks = ALL_COMPETITION_TYPES.flatMap((definition) =>
-      definition.rulePackIdentity ? [definition.rulePackIdentity] : [],
-    );
+    const rulePacks = competitionTypes
+      .getAll()
+      .flatMap((definition) => (definition.rulePackIdentity ? [definition.rulePackIdentity] : []));
     const commandAuthorization = commandAuthorizationPolicyFromEnvironment(process.env);
     const mqttCredentials = mqttCredentialsFromEnvironment(process.env);
 
@@ -307,7 +308,7 @@ export const mqttModule: ModuleDefinition<MqttDeps> = {
       commandBus,
       competitionRepository,
       undefined,
-      (competitionTypeId) => definitionsById.get(competitionTypeId),
+      (competitionTypeId) => competitionTypes.get(competitionTypeId),
     );
     const competitionCueSubscriber = new CompetitionCueSubscriber(mqttClient, eventBus, getLaneId);
 

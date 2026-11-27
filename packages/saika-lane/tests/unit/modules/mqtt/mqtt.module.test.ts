@@ -3,7 +3,8 @@ import mqtt from 'mqtt';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CompetitionState } from '@/main/modules/competition/domain/CompetitionState';
-import { BR60S } from '@/main/modules/competition/domain/competitionTypes';
+import { CompetitionTypeRegistry } from '@/main/modules/competition/domain/CompetitionTypeRegistry';
+import { BR60S, ALL_COMPETITION_TYPES } from '@/main/modules/competition/domain/competitionTypes';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionTimer } from '@/main/modules/competition/domain/ICompetitionTimer';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
@@ -27,11 +28,9 @@ import { SqliteQualificationRecoveryShotOutbox } from '@/main/modules/qualificat
 import { RangeOfficerRequestService } from '@/main/modules/range-officer-request';
 import { SqliteRangeOfficerRequestRepository } from '@/main/modules/range-officer-request/infra/SqliteRangeOfficerRequestRepository';
 import { ReserveLaneTransferService } from '@/main/modules/reserve-lane-transfer/application/ReserveLaneTransferService';
+import type { ITransferAssignmentPort } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
 import { SqliteReserveLaneTransferJournal } from '@/main/modules/reserve-lane-transfer/infra/SqliteReserveLaneTransferJournal';
-import {
-  StoredReserveLaneTransferState,
-  type ITransferAssignmentPort,
-} from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
+import { StoredReserveLaneTransferState } from '@/main/modules/reserve-lane-transfer/infra/StoredReserveLaneTransferState';
 import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
@@ -248,6 +247,7 @@ describe('mqtt.module', () => {
       membership: new DirectorMembership(storage, eventBus),
       commandBus,
       competitionRepository,
+      competitionTypes: new CompetitionTypeRegistry(ALL_COMPETITION_TYPES),
       timerService,
       competitionInterruptionControl,
       competitionShootOffControl,
@@ -311,6 +311,7 @@ describe('mqtt.module', () => {
       'queryBus',
       'commandBus',
       'competitionRepository',
+      'competitionTypes',
       'timerService',
       'competitionInterruptionControl',
       'competitionShootOffControl',

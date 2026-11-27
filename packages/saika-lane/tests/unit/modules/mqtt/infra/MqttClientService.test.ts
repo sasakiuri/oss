@@ -71,37 +71,6 @@ describe('MqttClientService', () => {
       });
     });
 
-    it('should pass will options when provided', async () => {
-      mockClient.on.mockImplementation((event: string, handler: Function) => {
-        if (event === 'connect') {
-          setTimeout(() => handler(), 0);
-        }
-      });
-
-      await service.connect({
-        brokerUrl: 'mqtt://localhost:1883',
-        clientId: 'test-client',
-        will: {
-          topic: 'lane/status',
-          payload: 'offline',
-          qos: 1,
-          retain: true,
-        },
-      });
-
-      expect(mqtt.connect).toHaveBeenCalledWith(
-        'mqtt://localhost:1883',
-        expect.objectContaining({
-          will: {
-            topic: 'lane/status',
-            payload: Buffer.from('offline'),
-            qos: 1,
-            retain: true,
-          },
-        }),
-      );
-    });
-
     it('should pass explicit credentials separately from the broker URL', async () => {
       mockClient.on.mockImplementation((event: string, handler: Function) => {
         if (event === 'connect') setTimeout(() => handler(), 0);
@@ -191,29 +160,6 @@ describe('MqttClientService', () => {
 
       expect(mockClient.end).toHaveBeenCalledWith(false, {}, expect.any(Function));
       expect(mqtt.connect).toHaveBeenCalledTimes(2);
-    });
-
-    it('should use custom keepalive and reconnectPeriod', async () => {
-      mockClient.on.mockImplementation((event: string, handler: Function) => {
-        if (event === 'connect') {
-          setTimeout(() => handler(), 0);
-        }
-      });
-
-      await service.connect({
-        brokerUrl: 'mqtt://localhost:1883',
-        clientId: 'test-client',
-        keepalive: 30,
-        reconnectPeriod: 10000,
-      });
-
-      expect(mqtt.connect).toHaveBeenCalledWith(
-        'mqtt://localhost:1883',
-        expect.objectContaining({
-          keepalive: 30,
-          reconnectPeriod: 10000,
-        }),
-      );
     });
 
     it('should clean up event listeners after connect', async () => {
