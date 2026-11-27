@@ -1,8 +1,5 @@
 import { useState } from 'react';
 
-import type { AsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
-import { adjudicationCasesService } from '@/renderer/services';
-import { unwrapData } from '@/renderer/services/serviceError';
 import type { AdjudicationCaseDto } from '@/shared/ipc/contracts';
 
 import { useEntryTypeSelection } from '../shared/cases/useEntryTypeSelection';
@@ -10,6 +7,7 @@ import { Button } from '../shared/common/Button';
 import { paddedInputClass } from '../shared/common/formClasses';
 
 import type { ArtifactCandidate } from './artifactCandidates';
+import type { AdjudicationCaseCommands } from './useAdjudicationCases';
 
 /**
  * The selected case file with its links, history and entry form. The panel does not key it by case, so the official
@@ -19,14 +17,12 @@ export function AdjudicationCaseDetail({
   value,
   candidates,
   saving,
-  run,
-  onChanged,
+  commands,
 }: {
   value: AdjudicationCaseDto;
   candidates: readonly ArtifactCandidate[];
   saving: boolean;
-  run: AsyncAction['run'];
-  onChanged: (value: AdjudicationCaseDto) => void;
+  commands: AdjudicationCaseCommands;
 }) {
   const [officialName, setOfficialName] = useState('');
   const [statement, setStatement] = useState('');
@@ -40,12 +36,10 @@ export function AdjudicationCaseDetail({
   );
   const selectedCandidate = availableCandidates.find((candidate) => candidate.key === candidateKey);
 
-  const change = (operation: () => ReturnType<typeof adjudicationCasesService.appendEntry>): Promise<boolean> =>
-    run(async () => {
-      onChanged(unwrapData(await operation(), 'Case operation failed'));
-      setStatement('');
-      setRuleReference('');
-    });
+  const clearDraft = () => {
+    setStatement('');
+    setRuleReference('');
+  };
 
   return (
     <div className="space-y-4 rounded-[3px] border border-vscode-border p-4">
@@ -78,13 +72,9 @@ export function AdjudicationCaseDetail({
                   variant="secondary"
                   disabled={saving || !officialName.trim() || !statement.trim()}
                   onClick={() =>
-                    void change(() =>
-                      adjudicationCasesService.unlinkArtifact({
-                        caseId: value.id,
-                        linkId: link.id,
-                        statement,
-                        officialName,
-                      }),
+                    void commands.unlinkArtifact(
+                      { caseId: value.id, linkId: link.id, statement, officialName },
+                      clearDraft,
                     )
                   }
                 >
@@ -114,19 +104,22 @@ export function AdjudicationCaseDetail({
               disabled={saving || !selectedCandidate || !officialName.trim() || !statement.trim()}
               onClick={() => {
                 if (!selectedCandidate) return;
-                void change(() =>
-                  adjudicationCasesService.linkArtifact({
-                    caseId: value.id,
-                    artifactType: selectedCandidate.type,
-                    artifactId: selectedCandidate.id,
-                    relation: selectedCandidate.relation,
-                    labelSnapshot: selectedCandidate.label,
-                    statement,
-                    officialName,
-                  }),
-                ).then((succeeded) => {
-                  if (succeeded) setCandidateKey('');
-                });
+                void commands
+                  .linkArtifact(
+                    {
+                      caseId: value.id,
+                      artifactType: selectedCandidate.type,
+                      artifactId: selectedCandidate.id,
+                      relation: selectedCandidate.relation,
+                      labelSnapshot: selectedCandidate.label,
+                      statement,
+                      officialName,
+                    },
+                    clearDraft,
+                  )
+                  .then((succeeded) => {
+                    if (succeeded) setCandidateKey('');
+                  });
               }}
             >
               Link record
@@ -182,14 +175,15 @@ export function AdjudicationCaseDetail({
         size="sm"
         disabled={saving || value.status === 'VOID' || !officialName.trim() || !statement.trim()}
         onClick={() =>
-          void change(() =>
-            adjudicationCasesService.appendEntry({
+          void commands.appendEntry(
+            {
               caseId: value.id,
               type: entryType,
               statement,
               officialName,
               ...(ruleReference.trim() ? { ruleReference } : {}),
-            }),
+            },
+            clearDraft,
           )
         }
       >

@@ -1,24 +1,21 @@
 import { useState } from 'react';
 
-import type { AsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
-import { adjudicationCasesService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
 import type { AdjudicationCaseDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 import { paddedInputClass } from '../shared/common/formClasses';
 
+import type { AdjudicationCaseCommands } from './useAdjudicationCases';
+
 /** Opens a case file in the event. The category and official name stay for the next case. */
 export function CreateAdjudicationCaseForm({
   eventId,
   disabled,
-  run,
-  onCreated,
+  onCreate,
 }: {
   eventId: string;
   disabled: boolean;
-  run: AsyncAction['run'];
-  onCreated: (value: AdjudicationCaseDto) => void;
+  onCreate: AdjudicationCaseCommands['create'];
 }) {
   const [category, setCategory] = useState<AdjudicationCaseDto['category']>('RANGE_INCIDENT');
   const [subject, setSubject] = useState('');
@@ -30,21 +27,13 @@ export function CreateAdjudicationCaseForm({
       className="rounded-[3px] border border-vscode-border p-3"
       onSubmit={(event) => {
         event.preventDefault();
-        void run(async () => {
-          const created = unwrap(
-            await adjudicationCasesService.create({
-              scopeType: 'EVENT',
-              scopeId: eventId,
-              category,
-              subject,
-              summary,
-              openedBy: officialName,
-            }),
-          );
-          onCreated(created);
-          setSubject('');
-          setSummary('');
-        });
+        void onCreate(
+          { scopeType: 'EVENT', scopeId: eventId, category, subject, summary, openedBy: officialName },
+          () => {
+            setSubject('');
+            setSummary('');
+          },
+        );
       }}
     >
       <p className="text-xs font-semibold text-vscode-text">Open an optional case file</p>

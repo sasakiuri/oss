@@ -1,14 +1,14 @@
 import { TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 
-import { irregularShotCasesService } from '@/renderer/services';
-import { errorMessage, unwrapData } from '@/renderer/services/serviceError';
 import type { IrregularShotCaseDto, RangeIncidentReportDto, ScoringDecisionDto } from '@/shared/ipc/contracts';
 
 import { useEntryTypeSelection } from '../shared/cases/useEntryTypeSelection';
 import { Button } from '../shared/common/Button';
 import { inputClass, stackedLabelClass } from '../shared/common/formClasses';
 import { toggleSetMember } from '../shared/common/toggleSetMember';
+
+import type { IrregularShotCaseCommands } from './useIrregularShotCases';
 
 /** One case with its shot timeline, evidence links and actions. The panel keys it by case. */
 export function IrregularShotCaseCard({
@@ -17,16 +17,14 @@ export function IrregularShotCaseCard({
   decisions,
   laneLabels,
   disabled,
-  onChanged,
-  onError,
+  commands,
 }: {
   value: IrregularShotCaseDto;
   reports: readonly RangeIncidentReportDto[];
   decisions: readonly ScoringDecisionDto[];
   laneLabels: ReadonlyMap<string, string>;
   disabled: boolean;
-  onChanged: (value: IrregularShotCaseDto) => void;
-  onError: (message: string | null) => void;
+  commands: Pick<IrregularShotCaseCommands, 'addEvidence' | 'appendEntry'>;
 }) {
   const [relation, setRelation] = useState<IrregularShotCaseDto['evidence'][number]['relation']>('CONTEXT');
   const entryTypes = availableEntryTypes(value.status);
@@ -40,18 +38,11 @@ export function IrregularShotCaseCard({
   const [saving, setSaving] = useState(false);
   const evidenceIds = new Set(value.evidence.map((item) => `${item.observationId}:${item.relation}`));
 
-  // The card's own busy state disables only this card; errors go to the panel banner.
-  const run = async (operation: () => ReturnType<typeof irregularShotCasesService.appendEntry>) => {
+  // The card's own busy state disables only this card; the commands report errors in the panel banner.
+  const run = async (command: () => Promise<boolean>) => {
     setSaving(true);
-    onError(null);
-    try {
-      onChanged(unwrapData(await operation(), 'Operation failed'));
-      setStatement('');
-    } catch (caught) {
-      onError(errorMessage(caught));
-    } finally {
-      setSaving(false);
-    }
+    if (await command()) setStatement('');
+    setSaving(false);
   };
 
   return (
@@ -109,7 +100,7 @@ export function IrregularShotCaseCard({
                       }
                       onClick={() =>
                         void run(() =>
-                          irregularShotCasesService.addEvidence({
+                          commands.addEvidence({
                             caseId: value.id,
                             observationId: item.observationId,
                             relation,
@@ -238,7 +229,7 @@ export function IrregularShotCaseCard({
         }
         onClick={() =>
           void run(() =>
-            irregularShotCasesService.appendEntry({
+            commands.appendEntry({
               caseId: value.id,
               type: entryType,
               statement: statement.trim(),

@@ -1,10 +1,7 @@
 import type { FinalSeriesAdjudicationCapability, FinalSeriesIncidentConsequence } from '@sasakiuri/saika-rules';
 import { useEffect, useMemo, useState } from 'react';
 
-import type { AsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
-import { irregularShotCasesService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
-import type { IrregularShotCaseDto, ResultScope } from '@/shared/ipc/contracts';
+import type { IrregularShotCaseDto } from '@/shared/ipc/contracts';
 
 import { lowerCaseLabel } from '../../formatters/enumLabel';
 import { Button } from '../shared/common/Button';
@@ -12,29 +9,23 @@ import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 import { inputClass, stackedLabelClass } from '../shared/common/formClasses';
 import { toggleSetMember } from '../shared/common/toggleSetMember';
 
+import type { IrregularShotCaseCommands } from './useIrregularShotCases';
+
 interface CreateIrregularShotCaseFormProps {
-  eventId: string;
-  competitionId: string;
-  resultScope: ResultScope;
   lanes: readonly { laneId: string; label: string }[];
   adjudication?: FinalSeriesAdjudicationCapability;
   disabled: boolean;
   saving: boolean;
-  run: AsyncAction['run'];
-  onCreated: (value: IrregularShotCaseDto) => void;
+  onCreate: IrregularShotCaseCommands['create'];
 }
 
 /** Opens a review case. The panel renders it unconditionally, so its draft lives as long as the panel. */
 export function CreateIrregularShotCaseForm({
-  eventId,
-  competitionId,
-  resultScope,
   lanes,
   adjudication,
   disabled,
   saving,
-  run,
-  onCreated,
+  onCreate,
 }: CreateIrregularShotCaseFormProps) {
   const [kind, setKind] = useState<IrregularShotCaseDto['kind']>('CROSS_FIRE');
   const [ruleReference, setRuleReference] = useState('ISSF 6.11.6');
@@ -64,26 +55,20 @@ export function CreateIrregularShotCaseForm({
 
   const createCase = async () => {
     if (!subjectLaneId || !summary.trim() || !officialName.trim()) return;
-    await run(async () => {
-      const created = unwrap(
-        await irregularShotCasesService.create({
-          eventId,
-          competitionId,
-          resultScope,
-          kind,
-          subjectLaneId,
-          adjacentLaneIds: [...adjacentLaneIds],
-          windowStartAt: new Date(windowStartAt).toISOString(),
-          windowEndAt: new Date(windowEndAt).toISOString(),
-          summary: summary.trim(),
-          ruleReference: ruleReference.trim(),
-          openedBy: officialName.trim(),
-          occurredAt: new Date(occurredAt).toISOString(),
-        }),
-      );
-      onCreated(created);
-      setSummary('');
-    });
+    await onCreate(
+      {
+        kind,
+        subjectLaneId,
+        adjacentLaneIds: [...adjacentLaneIds],
+        windowStartAt,
+        windowEndAt,
+        summary: summary.trim(),
+        ruleReference: ruleReference.trim(),
+        openedBy: officialName.trim(),
+        occurredAt,
+      },
+      () => setSummary(''),
+    );
   };
 
   return (
