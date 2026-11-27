@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -11,18 +10,18 @@ import { DocumentSchema, newDocument } from '../src/main/document';
 import { VistaApplication } from '../src/main/VistaApplication';
 import type { SnapshotEntry } from '../src/shared/model';
 
-import { desktopPort } from './applicationFixtures';
+import { cleanUp, desktopPort, temporaryDirectory } from './applicationFixtures';
 import { monitor, screenConfig, snapshot } from './fixtures';
 
 let directory: string;
 let file: string;
 beforeEach(async () => {
-  directory = await mkdtemp(join(tmpdir(), 'vista-isolation-'));
+  directory = await temporaryDirectory('vista-isolation-');
   file = join(directory, 'vista.json');
 });
 afterEach(async () => {
   vi.restoreAllMocks();
-  await rm(directory, { recursive: true, force: true });
+  await cleanUp();
 });
 
 const entry = (revision = 1): SnapshotEntry => ({

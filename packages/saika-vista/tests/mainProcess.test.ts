@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { UpdaterServiceOptions } from '@sasakiuri/saika-updater/main';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DesktopPort } from '../src/main/DesktopPort';
@@ -9,6 +10,8 @@ import { updateState } from './updateFixtures';
 
 type Handler = (...args: never[]) => unknown;
 const mocks = vi.hoisted(() => {
+  /** What the next renderer load of any window returns. */
+  const load = { next: (): Promise<void> => Promise.resolve() };
   class FakeContents {
     mainFrame = {};
     crashed = false;
@@ -36,7 +39,7 @@ const mocks = vi.hoisted(() => {
     emit(name: string) {
       (this.handlers.get(name) as (() => void) | undefined)?.();
     }
-    loadFile = vi.fn(async () => undefined);
+    loadFile = vi.fn((..._args: unknown[]) => load.next());
     loadURL = vi.fn(async () => undefined);
     isDestroyed = () => this.destroyed;
     show = vi.fn();
@@ -57,6 +60,7 @@ const mocks = vi.hoisted(() => {
   });
   return {
     FakeWindow,
+    load,
     displays: [display(1, 'Main', 0), display(2, '', 1920)],
     app: new Map<string, Handler>(),
     ipc: new Map<string, (event: unknown, input?: unknown) => unknown>(),
@@ -65,6 +69,12 @@ const mocks = vi.hoisted(() => {
     powerStart: vi.fn((_type: string) => 7),
     powerStop: vi.fn(),
     error: vi.fn(),
+    confirm: vi.fn(),
+    quit: vi.fn(),
+    releaseLock: vi.fn(),
+    relaunch: vi.fn(),
+    checkForUpdates: vi.fn(),
+    updater: null as UpdaterServiceOptions | null,
     desktop: null as DesktopPort | null,
     onStart: null as ((desktop: DesktopPort) => void) | null,
     application: {
@@ -77,13 +87,16 @@ const mocks = vi.hoisted(() => {
       view: vi.fn(() => ({ view: true })),
       command: vi.fn(async () => undefined),
       discover: vi.fn(async () => []),
-      stop: vi.fn(async () => undefined),
+      stop: vi.fn(async (): Promise<void> => undefined),
     },
   };
 });
 vi.mock('@sasakiuri/saika-updater/main', () => ({
   UpdaterService: class {
-    checkForUpdates = vi.fn(async () => updateState);
+    constructor(options: UpdaterServiceOptions) {
+      mocks.updater = options;
+    }
+    checkForUpdates = mocks.checkForUpdates;
     getState = () => updateState;
     quitAndInstall = vi.fn();
   },
@@ -97,13 +110,13 @@ vi.mock('electron', () => ({
     commandLine: { getSwitchValue: () => '' },
     requestSingleInstanceLock: () => true,
     whenReady: () => Promise.resolve(),
-    quit: vi.fn(),
-    releaseSingleInstanceLock: vi.fn(),
-    relaunch: vi.fn(),
+    quit: mocks.quit,
+    releaseSingleInstanceLock: mocks.releaseLock,
+    relaunch: mocks.relaunch,
     on: (name: string, handler: Handler) => mocks.app.set(name, handler),
   },
   BrowserWindow: mocks.FakeWindow,
-  dialog: { showMessageBox: vi.fn(), showErrorBox: mocks.error },
+  dialog: { showMessageBox: mocks.confirm, showErrorBox: mocks.error },
   nativeTheme: {},
   ipcMain: { handle: (name: string, handler: (event: unknown) => unknown) => mocks.ipc.set(name, handler) },
   screen: {
@@ -156,6 +169,9 @@ beforeEach(() => {
   mocks.power.clear();
   mocks.desktop = null;
   mocks.onStart = null;
+  mocks.load.next = () => Promise.resolve();
+  mocks.checkForUpdates.mockResolvedValue(updateState);
+  mocks.application.stop.mockResolvedValue(undefined);
   mocks.application.state.document.screens = [];
 });
 afterEach(() => {
@@ -363,5 +379,102 @@ describe('Vista main process', () => {
     await launch();
     expect(windows()).toHaveLength(1);
     expect(windows()[0]!.options).toMatchObject({ fullscreen: true });
+  });
+});
+
+describe('Vista update shutdown', () => {
+  let rejectLoad: (error: Error) => void;
+  const beforeQuit = () => mocks.app.get('before-quit') as (event: { preventDefault: () => void }) => void;
+  beforeEach(async () => {
+    mocks.load.next = () =>
+      new Promise<void>((_resolve, reject) => {
+        rejectLoad = reject;
+      });
+    mocks.confirm.mockResolvedValue({ response: 0 });
+    await launch();
+  });
+  it('checks at startup and keeps normal quit from installing', async () => {
+    expect(mocks.updater?.metadataNamespace).toBe('vista');
+    expect(mocks.updater?.autoInstallOnAppQuit).toBe(false);
+    expect(mocks.checkForUpdates).toHaveBeenCalledOnce();
+    const event = { preventDefault: vi.fn() };
+    beforeQuit()(event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(mocks.quit).toHaveBeenCalledOnce());
+    expect(mocks.application.stop).toHaveBeenCalledOnce();
+  });
+  it('reports a genuine renderer load failure while the window is still open', async () => {
+    rejectLoad(new Error('Renderer file missing'));
+    await vi.waitFor(() => expect(mocks.error).toHaveBeenCalledWith('Saika Vista', 'Renderer file missing'));
+  });
+  it('does not open an error dialog for a window load interrupted by quitting', async () => {
+    beforeQuit()({ preventDefault: vi.fn() });
+    await vi.waitFor(() => expect(mocks.quit).toHaveBeenCalledOnce());
+    rejectLoad(new Error('ERR_ABORTED'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mocks.error).not.toHaveBeenCalled();
+  });
+  it('does not open an error dialog for a window that closed while loading', async () => {
+    operatorWindow().destroyed = true;
+    rejectLoad(new Error('ERR_ABORTED'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mocks.error).not.toHaveBeenCalled();
+  });
+  it('keeps the running application intact when installation is cancelled', async () => {
+    mocks.confirm.mockResolvedValue({ response: 1 });
+    await expect(mocks.updater!.beforeInstall!()).rejects.toThrow('cancelled');
+    expect(mocks.application.stop).not.toHaveBeenCalled();
+    expect(mocks.relaunch).not.toHaveBeenCalled();
+    expect(mocks.confirm.mock.calls[0]![1]).toMatchObject({ defaultId: 1, cancelId: 1 });
+  });
+  it('waits for shutdown and blocks concurrent quit and commands', async () => {
+    let finish!: () => void;
+    mocks.application.stop.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const pending = mocks.updater!.beforeInstall!();
+    await vi.waitFor(() => expect(mocks.application.stop).toHaveBeenCalledOnce());
+    const event = { preventDefault: vi.fn() };
+    beforeQuit()(event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(() => mocks.ipc.get('vista:updates-check')!(sender(operatorWindow()))).toThrow('restarting');
+    expect(mocks.quit).not.toHaveBeenCalled();
+    expect(mocks.releaseLock).not.toHaveBeenCalled();
+    finish();
+    await pending;
+    expect(mocks.releaseLock).toHaveBeenCalledOnce();
+    event.preventDefault.mockClear();
+    beforeQuit()(event);
+    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(mocks.quit).not.toHaveBeenCalled();
+  });
+  it('restarts the current version once after a late installer error', async () => {
+    await mocks.updater!.beforeInstall!();
+    const failure = { ...updateState, status: 'error' as const, errorMessage: 'Installer failed' };
+    mocks.updater!.onStateChange!(failure);
+    mocks.updater!.onStateChange!(failure);
+    await vi.waitFor(() => expect(mocks.relaunch).toHaveBeenCalledOnce());
+    expect(mocks.quit).toHaveBeenCalledOnce();
+    expect(mocks.error).toHaveBeenCalledWith(
+      'Vista update could not be installed',
+      expect.stringContaining('current version'),
+    );
+  });
+  it('recovers after cleanup fails, but never restarts on a download error', async () => {
+    const failure = { ...updateState, status: 'error' as const, errorMessage: 'Storage failed' };
+    mocks.updater!.onStateChange!(failure);
+    expect(mocks.relaunch).not.toHaveBeenCalled();
+    mocks.application.stop.mockRejectedValue(new Error('Storage failed'));
+    await expect(mocks.updater!.beforeInstall!()).rejects.toThrow('Storage failed');
+    mocks.updater!.onStateChange!(failure);
+    await vi.waitFor(() => expect(mocks.relaunch).toHaveBeenCalledOnce());
+  });
+  it('rejects audience and child-frame update requests', () => {
+    for (const name of ['vista:updates-state', 'vista:updates-check', 'vista:updates-install']) {
+      expect(() => mocks.ipc.get(name)!({ sender: { mainFrame: {} }, senderFrame: {} })).toThrow('operator window');
+      expect(() => mocks.ipc.get(name)!(sender(operatorWindow(), false))).toThrow('operator window');
+    }
   });
 });

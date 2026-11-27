@@ -1,14 +1,48 @@
 // SPDX-License-Identifier: MIT
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import type { VistaIdentity, VistaSnapshot } from '@sasakiuri/saika-protocol/Vista';
 import { createVistaServer, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
 import { vi } from 'vitest';
 
 import type { DesktopPort } from '../src/main/DesktopPort';
-import type { VistaApplication } from '../src/main/VistaApplication';
+import { VistaApplication } from '../src/main/VistaApplication';
 
 import { monitor, snapshot } from './fixtures';
 
 // Main-process fakes depend on the Vitest runner, so they stay out of the fixtures shared with Playwright.
+
+/** The pairing secret of the sources and display PCs that tests start. */
+export const secret = 'a'.repeat(43);
+
+const cleanups: Array<() => Promise<unknown>> = [];
+
+/** Registers a step that cleanUp() runs after the current test, in reverse order of registration. */
+export function afterTest(step: () => Promise<unknown>): void {
+  cleanups.push(step);
+}
+
+/** Runs the registered steps. Test files call it from afterEach. */
+export async function cleanUp(): Promise<void> {
+  for (const clean of cleanups.reverse()) await clean();
+  cleanups.length = 0;
+}
+
+/** A new temporary directory that is removed after the test. */
+export async function temporaryDirectory(prefix: string): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), prefix));
+  afterTest(() => rm(directory, { recursive: true, force: true }));
+  return directory;
+}
+
+/** Starts Vista in a new temporary directory and stops it after the test. */
+export async function startApplication(prefix: string, port: DesktopPort = desktopPort()): Promise<VistaApplication> {
+  const app = await VistaApplication.start(await temporaryDirectory(prefix), port);
+  afterTest(() => app.stop());
+  return app;
+}
 
 /** A desktop with one connected primary monitor and no rendered audience windows. */
 export function desktopPort(overrides: Partial<DesktopPort> = {}): DesktopPort {

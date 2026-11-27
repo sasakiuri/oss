@@ -1,31 +1,29 @@
 // SPDX-License-Identifier: MIT
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { afterEach, expect, it, vi } from 'vitest';
 
 import type { DesktopPort } from '../src/main/DesktopPort';
-import { VistaApplication } from '../src/main/VistaApplication';
 
-import { desktopPort, internals, pausePolling, sourceServer } from './applicationFixtures';
+import {
+  afterTest,
+  cleanUp,
+  desktopPort,
+  internals,
+  pausePolling,
+  secret,
+  sourceServer,
+  startApplication,
+} from './applicationFixtures';
 import { monitor, screenConfig, snapshot } from './fixtures';
 
 vi.mock('electron', () => ({ app: { isPackaged: true, getPath: () => '/opt/saika-vista' } }));
 
-const secret = 'a'.repeat(43);
-const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
   vi.useRealTimers();
-  for (const clean of cleanup.reverse()) await clean();
-  cleanup.length = 0;
+  await cleanUp();
 });
 
 async function start(port: DesktopPort) {
-  const directory = await mkdtemp(join(tmpdir(), 'vista-notify-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
-  const app = await VistaApplication.start(directory, port);
-  cleanup.push(() => app.stop());
+  const app = await startApplication('vista-notify-', port);
   const scheduled = await pausePolling(app);
   /** One poll round without rescheduling the next; the polls it starts keep running. */
   const tick = async () => {
@@ -57,7 +55,7 @@ async function liveScreen() {
       return snapshot(source.revision);
     },
   });
-  cleanup.push(() => server.close().catch(() => undefined));
+  afterTest(() => server.close().catch(() => undefined));
   const vista = await start(desktopPort({ changed, monitors: () => monitors, status: () => renderer }));
   await vista.app.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret });
   await vista.app.command({ type: 'apply', nodeId: vista.app.identity.sourceId, config: screenConfig() });
@@ -163,7 +161,7 @@ it('notifies the renderers when a snapshot turns stale because its updates stopp
   source.hold = new Promise((resolve) => {
     release = resolve;
   });
-  cleanup.push(async () => release());
+  afterTest(async () => release());
 
   vi.setSystemTime(Date.now() + 4001);
   await tick();
