@@ -7,6 +7,7 @@ import {
 import type { IAthleteSanctionRepository } from '../domain/IAthleteSanctionRepository';
 import {
   getActiveSanctionDecisions,
+  sanctionAppliesToEvent,
   SanctionDecision,
   type SanctionAuthorization,
   type SanctionClassificationCode,
@@ -59,20 +60,7 @@ export class AthleteSanctionService {
     this.repository.executeInTransaction(() => {
       this.repository.appendIdentity(identity);
       for (const participant of participants) {
-        this.repository.appendLinkEntry(
-          AthleteIdentityLinkEntry.link({
-            athleteIdentityId: identity.id,
-            participantId: participant.participantId,
-            eventIdSnapshot: participant.eventId,
-            eventNameSnapshot: participant.eventName,
-            playerNameSnapshot: participant.playerName,
-            issfIdSnapshot: participant.issfId,
-            linkBasis: input.linkBasis,
-            statement: input.statement,
-            officialName: input.officialName,
-            recordedAt: this.now(),
-          }),
-        );
+        this.repository.appendLinkEntry(this.linkEntry(identity.id, participant, input.linkBasis, input));
       }
     });
     return this.getWorkspace(input.championshipId);
@@ -89,20 +77,7 @@ export class AthleteSanctionService {
     const participant = this.requireParticipantInChampionship(input.participantId, identity.championshipId);
     this.assertLinksAvailable([input.participantId], identity.championshipId);
     this.assertLinkBasis(identity, participant, input.linkBasis);
-    this.repository.appendLinkEntry(
-      AthleteIdentityLinkEntry.link({
-        athleteIdentityId: identity.id,
-        participantId: participant.participantId,
-        eventIdSnapshot: participant.eventId,
-        eventNameSnapshot: participant.eventName,
-        playerNameSnapshot: participant.playerName,
-        issfIdSnapshot: participant.issfId,
-        linkBasis: input.linkBasis,
-        statement: input.statement,
-        officialName: input.officialName,
-        recordedAt: this.now(),
-      }),
-    );
+    this.repository.appendLinkEntry(this.linkEntry(identity.id, participant, input.linkBasis, input));
     return this.getWorkspace(identity.championshipId);
   }
 
@@ -173,20 +148,7 @@ export class AthleteSanctionService {
           identitiesCreated += 1;
         }
         for (const participant of participants) {
-          this.repository.appendLinkEntry(
-            AthleteIdentityLinkEntry.link({
-              athleteIdentityId: identity.id,
-              participantId: participant.participantId,
-              eventIdSnapshot: participant.eventId,
-              eventNameSnapshot: participant.eventName,
-              playerNameSnapshot: participant.playerName,
-              issfIdSnapshot: participant.issfId,
-              linkBasis: 'ISSF_ID',
-              statement: input.statement,
-              officialName: input.officialName,
-              recordedAt: this.now(),
-            }),
-          );
+          this.repository.appendLinkEntry(this.linkEntry(identity.id, participant, 'ISSF_ID', input));
           participantsLinked += 1;
         }
       }
@@ -231,7 +193,7 @@ export class AthleteSanctionService {
           decision.athleteIdentityId === identity.id &&
           decision.classificationCode === input.classificationCode &&
           decision.scope === input.scope &&
-          (input.scope === 'CHAMPIONSHIP' || decision.sourceEventId === input.sourceEventId),
+          sanctionAppliesToEvent(decision, input.sourceEventId),
       )
     ) {
       throw new Error(`An active ${input.classificationCode} sanction already covers this scope`);
@@ -289,6 +251,26 @@ export class AthleteSanctionService {
       sanctionHistory,
       activeSanctions: getActiveSanctionDecisions(sanctionHistory),
     };
+  }
+
+  private linkEntry(
+    athleteIdentityId: string,
+    participant: AthleteEntryReference,
+    linkBasis: AthleteIdentityLinkBasis,
+    record: { readonly statement: string; readonly officialName: string },
+  ): AthleteIdentityLinkEntry {
+    return AthleteIdentityLinkEntry.link({
+      athleteIdentityId,
+      participantId: participant.participantId,
+      eventIdSnapshot: participant.eventId,
+      eventNameSnapshot: participant.eventName,
+      playerNameSnapshot: participant.playerName,
+      issfIdSnapshot: participant.issfId,
+      linkBasis,
+      statement: record.statement,
+      officialName: record.officialName,
+      recordedAt: this.now(),
+    });
   }
 
   private requireIdentity(id: string): AthleteIdentity {

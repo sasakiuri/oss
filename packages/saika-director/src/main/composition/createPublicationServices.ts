@@ -60,7 +60,6 @@ import type { BackupServices } from './createBackupServices';
 import type { CompetitionServices } from './createCompetitionServices';
 import type { EvidenceServices } from './createEvidenceServices';
 import type { OperatorServices } from './createOperatorServices';
-import type { ScoringServices } from './createScoringServices';
 
 type PublicationServicesDependencies = Pick<
   ServiceRegistry,
@@ -81,7 +80,6 @@ type PublicationServicesDependencies = Pick<
 > &
   Pick<BackupServices, 'finalVerificationSource'> &
   Pick<OperatorServices, 'publicationReviewPolicies' | 'officialSigningPolicy' | 'policyEvents'> &
-  Pick<ScoringServices, 'reviewCompetitionScope'> &
   Pick<
     CompetitionServices,
     'athleteSanctionRepository' | 'athleteEntryReferenceSource' | 'finalResultDeclarationRepository'
@@ -102,7 +100,6 @@ export function createPublicationServices({
   estBackupCaptureService,
   policyEvents,
   observationReviewService,
-  reviewCompetitionScope,
   athleteSanctionRepository,
   athleteEntryReferenceSource,
   irregularShotCaseRepository,
@@ -160,9 +157,7 @@ export function createPublicationServices({
   const verifiedResultPublicationReadiness = new VerifiedResultPublicationReadiness(resultVerificationService);
   const resultPublicationReadiness = new GuardedResultPublicationReadiness(verifiedResultPublicationReadiness, [
     new OptionalResultPublicationBlocker(
-      new ObservationReviewPublicationBlocker(observationReviewService, (eventId, scope) =>
-        reviewCompetitionScope.competitionIds(eventId, scope),
-      ),
+      new ObservationReviewPublicationBlocker(observationReviewService),
       (eventId, scope) => publicationReviewPolicies.get(eventId, scope).effectiveSettings.requireObservationReviews,
     ),
     new OptionalResultPublicationBlocker(

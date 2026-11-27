@@ -42,8 +42,8 @@ export class ObservationReviewService {
     private readonly subjects: IReviewSubjectSource,
     private readonly repository: IObservationReviewRepository,
     private readonly corrections: IReviewCorrectionSource,
+    private readonly competitions: (eventId: string, scope: 'QUALIFICATION' | 'FINAL') => readonly string[],
     private readonly now: () => Date = () => new Date(),
-    private readonly competitions: (eventId: string, scope: 'QUALIFICATION' | 'FINAL') => readonly string[] = () => [],
   ) {}
 
   listEvent(eventId: string, scope: 'QUALIFICATION' | 'FINAL') {

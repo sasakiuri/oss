@@ -31,10 +31,10 @@ function fixture() {
   let correctionIssue: string | null = null;
   const repository = new SqliteObservationReviewRepository(db);
   const source = { list: (id: string) => subjects.filter((item) => item.competitionId === id) };
-  const service = new ObservationReviewService(source, repository, { issue: () => correctionIssue });
-  const blocker = new ObservationReviewPublicationBlocker(service, (event, scope) =>
+  const service = new ObservationReviewService(source, repository, { issue: () => correctionIssue }, (event, scope) =>
     event === 'event' && scope === 'QUALIFICATION' ? ['competition'] : [],
   );
+  const blocker = new ObservationReviewPublicationBlocker(service);
   const request = {
     id: 'review1',
     competitionId: 'competition',

@@ -2,8 +2,6 @@ import { createHash } from 'node:crypto';
 import {
   EventId,
   FiringPointAssignment,
-  FiringPointAssignmentId,
-  ParticipantId,
   type IEventSummaryReader,
   type IFiringPointAssignmentRepository,
   type IParticipantRepository,
@@ -23,7 +21,7 @@ import { sha256Json } from '@/main/domain/sha256Json';
 export interface SquaddingSources {
   readonly events: IEventSummaryReader;
   readonly participants: Pick<IParticipantRepository, 'findByEventId'>;
-  readonly assignments: Pick<IFiringPointAssignmentRepository, 'deleteByEventId' | 'saveAll'>;
+  readonly assignments: Pick<IFiringPointAssignmentRepository, 'replaceByEventId'>;
 }
 
 export class SquaddingService {
@@ -106,19 +104,10 @@ export class SquaddingService {
       throw new Error('The stored squadding output failed its integrity check');
     }
 
-    const entities = draw.assignments.map((assignment) =>
-      FiringPointAssignment.create(
-        FiringPointAssignmentId.generate(),
-        EventId.create(draw.eventId),
-        assignment.relayNumber,
-        assignment.firingPointNumber,
-        ParticipantId.create(assignment.participantId),
-      ),
-    );
+    const entities = FiringPointAssignment.planFor(EventId.create(draw.eventId), draw.assignments);
     const applicationEntry = this.newEntry(draw.id, 'APPLIED', input);
     this.repository.transaction(() => {
-      this.sources.assignments.deleteByEventId(draw.eventId);
-      this.sources.assignments.saveAll(entities);
+      this.sources.assignments.replaceByEventId(draw.eventId, entities);
       this.repository.appendEntry(applicationEntry);
     });
     return this.toDto(this.requireDraw(draw.id));

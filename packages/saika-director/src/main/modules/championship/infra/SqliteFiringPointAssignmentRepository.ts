@@ -56,11 +56,11 @@ export class SqliteFiringPointAssignmentRepository implements IFiringPointAssign
     stmt.run(eventId);
   }
 
-  executeInTransaction(fn: () => void): void {
-    const transaction = this.db.transaction(() => {
-      fn();
-    });
-    transaction();
+  replaceByEventId(eventId: string, assignments: FiringPointAssignment[]): void {
+    this.db.transaction(() => {
+      this.deleteByEventId(eventId);
+      this.saveAll(assignments);
+    })();
   }
 
   private toEntity(row: FiringPointAssignmentRow): FiringPointAssignment {

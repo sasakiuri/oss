@@ -6,7 +6,11 @@ import type {
 import type { IAthleteEntryReferenceSource } from '../application/AthleteEntryReferenceSource';
 import { getActiveAthleteIdentityLinks } from '../domain/AthleteIdentityLink';
 import type { IAthleteSanctionRepository } from '../domain/IAthleteSanctionRepository';
-import { getActiveSanctionDecisions, selectEffectiveSanction } from '../domain/SanctionDecision';
+import {
+  getActiveSanctionDecisions,
+  sanctionAppliesToEvent,
+  selectEffectiveSanction,
+} from '../domain/SanctionDecision';
 
 /** Answers assignment eligibility from sanctions without exposing sanction storage to Lane modules. */
 export class AthleteSanctionParticipantEligibilityReader implements IParticipantEligibilityReader {
@@ -28,8 +32,7 @@ export class AthleteSanctionParticipantEligibilityReader implements IParticipant
       this.repository.findDecisionsByChampionship(participant.championshipId),
     ).filter(
       (decision) =>
-        decision.athleteIdentityId === link.athleteIdentityId &&
-        (decision.scope === 'CHAMPIONSHIP' || decision.sourceEventId === participant.eventId),
+        decision.athleteIdentityId === link.athleteIdentityId && sanctionAppliesToEvent(decision, participant.eventId),
     );
     const effective = selectEffectiveSanction(applicable);
     if (!effective) return eligibleAssessment(participantId);

@@ -105,7 +105,6 @@ export function createScoringServices({
     new AppliedReviewCorrections(scoreCorrections, scoreCorrectionService, (eventId, scope) =>
       reviewCompetitionScope.competitionIds(eventId, scope),
     ),
-    undefined,
     (eventId, scope) => reviewCompetitionScope.competitionIds(eventId, scope),
   );
   const qualificationResultsReader = new QualificationResultsReader(
@@ -143,7 +142,6 @@ export function createScoringServices({
   return {
     malfunctionScoreApplicationService,
     scoreCorrectionService,
-    reviewCompetitionScope,
     observationReviewService,
     qualificationResultsReader,
     finalResultsReader,
@@ -151,5 +149,3 @@ export function createScoringServices({
     teamResultsService,
   };
 }
-
-export type ScoringServices = ReturnType<typeof createScoringServices>;

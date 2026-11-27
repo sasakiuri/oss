@@ -5,5 +5,6 @@ export interface IFiringPointAssignmentRepository {
   findByEventId(eventId: string): FiringPointAssignment[];
   findByEventIdAndRelay(eventId: string, relayNumber: number): FiringPointAssignment[];
   deleteByEventId(eventId: string): void;
-  executeInTransaction(fn: () => void): void;
+  /** Replaces the event's whole firing-point plan in one transaction. */
+  replaceByEventId(eventId: string, assignments: FiringPointAssignment[]): void;
 }
