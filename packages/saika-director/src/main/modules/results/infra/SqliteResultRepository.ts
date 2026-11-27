@@ -153,9 +153,9 @@ export class SqliteResultRepository implements IResultRepository {
   private toEntity(row: ResultRow): Result {
     if (row.series_scores_json !== null) {
       return Result.reconstruct(
-        ResultId.reconstruct(row.id),
-        EventId.reconstruct(row.event_id),
-        ParticipantId.reconstruct(row.participant_id),
+        ResultId.create(row.id),
+        EventId.create(row.event_id),
+        ParticipantId.create(row.participant_id),
         row.player_name,
         row.affiliation,
         row.total_score,
@@ -171,9 +171,9 @@ export class SqliteResultRepository implements IResultRepository {
       );
     }
     return Result.reconstructFromJson(
-      ResultId.reconstruct(row.id),
-      EventId.reconstruct(row.event_id),
-      ParticipantId.reconstruct(row.participant_id),
+      ResultId.create(row.id),
+      EventId.create(row.event_id),
+      ParticipantId.create(row.participant_id),
       row.player_name,
       row.affiliation,
       row.total_score,

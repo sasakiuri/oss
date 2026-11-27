@@ -1,10 +1,11 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
 import { publicationReviewPolicyEntrySchema, type PublicationReviewPolicyEntry } from '@/shared/ipc/contracts';
 import type { IPublicationReviewPolicyRepository } from '../application/PublicationReviewPolicyService';
 
 export class SqlitePublicationReviewPolicyRepository implements IPublicationReviewPolicyRepository {
   constructor(private readonly db: Database.Database) {}
-  find(eventId: string, scope: 'QUALIFICATION' | 'FINAL'): PublicationReviewPolicyEntry[] {
+  find(eventId: string, scope: ResultScope): PublicationReviewPolicyEntry[] {
     return (
       this.db
         .prepare(

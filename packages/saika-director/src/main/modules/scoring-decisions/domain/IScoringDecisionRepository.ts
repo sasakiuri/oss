@@ -1,4 +1,5 @@
-import type { ScoringDecision, ScoringResultScope } from './ScoringDecision';
+import type { ResultScope } from '@/main/domain/resultScope';
+import type { ScoringDecision } from './ScoringDecision';
 
 export interface IScoringDecisionRepository {
   append(decision: ScoringDecision): void;
@@ -7,7 +8,7 @@ export interface IScoringDecisionRepository {
     eventId: string,
     participantId: string,
     relayNumber: number,
-    resultScope: ScoringResultScope,
+    resultScope: ResultScope,
   ): ScoringDecision[];
-  findByEventId(eventId: string, resultScope: ScoringResultScope): ScoringDecision[];
+  findByEventId(eventId: string, resultScope: ResultScope): ScoringDecision[];
 }

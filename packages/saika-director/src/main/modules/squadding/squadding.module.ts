@@ -1,8 +1,3 @@
-import {
-  SqliteEventSummaryReader,
-  SqliteFiringPointAssignmentRepository,
-  SqliteParticipantRepository,
-} from '@/main/modules/championship';
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { squaddingContract } from '@/shared/ipc/contracts';
 import { SquaddingService } from './application/SquaddingService';
@@ -10,14 +5,28 @@ import { SqliteSquaddingRepository } from './infra/SqliteSquaddingRepository';
 
 export const squaddingModule = defineModule({
   name: 'squadding',
-  deps: ['database', 'ipcRouter', 'competitionTypeRegistry'],
-  register({ database, ipcRouter, competitionTypeRegistry }) {
+  deps: [
+    'database',
+    'ipcRouter',
+    'competitionTypeRegistry',
+    'eventSummaryReader',
+    'participantRepository',
+    'firingPointAssignmentRepository',
+  ],
+  register({
+    database,
+    ipcRouter,
+    competitionTypeRegistry,
+    eventSummaryReader,
+    participantRepository,
+    firingPointAssignmentRepository,
+  }) {
     const service = new SquaddingService(
       new SqliteSquaddingRepository(database),
       {
-        events: new SqliteEventSummaryReader(database),
-        participants: new SqliteParticipantRepository(database),
-        assignments: new SqliteFiringPointAssignmentRepository(database),
+        events: eventSummaryReader,
+        participants: participantRepository,
+        assignments: firingPointAssignmentRepository,
       },
       competitionTypeRegistry,
     );

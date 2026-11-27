@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { isRangeIncidentReportVoided, type IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import { getActiveScoringDecisions, type IScoringDecisionRepository } from '@/main/modules/scoring-decisions';
 import type { IResultPublicationBlocker } from '@/main/modules/result-publication';
@@ -12,12 +13,12 @@ export class IrregularShotPublicationBlocker implements IResultPublicationBlocke
     private readonly decisions: IScoringDecisionRepository,
   ) {}
 
-  getIssues(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): readonly string[] {
+  getIssues(eventId: string, resultScope: ResultScope): readonly string[] {
     return [...this.getCaseIssues(eventId, resultScope).values()].flat();
   }
 
   /** Case-addressable projection used by operational UI without weakening the generic blocker port. */
-  getCaseIssues(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): ReadonlyMap<string, readonly string[]> {
+  getCaseIssues(eventId: string, resultScope: ResultScope): ReadonlyMap<string, readonly string[]> {
     const values = this.repository.findCasesByEvent(eventId, resultScope);
     const entries = this.repository.findEntries(values.map((value) => value.id));
     const activeDecisionIds = new Set(

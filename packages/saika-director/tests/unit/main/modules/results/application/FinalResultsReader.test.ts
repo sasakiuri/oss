@@ -20,8 +20,8 @@ describe('FinalResultsReader', () => {
     const participantId = '22222222-2222-4222-8222-222222222222';
     const result = FinalResult.reconstruct(
       FinalResultId.create('33333333-3333-4333-8333-333333333333'),
-      EventId.reconstruct(eventId),
-      ParticipantId.reconstruct(participantId),
+      EventId.create(eventId),
+      ParticipantId.create(participantId),
       'Final Athlete',
       'Team',
       1,
@@ -223,8 +223,8 @@ describe('FinalResultsReader', () => {
     const participantId = '55555555-5555-4555-8555-555555555555';
     const result = FinalResult.reconstruct(
       FinalResultId.create('66666666-6666-4666-8666-666666666666'),
-      EventId.reconstruct(eventId),
-      ParticipantId.reconstruct(participantId),
+      EventId.create(eventId),
+      ParticipantId.create(participantId),
       'Partial Athlete',
       'Team',
       2,

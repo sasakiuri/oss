@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
 
 import type {
@@ -209,14 +210,14 @@ export class SqliteResultsBookSource implements IResultsBookSource {
     }
   }
 
-  private eventResultScope(event: EventRow): 'QUALIFICATION' | 'FINAL' {
+  private eventResultScope(event: EventRow): ResultScope {
     if (event.round.toUpperCase().includes('FINAL') || this.hasRows('final_results', event.id)) return 'FINAL';
     if (this.hasRows('mixed_team_final_results', event.id)) return 'FINAL';
     return 'QUALIFICATION';
   }
 
-  private availableScopes(eventId: string): Array<'QUALIFICATION' | 'FINAL'> {
-    const scopes: Array<'QUALIFICATION' | 'FINAL'> = [];
+  private availableScopes(eventId: string): Array<ResultScope> {
+    const scopes: Array<ResultScope> = [];
     if (this.hasRows('results', eventId)) scopes.push('QUALIFICATION');
     if (this.hasRows('final_results', eventId) || this.hasRows('mixed_team_final_results', eventId)) {
       scopes.push('FINAL');
@@ -228,7 +229,7 @@ export class SqliteResultsBookSource implements IResultsBookSource {
     return Boolean(this.db.prepare(`SELECT 1 FROM ${table} WHERE event_id = ? LIMIT 1`).get(eventId));
   }
 
-  private resultMetadata(eventId: string, scope: 'QUALIFICATION' | 'FINAL'): Map<string, ResultMetadataRow> {
+  private resultMetadata(eventId: string, scope: ResultScope): Map<string, ResultMetadataRow> {
     const individualTable = scope === 'FINAL' ? 'final_results' : 'results';
     const individualRemarks = scope === 'FINAL' ? 'r.remarks' : "''";
     const rows = this.db

@@ -3,8 +3,8 @@ import { randomUUID } from 'crypto';
 export class FinalResultId {
   private constructor(public readonly value: string) {}
 
-  static create(value?: string): FinalResultId {
-    return new FinalResultId(value ?? randomUUID());
+  static create(value: string): FinalResultId {
+    return new FinalResultId(value);
   }
 
   static generate(): FinalResultId {

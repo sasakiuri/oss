@@ -6,13 +6,18 @@ import {
   SqliteAthleteEntryReferenceSource,
   SqliteAthleteSanctionRepository,
 } from '@/main/modules/athlete-sanctions';
-import { SqliteParticipantRepository } from '@/main/modules/championship';
+import {
+  SqliteEventSummaryReader,
+  SqliteFiringPointAssignmentRepository,
+  SqliteParticipantRepository,
+} from '@/main/modules/championship';
 import { SqliteFinalControlRepository } from '@/main/modules/final-control';
 import { SqliteFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
 import { SqliteFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import { SqliteRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import { SqliteIrregularShotCaseRepository } from '@/main/modules/irregular-shot-cases';
 import { SqliteLaneControlRepository } from '@/main/modules/lane-control';
+import { SqliteMixedTeamFinalControlRepository } from '@/main/modules/mixed-team-final-control';
 import {
   SqliteCompetitionShotJournal,
   SqliteFiringWindowJournal,
@@ -48,6 +53,8 @@ export function createCompetitionServices({ database }: CompetitionServicesDepen
   const finalResultRepository = new SqliteFinalResultRepository(database);
   const mixedTeamFinalResultRepository = new SqliteMixedTeamFinalResultRepository(database);
   const participantRepository = new SqliteParticipantRepository(database);
+  const firingPointAssignmentRepository = new SqliteFiringPointAssignmentRepository(database);
+  const eventSummaryReader = new SqliteEventSummaryReader(database);
   const scoringDecisionRepository = new SqliteScoringDecisionRepository(database);
   const competitionShotJournal = new SqliteCompetitionShotJournal(database);
   const firingWindowJournal = new SqliteFiringWindowJournal(database);
@@ -58,6 +65,7 @@ export function createCompetitionServices({ database }: CompetitionServicesDepen
   const targetExaminationService = new TargetExaminationService(targetExaminationRepository);
   const rangeInterruptionRepository = new SqliteRangeInterruptionRepository(database);
   const finalControlRepository = new SqliteFinalControlRepository(database);
+  const mixedTeamFinalControlRepository = new SqliteMixedTeamFinalControlRepository(database);
   const finalRecoveryRepository = new SqliteFinalRecoveryRepository(database);
   const reserveTransferRepository = new SqliteReserveTransferRepository(database);
   const reserveTransferDataGuard = new ReserveTransferDataGuard(reserveTransferRepository);
@@ -88,6 +96,8 @@ export function createCompetitionServices({ database }: CompetitionServicesDepen
     finalResultRepository,
     mixedTeamFinalResultRepository,
     participantRepository,
+    firingPointAssignmentRepository,
+    eventSummaryReader,
     scoringDecisionRepository,
     competitionShotJournal,
     firingWindowJournal,
@@ -98,6 +108,7 @@ export function createCompetitionServices({ database }: CompetitionServicesDepen
     targetExaminationService,
     rangeInterruptionRepository,
     finalControlRepository,
+    mixedTeamFinalControlRepository,
     finalRecoveryRepository,
     reserveTransferRepository,
     reserveTransferDataGuard,

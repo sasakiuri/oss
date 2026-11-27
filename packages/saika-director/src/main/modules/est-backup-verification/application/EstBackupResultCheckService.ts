@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type {
   AddVerificationCheckPayload,
   ApplyEstBackupChecksPayload,
@@ -11,7 +12,7 @@ import { sha256Json } from '@/main/domain/sha256Json';
 
 /** The bridge can record checks, but has no score mutation or result-list approval capability. */
 export interface IBackupResultCheckTarget {
-  getStatus(eventId: string, scope: 'QUALIFICATION' | 'FINAL'): Promise<ResultVerificationStatusDto>;
+  getStatus(eventId: string, scope: ResultScope): Promise<ResultVerificationStatusDto>;
   addCheck(input: AddVerificationCheckPayload): Promise<ResultVerificationCheckDto>;
 }
 

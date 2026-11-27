@@ -3,16 +3,12 @@ import { randomUUID } from 'crypto';
 export class EventId {
   private constructor(public readonly value: string) {}
 
-  static create(value?: string): EventId {
-    return new EventId(value ?? randomUUID());
+  static create(value: string): EventId {
+    return new EventId(value);
   }
 
   static generate(): EventId {
     return new EventId(randomUUID());
-  }
-
-  static reconstruct(value: string): EventId {
-    return new EventId(value);
   }
 
   equals(other: EventId): boolean {

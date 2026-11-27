@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { optionalText, requiredText } from '@/main/domain/guards';
 
 export const SCORING_DECISION_TYPES = [
@@ -21,13 +22,12 @@ export const SCORING_CLASSIFICATION_CODES = ['DSQ', 'DQB', 'AD_DSQ'] as const;
 export type ScoringDecisionType = (typeof SCORING_DECISION_TYPES)[number];
 export type ScoringApplicationPolicy = (typeof SCORING_APPLICATION_POLICIES)[number];
 export type ScoringClassificationCode = (typeof SCORING_CLASSIFICATION_CODES)[number];
-export type ScoringResultScope = 'QUALIFICATION' | 'FINAL';
 
 export interface ScoringDecisionTarget {
   eventId: string;
   participantId: string;
   relayNumber: number;
-  resultScope: ScoringResultScope;
+  resultScope: ResultScope;
   resultIdAtDecision: string;
   sourceCompetitionId: string | null;
 }
@@ -54,7 +54,7 @@ export class ScoringDecision {
     readonly eventId: string,
     readonly participantId: string,
     readonly relayNumber: number,
-    readonly resultScope: ScoringResultScope,
+    readonly resultScope: ResultScope,
     readonly resultIdAtDecision: string,
     readonly sourceCompetitionId: string | null,
     readonly type: ScoringDecisionType,
@@ -143,7 +143,7 @@ export class ScoringDecision {
     eventId: string;
     participantId: string;
     relayNumber: number;
-    resultScope: ScoringResultScope;
+    resultScope: ResultScope;
     resultIdAtDecision: string;
     sourceCompetitionId: string | null;
     type: ScoringDecisionType;
@@ -189,7 +189,7 @@ function validateCommon(props: {
   eventId: string;
   participantId: string;
   relayNumber: number;
-  resultScope: ScoringResultScope;
+  resultScope: ResultScope;
   resultIdAtDecision: string;
   sourceCompetitionId: string | null;
   ruleReference: string;

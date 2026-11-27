@@ -1,6 +1,5 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { RankedResultDto } from '@/shared/ipc/contracts';
-
-import type { ResultApprovalScope } from '../domain/ResultListApprovalEntry';
 
 export interface VerificationEvidenceSummary {
   readonly expectedShots: number;
@@ -34,7 +33,7 @@ export interface VerifiableResult {
 
 export interface ResultVerificationSourceSnapshot {
   readonly eventId: string;
-  readonly resultScope: ResultApprovalScope;
+  readonly resultScope: ResultScope;
   readonly configuredIndividualChecks: number;
   readonly configuredTeamChecks: number;
   readonly teamVerificationSupported: boolean;
@@ -48,17 +47,17 @@ export interface ResultVerificationSourceSnapshot {
 }
 
 export interface IResultVerificationSource {
-  readonly resultScope: ResultApprovalScope;
+  readonly resultScope: ResultScope;
   load(eventId: string): Promise<ResultVerificationSourceSnapshot>;
 }
 
 export interface IResultVerificationSourceResolver {
-  resolve(resultScope: ResultApprovalScope): IResultVerificationSource;
+  resolve(resultScope: ResultScope): IResultVerificationSource;
 }
 
 /** Explicit registry keeps adding a new result scope independent from the workflow service. */
 export class ResultVerificationSourceRegistry implements IResultVerificationSourceResolver {
-  private readonly sources: ReadonlyMap<ResultApprovalScope, IResultVerificationSource>;
+  private readonly sources: ReadonlyMap<ResultScope, IResultVerificationSource>;
 
   constructor(sources: readonly IResultVerificationSource[]) {
     const entries = sources.map((source) => [source.resultScope, source] as const);
@@ -68,7 +67,7 @@ export class ResultVerificationSourceRegistry implements IResultVerificationSour
     this.sources = new Map(entries);
   }
 
-  resolve(resultScope: ResultApprovalScope): IResultVerificationSource {
+  resolve(resultScope: ResultScope): IResultVerificationSource {
     const source = this.sources.get(resultScope);
     if (!source) throw new Error(`Result verification is not supported for ${resultScope}`);
     return source;

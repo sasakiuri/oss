@@ -1,8 +1,3 @@
-import {
-  SqliteEventSummaryReader,
-  SqliteFiringPointAssignmentRepository,
-  SqliteParticipantRepository,
-} from '@/main/modules/championship';
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { startListsContract } from '@/shared/ipc/contracts';
 
@@ -11,14 +6,28 @@ import { SqliteStartListRepository } from './infra/SqliteStartListRepository';
 
 export const startListsModule = defineModule({
   name: 'startLists',
-  deps: ['database', 'ipcRouter', 'participantEligibilityReader'],
-  register({ database, ipcRouter, participantEligibilityReader }) {
+  deps: [
+    'database',
+    'ipcRouter',
+    'participantEligibilityReader',
+    'eventSummaryReader',
+    'participantRepository',
+    'firingPointAssignmentRepository',
+  ],
+  register({
+    database,
+    ipcRouter,
+    participantEligibilityReader,
+    eventSummaryReader,
+    participantRepository,
+    firingPointAssignmentRepository,
+  }) {
     const service = new StartListService(
       new SqliteStartListRepository(database),
       {
-        events: new SqliteEventSummaryReader(database),
-        participants: new SqliteParticipantRepository(database),
-        assignments: new SqliteFiringPointAssignmentRepository(database),
+        events: eventSummaryReader,
+        participants: participantRepository,
+        assignments: firingPointAssignmentRepository,
       },
       participantEligibilityReader,
     );

@@ -1,6 +1,5 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { validDate, requiredText, sha256Digest } from '@/main/domain/guards';
-
-export type ResultPublicationScope = 'QUALIFICATION' | 'FINAL';
 
 export type ResultPublicationEntry =
   PreliminaryPublishedEntry | ProtestRegisteredEntry | ProtestResolvedEntry | OfficialPublishedEntry;
@@ -8,7 +7,7 @@ export type ResultPublicationEntry =
 interface ResultPublicationEntryBase {
   readonly id: string;
   readonly eventId: string;
-  readonly resultScope: ResultPublicationScope;
+  readonly resultScope: ResultScope;
   readonly preliminaryId: string;
   readonly recordedAt: Date;
 }
@@ -44,7 +43,7 @@ export interface OfficialPublishedEntry extends ResultPublicationEntryBase {
 
 export function createPreliminaryPublishedEntry(props: {
   eventId: string;
-  resultScope: ResultPublicationScope;
+  resultScope: ResultScope;
   snapshotRevision: string;
   postedAt: Date;
   protestEndsAt: Date;
@@ -72,7 +71,7 @@ export function createPreliminaryPublishedEntry(props: {
 
 export function createProtestRegisteredEntry(props: {
   eventId: string;
-  resultScope: ResultPublicationScope;
+  resultScope: ResultScope;
   preliminaryId: string;
   protestReference: string;
   registeredAt: Date;
@@ -90,7 +89,7 @@ export function createProtestRegisteredEntry(props: {
 
 export function createProtestResolvedEntry(props: {
   eventId: string;
-  resultScope: ResultPublicationScope;
+  resultScope: ResultScope;
   preliminaryId: string;
   protestReference: string;
   resolution: string;
@@ -112,7 +111,7 @@ export function createProtestResolvedEntry(props: {
 
 export function createOfficialPublishedEntry(props: {
   eventId: string;
-  resultScope: ResultPublicationScope;
+  resultScope: ResultScope;
   preliminaryId: string;
   snapshotRevision: string;
   approvalId: string;

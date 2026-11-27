@@ -1,16 +1,13 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
 
 import type { IResultPublicationRepository } from '../domain/IResultPublicationRepository';
-import {
-  reconstructResultPublicationEntry,
-  type ResultPublicationEntry,
-  type ResultPublicationScope,
-} from '../domain/ResultPublicationEntry';
+import { reconstructResultPublicationEntry, type ResultPublicationEntry } from '../domain/ResultPublicationEntry';
 
 interface ResultPublicationEntryRow {
   id: string;
   event_id: string;
-  result_scope: ResultPublicationScope;
+  result_scope: ResultScope;
   entry_type: ResultPublicationEntry['type'];
   preliminary_id: string;
   payload_json: string;
@@ -40,7 +37,7 @@ export class SqliteResultPublicationRepository implements IResultPublicationRepo
       });
   }
 
-  findByEvent(eventId: string, resultScope: ResultPublicationScope): ResultPublicationEntry[] {
+  findByEvent(eventId: string, resultScope: ResultScope): ResultPublicationEntry[] {
     const rows = this.db
       .prepare(
         `SELECT * FROM result_publication_entries

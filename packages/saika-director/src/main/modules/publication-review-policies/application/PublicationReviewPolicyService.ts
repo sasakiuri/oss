@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { OfficialSigningPolicy, type IOfficialSigningPolicy } from '@/main/modules/official-signing';
 import {
   publicationReviewPolicyEntrySchema,
@@ -8,9 +9,8 @@ import {
 import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
 import { sha256Json } from '@/main/domain/sha256Json';
 
-type Scope = 'QUALIFICATION' | 'FINAL';
 export interface IPublicationReviewPolicyRepository {
-  find(eventId: string, scope: Scope): PublicationReviewPolicyEntry[];
+  find(eventId: string, scope: ResultScope): PublicationReviewPolicyEntry[];
   append(entry: PublicationReviewPolicyEntry, expectedPreviousId: string | null): void;
 }
 
@@ -19,12 +19,12 @@ export class PublicationReviewPolicyService {
   constructor(
     private readonly repository: IPublicationReviewPolicyRepository,
     private readonly readDefaults: () => ResultPublicationReviewSettingsDto,
-    private readonly canEdit: (eventId: string, scope: Scope) => boolean,
+    private readonly canEdit: (eventId: string, scope: ResultScope) => boolean,
     private readonly signing: IOfficialSigningPolicy = new OfficialSigningPolicy(),
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  get(eventId: string, resultScope: Scope): PublicationReviewPolicyStatus {
+  get(eventId: string, resultScope: ResultScope): PublicationReviewPolicyStatus {
     const history = this.repository.find(eventId, resultScope);
     const entry = history.at(-1);
     const defaults = { ...this.readDefaults() };
@@ -49,7 +49,7 @@ export class PublicationReviewPolicyService {
   }
 
   /** Legacy events keep their original approval digest until an event policy is explicitly recorded. */
-  approvalRevision(eventId: string, scope: Scope): string | null {
+  approvalRevision(eventId: string, scope: ResultScope): string | null {
     const entry = this.repository.find(eventId, scope).at(-1);
     // Following shared defaults preserves their existing live-readiness semantics.
     // Only a deliberate event-policy edit invalidates list approval.

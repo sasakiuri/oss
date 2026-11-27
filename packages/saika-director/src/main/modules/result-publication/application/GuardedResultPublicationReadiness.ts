@@ -1,4 +1,4 @@
-import type { ResultPublicationScope } from '../domain/ResultPublicationEntry';
+import type { ResultScope } from '@/main/domain/resultScope';
 import type {
   IResultPublicationBlocker,
   IResultPublicationReadiness,
@@ -12,7 +12,7 @@ export class GuardedResultPublicationReadiness implements IResultPublicationRead
     private readonly blockers: readonly IResultPublicationBlocker[],
   ) {}
 
-  async getCurrent(eventId: string, resultScope: ResultPublicationScope): Promise<ResultPublicationReadiness> {
+  async getCurrent(eventId: string, resultScope: ResultScope): Promise<ResultPublicationReadiness> {
     const readiness = await this.source.getCurrent(eventId, resultScope);
     const blockerIssues = (
       await Promise.all(this.blockers.map((blocker) => blocker.getIssues(eventId, resultScope)))

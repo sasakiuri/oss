@@ -24,9 +24,9 @@ describe('QualificationResultsReader', () => {
       seriesIndex: Math.floor(index / 10),
     }));
     const result = Result.create(
-      ResultId.reconstruct('11111111-1111-4111-8111-111111111111'),
-      EventId.reconstruct('22222222-2222-4222-8222-222222222222'),
-      ParticipantId.reconstruct('33333333-3333-4333-8333-333333333333'),
+      ResultId.create('11111111-1111-4111-8111-111111111111'),
+      EventId.create('22222222-2222-4222-8222-222222222222'),
+      ParticipantId.create('33333333-3333-4333-8333-333333333333'),
       'Alex Athlete',
       'Team',
       612,

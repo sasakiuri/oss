@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { createHash } from 'node:crypto';
 import { basename } from 'node:path';
 
@@ -123,7 +124,7 @@ export class ResultsBookService {
   async createRecordClaim(input: {
     championshipId: string;
     resultId: string;
-    resultScope: 'QUALIFICATION' | 'FINAL';
+    resultScope: ResultScope;
     code: RecordCode;
     resultBasis: RecordResultBasis;
     benchmarkScoreX10: number;

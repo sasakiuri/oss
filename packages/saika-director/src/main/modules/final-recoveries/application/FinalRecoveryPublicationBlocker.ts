@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultPublicationBlocker } from '@/main/modules/result-publication';
 
 import { finalRecoveryStatus } from '../domain/FinalRecoveryCase';
@@ -8,7 +9,7 @@ export class FinalRecoveryPublicationBlocker implements IResultPublicationBlocke
     private readonly repository: IFinalRecoveryRepository,
     private readonly competitionIdsForEvent: (eventId: string) => readonly string[] = () => [],
   ) {}
-  getIssues(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): readonly string[] {
+  getIssues(eventId: string, resultScope: ResultScope): readonly string[] {
     if (resultScope !== 'FINAL') return [];
     const cases = [
       ...new Map(

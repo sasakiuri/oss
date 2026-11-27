@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
 
 /**
@@ -8,7 +9,7 @@ import type Database from 'better-sqlite3';
 export class SqliteResultCompetitionScope {
   constructor(private readonly db: Database.Database) {}
 
-  competitionIds(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): string[] {
+  competitionIds(eventId: string, resultScope: ResultScope): string[] {
     const query =
       resultScope === 'QUALIFICATION'
         ? `SELECT DISTINCT source_competition_id AS competition_id FROM results

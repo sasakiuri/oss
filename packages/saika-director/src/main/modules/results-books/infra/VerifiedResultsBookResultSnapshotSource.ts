@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultPublicationReadiness } from '@/main/modules/result-publication';
 import type { ResultVerificationStatusDto } from '@/shared/ipc/contracts';
 
@@ -8,7 +9,7 @@ import type {
 } from '../domain/ResultsBookModels';
 
 interface ResultVerificationStatusReader {
-  getStatus(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): Promise<ResultVerificationStatusDto>;
+  getStatus(eventId: string, resultScope: ResultScope): Promise<ResultVerificationStatusDto>;
 }
 
 /**
@@ -22,7 +23,7 @@ export class VerifiedResultsBookResultSnapshotSource implements IResultsBookResu
     private readonly readiness: IResultPublicationReadiness,
   ) {}
 
-  async load(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): Promise<ResultsBookResultSnapshot> {
+  async load(eventId: string, resultScope: ResultScope): Promise<ResultsBookResultSnapshot> {
     const [status, readiness] = await Promise.all([
       this.verification.getStatus(eventId, resultScope),
       this.readiness.getCurrent(eventId, resultScope),

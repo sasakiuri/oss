@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { ChampionshipOfficialEntry, EligibleRecordResult } from './ResultsBookModels';
 
 export const CHAMPIONSHIP_OFFICIAL_ROLES = [
@@ -81,7 +82,7 @@ export function recordClaimStatus(entries: readonly RecordClaimEntryLike[]): Rec
 
 export function assertRecordCode(input: {
   code: RecordCode;
-  resultScope: 'QUALIFICATION' | 'FINAL';
+  resultScope: ResultScope;
   resultBasis: RecordResultBasis;
   scoreX10: number;
   benchmarkScoreX10: number;

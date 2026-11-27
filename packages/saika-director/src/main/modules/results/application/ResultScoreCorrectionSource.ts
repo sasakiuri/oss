@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { ResultScope } from '@/main/domain/resultScope';
 
 import { getSeriesIndexForShot, type RankingShotEvidence } from '@/shared/competitionTypes';
 
@@ -17,7 +18,7 @@ export interface CorrectableShot {
   readonly ranking: RankingShotEvidence;
 }
 export interface ScoreCorrectionBasis {
-  readonly resultScope: 'QUALIFICATION' | 'FINAL';
+  readonly resultScope: ResultScope;
   readonly resultId: string;
   readonly eventId: string;
   readonly participantId: string;

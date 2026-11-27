@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type {
@@ -8,10 +9,7 @@ import type {
 } from '@/main/modules/result-publication/application/ResultPublicationPorts';
 import { ResultPublicationService } from '@/main/modules/result-publication/application/ResultPublicationService';
 import type { IResultPublicationRepository } from '@/main/modules/result-publication/domain/IResultPublicationRepository';
-import type {
-  ResultPublicationEntry,
-  ResultPublicationScope,
-} from '@/main/modules/result-publication/domain/ResultPublicationEntry';
+import type { ResultPublicationEntry } from '@/main/modules/result-publication/domain/ResultPublicationEntry';
 
 const REVISION = 'a'.repeat(64);
 
@@ -22,7 +20,7 @@ class MemoryRepository implements IResultPublicationRepository {
     this.entries.push(entry);
   }
 
-  findByEvent(eventId: string, resultScope: ResultPublicationScope): ResultPublicationEntry[] {
+  findByEvent(eventId: string, resultScope: ResultScope): ResultPublicationEntry[] {
     return this.entries.filter((entry) => entry.eventId === eventId && entry.resultScope === resultScope);
   }
 }

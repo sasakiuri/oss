@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { ChampionshipOfficialRole, RecordCode, RecordResultBasis } from './ResultsBookPolicy';
 import type { OfficialSigningEvidence } from '../../official-signing';
 
@@ -30,7 +31,7 @@ export interface ChampionshipOfficialEntry {
 export interface EligibleRecordResult {
   readonly eventId: string;
   readonly eventName: string;
-  readonly resultScope: 'QUALIFICATION' | 'FINAL';
+  readonly resultScope: ResultScope;
   readonly resultId: string;
   readonly subjectKind: 'INDIVIDUAL' | 'TEAM' | 'MIXED_TEAM';
   readonly subjectId: string;
@@ -124,7 +125,7 @@ export interface ResultsBookProjectedResult {
 
 export interface ResultsBookResultSnapshot {
   readonly eventId: string;
-  readonly resultScope: 'QUALIFICATION' | 'FINAL';
+  readonly resultScope: ResultScope;
   readonly snapshotRevision: string;
   readonly officialPublicationRevision: string | null;
   readonly publicationIssues: readonly string[];
@@ -133,7 +134,7 @@ export interface ResultsBookResultSnapshot {
 
 /** Replaceable bridge to the current official result projection. */
 export interface IResultsBookResultSnapshotSource {
-  load(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): Promise<ResultsBookResultSnapshot>;
+  load(eventId: string, resultScope: ResultScope): Promise<ResultsBookResultSnapshot>;
 }
 
 /** Optional provider of record candidates derived outside the individual result projection. */
@@ -170,7 +171,7 @@ export interface IResultsBookQualificationTeamSource {
 export interface IResultsBookOfficialRevisionSource {
   findOfficial(
     eventId: string,
-    resultScope: 'QUALIFICATION' | 'FINAL',
+    resultScope: ResultScope,
   ): { readonly snapshotRevision: string; readonly approvalId: string } | null;
 }
 

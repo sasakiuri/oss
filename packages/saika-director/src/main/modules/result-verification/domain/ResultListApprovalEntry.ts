@@ -1,12 +1,12 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { requiredText, sha256Digest } from '@/main/domain/guards';
 import type { OfficialSigningEvidence } from '../../official-signing';
 
 export type ResultApprovalEntryType = 'APPROVAL' | 'REVOCATION';
-export type ResultApprovalScope = 'QUALIFICATION' | 'FINAL';
 
 export interface ResultListApprovalTarget {
   eventId: string;
-  resultScope: ResultApprovalScope;
+  resultScope: ResultScope;
   snapshotRevision: string;
   requiredIndividualChecks: number;
   requiredTeamChecks: number;
@@ -18,7 +18,7 @@ export class ResultListApprovalEntry {
   private constructor(
     readonly id: string,
     readonly eventId: string,
-    readonly resultScope: ResultApprovalScope,
+    readonly resultScope: ResultScope,
     readonly type: ResultApprovalEntryType,
     readonly snapshotRevision: string,
     readonly requiredIndividualChecks: number,
@@ -89,7 +89,7 @@ export class ResultListApprovalEntry {
   static reconstruct(props: {
     id: string;
     eventId: string;
-    resultScope: ResultApprovalScope;
+    resultScope: ResultScope;
     type: ResultApprovalEntryType;
     snapshotRevision: string;
     requiredIndividualChecks: number;

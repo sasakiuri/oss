@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { describe, expect, it } from 'vitest';
 import { ISSF_2026_P25_FINAL, ISSF_2026_RFPM_FINAL } from '@sasakiuri/saika-rules';
 
@@ -7,7 +8,6 @@ import type {
   IrregularShotCase,
   IrregularShotCaseEntry,
   IrregularShotEvidence,
-  IrregularShotResultScope,
 } from '@/main/modules/irregular-shot-cases';
 import type { IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import { RangeIncidentReport } from '@/main/modules/incident-reports/domain/RangeIncidentReport';
@@ -42,7 +42,7 @@ class InMemoryRepository implements IIrregularShotCaseRepository {
   findCaseById(id: string) {
     return this.cases.find((value) => value.id === id) ?? null;
   }
-  findCasesByEvent(eventId: string, resultScope?: IrregularShotResultScope) {
+  findCasesByEvent(eventId: string, resultScope?: ResultScope) {
     return this.cases.filter(
       (value) => value.eventId === eventId && (!resultScope || value.resultScope === resultScope),
     );

@@ -1,11 +1,8 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
 
 import type { IResultVerificationRepository } from '../domain/IResultVerificationRepository';
-import {
-  ResultListApprovalEntry,
-  type ResultApprovalEntryType,
-  type ResultApprovalScope,
-} from '../domain/ResultListApprovalEntry';
+import { ResultListApprovalEntry, type ResultApprovalEntryType } from '../domain/ResultListApprovalEntry';
 import {
   ResultVerificationCheck,
   type ResultComparisonStatus,
@@ -34,7 +31,7 @@ interface CheckRow {
 interface ApprovalRow {
   id: string;
   event_id: string;
-  result_scope: ResultApprovalScope;
+  result_scope: ResultScope;
   entry_type: ResultApprovalEntryType;
   snapshot_revision: string;
   required_individual_checks: number;
@@ -106,7 +103,7 @@ export class SqliteResultVerificationRepository implements IResultVerificationRe
     return row ? toApproval(row) : null;
   }
 
-  findApprovalEntriesByEvent(eventId: string, scope: ResultApprovalScope): ResultListApprovalEntry[] {
+  findApprovalEntriesByEvent(eventId: string, scope: ResultScope): ResultListApprovalEntry[] {
     const rows = this.db
       .prepare(
         `SELECT * FROM result_list_approval_entries

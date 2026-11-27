@@ -1,7 +1,6 @@
 import { MalfunctionScoreSheetService } from './application/MalfunctionScoreSheetService';
 import { SqliteMalfunctionScoreSheetRepository } from './infra/SqliteMalfunctionScoreSheetRepository';
 import { ElectronMalfunctionScoreSheetExporter } from './infra/ElectronMalfunctionScoreSheetExporter';
-import { SqliteEventRepository, SqliteParticipantRepository } from '@/main/modules/championship';
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { qualificationMalfunctionsContract } from '@/shared/ipc/contracts';
 
@@ -13,8 +12,24 @@ import { ObservedQualificationMalfunctionSignalSource } from './infra/ObservedQu
 
 export const qualificationMalfunctionsModule = defineModule({
   name: 'qualificationMalfunctions',
-  deps: ['database', 'eventBus', 'ipcRouter', 'competitionTypeRegistry', 'laneControlRepository'],
-  register({ database, eventBus, ipcRouter, competitionTypeRegistry, laneControlRepository }) {
+  deps: [
+    'database',
+    'eventBus',
+    'ipcRouter',
+    'competitionTypeRegistry',
+    'laneControlRepository',
+    'eventRepository',
+    'participantRepository',
+  ],
+  register({
+    database,
+    eventBus,
+    ipcRouter,
+    competitionTypeRegistry,
+    laneControlRepository,
+    eventRepository,
+    participantRepository,
+  }) {
     const signals = new ObservedQualificationMalfunctionSignalSource();
     const repository = new SqliteQualificationMalfunctionRepository(database);
     const scoreSheets = new MalfunctionScoreSheetService(
@@ -24,14 +39,8 @@ export const qualificationMalfunctionsModule = defineModule({
     );
     const service = new QualificationMalfunctionService(
       repository,
-      new RegistryQualificationMalfunctionPolicyResolver(
-        new SqliteEventRepository(database, competitionTypeRegistry),
-        competitionTypeRegistry,
-      ),
-      new DirectorQualificationMalfunctionSubjectResolver(
-        new SqliteParticipantRepository(database),
-        laneControlRepository,
-      ),
+      new RegistryQualificationMalfunctionPolicyResolver(eventRepository, competitionTypeRegistry),
+      new DirectorQualificationMalfunctionSubjectResolver(participantRepository, laneControlRepository),
       signals,
     );
     ipcRouter.register(qualificationMalfunctionsContract, {

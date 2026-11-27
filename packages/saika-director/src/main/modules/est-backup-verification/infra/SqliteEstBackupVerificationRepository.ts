@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
 import type { CreateEstBackupVerificationPayload, EstBackupVerificationRunDto } from '@/shared/ipc/contracts';
 import type { IEstBackupVerificationRepository } from '../domain/IEstBackupVerificationRepository';
@@ -6,7 +7,7 @@ interface Row {
   source_id: string | null;
   id: string;
   event_id: string;
-  result_scope: 'QUALIFICATION' | 'FINAL';
+  result_scope: ResultScope;
   result_kind: EstBackupVerificationRunDto['resultKind'];
   key_type: EstBackupVerificationRunDto['keyType'];
   source_name: string;
