@@ -348,6 +348,20 @@ describe('Vista main process', () => {
     expect(second!.webContents.send).not.toHaveBeenCalled();
   });
 
+  it('does not send to an operator window that is already destroyed', async () => {
+    await launch();
+    const config = outputConfig('screen-one', '2');
+    mocks.application.state.document.screens = [config];
+    desktop().open(config);
+    const operator = operatorWindow();
+    operator.destroyed = true;
+    desktop().changed();
+    (mocks.screen.get('display-added') as () => void)();
+    (mocks.screen.get('display-removed') as (event: unknown, display: { id: number }) => void)({}, { id: 2 });
+    expect(windows()[1]!.close).toHaveBeenCalledOnce();
+    expect(operator.webContents.send).not.toHaveBeenCalled();
+  });
+
   it('closes the audience windows of a removed monitor', async () => {
     await launch();
     const removed = outputConfig('screen-one', '2');
