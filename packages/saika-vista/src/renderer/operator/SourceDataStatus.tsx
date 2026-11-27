@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { findEntry, type AppState, type ScreenConfig } from '../../shared/model';
-import { selectedSlots, stateLabel, usesRankingRows } from '../viewModel';
+import { displayedEntry, selectedSlots, stateLabel, usesRankingRows } from '../viewModel';
 
 import { StatusPill } from './StatusPill';
 
 export function SourceDataStatus({ config, state }: { config: ScreenConfig; state: AppState }) {
+  const resultRows = usesRankingRows(config, state.snapshots);
   return (
     <section className="source-data-status" aria-label="Source data for requested settings">
       <h3>Data reception</h3>
@@ -13,7 +14,6 @@ export function SourceDataStatus({ config, state }: { config: ScreenConfig; stat
       {config.selections.map((selection, index) => {
         const source = state.sources.find((candidate) => candidate.id === selection.sourceId);
         const entry = findEntry(state.snapshots, selection);
-        const resultRows = usesRankingRows(config, state.snapshots);
         const slots = selectedSlots(
           {
             ...config,
@@ -28,10 +28,7 @@ export function SourceDataStatus({ config, state }: { config: ScreenConfig; stat
                 participant ? participant.dataState !== 'live' || !participant.historyComplete : !resultRows,
               );
         const receipt = entry ? new Date(entry.receivedAt) : null;
-        const dataState =
-          entry?.state === 'live' && (Date.now() - entry.receivedAt > 5000 || Date.now() < entry.receivedAt)
-            ? 'stale'
-            : entry?.state;
+        const dataState = entry && displayedEntry(entry, Date.now()).state;
         return (
           <article key={index} className="subject-data-status">
             <strong>

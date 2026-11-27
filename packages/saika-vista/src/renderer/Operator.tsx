@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { VistaNode } from '@sasakiuri/saika-protocol/Vista';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import appIcon from '../../resources/appIcon.png';
 import type { AppState } from '../shared/model';
@@ -9,6 +9,7 @@ import { DevicesTab } from './operator/DevicesTab';
 import { ScreensTab, type ScreenSelection } from './operator/ScreensTab';
 import { SourcesTab } from './operator/SourcesTab';
 import type { Run } from './operator/types';
+import { useBridgeRefresh } from './useBridgeRefresh';
 
 export function Operator() {
   const [state, setState] = useState<AppState | null>(null);
@@ -34,31 +35,12 @@ export function Operator() {
   const [discoveryComplete, setDiscoveryComplete] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [filter, setFilter] = useState('');
-  useEffect(() => {
-    let active = true;
-    let serial = 0;
-    const refresh = async () => {
-      const request = ++serial;
-      try {
-        const next = await window.vista.getState();
-        if (active && request === serial) setState(next);
-      } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : 'Unable to load Vista state.');
-      }
-    };
-    const off = window.vista.onChange(() => {
-      void refresh();
-    });
-    void refresh();
-    const poll = window.setInterval(() => {
-      void refresh();
-    }, 3000);
-    return () => {
-      active = false;
-      off();
-      clearInterval(poll);
-    };
-  }, []);
+  useBridgeRefresh(
+    () => window.vista.getState(),
+    3000,
+    setState,
+    (cause) => setError(cause instanceof Error ? cause.message : 'Unable to load Vista state.'),
+  );
   const run: Run = async (command) => {
     setBusy(true);
     setError('');

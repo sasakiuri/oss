@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: MIT
 import type { VistaDefinition, VistaParticipant, VistaSnapshot } from '@sasakiuri/saika-protocol/Vista';
 
-import { findEntry, sameSubject, type ScreenConfig, type Selection, type SnapshotEntry } from '../shared/model';
+import {
+  findEntry,
+  sameSubject,
+  type AppState,
+  type ScreenConfig,
+  type ScreenStatus,
+  type Selection,
+  type SnapshotEntry,
+} from '../shared/model';
 
 export const stateLabel: Record<SnapshotEntry['state'], string> = {
   live: 'Live',
@@ -11,6 +19,26 @@ export const stateLabel: Record<SnapshotEntry['state'], string> = {
   unsupported: 'Display unavailable',
   syncing: 'Synchronizing',
 };
+export const VIEW_LABEL: Record<ScreenConfig['view'], string> = {
+  targets: 'Target grid',
+  focus: 'Athlete focus',
+  ranking: 'Ranking',
+  final: 'Final',
+};
+/** Whether the audience window shows the requested revision on a connected monitor. */
+export function displayConfirmed(status: ScreenStatus): boolean {
+  return status.renderAlive && status.monitorAvailable && status.renderedRevision === status.config.revision;
+}
+/** The entry as shown at `now`: live data received over five seconds ago, or in the future, is stale. */
+export function displayedEntry(entry: SnapshotEntry, now: number): SnapshotEntry {
+  return entry.state === 'live' && (now - entry.receivedAt > 5000 || now < entry.receivedAt)
+    ? { ...entry, state: 'stale' }
+    : entry;
+}
+/** The ID by which a selection follows a participant: its lane, or the athlete across lane changes. */
+export function participantKey(follow: Selection['follow'], participant: VistaParticipant): string {
+  return follow === 'lane' ? participant.laneId : participant.id;
+}
 export function scoreText(score: number | null | undefined, definition?: VistaDefinition): string {
   if (score === null || score === undefined) return '—';
   return definition?.scoring === 'DECIMAL' ? score.toFixed(1) : String(score);
@@ -37,16 +65,60 @@ export function selectedSlots(config: ScreenConfig, entries: SnapshotEntry[]): D
     const participants = entry?.snapshot.participants ?? [];
     const keys = selection.participantIds.length
       ? selection.participantIds
-      : participants.map((p) => (selection.follow === 'lane' ? p.laneId : p.id));
+      : participants.map((p) => participantKey(selection.follow, p));
     if (!keys.length) return [{ key: `${index}:waiting`, selection, entry }];
     return keys.map((id) => ({
       key: `${index}:${id}`,
       selection,
       entry,
       requestedId: id,
-      participant: participants.find((p) => (selection.follow === 'lane' ? p.laneId === id : p.id === id)),
+      participant: participants.find((p) => participantKey(selection.follow, p) === id),
     }));
   });
+}
+/** What the screen editor can tell about a draft from the sources and snapshots on this PC. */
+export function editorSummary(
+  draft: ScreenConfig,
+  /** The saved configuration the draft edits, or undefined for a new screen. */
+  saved: ScreenConfig | undefined,
+  state: AppState,
+): {
+  rankView: boolean;
+  rankAllowed: boolean;
+  valid: boolean;
+  resultRows: boolean;
+  /** The selected positions or result rows, or null when this PC cannot count them. */
+  count: number | null;
+  pages: number | null;
+} {
+  const rankView = draft.view === 'ranking' || draft.view === 'final';
+  const only = draft.selections.length === 1 ? draft.selections[0] : undefined;
+  const savedFirst = saved?.selections[0];
+  const rankAllowed =
+    !!only &&
+    (state.sources.find((s) => s.id === only.sourceId)?.catalog.identity.kind === 'director' ||
+      state.snapshots.some((entry) => sameSubject(entry.snapshot, only) && entry.snapshot.ranking !== null) ||
+      (saved?.view === draft.view &&
+        !!savedFirst &&
+        sameSubject(only, savedFirst) &&
+        only.follow === savedFirst.follow));
+  const valid =
+    draft.name.trim().length > 0 &&
+    draft.monitorId.length > 0 &&
+    draft.selections.every((s) => s.sourceId && s.subjectId) &&
+    (!rankView || rankAllowed);
+  const first = draft.selections[0];
+  const selectedEntry = first && findEntry(state.snapshots, first);
+  const resultRows = usesRankingRows(draft, state.snapshots);
+  const count = resultRows
+    ? (selectedEntry?.snapshot.ranking?.rows.length ?? null)
+    : draft.view === 'final' && !selectedEntry
+      ? null
+      : draft.selections.some((selection) => !selection.participantIds.length && !findEntry(state.snapshots, selection))
+        ? null
+        : selectedSlots(draft, state.snapshots).length;
+  const pages = count === null ? null : Math.max(1, Math.ceil(count / (draft.view === 'focus' ? 1 : draft.slots)));
+  return { rankView, rankAllowed, valid, resultRows, count, pages };
 }
 export function filteredShots(participant: VistaParticipant, config: ScreenConfig): VistaParticipant['shots'] {
   const shots = participant.shots

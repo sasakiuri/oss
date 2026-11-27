@@ -6,8 +6,10 @@ import appIcon from '../../resources/appIcon.png';
 import { findEntry, sameSubject, type AudienceState, type ScreenConfig, type SnapshotEntry } from '../shared/model';
 
 import { Target } from './Target';
+import { useBridgeRefresh } from './useBridgeRefresh';
 import {
   clockDisplay,
+  displayedEntry,
   filteredShots,
   pageAt,
   publicationLabel,
@@ -223,11 +225,7 @@ export function AudienceView({
   elapsed?: number;
 }) {
   const { config } = state;
-  const entries = state.entries.map((entry) =>
-    entry.state === 'live' && (now - entry.receivedAt > 5000 || now < entry.receivedAt)
-      ? { ...entry, state: 'stale' as const }
-      : entry,
-  );
+  const entries = state.entries.map((entry) => displayedEntry(entry, now));
   const slots = selectedSlots(config, entries);
   const page = pageAt(config, slots.length, elapsed);
   const capacity = Math.min(page.slots, slots.length);
@@ -316,33 +314,23 @@ export function Audience() {
   const [now, setNow] = useState(Date.now);
   const [epoch, setEpoch] = useState(Date.now);
   const [clockFence, setClockFence] = useState(-Infinity);
+  useBridgeRefresh(
+    () => window.vista.getAudience(),
+    2000,
+    (next) => {
+      setNow(Date.now());
+      setState(next);
+    },
+    (_cause, latest) => {
+      if (latest)
+        setState((last) =>
+          last
+            ? { ...last, entries: last.entries.map((e) => ({ ...e, state: e.state === 'live' ? 'stale' : e.state })) }
+            : null,
+        );
+    },
+  );
   useEffect(() => {
-    let active = true;
-    let serial = 0;
-    const refresh = async () => {
-      const request = ++serial;
-      try {
-        const next = await window.vista.getAudience();
-        if (active && request === serial) {
-          setNow(Date.now());
-          setState(next);
-        }
-      } catch {
-        if (active && request === serial)
-          setState((last) =>
-            last
-              ? { ...last, entries: last.entries.map((e) => ({ ...e, state: e.state === 'live' ? 'stale' : e.state })) }
-              : null,
-          );
-      }
-    };
-    const off = window.vista.onChange(() => {
-      void refresh();
-    });
-    void refresh();
-    const poll = window.setInterval(() => {
-      void refresh();
-    }, 2000);
     let previousWall = Date.now();
     let previousMonotonic = performance.now();
     const tick = window.setInterval(() => {
@@ -353,12 +341,7 @@ export function Audience() {
       previousMonotonic = monotonic;
       setNow(wall);
     }, 250);
-    return () => {
-      active = false;
-      off();
-      clearInterval(poll);
-      clearInterval(tick);
-    };
+    return () => clearInterval(tick);
   }, []);
   useEffect(() => setEpoch(Date.now()), [state?.config.id, state?.config.revision]);
   useEffect(() => {
