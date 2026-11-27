@@ -3,7 +3,7 @@ import { CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { estChampionshipInspectionsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { EstChampionshipInspectionAssessmentDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -25,11 +25,12 @@ export function EstChampionshipInspectionPanel({ championshipId }: { championshi
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await estChampionshipInspectionsService.get({ championshipId });
-    if (!response.success) setError(response.error.message);
-    else {
-      setAssessment(response.data);
-      if (response.data.plan) setTargetText(response.data.plan.targetIdentifiers.join('\n'));
+    try {
+      const assessment = unwrap(await estChampionshipInspectionsService.get({ championshipId }));
+      setAssessment(assessment);
+      if (assessment.plan) setTargetText(assessment.plan.targetIdentifiers.join('\n'));
+    } catch (caught) {
+      setError(errorMessage(caught));
     }
   }, [championshipId]);
 

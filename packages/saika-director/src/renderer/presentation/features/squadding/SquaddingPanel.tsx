@@ -3,7 +3,7 @@ import { Dices, RefreshCw, ShieldCheck } from 'lucide-react';
 
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { squaddingService } from '@/renderer/services';
-import { unwrapData } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap, unwrapData } from '@/renderer/services/serviceError';
 import type { SquaddingDrawDto } from '@/shared/ipc/contracts';
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { Button } from '../shared/common/Button';
@@ -37,13 +37,13 @@ export function SquaddingPanel({
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await squaddingService.list({ eventId });
-    if (!response.success) {
-      setError(response.error.message);
-      return;
+    try {
+      const listed = unwrap(await squaddingService.list({ eventId }));
+      setDraws(listed);
+      setSelectedId((current) => current ?? listed[0]?.id ?? null);
+    } catch (caught) {
+      setError(errorMessage(caught));
     }
-    setDraws(response.data);
-    setSelectedId((current) => current ?? response.data[0]?.id ?? null);
   }, [eventId]);
 
   useEffect(() => {

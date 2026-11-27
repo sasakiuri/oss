@@ -18,9 +18,11 @@ export function OperationalArchivesPanel() {
   const [restoreConfirmed, setRestoreConfirmed] = useState(false);
 
   const loadPending = useCallback(async () => {
-    const response = await operationalArchivesService.getPendingRestore();
-    if (!response.success) addNotification('error', response.error.message);
-    else setPending(response.data);
+    try {
+      setPending(unwrap(await operationalArchivesService.getPendingRestore()));
+    } catch (caught) {
+      addNotification('error', errorMessage(caught));
+    }
   }, [addNotification]);
 
   useEffect(() => {

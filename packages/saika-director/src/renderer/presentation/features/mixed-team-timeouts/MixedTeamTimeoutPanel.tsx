@@ -3,7 +3,7 @@ import { Clock3, RefreshCw } from 'lucide-react';
 
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { mixedTeamTimeoutsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { DirectorLaneSnapshotDto, MixedTeamTimeoutDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { mutedLabelClass, smallBlockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
@@ -47,12 +47,11 @@ export function MixedTeamTimeoutPanel({
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await mixedTeamTimeoutsService.list({ competitionId });
-    if (!response.success) {
-      setError(response.error.message);
-      return;
+    try {
+      setSessions(unwrap(await mixedTeamTimeoutsService.list({ competitionId })));
+    } catch (caught) {
+      setError(errorMessage(caught));
     }
-    setSessions(response.data);
   }, [competitionId]);
 
   useEffect(() => {

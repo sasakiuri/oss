@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { startListsService } from '@/renderer/services';
-import { unwrapData } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap, unwrapData } from '@/renderer/services/serviceError';
 import type {
   DistributeStartListPayload,
   StartListApprovalPayload,
@@ -42,15 +42,13 @@ export function useStartListVersions(eventId: string) {
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await startListsService.list({ eventId });
-    if (!response.success) {
-      setError(response.error.message);
-      return;
+    try {
+      const listed = unwrap(await startListsService.list({ eventId }));
+      setVersions(listed);
+      setSelectedId((current) => (listed.some((value) => value.id === current) ? current : (listed[0]?.id ?? '')));
+    } catch (caught) {
+      setError(errorMessage(caught));
     }
-    setVersions(response.data);
-    setSelectedId((current) =>
-      response.data.some((value) => value.id === current) ? current : (response.data[0]?.id ?? ''),
-    );
   }, [eventId, setError]);
 
   useEffect(() => {
