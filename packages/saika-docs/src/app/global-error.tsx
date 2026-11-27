@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_SENTRY_DSN)
-      void import('@sentry/react').then(({ captureException }) => captureException(error));
+      void import('@sentry/nextjs').then(({ captureException }) => captureException(error));
   }, [error]);
   return (
     <html lang="ja">

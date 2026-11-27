@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
 import { rm, mkdir, readFile, writeFile } from 'node:fs/promises';
 
 import { chromium } from '@playwright/test';
 
 // @ts-expect-error Shared artifact helpers.
-import { sourceIdentity } from './lib/artifact.mjs';
+import { sha256, sourceIdentity } from './lib/artifact.mjs';
 // @ts-expect-error Shared Node script has no declaration file.
 import { startServer } from './server.mjs';
 
@@ -37,20 +36,21 @@ try {
     { timeout: 60_000 },
   );
   await page.emulateMedia({ media: 'print' });
-  const diagrams = await page.locator('[data-diagram-source]').evaluateAll((nodes) =>
-    nodes.map((node) => ({
-      source: node.getAttribute('data-diagram-source') ?? '',
-      svg: node.querySelector('svg')?.outerHTML ?? '',
-    })),
-  );
+  const diagrams = (
+    await page.locator('[data-diagram-source]').evaluateAll((nodes) =>
+      nodes.map((node) => ({
+        source: node.getAttribute('data-diagram-source') ?? '',
+        svg: node.querySelector('svg')?.outerHTML ?? '',
+      })),
+    )
+  ).map((diagram) => ({ ...diagram, hash: sha256(diagram.source.trim()) }));
   for (const [index, diagram] of diagrams.entries()) {
     if (!diagram.svg) throw new Error('A Mermaid diagram did not render');
-    const hash = createHash('sha256').update(diagram.source.trim()).digest('hex');
-    await writeFile(`${output}/diagrams/${hash}.svg`, diagram.svg);
+    await writeFile(`${output}/diagrams/${diagram.hash}.svg`, diagram.svg);
     await page
       .locator('[data-diagram-source] svg')
       .nth(index)
-      .screenshot({ path: `${output}/diagrams/${hash}.png` });
+      .screenshot({ path: `${output}/diagrams/${diagram.hash}.png` });
   }
   await page.evaluate(() => {
     const sections = [...document.querySelectorAll<HTMLElement>('[data-document-href]')];
@@ -120,8 +120,7 @@ try {
   // WeasyPrint does not render SVG foreignObject labels. Reuse browser-rendered
   // PNGs in the standalone HTML while retaining vector diagrams in Chromium PDF.
   for (const diagram of diagrams) {
-    const hash = createHash('sha256').update(diagram.source.trim()).digest('hex');
-    const png = (await readFile(`${output}/diagrams/${hash}.png`)).toString('base64');
+    const png = (await readFile(`${output}/diagrams/${diagram.hash}.png`)).toString('base64');
     book = book.replace(diagram.svg, `<img alt="文書内の図" src="data:image/png;base64,${png}">`);
   }
   const html = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>Saika マニュアル</title><style>${css.join('\n')}</style></head><body>${book}</body></html>`;
@@ -139,16 +138,6 @@ try {
       footerTemplate:
         '<div style="font-size:9px;text-align:center;width:100%"><span class="pageNumber"></span> / <span class="totalPages"></span></div>',
     });
-  if (process.argv.includes('--weasyprint'))
-    execFileSync('weasyprint', [`${output}/saika-manual.html`, `${output}/saika-manual-weasyprint.pdf`], {
-      stdio: 'inherit',
-    });
-  if (process.argv.includes('--pandoc'))
-    execFileSync(
-      'pandoc',
-      [`${output}/saika-manual.html`, '--standalone', '--toc', '-o', `${output}/saika-manual.docx`],
-      { stdio: 'inherit' },
-    );
   const version = (JSON.parse(await readFile('package.json', 'utf8')) as { version: string }).version;
   await writeFile(
     `${output}/build.json`,
@@ -156,7 +145,6 @@ try {
       {
         ...(await sourceIdentity()),
         version,
-        revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
         dirty: Boolean(execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()),
         browser: browser.version(),
         diagrams: diagrams.length,

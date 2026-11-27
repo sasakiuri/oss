@@ -3,49 +3,43 @@
 import DOMPurify from 'isomorphic-dompurify';
 import { useEffect, useRef, useState } from 'react';
 
+import { useFirstVisible } from './use-first-visible';
+
 export function DotChart({ source }: { source: string }) {
   const figure = useRef<HTMLElement>(null);
-  const [result, setResult] = useState({ svg: '', error: '' });
+  const visible = useFirstVisible(figure);
+  const tooLarge = source.length > 20_000;
+  const [rendered, setRendered] = useState({ svg: '', error: '' });
   useEffect(() => {
-    let worker: Worker | undefined;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry?.isIntersecting) return;
-      observer.disconnect();
-      if (source.length > 20_000) {
-        setResult({ svg: '', error: '図が大きすぎます。' });
-        return;
-      }
-      worker = new Worker(new URL('./dot.worker.ts', import.meta.url));
-      timeout = setTimeout(() => {
-        worker?.terminate();
-        setResult({ svg: '', error: '図の表示がタイムアウトしました。' });
-      }, 10_000);
-      worker.onmessage = (event: MessageEvent<{ svg?: string; error?: string }>) => {
-        clearTimeout(timeout);
-        worker?.terminate();
-        setResult({
-          svg: DOMPurify.sanitize(event.data.svg ?? '', {
-            USE_PROFILES: { svg: true, svgFilters: true },
-            FORBID_TAGS: ['script', 'foreignObject', 'image', 'a'],
-          }),
-          error: event.data.error ?? '',
-        });
-      };
-      worker.onerror = () => {
-        clearTimeout(timeout);
-        worker?.terminate();
-        setResult({ svg: '', error: '図を表示できませんでした。' });
-      };
-      worker.postMessage(source);
-    });
-    if (figure.current) observer.observe(figure.current);
-    return () => {
-      observer.disconnect();
+    if (!visible || tooLarge) return;
+    const worker = new Worker(new URL('./dot.worker.ts', import.meta.url));
+    const timeout = setTimeout(() => {
+      worker.terminate();
+      setRendered({ svg: '', error: '図の表示がタイムアウトしました。' });
+    }, 10_000);
+    worker.onmessage = (event: MessageEvent<{ svg?: string; error?: string }>) => {
       clearTimeout(timeout);
-      worker?.terminate();
+      worker.terminate();
+      setRendered({
+        svg: DOMPurify.sanitize(event.data.svg ?? '', {
+          USE_PROFILES: { svg: true, svgFilters: true },
+          FORBID_TAGS: ['script', 'foreignObject', 'image', 'a'],
+        }),
+        error: event.data.error ?? '',
+      });
     };
-  }, [source]);
+    worker.onerror = () => {
+      clearTimeout(timeout);
+      worker.terminate();
+      setRendered({ svg: '', error: '図を表示できませんでした。' });
+    };
+    worker.postMessage(source);
+    return () => {
+      clearTimeout(timeout);
+      worker.terminate();
+    };
+  }, [source, visible, tooLarge]);
+  const result = visible && tooLarge ? { svg: '', error: '図が大きすぎます。' } : rendered;
   return (
     <figure
       ref={figure}

@@ -121,13 +121,7 @@ const config: KnipConfig = {
     // Public module exports and test entry points.
     "packages/saika-lane/src/**/index.ts": ["exports"],
   },
-  ignoreBinaries: [
-    "playwright",
-    "weasyprint",
-    "pandoc",
-    "pdfinfo",
-    "pdftotext",
-  ],
+  ignoreBinaries: ["playwright", "pdfinfo", "pdftotext"],
   ignoreDependencies: [
     // Native addon dynamically loaded by serialport at runtime
     "@serialport/bindings-cpp",
