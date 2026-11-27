@@ -9,6 +9,7 @@ import { eventsContract } from '@/shared/ipc/contracts';
 import { AppConfigService } from '@/main/infrastructure/config/AppConfigService';
 import { DatabaseManager } from '@/main/infrastructure/database/DatabaseManager';
 import { WindowManager } from '@/main/infrastructure/window/WindowManager';
+import { SqliteEventRepository } from '@/main/modules/championship';
 import { FinalOperationService, SqliteFinalOperationRepository } from '@/main/modules/final-operations';
 import { LaneTimerService } from '@/main/modules/lane-control';
 import { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
@@ -100,6 +101,8 @@ export function createApp(
     finalResultRepository,
     mixedTeamFinalResultRepository,
     participantRepository,
+    firingPointAssignmentRepository,
+    eventSummaryReader,
     scoringDecisionRepository,
     competitionShotJournal,
     firingWindowJournal,
@@ -110,6 +113,7 @@ export function createApp(
     targetExaminationService,
     rangeInterruptionRepository,
     finalControlRepository,
+    mixedTeamFinalControlRepository,
     finalRecoveryRepository,
     reserveTransferRepository,
     reserveTransferDataGuard,
@@ -153,6 +157,7 @@ export function createApp(
   registerBuiltinCompetitionTypes();
   const rulePackRegistry = new RulePackRegistry([...ISSF_2026_RULE_PACKS, ...JRSF_2026_RULE_PACKS]);
   const finalOperationRepository = new SqliteFinalOperationRepository(database);
+  const eventRepository = new SqliteEventRepository(database, competitionTypeRegistry);
   const finalOperationService = new FinalOperationService(
     finalOperationRepository,
     competitionTypeRegistry,
@@ -316,8 +321,12 @@ export function createApp(
     scoreCorrectionService,
     rangeInterruptionRepository,
     participantRepository,
+    firingPointAssignmentRepository,
+    eventRepository,
+    eventSummaryReader,
     finalOperationRepository,
     finalControlRepository,
+    mixedTeamFinalControlRepository,
     finalRecoveryRepository,
     reserveTransferRepository,
     reserveTransferDataGuard,

@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { ScoreCorrectionService } from '@/main/modules/score-corrections';
 import type { IScoreCorrectionRepository } from '@/main/modules/score-corrections';
 import type { IReviewCorrectionSource, ReviewSubject } from './ObservationReviewService';
@@ -7,7 +8,7 @@ export class AppliedReviewCorrections implements IReviewCorrectionSource {
   constructor(
     private readonly repository: IScoreCorrectionRepository,
     private readonly service: ScoreCorrectionService,
-    private readonly competitions: (eventId: string, scope: 'QUALIFICATION' | 'FINAL') => readonly string[],
+    private readonly competitions: (eventId: string, scope: ResultScope) => readonly string[],
   ) {}
   issue(subject: ReviewSubject, correctionId: string): string | null {
     try {

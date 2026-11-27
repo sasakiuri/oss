@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultPublicationBlocker } from '@/main/modules/result-publication';
 
 import type { IProtestRepository } from '../domain/IProtestRepository';
@@ -9,11 +10,11 @@ export class ProtestPublicationBlocker implements IResultPublicationBlocker {
     private readonly repository: IProtestRepository,
     private readonly competitionIdsForEvent: (
       eventId: string,
-      resultScope: 'QUALIFICATION' | 'FINAL',
+      resultScope: ResultScope,
     ) => readonly string[] = () => [],
   ) {}
 
-  getIssues(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): readonly string[] {
+  getIssues(eventId: string, resultScope: ResultScope): readonly string[] {
     const cases = [
       ...new Map(
         [

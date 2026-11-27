@@ -1,4 +1,5 @@
-import type { ResultListApprovalEntry, ResultApprovalScope } from './ResultListApprovalEntry';
+import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultListApprovalEntry } from './ResultListApprovalEntry';
 import type { ResultVerificationCheck } from './ResultVerificationCheck';
 
 export interface IResultVerificationRepository {
@@ -6,5 +7,5 @@ export interface IResultVerificationRepository {
   findChecksByEvent(eventId: string): ResultVerificationCheck[];
   appendApprovalEntry(entry: ResultListApprovalEntry): void;
   findApprovalEntryById(id: string): ResultListApprovalEntry | null;
-  findApprovalEntriesByEvent(eventId: string, scope: ResultApprovalScope): ResultListApprovalEntry[];
+  findApprovalEntriesByEvent(eventId: string, scope: ResultScope): ResultListApprovalEntry[];
 }

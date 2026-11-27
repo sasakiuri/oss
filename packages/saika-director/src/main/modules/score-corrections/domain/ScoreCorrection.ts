@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { CorrectableShot, ScoreCorrectionBasis } from '@/main/modules/results';
 
 export interface ScoreCorrectionChange {
@@ -12,7 +13,7 @@ export interface ScoreCorrectionChange {
 }
 export interface ScoreCorrectionRequest {
   readonly resultId: string;
-  readonly resultScope: 'QUALIFICATION' | 'FINAL';
+  readonly resultScope: ResultScope;
   readonly caseId: string;
   readonly decisionId: string;
   readonly changes: readonly ScoreCorrectionChange[];

@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { OfficialSigningPolicy, type IOfficialSigningPolicy } from '@/main/modules/official-signing';
 
 import type {
@@ -11,11 +12,7 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import type { IResultVerificationRepository } from '../domain/IResultVerificationRepository';
-import {
-  ResultListApprovalEntry,
-  getActiveResultListApprovals,
-  type ResultApprovalScope,
-} from '../domain/ResultListApprovalEntry';
+import { ResultListApprovalEntry, getActiveResultListApprovals } from '../domain/ResultListApprovalEntry';
 import { ResultVerificationCheck } from '../domain/ResultVerificationCheck';
 import type { IResultVerificationSourceResolver, ResultVerificationSourceSnapshot } from './ResultVerificationSource';
 import { sha256Json } from '@/main/domain/sha256Json';
@@ -28,10 +25,7 @@ export class ResultVerificationService {
     private readonly signing: IOfficialSigningPolicy = new OfficialSigningPolicy(),
   ) {}
 
-  async getStatus(
-    eventId: string,
-    resultScope: ResultApprovalScope = 'QUALIFICATION',
-  ): Promise<ResultVerificationStatusDto> {
+  async getStatus(eventId: string, resultScope: ResultScope = 'QUALIFICATION'): Promise<ResultVerificationStatusDto> {
     const snapshot = await this.sources.resolve(resultScope).load(eventId);
     if (snapshot.eventId !== eventId || snapshot.resultScope !== resultScope) {
       throw new Error('Result verification source returned another event or result scope');
@@ -221,7 +215,7 @@ function calculateSnapshotRevision(snapshot: ResultVerificationSourceSnapshot): 
 }
 
 function buildReadinessIssues(input: {
-  resultScope: ResultApprovalScope;
+  resultScope: ResultScope;
   resultCount: number;
   configuredIndividualChecks: number;
   configuredTeamChecks: number;

@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { requiredText } from '@/main/domain/guards';
 import {
   createOfficialPublishedEntry,
@@ -8,7 +9,6 @@ import {
   type PreliminaryPublishedEntry,
   type ProtestRegisteredEntry,
   type ResultPublicationEntry,
-  type ResultPublicationScope,
 } from './ResultPublicationEntry';
 
 export type ResultPublicationStatus = 'DRAFT' | 'PRELIMINARY' | 'PROTEST_PENDING' | 'PROTEST_CLOSED' | 'OFFICIAL';
@@ -22,7 +22,7 @@ interface PublicationCycle {
 
 export interface ResultPublicationState {
   readonly eventId: string;
-  readonly resultScope: ResultPublicationScope;
+  readonly resultScope: ResultScope;
   readonly status: ResultPublicationStatus;
   readonly preliminaryId: string | null;
   readonly snapshotRevision: string | null;
@@ -37,19 +37,19 @@ export interface ResultPublicationState {
 export class ResultPublication {
   private constructor(
     readonly eventId: string,
-    readonly resultScope: ResultPublicationScope,
+    readonly resultScope: ResultScope,
     readonly entries: readonly ResultPublicationEntry[],
     private readonly currentCycle: PublicationCycle | null,
   ) {}
 
-  static empty(eventId: string, resultScope: ResultPublicationScope): ResultPublication {
+  static empty(eventId: string, resultScope: ResultScope): ResultPublication {
     requiredText(eventId, 'eventId');
     return new ResultPublication(eventId, resultScope, Object.freeze([]), null);
   }
 
   static reconstruct(
     eventId: string,
-    resultScope: ResultPublicationScope,
+    resultScope: ResultScope,
     entries: readonly ResultPublicationEntry[],
   ): ResultPublication {
     const publication = ResultPublication.empty(eventId, resultScope);

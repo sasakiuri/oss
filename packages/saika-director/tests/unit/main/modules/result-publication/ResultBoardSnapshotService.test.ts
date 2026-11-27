@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -9,7 +10,7 @@ import {
 
 const revision = 'a'.repeat(64);
 const changedRevision = 'b'.repeat(64);
-function setup(scope: 'QUALIFICATION' | 'FINAL' = 'QUALIFICATION') {
+function setup(scope: ResultScope = 'QUALIFICATION') {
   const snapshot: Awaited<ReturnType<IResultBoardSource['getStatus']>> = {
     eventId: 'event',
     resultScope: scope,

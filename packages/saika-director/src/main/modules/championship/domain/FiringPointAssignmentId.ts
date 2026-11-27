@@ -3,8 +3,8 @@ import { randomUUID } from 'crypto';
 export class FiringPointAssignmentId {
   private constructor(public readonly value: string) {}
 
-  static create(value?: string): FiringPointAssignmentId {
-    return new FiringPointAssignmentId(value ?? randomUUID());
+  static create(value: string): FiringPointAssignmentId {
+    return new FiringPointAssignmentId(value);
   }
 
   static generate(): FiringPointAssignmentId {

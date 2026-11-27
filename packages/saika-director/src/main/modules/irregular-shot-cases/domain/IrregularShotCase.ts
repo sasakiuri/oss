@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { CompetitionShotObservation } from '@/main/modules/mqtt';
 import { CASE_ENTRY_TYPES, type CaseEntryType } from '@/main/domain/caseLifecycle';
 import { requiredText, optionalText, validDate } from '@/main/domain/guards';
@@ -29,14 +30,13 @@ export const IRREGULAR_SHOT_RESOLUTION_CODES = [
 export type IrregularShotKind = (typeof IRREGULAR_SHOT_KINDS)[number];
 export type IrregularShotEvidenceRelation = (typeof IRREGULAR_SHOT_EVIDENCE_RELATIONS)[number];
 export type IrregularShotResolutionCode = (typeof IRREGULAR_SHOT_RESOLUTION_CODES)[number];
-export type IrregularShotResultScope = 'QUALIFICATION' | 'FINAL';
 
 export class IrregularShotCase {
   private constructor(
     readonly id: string,
     readonly eventId: string,
     readonly competitionId: string,
-    readonly resultScope: IrregularShotResultScope,
+    readonly resultScope: ResultScope,
     readonly kind: IrregularShotKind,
     readonly subjectLaneId: string,
     readonly adjacentLaneIds: readonly string[],
@@ -56,7 +56,7 @@ export class IrregularShotCase {
     id?: string;
     eventId: string;
     competitionId: string;
-    resultScope: IrregularShotResultScope;
+    resultScope: ResultScope;
     kind: IrregularShotKind;
     subjectLaneId: string;
     adjacentLaneIds: readonly string[];

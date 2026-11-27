@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultVerificationSource } from '@/main/modules/result-verification';
 import { sha256Json } from '@/main/domain/sha256Json';
 
@@ -6,7 +7,7 @@ export class PolicyBoundVerificationSource implements IResultVerificationSource 
   readonly resultScope;
   constructor(
     private readonly source: IResultVerificationSource,
-    private readonly policyRevision: (eventId: string, scope: 'QUALIFICATION' | 'FINAL') => string | null,
+    private readonly policyRevision: (eventId: string, scope: ResultScope) => string | null,
   ) {
     this.resultScope = source.resultScope;
   }

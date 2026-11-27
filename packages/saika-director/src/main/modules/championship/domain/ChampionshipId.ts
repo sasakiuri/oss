@@ -3,8 +3,8 @@ import { randomUUID } from 'crypto';
 export class ChampionshipId {
   private constructor(public readonly value: string) {}
 
-  static create(value?: string): ChampionshipId {
-    return new ChampionshipId(value ?? randomUUID());
+  static create(value: string): ChampionshipId {
+    return new ChampionshipId(value);
   }
 
   static generate(): ChampionshipId {

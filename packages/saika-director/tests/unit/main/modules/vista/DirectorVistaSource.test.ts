@@ -440,8 +440,8 @@ describe('Director Vista source', () => {
         finalRepository.save(
           FinalResult.reconstruct(
             FinalResultId.create(id),
-            EventId.reconstruct(eventId),
-            ParticipantId.reconstruct(lane.assignment!.athlete!.id),
+            EventId.create(eventId),
+            ParticipantId.create(lane.assignment!.athlete!.id),
             lane.assignment!.athlete!.name,
             '',
             index + 1,
@@ -461,9 +461,9 @@ describe('Director Vista source', () => {
       else
         resultRepository.save(
           Result.create(
-            ResultId.reconstruct(id),
-            EventId.reconstruct(eventId),
-            ParticipantId.reconstruct(lane.assignment!.athlete!.id),
+            ResultId.create(id),
+            EventId.create(eventId),
+            ParticipantId.create(lane.assignment!.athlete!.id),
             lane.assignment!.athlete!.name,
             '',
             shots.length * 10,

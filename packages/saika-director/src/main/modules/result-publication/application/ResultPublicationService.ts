@@ -1,6 +1,7 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultPublicationRepository } from '../domain/IResultPublicationRepository';
 import { ResultPublication, type ResultPublicationStatus } from '../domain/ResultPublication';
-import type { ResultPublicationEntry, ResultPublicationScope } from '../domain/ResultPublicationEntry';
+import type { ResultPublicationEntry } from '../domain/ResultPublicationEntry';
 
 import type {
   IResultPublicationPolicyResolver,
@@ -11,7 +12,7 @@ import type {
 
 export interface ResultPublicationView {
   readonly eventId: string;
-  readonly resultScope: ResultPublicationScope;
+  readonly resultScope: ResultScope;
   readonly status: ResultPublicationStatus;
   readonly preliminaryId: string | null;
   readonly publicationSnapshotRevision: string | null;
@@ -36,7 +37,7 @@ export class ResultPublicationService {
     private readonly clock: PublicationClock = { now: () => new Date() },
   ) {}
 
-  async getStatus(eventId: string, resultScope: ResultPublicationScope): Promise<ResultPublicationView> {
+  async getStatus(eventId: string, resultScope: ResultScope): Promise<ResultPublicationView> {
     const now = this.clock.now();
     const publication = this.load(eventId, resultScope);
     const state = publication.stateAt(now);
@@ -77,7 +78,7 @@ export class ResultPublicationService {
 
   async publishPreliminary(input: {
     eventId: string;
-    resultScope: ResultPublicationScope;
+    resultScope: ResultScope;
     officialName: string;
     /** Optional external posting facts; absent for legacy record-at-operation-time callers. */
     posting?: { snapshotRevision: string; postedAt?: string; location: string; reference?: string };
@@ -115,7 +116,7 @@ export class ResultPublicationService {
 
   async registerProtest(input: {
     eventId: string;
-    resultScope: ResultPublicationScope;
+    resultScope: ResultScope;
     protestReference: string;
   }): Promise<ResultPublicationView> {
     const publication = this.load(input.eventId, input.resultScope);
@@ -129,7 +130,7 @@ export class ResultPublicationService {
 
   async resolveProtest(input: {
     eventId: string;
-    resultScope: ResultPublicationScope;
+    resultScope: ResultScope;
     protestReference: string;
     resolution: string;
     officialName: string;
@@ -147,7 +148,7 @@ export class ResultPublicationService {
 
   async publishOfficial(input: {
     eventId: string;
-    resultScope: ResultPublicationScope;
+    resultScope: ResultScope;
     officialName: string;
   }): Promise<ResultPublicationView> {
     const readiness = await this.readiness.getCurrent(input.eventId, input.resultScope);
@@ -173,7 +174,7 @@ export class ResultPublicationService {
     return this.getStatus(input.eventId, input.resultScope);
   }
 
-  private load(eventId: string, resultScope: ResultPublicationScope): ResultPublication {
+  private load(eventId: string, resultScope: ResultScope): ResultPublication {
     return ResultPublication.reconstruct(eventId, resultScope, this.repository.findByEvent(eventId, resultScope));
   }
 }

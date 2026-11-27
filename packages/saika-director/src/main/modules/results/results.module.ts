@@ -21,14 +21,11 @@ import {
   PublishMqttMixedTeamFinalResultsToken,
   ConfirmResultsToken,
 } from './application/tokens';
-import { SqliteFinalControlRepository } from '@/main/modules/final-control';
-import { SqliteMixedTeamFinalControlRepository } from '@/main/modules/mixed-team-final-control';
 
 export const resultsModule = defineModule({
   name: 'results',
   deps: [
     'commandBus',
-    'database',
     'queryBus',
     'ipcRouter',
     'competitionTypeRegistry',
@@ -38,11 +35,12 @@ export const resultsModule = defineModule({
     'competitionShotJournal',
     'qualificationResultsReader',
     'finalResultsReader',
+    'finalControlRepository',
+    'mixedTeamFinalControlRepository',
   ],
   register(ctx) {
     const {
       commandBus,
-      database,
       queryBus,
       ipcRouter,
       competitionTypeRegistry,
@@ -52,6 +50,8 @@ export const resultsModule = defineModule({
       competitionShotJournal,
       qualificationResultsReader,
       finalResultsReader,
+      finalControlRepository,
+      mixedTeamFinalControlRepository,
     } = ctx;
 
     // 1. Command Handlers (token-based registration)
@@ -65,13 +65,13 @@ export const resultsModule = defineModule({
       queryBus,
       finalResultRepository,
       competitionTypeRegistry,
-      new SqliteFinalControlRepository(database),
+      finalControlRepository,
     );
     const publishMqttMixedTeamFinalResultsHandler = new PublishMqttMixedTeamFinalResultsHandler(
       queryBus,
       mixedTeamFinalResultRepository,
       competitionTypeRegistry,
-      new SqliteMixedTeamFinalControlRepository(database),
+      mixedTeamFinalControlRepository,
     );
     const confirmResultsHandler = new ConfirmResultsHandler(resultRepository);
 

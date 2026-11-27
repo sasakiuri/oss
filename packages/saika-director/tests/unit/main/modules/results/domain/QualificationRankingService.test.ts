@@ -26,9 +26,9 @@ function projected(
     seriesIndex: Math.floor(index / 10),
   }));
   const source = Result.create(
-    ResultId.reconstruct(crypto.randomUUID()),
-    EventId.reconstruct(crypto.randomUUID()),
-    ParticipantId.reconstruct(crypto.randomUUID()),
+    ResultId.create(crypto.randomUUID()),
+    EventId.create(crypto.randomUUID()),
+    ParticipantId.create(crypto.randomUUID()),
     name,
     'Team',
     590,

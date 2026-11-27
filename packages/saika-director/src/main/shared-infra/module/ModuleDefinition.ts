@@ -10,7 +10,12 @@ import type {
   BackupCaptureReadinessService,
   BackupCaptureSourceReaders,
 } from '@/main/modules/backup-capture-readiness';
-import type { IParticipantRepository } from '@/main/modules/championship';
+import type {
+  IEventRepository,
+  IEventSummaryReader,
+  IFiringPointAssignmentRepository,
+  IParticipantRepository,
+} from '@/main/modules/championship';
 import type { EstBackupCaptureService } from '@/main/modules/est-backup-capture';
 import type { EstBackupSourceService } from '@/main/modules/est-backup-sources';
 import type {
@@ -21,6 +26,7 @@ import type {
 import type { EstInspectionStartService } from '@/main/modules/est-championship-inspections';
 import type { EvidenceFileService } from '@/main/modules/evidence-files';
 import type { IFinalControlRepository } from '@/main/modules/final-control';
+import type { IMixedTeamFinalControlRepository } from '@/main/modules/mixed-team-final-control';
 import type { FinalOperationService, IFinalOperationRepository } from '@/main/modules/final-operations';
 import type { IFinalPlacementReviewRepository } from '@/main/modules/final-placement-review';
 import type { IFinalRecoveryRepository } from '@/main/modules/final-recoveries';
@@ -125,8 +131,12 @@ export interface ServiceRegistry {
   readonly targetExaminationService: TargetExaminationService;
   readonly rangeInterruptionRepository: IRangeInterruptionRepository;
   readonly participantRepository: IParticipantRepository;
+  readonly firingPointAssignmentRepository: IFiringPointAssignmentRepository;
+  readonly eventRepository: IEventRepository;
+  readonly eventSummaryReader: IEventSummaryReader;
   readonly finalOperationRepository: IFinalOperationRepository;
   readonly finalControlRepository: IFinalControlRepository;
+  readonly mixedTeamFinalControlRepository: IMixedTeamFinalControlRepository;
   readonly finalRecoveryRepository: IFinalRecoveryRepository;
   readonly reserveTransferRepository: IReserveTransferRepository;
   /** Blocks clearing competition data while a reserve Lane transfer is pending. */

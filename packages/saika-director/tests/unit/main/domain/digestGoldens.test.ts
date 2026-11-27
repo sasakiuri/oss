@@ -131,9 +131,9 @@ function qualificationResult(): Result {
     ),
   );
   return Result.reconstruct(
-    ResultId.reconstruct(RESULT_ID),
-    EventId.reconstruct(EVENT_ID),
-    ParticipantId.reconstruct(PARTICIPANT_A),
+    ResultId.create(RESULT_ID),
+    EventId.create(EVENT_ID),
+    ParticipantId.create(PARTICIPANT_A),
     'Aiko Sato',
     'Japan',
     Number(seriesScores.reduce((sum, score) => sum + score, 0).toFixed(1)),
@@ -158,8 +158,8 @@ function qualificationResult(): Result {
 function finalResult(): FinalResult {
   return FinalResult.reconstruct(
     FinalResultId.create(RESULT_ID),
-    EventId.reconstruct(EVENT_ID),
-    ParticipantId.reconstruct(PARTICIPANT_A),
+    EventId.create(EVENT_ID),
+    ParticipantId.create(PARTICIPANT_A),
     'Aiko Sato',
     'Japan',
     3,

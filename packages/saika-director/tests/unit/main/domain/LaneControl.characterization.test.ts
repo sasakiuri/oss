@@ -771,24 +771,6 @@ describe('LaneControl characterization tests', () => {
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
 
-  describe('duplicate shot detection', () => {
-    it('detects a duplicate receivedShotNumber', () => {
-      let lane = createQualificationLane().startPreparation();
-      lane = lane.advanceToNextStage().startMatch();
-      lane = lane.addShotByScore(10.0, Date.now(), 42);
-      expect(lane.isDuplicateShot(42)).toBe(true);
-      expect(lane.isDuplicateShot(43)).toBe(false);
-    });
-
-    it('has no duplicates initially', () => {
-      const lane = createQualificationLane();
-      expect(lane.isDuplicateShot(1)).toBe(false);
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // ---------------------------------------------------------------------------
-
   describe('button conditions', () => {
     it('canStartPreparation is true only in IDLE', () => {
       const idle = createQualificationLane();

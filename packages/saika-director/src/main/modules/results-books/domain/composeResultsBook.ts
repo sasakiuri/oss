@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { sha256Json } from '@/main/domain/sha256Json';
 
 import type {
@@ -47,7 +48,7 @@ export interface ResultsBookEventProjection {
   readonly eventType: string;
   readonly rulePackId?: string | null;
   readonly rulePackFingerprint?: string | null;
-  readonly scope: 'QUALIFICATION' | 'FINAL';
+  readonly scope: ResultScope;
   readonly snapshotRevision: string | null;
   readonly officialPublicationRevision: string | null;
   readonly publicationCurrent: boolean;

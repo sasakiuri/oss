@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { IEventRepository } from '@/main/modules/championship';
 import {
   finalCorrectionBasis,
@@ -26,7 +27,7 @@ export class StoredScoreCorrectionTargetSource implements IScoreCorrectionTarget
     private readonly registry: CompetitionTypeRegistry,
     private readonly qualificationOverlays: IQualificationScoreOverlaySource,
   ) {}
-  resolve(resultId: string, scope: 'QUALIFICATION' | 'FINAL') {
+  resolve(resultId: string, scope: ResultScope) {
     const qualification = scope === 'QUALIFICATION' ? this.qualifications.findById(resultId) : null;
     const final = scope === 'FINAL' ? this.finals.findById(resultId) : null;
     const result = qualification ?? final;

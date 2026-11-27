@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
 
 import type { IScoringDecisionRepository } from '../domain/IScoringDecisionRepository';
@@ -6,7 +7,6 @@ import {
   type ScoringApplicationPolicy,
   type ScoringClassificationCode,
   type ScoringDecisionType,
-  type ScoringResultScope,
 } from '../domain/ScoringDecision';
 
 interface ScoringDecisionRow {
@@ -14,7 +14,7 @@ interface ScoringDecisionRow {
   event_id: string;
   participant_id: string;
   relay_number: number;
-  result_scope: ScoringResultScope;
+  result_scope: ResultScope;
   result_id_at_decision: string;
   source_competition_id: string | null;
   decision_type: ScoringDecisionType;
@@ -65,7 +65,7 @@ export class SqliteScoringDecisionRepository implements IScoringDecisionReposito
     eventId: string,
     participantId: string,
     relayNumber: number,
-    resultScope: ScoringResultScope,
+    resultScope: ResultScope,
   ): ScoringDecision[] {
     const rows = this.db
       .prepare(
@@ -77,7 +77,7 @@ export class SqliteScoringDecisionRepository implements IScoringDecisionReposito
     return rows.map(toDomain);
   }
 
-  findByEventId(eventId: string, resultScope: ScoringResultScope): ScoringDecision[] {
+  findByEventId(eventId: string, resultScope: ResultScope): ScoringDecision[] {
     const rows = this.db
       .prepare('SELECT * FROM scoring_decisions WHERE event_id = ? AND result_scope = ? ORDER BY decided_at, id')
       .all(eventId, resultScope) as ScoringDecisionRow[];

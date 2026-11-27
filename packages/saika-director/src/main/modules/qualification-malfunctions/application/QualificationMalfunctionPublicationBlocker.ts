@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultPublicationBlocker } from '@/main/modules/result-publication';
 
 import type { IQualificationMalfunctionRepository } from '../domain/IQualificationMalfunctionRepository';
@@ -7,7 +8,7 @@ import { qualificationMalfunctionStatus } from '../domain/QualificationMalfuncti
 export class QualificationMalfunctionPublicationBlocker implements IResultPublicationBlocker {
   constructor(private readonly repository: IQualificationMalfunctionRepository) {}
 
-  getIssues(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): readonly string[] {
+  getIssues(eventId: string, resultScope: ResultScope): readonly string[] {
     if (resultScope !== 'QUALIFICATION') return [];
     const values = this.repository.findCasesByEvent(eventId);
     const entriesByCase = this.repository.findEntries(values.map((value) => value.id));

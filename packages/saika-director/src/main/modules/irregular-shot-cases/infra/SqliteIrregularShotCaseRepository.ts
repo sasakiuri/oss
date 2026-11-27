@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
 
 import { selectGroupedBy } from '@/main/infrastructure/database/selectGroupedBy';
@@ -11,14 +12,13 @@ import {
   type IrregularShotEvidenceRelation,
   type IrregularShotKind,
   type IrregularShotResolutionCode,
-  type IrregularShotResultScope,
 } from '../domain/IrregularShotCase';
 
 interface CaseRow {
   id: string;
   event_id: string;
   competition_id: string;
-  result_scope: IrregularShotResultScope;
+  result_scope: ResultScope;
   kind: IrregularShotKind;
   subject_lane_id: string;
   adjacent_lane_ids_json: string;
@@ -138,7 +138,7 @@ export class SqliteIrregularShotCaseRepository implements IIrregularShotCaseRepo
     return row ? toCase(row) : null;
   }
 
-  findCasesByEvent(eventId: string, resultScope?: IrregularShotResultScope): IrregularShotCase[] {
+  findCasesByEvent(eventId: string, resultScope?: ResultScope): IrregularShotCase[] {
     const rows = resultScope
       ? (this.db
           .prepare(

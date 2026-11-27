@@ -4,7 +4,7 @@ export { ScoringDecisionProjector } from './domain/ScoringDecisionProjector';
 export { compareDecisionOrder, getActiveScoringDecisions } from './domain/ScoringDecision';
 export { SqliteScoringDecisionRepository } from './infra/SqliteScoringDecisionRepository';
 export type { DecisionApplicationTrace, ScoreDecisionProjection } from './domain/ScoringDecisionProjector';
-export type { ScoringClassificationCode, ScoringDecision, ScoringResultScope } from './domain/ScoringDecision';
+export type { ScoringClassificationCode, ScoringDecision } from './domain/ScoringDecision';
 export type { IScoringDecisionRepository } from './domain/IScoringDecisionRepository';
 export type {
   IScoringDecisionTargetResolver,

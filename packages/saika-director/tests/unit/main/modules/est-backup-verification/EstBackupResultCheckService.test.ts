@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,7 +28,7 @@ const dbs: Database.Database[] = [];
 afterEach(() => dbs.splice(0).forEach((db) => db.close()));
 function setup(
   modifyRun?: (run: EstBackupVerificationRunDto) => void,
-  scope: 'QUALIFICATION' | 'FINAL' = 'QUALIFICATION',
+  scope: ResultScope = 'QUALIFICATION',
   mixed = false,
 ) {
   const db = migratedDatabase();

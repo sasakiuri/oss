@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type {
   IFinalResultDeclarationRepository,
   IResultPublicationRepository,
@@ -17,7 +18,7 @@ export class ResultWorkflowOfficialRevisionSource implements IResultsBookOfficia
 
   findOfficial(
     eventId: string,
-    resultScope: 'QUALIFICATION' | 'FINAL',
+    resultScope: ResultScope,
   ): { readonly snapshotRevision: string; readonly approvalId: string } | null {
     if (resultScope === 'FINAL') {
       const declaration = this.finalDeclarations.findByEvent(eventId);

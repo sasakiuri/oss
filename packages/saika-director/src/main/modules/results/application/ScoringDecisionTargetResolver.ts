@@ -1,9 +1,6 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { GetEventByIdToken } from '@/main/modules/championship';
-import type {
-  IScoringDecisionTargetResolver,
-  ScoringDecisionTargetSnapshot,
-  ScoringResultScope,
-} from '@/main/modules/scoring-decisions';
+import type { IScoringDecisionTargetResolver, ScoringDecisionTargetSnapshot } from '@/main/modules/scoring-decisions';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import {
   getAvailableSeriesShotCounts,
@@ -23,7 +20,7 @@ export class ScoringDecisionTargetResolver implements IScoringDecisionTargetReso
     private readonly competitionTypes: CompetitionTypeRegistry,
   ) {}
 
-  async resolve(resultId: string, resultScope: ScoringResultScope): Promise<ScoringDecisionTargetSnapshot | null> {
+  async resolve(resultId: string, resultScope: ResultScope): Promise<ScoringDecisionTargetSnapshot | null> {
     if (resultScope === 'QUALIFICATION') return this.resolveQualification(resultId);
     return this.resolveFinal(resultId);
   }

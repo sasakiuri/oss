@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultPublicationBlocker } from '@/main/modules/result-publication';
 import { getActiveScoringDecisions, type IScoringDecisionRepository } from '@/main/modules/scoring-decisions';
 
@@ -10,7 +11,7 @@ export class IncidentReportPublicationBlocker implements IResultPublicationBlock
     private readonly decisions: IScoringDecisionRepository,
     private readonly requiredTypes: ReadonlySet<string> = REPORT_REQUIRED_DECISION_TYPES,
   ) {}
-  getIssues(eventId: string, resultScope: 'QUALIFICATION' | 'FINAL'): readonly string[] {
+  getIssues(eventId: string, resultScope: ResultScope): readonly string[] {
     const reports = this.reports.findReportsByEvent(eventId);
     const coverage = inspectIncidentReportCoverage(
       getActiveScoringDecisions(this.decisions.findByEventId(eventId, resultScope)),

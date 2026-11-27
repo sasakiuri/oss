@@ -679,14 +679,6 @@ export class LaneControl {
   }
 
   // ---------------------------------------------------------------------------
-  // Duplicate shot detection
-  // ---------------------------------------------------------------------------
-
-  isDuplicateShot(receivedShotNumber: number): boolean {
-    return this.state.lastReceivedShotNumber !== null && receivedShotNumber === this.state.lastReceivedShotNumber;
-  }
-
-  // ---------------------------------------------------------------------------
   // Button enable conditions (delegated to ButtonConditions pure functions)
   // ---------------------------------------------------------------------------
 

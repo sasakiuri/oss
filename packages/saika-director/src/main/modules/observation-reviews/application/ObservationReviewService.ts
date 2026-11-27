@@ -1,3 +1,4 @@
+import type { ResultScope } from '@/main/domain/resultScope';
 import { sha256Json } from '@/main/domain/sha256Json';
 
 export interface ReviewSubject {
@@ -42,11 +43,11 @@ export class ObservationReviewService {
     private readonly subjects: IReviewSubjectSource,
     private readonly repository: IObservationReviewRepository,
     private readonly corrections: IReviewCorrectionSource,
-    private readonly competitions: (eventId: string, scope: 'QUALIFICATION' | 'FINAL') => readonly string[],
+    private readonly competitions: (eventId: string, scope: ResultScope) => readonly string[],
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  listEvent(eventId: string, scope: 'QUALIFICATION' | 'FINAL') {
+  listEvent(eventId: string, scope: ResultScope) {
     return [...new Set(this.competitions(eventId, scope))].flatMap((id) => this.list(id));
   }
 
