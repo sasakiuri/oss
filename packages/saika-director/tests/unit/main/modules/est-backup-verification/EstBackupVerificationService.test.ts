@@ -68,6 +68,8 @@ function harness() {
     { findByEventId: vi.fn(() => []) },
     qualificationResults,
     teamResults,
+    { load: vi.fn() },
+    { get: vi.fn() },
   );
   return {
     service,

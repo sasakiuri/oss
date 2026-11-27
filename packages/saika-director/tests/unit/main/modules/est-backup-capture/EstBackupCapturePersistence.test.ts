@@ -39,7 +39,7 @@ function create(exists: (id: string) => boolean = () => true) {
   const choose = vi.fn(async () => feed);
   const restoreFeed = vi.fn(async () => feed);
   const captureSource = vi.fn<IEstBackupSnapshotCapture['captureSource']>(() => ({ sourceId: 'retained-source' }));
-  const service = new EstBackupCaptureService({ choose }, { captureSource }, exists, ['.csv'], undefined, undefined, {
+  const service = new EstBackupCaptureService({ choose }, { captureSource }, exists, ['.csv'], {
     plans,
     restoreFeed,
     describeParser: (p) => refs.describe(p),

@@ -13,7 +13,10 @@ import type {
 import type { IQualificationRecoveryExecutionRepository } from '../domain/IQualificationRecoveryExecutionRepository';
 import type { IQualificationRecoverySettlementRepository } from '../domain/IQualificationRecoverySettlementRepository';
 import type { IRangeInterruptionRepository } from '../domain/IRangeInterruptionRepository';
-import type { QualificationRecoveryExecutionRecord } from '../domain/QualificationRecoveryExecution';
+import {
+  blocksDecisionSupersession,
+  type QualificationRecoveryExecutionRecord,
+} from '../domain/QualificationRecoveryExecution';
 import type { QualificationRecoverySettlementRecord } from '../domain/QualificationRecoverySettlement';
 import { createQualificationTimedTargetInterruptionContext } from '../domain/QualificationTimedTargetInterruptionContext';
 import { QualificationTimedTargetRecoveryDecision } from '../domain/QualificationTimedTargetRecoveryDecision';
@@ -442,11 +445,6 @@ function elapsedSeconds(startedAt: Date, endedAt: Date): number {
   const elapsedMs = endedAt.getTime() - startedAt.getTime();
   if (elapsedMs < 0) throw new Error('The interruption cannot end before it starts');
   return Math.ceil(elapsedMs / 1000);
-}
-
-function blocksDecisionSupersession(execution: QualificationRecoveryExecutionRecord): boolean {
-  if (execution.status === 'CANCELLED') return false;
-  return execution.phase !== 'EXTRA_SIGHTING' || execution.status !== 'COMPLETED';
 }
 
 function validateAuthorizedRecoveryForContext(

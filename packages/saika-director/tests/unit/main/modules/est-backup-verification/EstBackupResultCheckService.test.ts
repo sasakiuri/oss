@@ -199,6 +199,8 @@ describe('EST backup to individual result checks', () => {
       { findByEventId: () => [athlete] },
       { getByEvent: async () => [result], getByRelay: async () => [result] },
       { getQualification: async () => [] },
+      { load: vi.fn() },
+      { get: vi.fn() },
     );
     const run = await service.verify({
       eventId,

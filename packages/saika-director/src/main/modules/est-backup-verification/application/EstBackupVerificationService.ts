@@ -32,8 +32,8 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
     private readonly participants: Pick<IParticipantRepository, 'findByEventId'>,
     private readonly qualificationResults: IQualificationResultsReader,
     private readonly teamResults: TeamQualificationResultsReader,
-    private readonly finalSubjects?: IEstBackupSubjectSource,
-    private readonly sources?: IEstBackupSourceReader,
+    private readonly finalSubjects: IEstBackupSubjectSource,
+    private readonly sources: IEstBackupSourceReader,
   ) {}
 
   async list(eventId: string): Promise<EstBackupVerificationRunDto[]> {
@@ -42,7 +42,6 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
 
   async verify(input: CreateEstBackupVerificationPayload): Promise<EstBackupVerificationRunDto> {
     if (input.sourceId) {
-      if (!this.sources) throw new Error('Backup source reading is not installed');
       const source = this.sources.get(input.sourceId);
       if (
         source.eventId !== input.eventId ||
@@ -54,10 +53,9 @@ export class EstBackupVerificationService implements ITeamResultVerificationRead
         );
     }
     const scope = input.resultScope ?? 'QUALIFICATION';
-    if (scope === 'FINAL' && !this.finalSubjects) throw new Error('Final backup comparison is not installed');
     const official =
       scope === 'FINAL'
-        ? await this.finalSubjects!.load(input)
+        ? await this.finalSubjects.load(input)
         : input.resultKind === 'INDIVIDUAL'
           ? await this.individualSubjects(input.eventId, input.keyType)
           : await this.teamSubjects(input.eventId, input.resultKind, input.keyType);

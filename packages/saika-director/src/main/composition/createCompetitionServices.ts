@@ -33,6 +33,7 @@ import { SqliteScoringDecisionRepository } from '@/main/modules/scoring-decision
 import {
   EvidenceHoldCompetitionDataGuard,
   SqliteTargetExaminationRepository,
+  TargetExaminationService,
 } from '@/main/modules/target-examinations';
 import { SqliteMixedTeamFinalResultRepository } from '@/main/modules/team-results';
 import type { ServiceRegistry } from '@/main/shared-infra/module/ModuleDefinition';
@@ -54,6 +55,7 @@ export function createCompetitionServices({ database }: CompetitionServicesDepen
   const resultVerificationRepository = new SqliteResultVerificationRepository(database);
   const rangeIncidentReportRepository = new SqliteRangeIncidentReportRepository(database);
   const targetExaminationRepository = new SqliteTargetExaminationRepository(database);
+  const targetExaminationService = new TargetExaminationService(targetExaminationRepository);
   const rangeInterruptionRepository = new SqliteRangeInterruptionRepository(database);
   const finalControlRepository = new SqliteFinalControlRepository(database);
   const finalRecoveryRepository = new SqliteFinalRecoveryRepository(database);
@@ -93,6 +95,7 @@ export function createCompetitionServices({ database }: CompetitionServicesDepen
     resultVerificationRepository,
     rangeIncidentReportRepository,
     targetExaminationRepository,
+    targetExaminationService,
     rangeInterruptionRepository,
     finalControlRepository,
     finalRecoveryRepository,

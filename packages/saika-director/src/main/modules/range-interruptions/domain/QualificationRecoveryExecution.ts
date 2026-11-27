@@ -105,6 +105,12 @@ export interface QualificationRecoveryExecutionRecord extends QualificationRecov
   readonly events: readonly QualificationRecoveryExecutionEvent[];
 }
 
+/** True while a run for the decision is still active or awaits adjudication, so the decision must stand. */
+export function blocksDecisionSupersession(execution: QualificationRecoveryExecutionRecord): boolean {
+  if (execution.status === 'CANCELLED') return false;
+  return execution.phase !== 'EXTRA_SIGHTING' || execution.status !== 'COMPLETED';
+}
+
 export function createQualificationRecoveryExecutionStart(
   input: QualificationRecoveryExecutionStart,
 ): QualificationRecoveryExecutionStart {

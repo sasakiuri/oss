@@ -9,9 +9,14 @@ import {
   type QualificationRecoverySettlementRecord,
   type QualificationRecoverySettlementRequest,
 } from '../domain/QualificationRecoverySettlement';
+import { blocksDecisionSupersession } from '../domain/QualificationRecoveryExecution';
 import { requireQualificationSighting } from '../domain/QualificationSightingReadiness';
-import { getRangeInterruptionState } from '../domain/RangeInterruptionEntry';
 import { requiredText } from '@/main/domain/guards';
+import {
+  assertCompetitionLinked,
+  errorMessage,
+  requireLatestQualificationRecoveryDecision,
+} from './qualificationRecoveryPreconditions';
 
 export interface ApplyQualificationRecoverySettlementInput {
   readonly caseId: string;
@@ -37,25 +42,13 @@ export class QualificationRecoverySettlementService {
     if (!interruption.laneId) throw new Error('Qualification recovery settlement requires one affected Lane');
     const context = interruption.qualificationTimedTargetContext;
     if (!context) throw new Error('This interruption has no Qualification timed-target policy snapshot');
-    const scopes = this.interruptionRepository.findScopesByCaseIds([input.caseId]).get(input.caseId) ?? [];
-    if (!scopes.some((scope) => scope.scopeType === 'COMPETITION' && scope.scopeId === input.competitionId)) {
-      throw new Error(`Competition ${input.competitionId} is not linked to range interruption ${input.caseId}`);
-    }
-    const state = getRangeInterruptionState(
-      this.interruptionRepository.findEntriesByCaseIds([input.caseId]).get(input.caseId) ?? [],
+    assertCompetitionLinked(this.interruptionRepository, input.caseId, input.competitionId);
+    const decision = requireLatestQualificationRecoveryDecision(
+      this.interruptionRepository,
+      input.caseId,
+      input.decisionId,
+      'settlement',
     );
-    if (state.status !== 'ENDED') {
-      throw new Error('Qualification recovery can only settle while the ended interruption remains open');
-    }
-    const decisions =
-      this.interruptionRepository
-        .findQualificationTimedTargetRecoveryDecisionsByCaseIds([input.caseId])
-        .get(input.caseId) ?? [];
-    const decision = decisions.at(-1);
-    if (!decision) throw new Error('Record an official Qualification recovery decision before settlement');
-    if (decision.id !== input.decisionId) {
-      throw new Error(`Only the latest Qualification recovery decision ${decision.id} can be settled`);
-    }
     if (decision.authorizedRecovery.seriesRecovery.treatment !== 'KEEP_RECORDED_SERIES') {
       throw new Error('Only KEEP_RECORDED_SERIES can be settled without recovery firing');
     }
@@ -68,10 +61,7 @@ export class QualificationRecoverySettlementService {
       this.now(),
     );
     const unsafeExecution = (this.executionRepository.findByCaseIds([input.caseId]).get(input.caseId) ?? []).find(
-      (execution) =>
-        execution.decisionId === decision.id &&
-        execution.status !== 'CANCELLED' &&
-        !(execution.phase === 'EXTRA_SIGHTING' && execution.status === 'COMPLETED'),
+      (execution) => execution.decisionId === decision.id && blocksDecisionSupersession(execution),
     );
     if (unsafeExecution) {
       throw new Error(`Qualification recovery run ${unsafeExecution.runId} must reach a safe terminal state first`);
@@ -180,8 +170,4 @@ function toTransportInput(request: QualificationRecoverySettlementRequest) {
     statement: request.statement,
     appliedAt: request.appliedAt.toISOString(),
   };
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

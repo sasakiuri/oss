@@ -87,7 +87,7 @@ describe('retained EST backup sources', () => {
       { findByEventId: () => [] },
       { getByEvent: async () => [], getByRelay: async () => [] },
       { getQualification: async () => [] },
-      undefined,
+      { load: vi.fn() },
       h.sources,
     );
     const request = {

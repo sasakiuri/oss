@@ -62,7 +62,7 @@ import type {
   IScoringDecisionRepository,
   IScoringDecisionTargetResolver,
 } from '@/main/modules/scoring-decisions';
-import type { ITargetExaminationRepository } from '@/main/modules/target-examinations';
+import type { ITargetExaminationRepository, TargetExaminationService } from '@/main/modules/target-examinations';
 import type { IMixedTeamFinalResultRepository, TeamResultsService } from '@/main/modules/team-results';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
@@ -122,6 +122,7 @@ export interface ServiceRegistry {
   readonly resultVerificationService: ResultVerificationService;
   readonly rangeIncidentReportRepository: IRangeIncidentReportRepository;
   readonly targetExaminationRepository: ITargetExaminationRepository;
+  readonly targetExaminationService: TargetExaminationService;
   readonly rangeInterruptionRepository: IRangeInterruptionRepository;
   readonly participantRepository: IParticipantRepository;
   readonly finalOperationRepository: IFinalOperationRepository;

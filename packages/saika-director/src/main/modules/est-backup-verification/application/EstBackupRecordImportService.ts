@@ -9,11 +9,10 @@ export class EstBackupRecordImportService {
   constructor(
     private readonly files: IEstBackupRecordFileGateway,
     private readonly parsers: EstBackupRecordParserRegistry,
-    private readonly sources?: IEstBackupSourceRetention,
+    private readonly sources: IEstBackupSourceRetention,
   ) {}
 
   async importRecords(parser?: EstBackupRecordParser, eventId?: string): Promise<EstBackupRecordImportReceiptDto> {
-    if (eventId && !this.sources) throw new Error('Backup source retention is not installed');
     const parsers = parser ? new EstBackupRecordParserRegistry([parser]) : this.parsers;
     const source = await this.files.chooseSource(parsers.supportedExtensions);
     if (!source) return { status: 'CANCELLED' };
@@ -25,7 +24,6 @@ export class EstBackupRecordImportService {
     eventId?: string,
     parser?: EstBackupRecordParser,
   ): Extract<EstBackupRecordImportReceiptDto, { status: 'IMPORTED' }> {
-    if (eventId && !this.sources) throw new Error('Backup source retention is not installed');
     const parsers = parser ? new EstBackupRecordParserRegistry([parser]) : this.parsers;
     const parsed = parsers.parse(source.fileName, source.content);
     const receipt: Extract<EstBackupRecordImportReceiptDto, { status: 'IMPORTED' }> = {
@@ -39,7 +37,7 @@ export class EstBackupRecordImportService {
       records: [...parsed.records],
     };
     if (!eventId) return receipt;
-    const retained = this.sources!.retain(eventId, source.content, receipt);
+    const retained = this.sources.retain(eventId, source.content, receipt);
     return { ...receipt, sourceId: retained.id, sourceReference: retained.sourceReference };
   }
 }
