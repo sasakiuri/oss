@@ -115,9 +115,9 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
       void loadFinalResults();
     } else {
       if (selectedRelay === 'all') {
-        void getEventResults(eventId).then((response) => {
-          if (cancelled || !response?.success) return;
-          const relays = new Set(response.data.results.map((result) => result.relayNumber));
+        void getEventResults(eventId).then((data) => {
+          if (cancelled || !data) return;
+          const relays = new Set(data.results.map((result) => result.relayNumber));
           setAvailableRelays(Array.from(relays).sort((a, b) => a - b));
         });
       } else {
@@ -142,20 +142,6 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
     [eventId, isFinal],
   );
 
-  const handleConfirm = useCallback(async () => {
-    if (publishedResultIds.length === 0) {
-      return;
-    }
-    const response = await confirmResults(eventId, publishedResultIds);
-    if (response) {
-      if (selectedRelay === 'all') {
-        getEventResults(eventId);
-      } else {
-        getRelayResults(eventId, selectedRelay);
-      }
-    }
-  }, [eventId, publishedResultIds, confirmResults, selectedRelay, getEventResults, getRelayResults]);
-
   const refreshQualificationResults = useCallback(() => {
     if (selectedRelay === 'all') {
       void getEventResults(eventId);
@@ -163,6 +149,14 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
       void getRelayResults(eventId, selectedRelay);
     }
   }, [eventId, getEventResults, getRelayResults, selectedRelay]);
+
+  const handleConfirm = useCallback(async () => {
+    if (publishedResultIds.length === 0) {
+      return;
+    }
+    const response = await confirmResults(eventId, publishedResultIds);
+    if (response) refreshQualificationResults();
+  }, [eventId, publishedResultIds, confirmResults, refreshQualificationResults]);
 
   const handlePrint = useCallback(async () => {
     setPrintLoading(true);
@@ -217,6 +211,25 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
   }
 
   if (isFinal) {
+    const finalModals = !readOnly && (
+      <>
+        {verificationOpen && (
+          <ResultVerificationPanel
+            eventId={eventId}
+            eventName={eventName}
+            resultScope="FINAL"
+            onClose={() => setVerificationOpen(false)}
+          />
+        )}
+        {finalDeclarationOpen && (
+          <FinalResultDeclarationPanel
+            eventId={eventId}
+            eventName={eventName}
+            onClose={() => setFinalDeclarationOpen(false)}
+          />
+        )}
+      </>
+    );
     if (mixedFinalResults.length > 0) {
       return (
         <div className="space-y-3">
@@ -234,21 +247,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
           )}
           <MixedTeamFinalResultsTable results={mixedFinalResults} />
           {backupControls}
-          {!readOnly && verificationOpen && (
-            <ResultVerificationPanel
-              eventId={eventId}
-              eventName={eventName}
-              resultScope="FINAL"
-              onClose={() => setVerificationOpen(false)}
-            />
-          )}
-          {!readOnly && finalDeclarationOpen && (
-            <FinalResultDeclarationPanel
-              eventId={eventId}
-              eventName={eventName}
-              onClose={() => setFinalDeclarationOpen(false)}
-            />
-          )}
+          {finalModals}
         </div>
       );
     }
@@ -316,19 +315,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                   className="border-b border-vscode-border hover:bg-vscode-highlight transition-colors"
                 >
                   <td className="px-2 py-1.5 text-center text-base">
-                    <span
-                      className={
-                        result.rank === 1
-                          ? 'text-yellow-400 font-bold'
-                          : result.rank === 2
-                            ? 'text-gray-300 font-bold'
-                            : result.rank === 3
-                              ? 'text-amber-600 font-bold'
-                              : ''
-                      }
-                    >
-                      {result.classificationCode ?? result.rank}
-                    </span>
+                    <span className={medalRankClass(result.rank)}>{result.classificationCode ?? result.rank}</span>
                   </td>
                   <td className="px-2 py-1.5 text-base">{result.playerName}</td>
                   <td className="px-2 py-1.5 text-base text-vscode-dimmed">{result.affiliation}</td>
@@ -338,9 +325,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                     {result.classificationCode ? '—' : result.totalScore.toFixed(1)}
                   </td>
                   <td className="px-2 py-1.5 text-right text-base tabular-nums text-vscode-dimmed">
-                    {result.scoreAdjustment === 0
-                      ? '—'
-                      : `${result.scoreAdjustment > 0 ? '−' : '+'}${Math.abs(result.scoreAdjustment).toFixed(1)}`}
+                    {formatScoreAdjustment(result.scoreAdjustment)}
                   </td>
                   <td className="px-2 py-1.5 text-left text-xs text-vscode-dimmed">
                     {result.eliminatedAtShot !== undefined && (
@@ -385,21 +370,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
             onChanged={() => void refreshFinalResults()}
           />
         )}
-        {!readOnly && verificationOpen && (
-          <ResultVerificationPanel
-            eventId={eventId}
-            eventName={eventName}
-            resultScope="FINAL"
-            onClose={() => setVerificationOpen(false)}
-          />
-        )}
-        {!readOnly && finalDeclarationOpen && (
-          <FinalResultDeclarationPanel
-            eventId={eventId}
-            eventName={eventName}
-            onClose={() => setFinalDeclarationOpen(false)}
-          />
-        )}
+        {finalModals}
       </div>
     );
   }
@@ -448,24 +419,20 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                 <CheckCircle size={14} aria-hidden="true" />
                 Confirm ({publishedResultIds.length})
               </Button>
-              {!isFinal && (
-                <>
-                  <Button size="sm" variant="secondary" onClick={() => setVerificationOpen(true)}>
-                    <ClipboardCheck size={14} aria-hidden="true" />
-                    RTS verification
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => setPublicationOpen(true)}>
-                    <FileClock size={14} aria-hidden="true" />
-                    Publication
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => setTeamResultsOpen(true)}>
-                    Team results
-                  </Button>
-                  <Button size="sm" variant="secondary" onClick={() => setBackupVerificationOpen(true)}>
-                    EST backup
-                  </Button>
-                </>
-              )}
+              <Button size="sm" variant="secondary" onClick={() => setVerificationOpen(true)}>
+                <ClipboardCheck size={14} aria-hidden="true" />
+                RTS verification
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setPublicationOpen(true)}>
+                <FileClock size={14} aria-hidden="true" />
+                Publication
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setTeamResultsOpen(true)}>
+                Team results
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setBackupVerificationOpen(true)}>
+                EST backup
+              </Button>
             </>
           )}
           <Button size="sm" onClick={handlePrint} disabled={filteredResults.length === 0 || printLoading}>
@@ -498,17 +465,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
             {filteredResults.map((result) => (
               <tr key={result.id} className="border-b border-vscode-border hover:bg-vscode-highlight transition-colors">
                 <td className="px-2 py-1.5 text-center text-base">
-                  <span
-                    className={
-                      result.rank === 1
-                        ? 'text-yellow-400 font-bold'
-                        : result.rank === 2
-                          ? 'text-gray-300 font-bold'
-                          : result.rank === 3
-                            ? 'text-amber-600 font-bold'
-                            : ''
-                    }
-                  >
+                  <span className={medalRankClass(result.rank)}>
                     {result.classificationCode ??
                       (result.entryStatus === 'COMPETING' ? result.rank : result.entryStatus)}
                   </span>
@@ -533,9 +490,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
                     : result.totalScore.toFixed(1)}
                 </td>
                 <td className="px-2 py-1.5 text-right text-base tabular-nums text-vscode-dimmed">
-                  {result.scoreAdjustment === 0
-                    ? '—'
-                    : `${result.scoreAdjustment > 0 ? '−' : '+'}${Math.abs(result.scoreAdjustment).toFixed(1)}`}
+                  {formatScoreAdjustment(result.scoreAdjustment)}
                 </td>
                 <td className="px-2 py-1.5 text-left text-xs text-vscode-dimmed">
                   {result.remarks.length > 0 ? result.remarks.join('; ') : '—'}
@@ -577,7 +532,7 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
           onChanged={refreshQualificationResults}
         />
       )}
-      {!readOnly && !isFinal && verificationOpen && (
+      {!readOnly && verificationOpen && (
         <ResultVerificationPanel
           eventId={eventId}
           eventName={eventName}
@@ -585,11 +540,11 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
           onClose={() => setVerificationOpen(false)}
         />
       )}
-      {!readOnly && !isFinal && publicationOpen && (
+      {!readOnly && publicationOpen && (
         <ResultPublicationPanel eventId={eventId} eventName={eventName} onClose={() => setPublicationOpen(false)} />
       )}
-      {!isFinal && teamResultsOpen && <TeamResultsPanel eventId={eventId} onClose={() => setTeamResultsOpen(false)} />}
-      {!isFinal && backupVerificationOpen && (
+      {teamResultsOpen && <TeamResultsPanel eventId={eventId} onClose={() => setTeamResultsOpen(false)} />}
+      {backupVerificationOpen && (
         <EstBackupVerificationPanel
           key={`${eventId}:${round}`}
           eventId={eventId}
@@ -598,4 +553,16 @@ export function ResultsView({ eventId, eventName, round = 'Qualification', readO
       )}
     </div>
   );
+}
+
+function medalRankClass(rank: number): string {
+  if (rank === 1) return 'text-yellow-400 font-bold';
+  if (rank === 2) return 'text-gray-300 font-bold';
+  if (rank === 3) return 'text-amber-600 font-bold';
+  return '';
+}
+
+/** A deduction shows as `−`, an addition as `+`, and no adjustment as `—`. */
+function formatScoreAdjustment(adjustment: number): string {
+  return adjustment === 0 ? '—' : `${adjustment > 0 ? '−' : '+'}${Math.abs(adjustment).toFixed(1)}`;
 }

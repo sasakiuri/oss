@@ -300,21 +300,31 @@ describe('useResults', () => {
       },
     );
 
-    it.each(['getEventResults', 'getRelayResults', 'confirmResults'] as const)(
-      '%s resolves the successful response itself',
-      async (query) => {
-        const response = { success: true, data: { results: [{ id: 'r1' }] } };
-        queries[query].mock.mockResolvedValueOnce(response);
-        const { result } = renderHook(() => useResults());
-        let returned: unknown;
+    it.each(['getEventResults', 'getRelayResults'] as const)('%s resolves the loaded data', async (query) => {
+      const response = { success: true, data: { results: [{ id: 'r1' }] } };
+      queries[query].mock.mockResolvedValueOnce(response);
+      const { result } = renderHook(() => useResults());
+      let returned: unknown;
 
-        await act(async () => {
-          returned = await run(result.current, query);
-        });
+      await act(async () => {
+        returned = await run(result.current, query);
+      });
 
-        expect(returned).toBe(response);
-      },
-    );
+      expect(returned).toBe(response.data);
+    });
+
+    it('confirmResults resolves the successful response itself', async () => {
+      const response = { success: true, data: { results: [{ id: 'r1' }] } };
+      mockConfirm.mockResolvedValueOnce(response);
+      const { result } = renderHook(() => useResults());
+      let returned: unknown;
+
+      await act(async () => {
+        returned = await run(result.current, 'confirmResults');
+      });
+
+      expect(returned).toBe(response);
+    });
 
     it('keeps the loaded results when a later request fails', async () => {
       mockGetByEvent.mockResolvedValueOnce({ success: true, data: { results: [{ id: 'r1' }] } });
