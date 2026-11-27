@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
+import { InlineError } from '@/renderer/presentation/components/common/InlineError';
 import { reportService } from '@/renderer/services/reportService';
 import { settingsService } from '@/renderer/services/settingsService';
 import { errorMessage } from '@/shared/errors/errorMessage';
@@ -82,11 +83,7 @@ export function SettingsPrintingTab() {
           {refreshing ? 'Loading printers...' : 'Refresh Printers'}
         </button>
       </div>
-      {printerError && (
-        <p role="alert" className="text-red-400">
-          {printerError}
-        </p>
-      )}
+      {printerError && <InlineError>{printerError}</InlineError>}
       {!refreshing && !printerError && printers.length === 0 && (
         <p>No printers found. Add a printer in the system settings, then refresh.</p>
       )}
@@ -200,11 +197,7 @@ export function SettingsPrintingTab() {
           Printing settings saved.
         </p>
       )}
-      {error && (
-        <p role="alert" className="text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <InlineError>{error}</InlineError>}
     </form>
   );
 }

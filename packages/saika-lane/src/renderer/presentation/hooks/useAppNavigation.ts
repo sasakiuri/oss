@@ -71,16 +71,12 @@ export function useAppNavigation() {
         phase: competition.phase,
         stageIndex: competition.currentStageIndex,
         seriesIndex: competition.currentSeriesIndex,
-        currentStageName: competition.currentStageName,
         scored: competition.scored,
         shotsPerSeries: competition.shotsPerSeries,
         acc: competition.acc,
         remainingSeconds: competition.timer.remainingSeconds,
         totalSeconds: competition.timer.totalSeconds,
         isTimerExpired: competition.timer.isExpired,
-        isTimerRunning:
-          competition.timer.running === true &&
-          !['PAUSED', 'RESUME_PENDING'].includes(competition.interruption?.status ?? ''),
         waitingForDirector:
           competition.phase === 'SERIES_COMPLETE' &&
           competition.timer.running === false &&

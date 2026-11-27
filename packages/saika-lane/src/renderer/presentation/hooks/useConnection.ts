@@ -55,7 +55,7 @@ export function useConnection(): UseConnectionResult {
         deviceId,
         baudRate,
       });
-      setConnection(result.connectionId, port, mfr, deviceId);
+      setConnection(result.connectionId, deviceId);
       setDeviceId(deviceId ?? null);
     },
     { errorMessage: 'An error occurred while connecting' },

@@ -19,6 +19,3 @@ export const SHORTCUTS = {
   /** Toggle fullscreen */
   FULLSCREEN: 'F11',
 } as const;
-
-/** Shortcut key type */
-export type ShortcutKey = (typeof SHORTCUTS)[keyof typeof SHORTCUTS];

@@ -75,7 +75,7 @@ describe('usePhaseEvents', () => {
         isRecorded: false,
       };
       useSessionStore.getState().addShot(shot);
-      useCompetitionStore.getState().setPhase('SERIES_COMPLETE', 1, 0, 'Match', true);
+      useCompetitionStore.getState().applyPhaseChange('SERIES_COMPLETE', 1, 0, true);
       renderHook(() => usePhaseEvents());
       const phase: PhaseChangedEventPayload = {
         previousPhase: 'SERIES_COMPLETE',
@@ -135,11 +135,11 @@ describe('usePhaseEvents', () => {
       expect(state.phase).toBe('ACTIVE');
       expect(state.stageIndex).toBe(1);
       expect(state.seriesIndex).toBe(2);
-      expect(state.currentStageName).toBe('Qualification');
       expect(state.scored).toBe(true);
     });
 
-    it('sets timer to running during ACTIVE phase', () => {
+    it('clears the expired timer flag during ACTIVE phase', () => {
+      useCompetitionStore.getState().setTimerExpired(true);
       renderHook(() => usePhaseEvents());
 
       emit('phaseChanged', {
@@ -151,28 +151,7 @@ describe('usePhaseEvents', () => {
         scored: true,
       });
 
-      const state = useCompetitionStore.getState();
-      expect(state.isTimerRunning).toBe(true);
-      expect(state.isTimerExpired).toBe(false);
-    });
-
-    it('stops the timer during non-ACTIVE phase', () => {
-      // First set the timer to running state
-      useCompetitionStore.getState().setTimerRunning(true);
-
-      renderHook(() => usePhaseEvents());
-
-      emit('phaseChanged', {
-        previousPhase: 'ACTIVE',
-        newPhase: 'SERIES_COMPLETE',
-        stageIndex: 0,
-        seriesIndex: 3,
-        stageName: 'Match',
-        scored: true,
-      });
-
-      const state = useCompetitionStore.getState();
-      expect(state.isTimerRunning).toBe(false);
+      expect(useCompetitionStore.getState().isTimerExpired).toBe(false);
     });
 
     it('correctly updates stageIndex/seriesIndex/scored via phaseChanged on stage advance', () => {
@@ -190,7 +169,6 @@ describe('usePhaseEvents', () => {
 
       const state = useCompetitionStore.getState();
       expect(state.stageIndex).toBe(2);
-      expect(state.currentStageName).toBe('Final');
       expect(state.scored).toBe(true);
       expect(state.seriesIndex).toBe(0);
     });
@@ -211,8 +189,7 @@ describe('usePhaseEvents', () => {
   describe('competitionStarted event', () => {
     it('resets the store on competition started event', () => {
       // Set state in the store
-      useCompetitionStore.getState().setPhase('ACTIVE', 2, 3, 'Match', true);
-      useCompetitionStore.getState().setTimerRunning(true);
+      useCompetitionStore.getState().applyPhaseChange('ACTIVE', 2, 3, true);
 
       renderHook(() => usePhaseEvents());
 
@@ -222,7 +199,6 @@ describe('usePhaseEvents', () => {
       expect(state.phase).toBe('IDLE');
       expect(state.stageIndex).toBe(0);
       expect(state.seriesIndex).toBe(0);
-      expect(state.isTimerRunning).toBe(false);
       expect(state.shotsPerSeries).toBe(10);
     });
 
@@ -255,9 +231,8 @@ describe('usePhaseEvents', () => {
   });
 
   describe('competitionFinished event', () => {
-    it('sets FINISHED phase and stops timer on competition finished event', () => {
-      useCompetitionStore.getState().setPhase('ACTIVE', 1, 5, 'Match', true);
-      useCompetitionStore.getState().setTimerRunning(true);
+    it('sets FINISHED phase on competition finished event', () => {
+      useCompetitionStore.getState().applyPhaseChange('ACTIVE', 1, 5, true);
 
       renderHook(() => usePhaseEvents());
 
@@ -265,7 +240,6 @@ describe('usePhaseEvents', () => {
 
       const state = useCompetitionStore.getState();
       expect(state.phase).toBe('FINISHED');
-      expect(state.isTimerRunning).toBe(false);
     });
   });
 });

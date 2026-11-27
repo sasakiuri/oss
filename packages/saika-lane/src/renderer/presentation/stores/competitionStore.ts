@@ -7,8 +7,6 @@ import type { ScoringAcc } from '@/shared/ipc/schemas/common';
 import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/target';
 import type { Phase } from '@/shared/types/Phase';
 
-export type { Phase } from '@/shared/types/Phase';
-
 interface CompetitionState {
   athleteTargetControl: CompetitionStateDto['athleteTargetControl'];
   athleteTargetControlPending: boolean;
@@ -16,11 +14,9 @@ interface CompetitionState {
   phase: Phase;
   stageIndex: number;
   seriesIndex: number;
-  currentStageName: string;
   scored: boolean;
   remainingSeconds: number;
   totalSeconds: number;
-  isTimerRunning: boolean;
   waitingForDirector: boolean;
   isTimerExpired: boolean;
   shotsPerSeries: number;
@@ -35,11 +31,8 @@ interface CompetitionState {
 
 interface CompetitionActions {
   setAthleteTargetControl: (control: CompetitionStateDto['athleteTargetControl']) => void;
-  setPhase: (phase: Phase, stageIndex: number, seriesIndex: number, stageName: string, scored: boolean) => void;
   updateTimer: (remaining: number, total: number) => void;
-  setTimerRunning: (running: boolean) => void;
   setTimerExpired: (expired: boolean) => void;
-  advanceStage: (stageIndex: number, stageName: string, scored: boolean) => void;
   advanceSeries: (seriesIndex: number) => void;
   setShotsPerSeries: (shots: number) => void;
   setAcc: (acc: ScoringAcc) => void;
@@ -52,7 +45,6 @@ interface CompetitionActions {
     phase: Phase,
     stageIndex: number,
     seriesIndex: number,
-    stageName: string,
     scored: boolean,
     targetProfileId?: TargetScoringProfileId,
     scoringGaugeProfileId?: ScoringGaugeProfileId,
@@ -87,11 +79,9 @@ const initialState: CompetitionState = {
   phase: 'IDLE',
   stageIndex: 0,
   seriesIndex: 0,
-  currentStageName: '',
   scored: false,
   remainingSeconds: 0,
   totalSeconds: 0,
-  isTimerRunning: false,
   waitingForDirector: false,
   isTimerExpired: false,
   shotsPerSeries: 10,
@@ -109,40 +99,12 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
   setAthleteTargetControl: (athleteTargetControl) =>
     set({ athleteTargetControl, athleteTargetControlPending: false, athleteTargetControlLoaded: true }),
 
-  setPhase: (phase, stageIndex, seriesIndex, stageName, scored) => {
-    set((state) => ({
-      waitingForDirector: false,
-      phase,
-      stageIndex,
-      seriesIndex,
-      currentStageName: stageName,
-      scored,
-      ...(state.phase !== phase || state.stageIndex !== stageIndex || state.seriesIndex !== seriesIndex
-        ? clearedAthleteTargetControl
-        : {}),
-    }));
-  },
-
   updateTimer: (remaining, total) => {
     set({ remainingSeconds: remaining, totalSeconds: total });
   },
 
-  setTimerRunning: (running) => {
-    set({ isTimerRunning: running });
-  },
-
   setTimerExpired: (expired) => {
     set({ isTimerExpired: expired });
-  },
-
-  advanceStage: (stageIndex, stageName, scored) => {
-    set((state) => ({
-      stageIndex,
-      currentStageName: stageName,
-      scored,
-      seriesIndex: 0,
-      ...(state.stageIndex !== stageIndex || state.seriesIndex !== 0 ? clearedAthleteTargetControl : {}),
-    }));
   },
 
   advanceSeries: (seriesIndex) => {
@@ -179,7 +141,7 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
     set({ interruption });
   },
 
-  applyPhaseChange: (phase, stageIndex, seriesIndex, stageName, scored, targetProfileId, scoringGaugeProfileId) => {
+  applyPhaseChange: (phase, stageIndex, seriesIndex, scored, targetProfileId, scoringGaugeProfileId) => {
     set((state) => ({
       waitingForDirector: false,
       ...(state.phase !== phase || state.stageIndex !== stageIndex || state.seriesIndex !== seriesIndex
@@ -188,11 +150,9 @@ export const useCompetitionStore = create<CompetitionState & CompetitionActions>
       phase,
       stageIndex,
       seriesIndex,
-      currentStageName: stageName,
       scored,
       targetProfileId,
       scoringGaugeProfileId,
-      isTimerRunning: phase === 'ACTIVE',
       ...(phase === 'ACTIVE' ? { isTimerExpired: false } : {}),
     }));
   },

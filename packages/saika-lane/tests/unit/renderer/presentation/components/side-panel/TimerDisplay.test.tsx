@@ -23,7 +23,6 @@ describe('TimerDisplay', () => {
       phase: 'SERIES_COMPLETE',
       remainingSeconds: 4500,
       totalSeconds: 4500,
-      isTimerRunning: false,
       isTimerExpired: false,
       waitingForDirector: true,
     });
@@ -38,7 +37,6 @@ describe('TimerDisplay', () => {
       phase: 'SERIES_COMPLETE',
       remainingSeconds: 600,
       totalSeconds: 4500,
-      isTimerRunning: true,
     });
     render(<TimerDisplay />);
     expect(screen.getByText('10:00')).toBeInTheDocument();

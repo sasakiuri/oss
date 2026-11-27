@@ -2,8 +2,9 @@
 import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { useState } from 'react';
 
+import { InlineError } from '@/renderer/presentation/components/common/InlineError';
+import { useBusyAction } from '@/renderer/presentation/hooks/useBusyAction';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
-import { errorMessage } from '@/shared/errors/errorMessage';
 import type { TimingProfileStatus } from '@/shared/ipc/contracts/timingProfiles.schema';
 
 import { TimingMeasurementImport, type AnalyzedTimingMeasurements } from './TimingMeasurementImport';
@@ -25,23 +26,14 @@ export function TimingProfilesPanel({
   const [official, setOfficial] = useState('');
   const [selected, setSelected] = useState('');
   const [confirmed, setConfirmed] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const { busy, error, run } = useBusyAction();
   const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [boundsSource, setBoundsSource] = useState<'ENTERED' | 'MEASUREMENTS'>('ENTERED');
   const [measurements, setMeasurements] = useState<AnalyzedTimingMeasurements | null>(null);
   const profileSettings = boundsSource === 'MEASUREMENTS' ? measurements?.analysis.settings : settings;
-  const act = async (work: () => Promise<void>) => {
-    setBusy(true);
-    setError(null);
+  const act = (work: () => Promise<void>) => {
     setMessage(null);
-    try {
-      await work();
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
+    return run(work);
   };
   const profile = status?.profiles.find((value) => value.id === selected);
   return (
@@ -59,11 +51,7 @@ export function TimingProfilesPanel({
       >
         Load measured timing profiles
       </button>
-      {error && (
-        <p role="alert" className="text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <InlineError>{error}</InlineError>}
       {message && (
         <p role="status" className="text-emerald-300">
           {message}

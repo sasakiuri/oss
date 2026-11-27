@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
+import { useBusyAction } from '@/renderer/presentation/hooks/useBusyAction';
 import { mqttService } from '@/renderer/services/mqttService';
 import { errorMessage } from '@/shared/errors/errorMessage';
 
@@ -26,8 +27,7 @@ export function useIncidentSignal<S extends { status: 'ACTIVE' | 'CLEARED' }>({
   const [state, setState] = useState<S | null>(null);
   const [message, setMessage] = useState('');
   const [mqttConnected, setMqttConnected] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useBusyAction();
 
   const refresh = async () => {
     try {
@@ -49,34 +49,21 @@ export function useIncidentSignal<S extends { status: 'ACTIVE' | 'CLEARED' }>({
   }, [isOpen]);
 
   /** Sends the declaration built by `send`, then re-reads the MQTT status. */
-  const declare = async (send: () => Promise<S>) => {
-    setBusy(true);
-    setError(null);
-    try {
+  const declare = (send: () => Promise<S>) =>
+    run(async () => {
       setState(await send());
       const mqtt = await mqttService.getMqttStatus();
       setMqttConnected(mqtt.status === 'connected');
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   /** Clears the signal by its identity and empties the draft message. */
   const clearSignal = async () => {
     const id = state ? idOf(state) : null;
     if (!id) return;
-    setBusy(true);
-    setError(null);
-    try {
+    await run(async () => {
       setState(await clearById(id));
       setMessage('');
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const active = state?.status === 'ACTIVE' ? state : null;

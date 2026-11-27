@@ -2,15 +2,15 @@
 import type { ShotTimingSettings } from '@sasakiuri/saika-protocol/ShotTimingSettings';
 import { useEffect, useState } from 'react';
 
+import { InlineError } from '@/renderer/presentation/components/common/InlineError';
+import { useBusyAction } from '@/renderer/presentation/hooks/useBusyAction';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
-import { errorMessage } from '@/shared/errors/errorMessage';
 
 import { TimingProfilesPanel } from './TimingProfilesPanel';
 
 export function ShotTimingSettingsPanel() {
   const [settings, setSettings] = useState<ShotTimingSettings | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run } = useBusyAction();
   const [saved, setSaved] = useState(false);
   const [profileGeneration, setProfileGeneration] = useState(0);
   useEffect(() => {
@@ -29,18 +29,12 @@ export function ShotTimingSettingsPanel() {
   }, []);
   const save = async () => {
     if (!settings) return;
-    setBusy(true);
-    setError(null);
     setSaved(false);
-    try {
+    await run(async () => {
       setSettings(await timedTargetService.setTimingSettings(settings));
       setSaved(true);
       setProfileGeneration((value) => value + 1);
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
+    });
   };
   return (
     <section aria-label="Shot timing" className="space-y-3 border-t border-zinc-700 p-4 text-sm">
@@ -50,11 +44,7 @@ export function ShotTimingSettingsPanel() {
         installation; leave unknown bounds blank. These values do not extend the firing time. Finish the competition
         before saving changes.
       </p>
-      {error && (
-        <p role="alert" className="text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <InlineError>{error}</InlineError>}
       {settings && (
         <fieldset disabled={busy} className="space-y-3">
           <label className="flex flex-col gap-1">

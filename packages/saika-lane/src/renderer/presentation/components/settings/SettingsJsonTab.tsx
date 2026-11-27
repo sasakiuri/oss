@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 
 import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
-import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import { settingsService } from '@/renderer/services/settingsService';
 import { errorMessage } from '@/shared/errors/errorMessage';
@@ -19,7 +18,6 @@ function applySettingsToStores(settings: AppSettingsDto) {
   useSessionStore.getState().setDiscipline(settings.userPreferences.discipline);
 
   useCompetitionStore.getState().setSavedCompetitionTypeId(settings.userPreferences.competitionTypeId || null);
-  useMqttStore.getState().setSettings(settings.mqtt);
 }
 
 async function readSettingsDocument() {

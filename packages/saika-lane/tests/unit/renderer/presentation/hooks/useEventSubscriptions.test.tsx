@@ -158,7 +158,7 @@ describe('useEventSubscriptions', () => {
 
   describe('connectionStatusChanged event', () => {
     it('updates the store on connected event', () => {
-      useConnectionStore.getState().setSelectedDeviceId('MT201');
+      useConnectionStore.setState({ selectedDeviceId: 'MT201' });
 
       renderHook(() => useEventSubscriptions());
 
@@ -172,15 +172,13 @@ describe('useEventSubscriptions', () => {
       const connectionState = useConnectionStore.getState();
       expect(connectionState.status).toBe('connected');
       expect(connectionState.connectionId).toBe('conn-123');
-      expect(connectionState.portName).toBe('/dev/ttyUSB0');
-      expect(connectionState.manufacturer).toBe('KOHTO');
 
       const sessionState = useSessionStore.getState();
       expect(sessionState.deviceId).toBe('MT201');
     });
 
     it('resets the store on disconnected event', () => {
-      useConnectionStore.getState().setConnection('conn-123', '/dev/ttyUSB0', 'KOHTO', 'MT201');
+      useConnectionStore.getState().setConnection('conn-123', 'MT201');
       useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useEventSubscriptions());
@@ -194,8 +192,6 @@ describe('useEventSubscriptions', () => {
       const connectionState = useConnectionStore.getState();
       expect(connectionState.status).toBe('disconnected');
       expect(connectionState.connectionId).toBeNull();
-      expect(connectionState.portName).toBeNull();
-      expect(connectionState.manufacturer).toBeNull();
 
       const sessionState = useSessionStore.getState();
       expect(sessionState.deviceId).toBeNull();

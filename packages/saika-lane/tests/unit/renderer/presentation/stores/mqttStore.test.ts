@@ -5,17 +5,12 @@ import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 
 describe('mqttStore', () => {
   beforeEach(() => {
-    const { reset } = useMqttStore.getState();
-    reset();
+    useMqttStore.setState({ status: 'disconnected', error: null, isLoading: false });
   });
 
   describe('initial state', () => {
     it('status is disconnected', () => {
       expect(useMqttStore.getState().status).toBe('disconnected');
-    });
-
-    it('settings is null', () => {
-      expect(useMqttStore.getState().settings).toBeNull();
     });
 
     it('error is null', () => {
@@ -45,20 +40,6 @@ describe('mqttStore', () => {
     });
   });
 
-  describe('setSettings', () => {
-    it('can save settings', () => {
-      const settings = {
-        enabled: true,
-        brokerUrl: 'mqtt://localhost:1883',
-        laneAlias: 'Lane 1',
-        autoConnect: true,
-        laneId: 'uuid-1',
-      };
-      useMqttStore.getState().setSettings(settings);
-      expect(useMqttStore.getState().settings).toEqual(settings);
-    });
-  });
-
   describe('setError', () => {
     it('can set error', () => {
       useMqttStore.getState().setError('Connection failed');
@@ -82,29 +63,6 @@ describe('mqttStore', () => {
       useMqttStore.getState().setLoading(true);
       useMqttStore.getState().setLoading(false);
       expect(useMqttStore.getState().isLoading).toBe(false);
-    });
-  });
-
-  describe('reset', () => {
-    it('resets all state to initial values', () => {
-      useMqttStore.getState().setStatus('connected');
-      useMqttStore.getState().setSettings({
-        enabled: true,
-        brokerUrl: 'mqtt://localhost',
-        laneAlias: '',
-        autoConnect: false,
-        laneId: 'uuid',
-      });
-      useMqttStore.getState().setError('error');
-      useMqttStore.getState().setLoading(true);
-
-      useMqttStore.getState().reset();
-
-      const state = useMqttStore.getState();
-      expect(state.status).toBe('disconnected');
-      expect(state.settings).toBeNull();
-      expect(state.error).toBeNull();
-      expect(state.isLoading).toBe(false);
     });
   });
 
