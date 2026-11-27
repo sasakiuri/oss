@@ -17,6 +17,7 @@ import type {
 } from '../domain/ITimedTargetSequenceRepository';
 import type { IShotTimingPolicy } from '../domain/ShotTimingPolicy';
 import {
+  isTerminalTimedTargetPhase,
   buildTimedTargetSchedule,
   projectTimedTargetSchedule,
   serializeTimedTargetSchedule,
@@ -285,7 +286,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
     this.clearTransitionTimer();
     const state = this.finalizeIfElapsed(record, this.clock.now());
     this.publish(state);
-    if (state.phase === 'COMPLETE' || state.phase === 'CANCELLED' || !state.nextTransitionAt) return;
+    if (isTerminalTimedTargetPhase(state.phase) || !state.nextTransitionAt) return;
     const delay = Math.max(0, state.nextTransitionAt.getTime() - this.clock.now().getTime());
     this.transitionTimer = this.clock.setTimeout(() => {
       this.transitionTimer = null;
@@ -298,7 +299,7 @@ export class TimedTargetSequenceService implements ITimedTargetControl {
     const latest = this.repository.findLatest(competitionId);
     if (!latest) return null;
     const state = this.finalizeIfElapsed(latest, this.clock.now());
-    if (state.phase !== 'COMPLETE' && state.phase !== 'CANCELLED') this.activate(latest);
+    if (!isTerminalTimedTargetPhase(state.phase)) this.activate(latest);
     return state;
   }
 

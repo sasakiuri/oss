@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 import type { StartStageInput, StartStageResult } from '@/main/composition/tokens';
 import { emitPhaseChanged } from '@/main/modules/competition/application/emitPhaseChanged';
+import { requireCompetition } from '@/main/modules/competition/application/requireCompetition';
 import type { SessionLifecycleService } from '@/main/modules/competition/application/SessionLifecycleService';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 /** Starts from IDLE; an active or completed stage rotates the session before restarting. */
 export function createStartStageHandler(
@@ -14,10 +14,7 @@ export function createStartStageHandler(
   eventBus: IEventBus,
 ): CommandHandler<StartStageInput, StartStageResult> {
   return async (input) => {
-    const state = await competitionRepository.findById(input.competitionId);
-    if (!state) {
-      throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: input.competitionId });
-    }
+    const state = await requireCompetition(competitionRepository, input.competitionId);
 
     // IDLE → normal stage start
     if (state.phase === 'IDLE') {

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { GetCompetitionStateInput } from '@/main/composition/tokens';
+import { requireCompetition } from '@/main/modules/competition/application/requireCompetition';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
@@ -21,10 +22,7 @@ export function createGetCompetitionStateHandler(
   interruptions: Pick<ICompetitionInterruptionControl, 'get'>,
 ): QueryHandler<GetCompetitionStateInput, CompetitionStateDto> {
   return async (input) => {
-    const state = await competitionRepository.findById(input.competitionId);
-    if (!state) {
-      throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: input.competitionId });
-    }
+    const state = await requireCompetition(competitionRepository, input.competitionId);
 
     const session = await sessionRepository.findById(state.sessionId);
     if (!session) throw ErrorCatalog.createError('SESSION_NOT_FOUND');

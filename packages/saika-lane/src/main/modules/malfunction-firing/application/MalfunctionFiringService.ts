@@ -3,6 +3,7 @@ import { canonicalJson } from '@sasakiuri/saika-rules';
 
 import {
   buildTimedTargetSchedule,
+  isTerminalTimedTargetPhase,
   projectTimedTargetSchedule,
   type ITimedTargetControl,
 } from '@/main/modules/timed-target';
@@ -69,7 +70,7 @@ export class MalfunctionFiringService implements IMalfunctionFiringControl {
         throw new Error('Valid official and decision time are required before LOAD');
       if (loadAt < this.now().getTime()) throw new Error('A new firing run cannot start in the past');
       const activeTiming = this.timing.getState();
-      if (activeTiming && !['COMPLETE', 'CANCELLED'].includes(activeTiming.phase))
+      if (activeTiming && !isTerminalTimedTargetPhase(activeTiming.phase))
         throw new Error('Finish or cancel the current timed-target sequence before malfunction firing');
       if (activeTiming && loadAt < activeTiming.nextLoadAllowedAt.getTime())
         throw new Error('Wait for the current timed-target pause before malfunction firing');

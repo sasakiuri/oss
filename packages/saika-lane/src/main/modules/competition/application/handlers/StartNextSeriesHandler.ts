@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 import type { StartNextSeriesInput } from '@/main/composition/tokens';
 import { emitPhaseChanged } from '@/main/modules/competition/application/emitPhaseChanged';
+import { requireCompetition } from '@/main/modules/competition/application/requireCompetition';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 /**
  * createStartNextSeriesHandler
@@ -17,10 +17,7 @@ export function createStartNextSeriesHandler(
   eventBus: IEventBus,
 ): CommandHandler<StartNextSeriesInput> {
   return async (input) => {
-    const state = await competitionRepository.findById(input.competitionId);
-    if (!state) {
-      throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: input.competitionId });
-    }
+    const state = await requireCompetition(competitionRepository, input.competitionId);
 
     const previousPhase = state.phase;
     const newState = state.startNextSeries();

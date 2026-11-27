@@ -5,12 +5,13 @@ export {
   timedTargetEnforcementModeFromEnvironment,
 } from './application/TimedTargetSequenceService';
 export type { TimedTargetClock } from './application/TimedTargetSequenceService';
-export type {
-  ITimedTargetControl,
-  ITimedTargetStateSink,
-  TimedTargetEnforcementMode,
-  TimedTargetShotDecision,
-  TimedTargetState,
+export {
+  cancelActiveTimedTarget,
+  type ITimedTargetControl,
+  type ITimedTargetStateSink,
+  type TimedTargetEnforcementMode,
+  type TimedTargetShotDecision,
+  type TimedTargetState,
 } from './domain/ITimedTargetControl';
 export type { TimedTargetExecutionContext } from './domain/TimedTargetExecutionContext';
 export type {
@@ -21,6 +22,7 @@ export type {
 } from './domain/ITimedTargetSequenceRepository';
 export {
   buildTimedTargetSchedule,
+  isTerminalTimedTargetPhase,
   parseTimedTargetSchedule,
   projectTimedTargetSchedule,
   serializeTimedTargetSchedule,

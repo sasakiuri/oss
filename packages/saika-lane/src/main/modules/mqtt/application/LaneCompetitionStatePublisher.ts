@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Publishes persisted competition progress, converting internal phases through PhaseMapper. */
 
+import type { LaneCompetitionStatePayload } from '@sasakiuri/saika-protocol/LaneState';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
@@ -88,7 +89,7 @@ export class LaneCompetitionStatePublisher {
       ...toInterruptionPayload(this.getInterruption(competition.id)),
       ...(finalSnapshotCommandId ? { finalSnapshotCommandId } : {}),
       publishedAt: new Date().toISOString(),
-    });
+    } satisfies LaneCompetitionStatePayload);
 
     const topic = mqttTopics.laneCompetitionState(competition.id, laneId);
 
@@ -103,7 +104,9 @@ export class LaneCompetitionStatePublisher {
   }
 }
 
-function toInterruptionPayload(record: LaneInterruptionRecord | null): Record<string, unknown> {
+function toInterruptionPayload(
+  record: LaneInterruptionRecord | null,
+): Pick<LaneCompetitionStatePayload, 'interruption'> {
   if (!record) return {};
   return {
     interruption: {

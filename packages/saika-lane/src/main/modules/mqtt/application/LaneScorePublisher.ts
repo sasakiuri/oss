@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 /** Publishes a retained score from one persisted session snapshot at QoS 1. */
 
+import type { LaneScorePayload } from '@sasakiuri/saika-protocol/LaneScore';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 import { projectShotResult, type ShotResultProjectionCapability } from '@sasakiuri/saika-rules';
 
@@ -18,6 +19,8 @@ import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
+
+type LaneScoreStage = LaneScorePayload['stages'][number];
 
 export class LaneScorePublisher {
   private readonly mqttClient: IMqttClientService;
@@ -88,7 +91,7 @@ export class LaneScorePublisher {
         : {}),
       ...(finalSnapshotCommandId ? { finalSnapshotCommandId } : {}),
       publishedAt: new Date().toISOString(),
-    });
+    } satisfies LaneScorePayload);
 
     const topic = mqttTopics.laneScore(competition.id, laneId);
 
@@ -106,20 +109,20 @@ export class LaneScorePublisher {
     shots: readonly Shot[],
     competition: CompetitionState,
     projection: ShotResultProjectionCapability | undefined,
-  ): { stages: unknown[]; totalScoreX10: number; totalShotCount: number; sourceTotalScoreX10?: number } {
+  ): { stages: LaneScoreStage[]; totalScoreX10: number; totalShotCount: number; sourceTotalScoreX10?: number } {
     const matchShots = shots.filter((shot) => shot.mode.isMatch());
     const placements = matchShots.map((shot) => ({
       shot,
       placement: resolveCompetitionShotPlacement(shot, shots, competition),
     }));
-    const stages: unknown[] = [];
+    const stages: LaneScoreStage[] = [];
     let totalScoreX10 = 0;
     let totalShotCount = 0;
     let sourceTotalScoreX10 = 0;
 
     for (const [stageIndex, stage] of competition.config.stages.entries()) {
       if (!stage.scored) continue;
-      const seriesData: unknown[] = [];
+      const seriesData: LaneScoreStage['series'] = [];
       let stageTotalX10 = 0;
       let sourceStageTotalX10 = 0;
       for (const [seriesIndex, series] of stage.series.entries()) {

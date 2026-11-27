@@ -6,6 +6,7 @@ import { MalfunctionFiringEvidenceSchema } from '@sasakiuri/saika-protocol/Malfu
 import { mqttTopicFilters, mqttTopics, parseMqttTopic, type ParsedMqttTopicOf } from '@sasakiuri/saika-protocol/topics';
 
 import { FinishCompetitionToken, ResetSessionToken } from '@/main/composition/tokens';
+import { requireCompetition } from '@/main/modules/competition/application/requireCompetition';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import type { ICompetitionInterruptionControl } from '@/main/modules/competition-interruption';
 import type { IMalfunctionFiringControl } from '@/main/modules/malfunction-firing';
@@ -22,11 +23,12 @@ import type {
   IQualificationRecoverySettlementControl,
 } from '@/main/modules/qualification-recovery';
 import type { IReserveLaneTransferControl } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
-import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
+import { assertSafetyStopCleared, type ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import { laneCommandTable, type LaneCommandProcessor, type ReceivedLaneCommandArgs } from './LaneCommandProcessor';
+import { publishFinalSnapshots } from './publishFinalSnapshots';
 
 interface PerLaneCommandPolicy {
   readonly requiresReady: true;
@@ -174,7 +176,7 @@ export class PerLaneCommandHandler {
   ): Promise<Record<string, unknown> | undefined> {
     const policy = PER_LANE_COMMANDS[action];
     if (!policy.allowedDuringReserveTransfer) this.deps.reserveTransferControl.assertMutationAllowed();
-    if (policy.blockedWhileSafetyStopped) this.assertSafetyCleared(action);
+    if (policy.blockedWhileSafetyStopped) assertSafetyStopCleared(this.deps.safetyStopControl, action);
     switch (action) {
       case 'reserve-lane-transfer': {
         const transfer = command.transfer;
@@ -376,8 +378,7 @@ export class PerLaneCommandHandler {
       }
 
       case 'retire-finalist': {
-        const competition = await this.deps.competitionRepository.findById(competitionId);
-        if (!competition) throw ErrorCatalog.createError('COMPETITION_NOT_FOUND', { id: competitionId });
+        const competition = await requireCompetition(this.deps.competitionRepository, competitionId);
         if (competition.config.name !== 'Final') {
           throw ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
             detail: `retire-finalist requires a Final; current round is ${competition.config.name}`,
@@ -386,11 +387,7 @@ export class PerLaneCommandHandler {
         if (competition.phase !== 'FINISHED') {
           await this.deps.commandBus.execute(FinishCompetitionToken, { competitionId });
         }
-        const finalSnapshotCommandId = command.commandId;
-        await Promise.all([
-          this.deps.competitionStatePublisher.publishCurrentState(competitionId, finalSnapshotCommandId),
-          this.deps.scorePublisher.publishCurrentScore(competitionId, finalSnapshotCommandId),
-        ]);
+        await publishFinalSnapshots(this.deps, competitionId, command.commandId);
         return {
           checkpointId: command.checkpointId,
           rank: command.rank,
@@ -398,11 +395,5 @@ export class PerLaneCommandHandler {
         };
       }
     }
-  }
-
-  private assertSafetyCleared(action: string): void {
-    if (!this.deps.safetyStopControl.isStopped()) return;
-    const safetyStopId = this.deps.safetyStopControl.getState()?.safetyStopId ?? 'unknown';
-    throw new Error(`Safety stop ${safetyStopId} is active; ${action} is blocked`);
   }
 }
