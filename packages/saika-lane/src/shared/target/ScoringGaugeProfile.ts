@@ -17,6 +17,11 @@ export function isScoringGaugeProfileId(value: string): value is ScoringGaugePro
   return (SCORING_GAUGE_PROFILE_IDS as readonly string[]).includes(value);
 }
 
+/** The ID when it names a known scoring gauge profile, otherwise undefined. */
+export function knownScoringGaugeProfileId(value: string | undefined): ScoringGaugeProfileId | undefined {
+  return value && isScoringGaugeProfileId(value) ? value : undefined;
+}
+
 export type ScoringGaugeGeometryKind = 'VIRTUAL_PROJECTILE' | 'PROJECTILE_DIAMETER' | 'MEASURING_EDGE_DIAMETER';
 
 export interface ScoringGaugeAuthority {

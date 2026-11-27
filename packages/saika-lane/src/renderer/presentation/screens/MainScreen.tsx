@@ -16,7 +16,6 @@ import { TitleBar } from '@/renderer/presentation/components/TitleBar';
 import { useAutoHideCursor } from '@/renderer/presentation/hooks/useAutoHideCursor';
 import { useMainScreenKeyboardShortcuts } from '@/renderer/presentation/hooks/useMainScreenKeyboardShortcuts';
 import type { ModeSwitchActions } from '@/renderer/presentation/hooks/useModeSwitchActions';
-import { useSession } from '@/renderer/presentation/hooks/useSession';
 import { useShot } from '@/renderer/presentation/hooks/useShot';
 import { useTitleBar } from '@/renderer/presentation/hooks/useTitleBar';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
@@ -43,10 +42,11 @@ const CURSOR_IDLE_TIMEOUT_MS = 5000;
  */
 export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwitchActions, onFinishSavedRun }) => {
   const useNativeControlsOverlay = window.electronAPI.hasNativeWindowFrame;
-  const { currentSessionId } = useSession();
+  const currentSessionId = useSessionStore((state) => state.currentSessionId);
   const isPrinting = usePrintStore((state) => state.isPrinting);
   const printError = usePrintStore((state) => state.error);
   const dismissError = usePrintStore((state) => state.dismissError);
+  const printCurrentSession = usePrintStore((state) => state.printCurrentSession);
   const { shots } = useShot();
   const discipline = useSessionStore((state) => state.discipline);
   const preparationShotNumberResetIndices = useSessionStore((s) => s.preparationShotNumberResetIndices);
@@ -86,12 +86,6 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
     modeSwitchActions;
 
   useAutoHideCursor(!isSettingsModalOpen, CURSOR_IDLE_TIMEOUT_MS);
-
-  const handlePrintClick = useCallback(async () => {
-    if (currentSessionId) {
-      await usePrintStore.getState().print(currentSessionId);
-    }
-  }, [currentSessionId]);
 
   return (
     <div className={`flex h-screen flex-col overflow-hidden bg-zinc-900 ${className}`.trim()}>
@@ -159,7 +153,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
             setSettingsInitialTab('general');
             setIsSettingsModalOpen(true);
           }}
-          onPrintClick={currentSessionId && !isPrinting ? handlePrintClick : undefined}
+          onPrintClick={currentSessionId && !isPrinting ? printCurrentSession : undefined}
         />
 
         <SidePanel />

@@ -23,7 +23,8 @@ vi.mock('@/renderer/presentation/hooks/useAppNavigation', () => ({ useAppNavigat
 vi.mock('@/renderer/presentation/hooks/useEventSubscriptions', () => ({ useEventSubscriptions: vi.fn() }));
 vi.mock('@/renderer/presentation/hooks/useSavedSettingsRestore', () => ({ useSavedSettingsRestore: vi.fn() }));
 vi.mock('@/renderer/presentation/stores/printStore', () => ({
-  usePrintStore: { getState: () => ({ print: onPrint }) },
+  usePrintStore: (select: (state: { printCurrentSession: () => void }) => unknown) =>
+    select({ printCurrentSession: onPrint }),
 }));
 vi.mock('@/renderer/services/competitionService', () => ({
   competitionService: {

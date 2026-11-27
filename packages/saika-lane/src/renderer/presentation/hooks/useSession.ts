@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-/** Exposes the current session and the mode switch command. */
+/** Exposes the mode switch command for the current session. */
 
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
@@ -10,8 +10,6 @@ import type { SessionMode } from '@/shared/ipc/contracts';
  * Return type of the useSession hook
  */
 export interface UseSessionResult {
-  /** Current session ID (null when no session is active) */
-  currentSessionId: string | null;
   /** Switch mode action; a rejection that is not an Error gets a default message. */
   switchMode: (mode: SessionMode) => Promise<void>;
 }
@@ -37,7 +35,6 @@ export function useSession(): UseSessionResult {
   );
 
   return {
-    currentSessionId,
     switchMode: switching.execute,
   };
 }
