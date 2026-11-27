@@ -1,6 +1,6 @@
-import { ipcMain } from 'electron';
+import { ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { z } from 'zod';
-import type { CommandResponseDto, Contract, ProcedureMap, InferHandlers, IpcErrorDto } from '@sasakiuri/saika-ipc';
+import type { Contract, ProcedureDef, ProcedureMap, InferHandlers, IpcErrorDto } from '@sasakiuri/saika-ipc';
 import { toIpcError } from '@sasakiuri/saika-ipc/main';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { Logger } from '@/shared/logging';
@@ -9,11 +9,16 @@ import type { IpcInvocationMiddleware } from './IpcInvocationMiddleware';
 
 const logger = Logger.create('IpcRouter');
 
-/** Query error response shape (matches existing QueryErrorResponse) */
-interface QueryErrorResponse {
-  success: false;
-  data: null;
-  error: IpcErrorDto;
+type ProcedureKind = ProcedureDef['kind'];
+
+/** The Electron invocation a handler receives as its last argument. */
+export function ipcInvokeEvent(event: unknown): IpcMainInvokeEvent {
+  return event as IpcMainInvokeEvent;
+}
+
+/** A failed response: queries also carry `data: null`. */
+function failure(kind: ProcedureKind, error: IpcErrorDto) {
+  return kind === 'query' ? { success: false, data: null, error } : { success: false, error };
 }
 
 /**
@@ -44,7 +49,6 @@ export class IpcRouter {
       this.registeredChannels.add(channel);
 
       const isVoidInput = proc.input instanceof z.ZodVoid;
-      const isQuery = proc.kind === 'query';
 
       ipcMain.handle(channel, async (event, payload) => {
         const invoke = (next: () => Promise<unknown>) =>
@@ -79,93 +83,44 @@ export class IpcRouter {
               },
             };
 
-            if (isQuery) {
-              return this.validateOutput(
-                { success: false, data: null, error: validationError } satisfies QueryErrorResponse,
-                proc.output,
-                key,
-                true,
-              );
-            }
-            return this.validateOutput(
-              { success: false, error: validationError } satisfies CommandResponseDto,
-              proc.output,
-              key,
-              false,
-            );
+            return this.validateOutput(failure(proc.kind, validationError), proc.output, key, proc.kind);
           }
 
-          if (isQuery) {
-            return this.wrapQuery(() => invoke(() => handler(parseResult.data, event)), key, proc.output);
-          }
-          return this.wrapCommand(() => invoke(() => handler(parseResult.data, event)), key, proc.output);
+          return this.wrap(() => invoke(() => handler(parseResult.data, event)), key, proc.output, proc.kind);
         }
 
         // Void input — call handler with no args
-        if (isQuery) {
-          return this.wrapQuery(() => invoke(() => handler(event)), key, proc.output);
-        }
-        return this.wrapCommand(() => invoke(() => handler(event)), key, proc.output);
+        return this.wrap(() => invoke(() => handler(event)), key, proc.output, proc.kind);
       });
     }
   }
 
   /**
-   * Wrap a handler's result in command response format:
-   * success → { success: true, data?: result }
-   * failure → { success: false, error: ... }
+   * Wrap a handler's result in the response format of its kind:
+   * success → { success: true, data: result }
+   * failure → { success: false, error } for a command, { success: false, data: null, error } for a query
    */
-  private async wrapCommand(
+  private async wrap(
     fn: () => Promise<unknown>,
     operationName: string,
     outputSchema: z.ZodTypeAny,
+    kind: ProcedureKind,
   ): Promise<unknown> {
     try {
       const result = await fn();
-      return this.validateOutput({ success: true, data: result }, outputSchema, operationName, false);
+      return this.validateOutput({ success: true, data: result }, outputSchema, operationName, kind);
     } catch (err) {
-      logger.logError('Command failed', err, { operation: operationName });
+      logger.logError(kind === 'query' ? 'Query failed' : 'Command failed', err, { operation: operationName });
       return this.validateOutput(
-        {
-          success: false,
-          error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
-        },
+        failure(kind, toIpcError(err, { isDomainError, metadata: { operation: operationName } })),
         outputSchema,
         operationName,
-        false,
+        kind,
       );
     }
   }
 
-  /**
-   * Wrap a handler's result in query response format:
-   * success → { success: true, data: result }
-   * failure → { success: false, data: null, error: ... }
-   */
-  private async wrapQuery<T>(
-    fn: () => Promise<T>,
-    operationName: string,
-    outputSchema: z.ZodTypeAny,
-  ): Promise<unknown> {
-    try {
-      const result = await fn();
-      return this.validateOutput({ success: true, data: result }, outputSchema, operationName, true);
-    } catch (err) {
-      logger.logError('Query failed', err, { operation: operationName });
-      return this.validateOutput(
-        {
-          success: false,
-          data: null,
-          error: toIpcError(err, { isDomainError, metadata: { operation: operationName } }),
-        },
-        outputSchema,
-        operationName,
-        true,
-      );
-    }
-  }
-
-  private validateOutput(response: unknown, schema: z.ZodTypeAny, operationName: string, isQuery: boolean): unknown {
+  private validateOutput(response: unknown, schema: z.ZodTypeAny, operationName: string, kind: ProcedureKind): unknown {
     const parseResult = schema.safeParse(response);
     if (parseResult.success) return parseResult.data;
 
@@ -185,6 +140,6 @@ export class IpcRouter {
         validationErrors,
       },
     };
-    return isQuery ? { success: false, data: null, error } : { success: false, error };
+    return failure(kind, error);
   }
 }

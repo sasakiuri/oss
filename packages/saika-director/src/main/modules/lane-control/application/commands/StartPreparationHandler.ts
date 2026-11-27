@@ -4,6 +4,7 @@ import type { StartPreparationCommand } from './LaneCommands';
 import { DomainError, ErrorCatalog } from '@/shared/errors';
 import { Logger } from '@/shared/logging';
 import { emitLaneControlUpdated } from './helpers/emitLaneControlUpdated';
+import { emitLanePhaseChanged } from './helpers/emitLanePhaseChanged';
 
 const logger = Logger.create('StartPreparationHandler');
 
@@ -27,15 +28,7 @@ export class StartPreparationHandler {
       const updated = lane.startPreparation();
       this.repository.save(updated);
 
-      this.eventBus.emit({
-        type: 'LanePhaseChanged',
-        timestamp: Date.now(),
-        laneId,
-        phase: updated.phase,
-        stageIndex: updated.stageIndex,
-        seriesIndex: updated.seriesIndex,
-        remainingTime: updated.remainingTime,
-      });
+      emitLanePhaseChanged(this.eventBus, updated);
 
       emitLaneControlUpdated(this.eventBus, updated);
     }

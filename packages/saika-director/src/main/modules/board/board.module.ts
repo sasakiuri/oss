@@ -1,6 +1,5 @@
-import type { IpcMainInvokeEvent } from 'electron';
-
 import { GetAllLanesToken } from '@/main/modules/lane-control';
+import { ipcInvokeEvent } from '@/main/shared-infra/ipc/IpcRouter';
 import { defineModule } from '@/main/shared-infra/module/ModuleDefinition';
 import { boardContract } from '@/shared/ipc/contracts';
 
@@ -81,8 +80,7 @@ export const boardModule = defineModule({
         return Promise.resolve(undefined);
       },
       getConfig: (event?: unknown) => {
-        const ipcEvent = event as IpcMainInvokeEvent;
-        const windowId = windowManager.findWindowIdByWebContents(ipcEvent.sender);
+        const windowId = windowManager.findWindowIdByWebContents(ipcInvokeEvent(event).sender);
         if (!windowId) return Promise.resolve(null);
         return Promise.resolve(windowManager.getWindowConfig(windowId));
       },

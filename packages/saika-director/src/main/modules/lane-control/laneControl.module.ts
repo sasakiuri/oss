@@ -1,6 +1,4 @@
 import { defineModule, type ModuleOutput } from '@/main/shared-infra/module/ModuleDefinition';
-import type { EventTransformer } from '@/main/shared-infra/ipc/EventForwardingRule';
-import type { LaneControlIpcPayload } from '@/shared/types/LaneControlIpcPayload';
 
 // Command handlers
 import { StartPreparationHandler } from './application/commands/StartPreparationHandler';
@@ -27,14 +25,9 @@ import { GetAllLanesHandler } from './application/queries/GetAllLanesHandler';
 // IPC Contracts
 import { laneControlContract, eventsContract } from '@/shared/ipc/contracts';
 
-// Domain Entities (for event listeners)
-import { LaneControl } from './domain/LaneControl';
-import { Channel } from './domain/Channel';
-import type { LaneControlUpdated } from './domain/events';
-import { emitLaneControlUpdated } from './application/commands/helpers/emitLaneControlUpdated';
-import { DiffCalculator } from './infra/DiffCalculator';
-import { buildRoundConfig } from '@/shared/constants/roundConfig';
-import { BR60S } from '@/shared/competitionTypes/definitions/BR60S';
+// Event listeners and forwarding
+import { LaneConnectedHandler } from './application/LaneConnectedHandler';
+import { LaneControlUpdatedTransformer } from './application/LaneControlUpdatedTransformer';
 
 // Tokens
 import {
@@ -57,73 +50,6 @@ import {
   GetLaneByIdToken,
   GetAllLanesToken,
 } from './application/tokens';
-
-const MAX_SEQ = 0xffffffff;
-
-class LaneControlUpdatedTransformer implements EventTransformer<'LaneControlUpdated'> {
-  private diffCalculator = new DiffCalculator<LaneControlIpcPayload>();
-  private seqMap = new Map<string, number>();
-
-  forward(e: LaneControlUpdated, send: (ch: string, data: unknown) => void): void {
-    const current = this.extractPayload(e);
-    const { isInitial, patch } = this.diffCalculator.calculateDiff(e.laneId, current);
-
-    if (isInitial) {
-      send(eventsContract.channels.laneControlUpdated, {
-        laneId: e.laneId,
-        ...current,
-      });
-    } else if (Object.keys(patch).length > 0) {
-      const seq = this.getNextSequenceNumber(e.laneId);
-      send(eventsContract.channels.laneControlPatched, {
-        laneId: e.laneId,
-        seq,
-        patch,
-      });
-    }
-  }
-
-  cleanup(): void {
-    this.diffCalculator.clearAll();
-    this.seqMap.clear();
-  }
-
-  private extractPayload(event: LaneControlIpcPayload): LaneControlIpcPayload {
-    return {
-      channel: event.channel,
-      playerName: event.playerName,
-      affiliation: event.affiliation,
-      participantId: event.participantId,
-      relayNumber: event.relayNumber,
-      phase: event.phase,
-      remainingTime: event.remainingTime,
-      shotNumber: event.shotNumber,
-      lastScore: event.lastScore,
-      lastShotTime: event.lastShotTime,
-      seriesScores: event.seriesScores,
-      totalScore: event.totalScore,
-      recentShots: event.recentShots,
-      matchShots: event.matchShots,
-      stageIndex: event.stageIndex,
-      seriesIndex: event.seriesIndex,
-      roundType: event.roundType,
-      unifiedPhase: event.unifiedPhase,
-      stageName: event.stageName,
-      stage1Total: event.stage1Total,
-      stage2Total: event.stage2Total,
-      eliminated: event.eliminated,
-      eliminationRank: event.eliminationRank,
-    };
-  }
-
-  private getNextSequenceNumber(laneId: string): number {
-    const seq = ((this.seqMap.get(laneId) ?? 0) + 1) % MAX_SEQ;
-    this.seqMap.set(laneId, seq);
-    return seq;
-  }
-}
-
-const DEFAULT_QUALIFICATION_CONFIG = buildRoundConfig(BR60S);
 
 export const laneControlModule = defineModule({
   name: 'lane-control',
@@ -229,25 +155,8 @@ export const laneControlModule = defineModule({
       }
     });
 
-    eventBus.on('LaneConnected', (event) => {
-      const existingById = laneControlRepository.findById(event.laneId);
-      if (existingById) {
-        if (existingById.channel.value === event.channel) return;
-        const occupied = laneControlRepository.findByChannel(event.channel);
-        if (occupied && occupied.id !== event.laneId) return;
-        const moved = LaneControl.fromSnapshot({ ...existingById.toSnapshot(), channel: event.channel });
-        laneControlRepository.save(moved);
-        emitLaneControlUpdated(eventBus, moved);
-        return;
-      }
-
-      const existingByChannel = laneControlRepository.findByChannel(event.channel);
-      if (existingByChannel) return;
-      const channel = Channel.create(event.channel);
-      const lane = LaneControl.create(event.laneId, channel, DEFAULT_QUALIFICATION_CONFIG);
-      laneControlRepository.save(lane);
-      emitLaneControlUpdated(eventBus, lane);
-    });
+    const laneConnected = new LaneConnectedHandler(laneControlRepository, eventBus);
+    eventBus.on('LaneConnected', (event) => laneConnected.handle(event));
 
     return {
       eventForwarding: [
