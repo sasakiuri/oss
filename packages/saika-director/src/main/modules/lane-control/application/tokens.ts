@@ -1,5 +1,6 @@
 import { defineCommand } from '@/main/shared-infra/cqrs/CommandBus';
 import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
+import type { GetScoreSheetsResponse } from '@/shared/ipc/contracts';
 
 import type {
   StartPreparationCommand,
@@ -18,6 +19,7 @@ import type { RecordShotCommand } from './commands/RecordShotHandler';
 import type { StartLaneShootoffCommand } from './commands/StartLaneShootoffHandler';
 import type { AddLaneShootoffShotCommand } from './commands/AddLaneShootoffShotHandler';
 import type { ResolveLaneShootoffCommand } from './commands/ResolveLaneShootoffHandler';
+import type { LaneControlDto } from './queries/GetAllLaneControlsHandler';
 import type { GetScoreSheetsQuery } from './queries/GetScoreSheetsHandler';
 import type { GetLaneByIdQuery } from './queries/GetLaneByIdHandler';
 import type { GetLaneByChannelQuery } from './queries/GetLaneByChannelHandler';
@@ -40,8 +42,8 @@ export const AddLaneShootoffShotToken = defineCommand<AddLaneShootoffShotCommand
 export const ResolveLaneShootoffToken = defineCommand<ResolveLaneShootoffCommand>('ResolveLaneShootoff');
 
 // --- Query Tokens ---
-export const GetScoreSheetsToken = defineQuery<GetScoreSheetsQuery, unknown>('GetScoreSheets');
-export const GetAllLaneControlsToken = defineQuery<unknown, unknown>('GetAllLaneControls');
+export const GetScoreSheetsToken = defineQuery<GetScoreSheetsQuery, GetScoreSheetsResponse>('GetScoreSheets');
+export const GetAllLaneControlsToken = defineQuery<unknown, LaneControlDto[]>('GetAllLaneControls');
 export const GetLaneByIdToken = defineQuery<GetLaneByIdQuery, unknown>('GetLaneById');
 export const GetLaneByChannelToken = defineQuery<GetLaneByChannelQuery, unknown>('GetLaneByChannel');
 export const GetAllLanesToken = defineQuery<unknown, unknown>('GetAllLanes');

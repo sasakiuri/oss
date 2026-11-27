@@ -148,7 +148,10 @@ export function useChampionshipScreenCommands({
         const result = await createEvent({ championshipId: selectedChampionship.id, ...data });
         // A success without the new event's id fails like an unsuccessful response.
         if (!result.success || !result.data) {
-          addNotification('error', failureMessage(result.error, 'Failed to add the event'));
+          addNotification(
+            'error',
+            failureMessage(result.success ? undefined : result.error, 'Failed to add the event'),
+          );
           return;
         }
         hideEventForm();

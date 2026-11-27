@@ -36,19 +36,6 @@ export function queryResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
 }
 
 /**
- * Build a command response schema that optionally carries data.
- *
- * `{ success: boolean, data?: T, error?: IpcErrorDto }`
- */
-export function commandWithDataSchema<T extends z.ZodTypeAny>(dataSchema: T) {
-  return z.object({
-    success: z.boolean(),
-    data: dataSchema.optional(),
-    error: IpcErrorSchema.optional(),
-  });
-}
-
-/**
  * Build a discriminated-union response schema for commands that return data.
  *
  * Success: `{ success: true, data: T }`
@@ -162,8 +149,8 @@ export function defineEvent<T extends z.ZodTypeAny>(schema: T, options?: EventOp
 /** A map of procedure names to ProcedureDef */
 export type ProcedureMap = Record<string, ProcedureDef>;
 
-/** Derive the channel map type from a procedure map */
-type ChannelMap<P extends ProcedureMap> = { readonly [K in keyof P]: string };
+/** Derive the channel map type from a procedure or event map */
+type ChannelMap<D> = { readonly [K in keyof D]: string };
 
 export interface Contract<NS extends string, P extends ProcedureMap> {
   readonly namespace: NS;
@@ -175,18 +162,19 @@ export function defineContract<NS extends string, P extends ProcedureMap>(
   namespace: NS,
   procedures: P,
 ): Contract<NS, P> {
+  return { namespace, procedures, channels: channelsFor(namespace, procedures) };
+}
+
+/** Each definition uses its channel override, or `namespace:key`. */
+function channelsFor<D extends Record<string, { readonly channelOverride?: string }>>(
+  namespace: string,
+  definitions: D,
+): ChannelMap<D> {
   const channels = {} as Record<string, string>;
-
-  for (const key of Object.keys(procedures)) {
-    const proc = procedures[key]!;
-    channels[key] = proc.channelOverride ?? `${namespace}:${key}`;
+  for (const key of Object.keys(definitions)) {
+    channels[key] = definitions[key]!.channelOverride ?? `${namespace}:${key}`;
   }
-
-  return {
-    namespace,
-    procedures,
-    channels: channels as ChannelMap<P>,
-  };
+  return channels as ChannelMap<D>;
 }
 
 // ---------------------------------------------------------------------------
@@ -195,30 +183,17 @@ export function defineContract<NS extends string, P extends ProcedureMap>(
 
 export type EventMap = Record<string, EventDef>;
 
-type EventChannelMap<E extends EventMap> = { readonly [K in keyof E]: string };
-
 export interface EventContract<NS extends string, E extends EventMap> {
   readonly namespace: NS;
   readonly events: E;
-  readonly channels: EventChannelMap<E>;
+  readonly channels: ChannelMap<E>;
 }
 
 export function defineEventContract<NS extends string, E extends EventMap>(
   namespace: NS,
   events: E,
 ): EventContract<NS, E> {
-  const channels = {} as Record<string, string>;
-
-  for (const key of Object.keys(events)) {
-    const evt = events[key]!;
-    channels[key] = evt.channelOverride ?? `${namespace}:${key}`;
-  }
-
-  return {
-    namespace,
-    events,
-    channels: channels as EventChannelMap<E>,
-  };
+  return { namespace, events, channels: channelsFor(namespace, events) };
 }
 
 // ---------------------------------------------------------------------------
@@ -256,12 +231,28 @@ export type InferEventBridge<C extends EventContract<string, EventMap>> = {
   [K in keyof C['events']]: (callback: (data: InferEventPayload<C['events'][K]>) => void) => () => void;
 };
 
+/** The router only validates and forwards a handler result, so readonly domain values are accepted. */
+type DeepReadonly<T> = T extends object ? { readonly [K in keyof T]: DeepReadonly<T[K]> } : T;
+
+/**
+ * The `data` of a successful response, as the output schema accepts it. A response without `data`
+ * (`CommandResponseSchema`) accepts any handler result.
+ */
+type InferHandlerResult<P> =
+  P extends ProcedureDef<z.ZodTypeAny, infer O>
+    ? [Extract<z.input<O>, { success: true }>] extends [never]
+      ? unknown
+      : Extract<z.input<O>, { success: true }> extends { data: infer Data }
+        ? DeepReadonly<Data>
+        : unknown
+    : never;
+
 /**
  * Handlers return domain values; the app's IpcRouter wraps them in command or query response objects.
  * A z.void() input produces a handler with no arguments.
  */
 export type InferHandlers<C extends Contract<string, ProcedureMap>> = {
   [K in keyof C['procedures']]: C['procedures'][K]['input'] extends z.ZodVoid
-    ? (event?: unknown) => Promise<unknown>
-    : (input: InferInput<C['procedures'][K]>, event?: unknown) => Promise<unknown>;
+    ? (event?: unknown) => Promise<InferHandlerResult<C['procedures'][K]>>
+    : (input: InferInput<C['procedures'][K]>, event?: unknown) => Promise<InferHandlerResult<C['procedures'][K]>>;
 };

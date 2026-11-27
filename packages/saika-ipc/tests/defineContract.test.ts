@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { z } from 'zod';
 
 import {
   command,
   commandDataResponseSchema,
   CommandResponseSchema,
-  commandWithDataSchema,
   defineContract,
   defineEvent,
   defineEventContract,
   IpcErrorSchema,
   query,
   queryResponseSchema,
+  type InferHandlers,
 } from '../src/index';
 
 describe('defineContract DSL', () => {
@@ -264,17 +264,18 @@ describe('defineContract DSL', () => {
     });
   });
 
-  describe('commandWithDataSchema()', () => {
-    const schema = commandWithDataSchema(z.object({ count: z.number() }));
+  describe('InferHandlers', () => {
+    it('types handler results by the success data of the output schema', () => {
+      const _contract = defineContract('example', {
+        read: query(z.object({ id: z.string() }), queryResponseSchema(z.object({ names: z.array(z.string()) }))),
+        save: command(z.object({ id: z.string() }), commandDataResponseSchema(z.number())),
+        clear: command(CommandResponseSchema),
+      });
+      type Handlers = InferHandlers<typeof _contract>;
 
-    it('validates a success response with data', () => {
-      const result = schema.safeParse({ success: true, data: { count: 5 } });
-      expect(result.success).toBe(true);
-    });
-
-    it('validates a success response without data', () => {
-      const result = schema.safeParse({ success: true });
-      expect(result.success).toBe(true);
+      expectTypeOf<ReturnType<Handlers['read']>>().toEqualTypeOf<Promise<{ readonly names: readonly string[] }>>();
+      expectTypeOf<ReturnType<Handlers['save']>>().toEqualTypeOf<Promise<number>>();
+      expectTypeOf<ReturnType<Handlers['clear']>>().toEqualTypeOf<Promise<unknown>>();
     });
   });
 });
