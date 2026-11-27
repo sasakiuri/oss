@@ -1,22 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Crosshair, RefreshCw } from 'lucide-react';
 import type { FinalSeriesAdjudicationCapability } from '@sasakiuri/saika-rules';
 
-import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
-import { incidentReportsService, irregularShotCasesService, scoringDecisionsService } from '@/renderer/services';
-import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type {
-  IrregularShotCaseDto,
-  RangeIncidentReportDto,
-  ScoringDecisionDto,
-  ResultScope,
-} from '@/shared/ipc/contracts';
+import type { ResultScope } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 import { InlineError } from '../shared/common/InlineError';
 
 import { CreateIrregularShotCaseForm } from './CreateIrregularShotCaseForm';
 import { IrregularShotCaseCard } from './IrregularShotCaseCard';
+import { useIrregularShotCases } from './useIrregularShotCases';
 
 interface Props {
   eventId: string;
@@ -35,44 +28,11 @@ export function IrregularShotCasesPanel({
   adjudication,
   disabled = false,
 }: Props) {
-  const [cases, setCases] = useState<IrregularShotCaseDto[]>([]);
-  const [reports, setReports] = useState<RangeIncidentReportDto[]>([]);
-  const [decisions, setDecisions] = useState<ScoringDecisionDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { busy: saving, error, setError, run } = useAsyncAction();
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [caseResponse, reportResponse, decisionResponse] = await Promise.all([
-        irregularShotCasesService.list({ eventId, resultScope }),
-        incidentReportsService.listByEvent({ eventId }),
-        scoringDecisionsService.listByEvent({ eventId, resultScope }),
-      ]);
-      const listed = unwrap(caseResponse);
-      const reportStatus = unwrap(reportResponse);
-      const decisionList = unwrap(decisionResponse);
-      setCases(listed.filter((value) => value.competitionId === competitionId));
-      setReports(reportStatus.reports.filter((report) => !report.voided));
-      setDecisions(
-        decisionList.decisions.filter(
-          (decision) =>
-            decision.active &&
-            decision.type !== 'REVOCATION' &&
-            (!decision.sourceCompetitionId || decision.sourceCompetitionId === competitionId),
-        ),
-      );
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setLoading(false);
-    }
-  }, [competitionId, eventId, resultScope, setError]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { cases, reports, decisions, loading, saving, error, load, commands } = useIrregularShotCases({
+    eventId,
+    competitionId,
+    resultScope,
+  });
 
   const laneLabels = useMemo(() => new Map(lanes.map((lane) => [lane.laneId, lane.label])), [lanes]);
 
@@ -97,15 +57,11 @@ export function IrregularShotCasesPanel({
       {error && <InlineError as="div">{error}</InlineError>}
 
       <CreateIrregularShotCaseForm
-        eventId={eventId}
-        competitionId={competitionId}
-        resultScope={resultScope}
         lanes={lanes}
         adjudication={adjudication}
         disabled={disabled}
         saving={saving}
-        run={run}
-        onCreated={(created) => setCases((current) => [...current, created])}
+        onCreate={commands.create}
       />
 
       {!loading && cases.length === 0 && (
@@ -119,10 +75,7 @@ export function IrregularShotCasesPanel({
           decisions={decisions}
           laneLabels={laneLabels}
           disabled={disabled}
-          onChanged={(changed) =>
-            setCases((current) => current.map((item) => (item.id === changed.id ? changed : item)))
-          }
-          onError={setError}
+          commands={commands}
         />
       ))}
     </div>

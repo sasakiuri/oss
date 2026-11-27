@@ -1,53 +1,52 @@
 import { Plus, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { boardService, protestsService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ProtestCaseDto } from '@/shared/ipc/contracts';
 
+import { useCaseWorkspace, type CaseWorkspaceOptions } from '../shared/cases/useCaseWorkspace';
 import { Button } from '../shared/common/Button';
 import { InlineError } from '../shared/common/InlineError';
 
 import { CreateProtestForm } from './CreateProtestForm';
 import { ProtestDetail } from './ProtestDetail';
 
+const workspaceOptions: CaseWorkspaceOptions<'EVENT', ProtestCaseDto> = {
+  list: async (scope) => (scope ? unwrap(await protestsService.list(scope)) : []),
+  isDefaultCandidate: () => true,
+  loadFailure: 'Failed to load protest records',
+  mutationFailure: 'Failed to update the protest record',
+};
+
 export function ProtestsPanel({ scopeId }: { scopeId: string }) {
-  const [cases, setCases] = useState<ProtestCaseDto[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const {
+    cases,
+    selectedCaseId,
+    selectCase,
+    selectedCase: selected,
+    error: loadError,
+    loadCases,
+  } = useCaseWorkspace({ scopeType: 'EVENT', scopeId }, workspaceOptions);
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const loadId = useRef(0);
-  const load = useCallback(async () => {
-    const requestId = ++loadId.current;
-    setError(null);
-    try {
-      const response = await protestsService.list({ scopeType: 'EVENT', scopeId });
-      if (requestId !== loadId.current) return;
-      const listed = unwrap(response);
-      setCases(listed);
-      setSelectedId((current) =>
-        current && listed.some((item) => item.id === current) ? current : (listed.at(-1)?.id ?? null),
-      );
-    } catch (caught) {
-      if (requestId === loadId.current) setError(errorMessage(caught, 'Failed to load protest records'));
-    }
-  }, [scopeId]);
+  // The panel has one alert: a print request replaces the list error until the next reload. `undefined` means no
+  // print request since the last reload.
+  const [printError, setPrintError] = useState<string | null>();
+  const error = printError === undefined ? loadError : printError;
   useEffect(() => {
-    setCases([]);
-    setSelectedId(null);
     setCreating(false);
-    void load();
-    return () => {
-      loadId.current++;
-    };
-  }, [load]);
-  const selected = cases.find((item) => item.id === selectedId) ?? null;
+    setPrintError(undefined);
+  }, [scopeId]);
+  const load = useCallback(async () => {
+    setPrintError(undefined);
+    await loadCases();
+  }, [loadCases]);
   const print = async (protestId: string) => {
-    setError(null);
+    setPrintError(null);
     try {
       unwrap(await boardService.openProtestPrint({ protestId }));
     } catch (caught) {
-      setError(errorMessage(caught, 'Failed to open the protest print preview'));
+      setPrintError(errorMessage(caught, 'Failed to open the protest print preview'));
     }
   };
 
@@ -78,7 +77,7 @@ export function ProtestsPanel({ scopeId }: { scopeId: string }) {
           onCancel={() => setCreating(false)}
           onSaved={async (item) => {
             setCreating(false);
-            setSelectedId(item.id);
+            selectCase(item.id);
             await load();
           }}
         />
@@ -90,8 +89,8 @@ export function ProtestsPanel({ scopeId }: { scopeId: string }) {
             <button
               key={item.id}
               type="button"
-              onClick={() => setSelectedId(item.id)}
-              className={`block w-full border-b border-vscode-border p-3 text-left text-xs ${item.id === selectedId ? 'bg-vscode-highlight' : ''}`}
+              onClick={() => selectCase(item.id)}
+              className={`block w-full border-b border-vscode-border p-3 text-left text-xs ${item.id === selectedCaseId ? 'bg-vscode-highlight' : ''}`}
             >
               <span className="block font-semibold text-vscode-text">{item.subject}</span>
               <span className="text-vscode-text-muted">
