@@ -11,6 +11,7 @@ import { Button } from '../../shared/common/Button';
 import { Card } from '../../shared/common/Card';
 import { buildFiringPointAssignmentPlan, type FiringPointAssignmentPlan } from '../assignmentPlanning';
 import { asSupportedLaneCompetitionType, type SupportedLaneCompetitionType } from '../supportedCompetitionTypes';
+import { stackedMediumLabelClass } from '../../shared/common/formClasses';
 
 interface ChampionshipAssignmentPanelProps {
   activeCompetitionTypeId: string | null;
@@ -176,7 +177,7 @@ export function ChampionshipAssignmentPanel({
       </div>
 
       <div className="grid gap-3 md:grid-cols-3">
-        <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
+        <label className={stackedMediumLabelClass}>
           Championship
           <select
             value={selectedChampionshipId}
@@ -193,7 +194,7 @@ export function ChampionshipAssignmentPanel({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
+        <label className={stackedMediumLabelClass}>
           Event
           <select
             value={selectedEventId ?? ''}
@@ -210,7 +211,7 @@ export function ChampionshipAssignmentPanel({
           </select>
         </label>
 
-        <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
+        <label className={stackedMediumLabelClass}>
           Relay
           <select
             value={selectedRelay ?? ''}

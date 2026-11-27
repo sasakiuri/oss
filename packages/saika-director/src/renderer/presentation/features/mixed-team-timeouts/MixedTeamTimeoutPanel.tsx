@@ -8,6 +8,7 @@ import type { DirectorLaneSnapshotDto, MixedTeamTimeoutDto } from '@/shared/ipc/
 import { Button } from '../shared/common/Button';
 import { mutedLabelClass, smallBlockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
 import { InlineError } from '../shared/common/InlineError';
+import { toggleSetMember } from '../shared/common/toggleSetMember';
 
 export function MixedTeamTimeoutPanel({
   competitionId,
@@ -196,13 +197,8 @@ export function MixedTeamTimeoutPanel({
                 <input
                   type="checkbox"
                   checked={courtesyTeamIds.has(team.id)}
-                  onChange={() =>
-                    setCourtesyTeamIds((current) => {
-                      const next = new Set(current);
-                      if (next.has(team.id)) next.delete(team.id);
-                      else next.add(team.id);
-                      return next;
-                    })
+                  onChange={(event) =>
+                    setCourtesyTeamIds((current) => toggleSetMember(current, team.id, event.target.checked))
                   }
                 />{' '}
                 {team.name}

@@ -3,10 +3,12 @@ import { useState } from 'react';
 import type { TargetExaminationIssueKindDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
 import { Field, inputClass } from './ExaminationFields';
-import { ISSUE_OPTIONS, toLocalInputValue } from './examinationPresentation';
+import { ISSUE_OPTIONS } from './examinationPresentation';
 import type { TargetExaminationCommands, TargetExaminationLaneOption } from './examinationTypes';
+import { spacedPanelClass } from '../shared/common/formClasses';
 
 export function CreateCaseForm({
   scopes,
@@ -25,7 +27,7 @@ export function CreateCaseForm({
 }) {
   const initialIssue = ISSUE_OPTIONS[1]!;
   const [issueKind, setIssueKind] = useState<TargetExaminationIssueKindDto>(initialIssue.value);
-  const [occurredAt, setOccurredAt] = useState(toLocalInputValue(new Date()));
+  const [occurredAt, setOccurredAt] = useState(toDateTimeLocalValue(new Date(), 'minutes'));
   const [laneId, setLaneId] = useState(defaultLaneId ?? '');
   const [relayNumber, setRelayNumber] = useState('');
   const [athleteName, setAthleteName] = useState('');
@@ -38,7 +40,7 @@ export function CreateCaseForm({
 
   return (
     <form
-      className="space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3"
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         const relay = relayNumber ? Number(relayNumber) : undefined;

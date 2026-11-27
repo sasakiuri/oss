@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 import { Button } from '../shared/common/Button';
+import { stackedMediumLabelClass } from '../shared/common/formClasses';
 
 export function FormButtons({
   saving,
@@ -26,7 +27,7 @@ export function FormButtons({
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
+    <label className={stackedMediumLabelClass}>
       {label}
       {children}
     </label>
@@ -44,5 +45,3 @@ export function Detail({ label, value }: { label: string; value: string }) {
 
 export const inputClass =
   'min-h-8 w-full rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 py-1 text-[13px] text-vscode-text';
-
-export const formClass = 'space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3';

@@ -5,6 +5,7 @@ import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { TeamResultDto, TeamResultFormatDto } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { InlineError } from '../shared/common/InlineError';
+import { spacedPanelClass } from '../shared/common/formClasses';
 
 export function TeamResultsPanel({ eventId, onClose }: { eventId: string; onClose: () => void }) {
   const [format, setFormat] = useState<TeamResultFormatDto>('THREE_MEMBER');
@@ -30,7 +31,7 @@ export function TeamResultsPanel({ eventId, onClose }: { eventId: string; onClos
   }, [load]);
 
   return (
-    <section className="space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3">
+    <section className={spacedPanelClass}>
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-[13px] font-semibold text-vscode-text">Official team results</h3>

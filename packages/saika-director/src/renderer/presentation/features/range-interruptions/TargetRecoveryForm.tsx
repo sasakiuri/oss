@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { rangeInterruptionsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
 
-import { FormButtons, Field, inputClass, formClass } from './InterruptionFields';
+import { spacedPanelClass } from '../shared/common/formClasses';
+
+import { FormButtons, Field, inputClass } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
@@ -17,7 +19,7 @@ export function TargetRecoveryForm({ interruption, saving, onCancel, onMutate }:
   const [officialName, setOfficialName] = useState(interruption.openedBy);
   return (
     <form
-      className={formClass}
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         void onMutate(async () => {

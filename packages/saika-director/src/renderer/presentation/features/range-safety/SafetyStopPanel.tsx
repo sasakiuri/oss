@@ -8,6 +8,7 @@ import type { DirectorLaneSnapshotDto, SafetyStopAuditEntryDto } from '@/shared/
 
 import { Button } from '../shared/common/Button';
 import { Card } from '../shared/common/Card';
+import { stackedMediumLabelClass } from '../shared/common/formClasses';
 
 interface SafetyStopPanelProps {
   connected: boolean;
@@ -206,7 +207,7 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
       </div>
 
       <div className="mt-3 grid max-w-3xl gap-3 sm:grid-cols-[minmax(10rem,1fr)_2fr]">
-        <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
+        <label className={stackedMediumLabelClass}>
           Responsible official
           <input
             value={officialName}
@@ -214,7 +215,7 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
             className="min-h-8 rounded-[3px] border border-vscode-border bg-vscode-input px-2.5 text-[13px] text-vscode-text"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
+        <label className={stackedMediumLabelClass}>
           STOP reason
           <input
             value={reason}

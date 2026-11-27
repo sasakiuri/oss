@@ -15,6 +15,7 @@ import { CompetitionEvidencePanel } from './CompetitionEvidencePanel';
 import { CompetitionStartReadinessPanel } from './CompetitionStartReadinessPanel';
 import type { CompetitionCommands } from './useCompetitionCommands';
 import type { CompetitionSelection } from './useCompetitionSelection';
+import { stackedMediumLabelClass } from '../shared/common/formClasses';
 
 type Selection = Pick<
   CompetitionSelection,
@@ -106,7 +107,7 @@ export function CompetitionRunPanel({
             : 'No active competition'}
         </p>
       </div>
-      <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
+      <label className={stackedMediumLabelClass}>
         Selected competition
         <select
           aria-label="Selected competition"

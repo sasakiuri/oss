@@ -8,10 +8,12 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
 import { Field, inputClass } from './ExaminationFields';
-import { defaultEntryRule, entryOptions, EVIDENCE_OPTIONS, toLocalInputValue } from './examinationPresentation';
+import { defaultEntryRule, entryOptions, EVIDENCE_OPTIONS } from './examinationPresentation';
 import type { TargetExaminationCommands } from './examinationTypes';
+import { spacedPanelClass } from '../shared/common/formClasses';
 
 export function EvidenceForm({
   examination,
@@ -29,11 +31,11 @@ export function EvidenceForm({
   const [reference, setReference] = useState('');
   const [contentHashSha256, setContentHashSha256] = useState('');
   const [collectedBy, setCollectedBy] = useState('');
-  const [collectedAt, setCollectedAt] = useState(toLocalInputValue(new Date()));
+  const [collectedAt, setCollectedAt] = useState(toDateTimeLocalValue(new Date(), 'minutes'));
 
   return (
     <form
-      className="space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3"
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         void onSubmitCommand({
@@ -132,7 +134,7 @@ export function EntryForm({
 
   return (
     <form
-      className="space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3"
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         const payload = {

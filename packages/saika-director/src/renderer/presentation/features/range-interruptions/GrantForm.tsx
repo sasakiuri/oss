@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { rangeInterruptionsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
 
-import { FormButtons, Field, inputClass, formClass } from './InterruptionFields';
+import { spacedPanelClass } from '../shared/common/formClasses';
+
+import { FormButtons, Field, inputClass } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
 
 export function GrantForm({ interruption, saving, onCancel, onMutate }: FormProps) {
@@ -21,7 +23,7 @@ export function GrantForm({ interruption, saving, onCancel, onMutate }: FormProp
   const [confirmed, setConfirmed] = useState(false);
   return (
     <form
-      className={formClass}
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         void onMutate(async () => {

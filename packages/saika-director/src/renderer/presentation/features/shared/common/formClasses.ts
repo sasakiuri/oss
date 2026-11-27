@@ -44,5 +44,11 @@ export const mutedLabelClass = 'text-xs text-vscode-text-muted';
 /** Label stacked above its control. */
 export const stackedLabelClass = 'flex flex-col gap-1 text-xs text-vscode-text-muted';
 
+/** Medium-weight label stacked above its control. */
+export const stackedMediumLabelClass = 'flex flex-col gap-1 text-xs font-medium text-vscode-text-muted';
+
 /** Bordered form section. */
 export const sectionClass = 'rounded-[3px] border border-vscode-border p-3';
+
+/** Bordered form or panel on the editor background whose rows are spaced. */
+export const spacedPanelClass = 'space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3';

@@ -8,7 +8,9 @@ import type {
   QualificationTimedTargetRecoveryDecisionDto,
 } from '@/shared/ipc/contracts';
 
-import { FormButtons, Field, inputClass, formClass } from './InterruptionFields';
+import { spacedPanelClass } from '../shared/common/formClasses';
+
+import { FormButtons, Field, inputClass } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
 import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 
@@ -82,7 +84,7 @@ export function QualificationRecoveryDecisionForm({ interruption, saving, onCanc
 
   return (
     <form
-      className={formClass}
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         void onMutate(async () => {

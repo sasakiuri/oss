@@ -4,9 +4,9 @@ import { sentenceCaseLabel } from '@/renderer/presentation/formatters/enumLabel'
 import type { CreateQualificationMalfunctionCasePayload, DirectorLaneSnapshotDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
-import { paddedInputClass } from '../shared/common/formClasses';
+import { paddedInputClass, stackedMediumLabelClass } from '../shared/common/formClasses';
 
-import { malfunctionLabelClass, NumberField } from './MalfunctionFields';
+import { NumberField } from './MalfunctionFields';
 import { caseFiringContext, type LaneDeclaration, toEligibleLane, toLaneDeclaration } from './malfunctionLanes';
 
 interface CreateMalfunctionFormProps {
@@ -186,7 +186,7 @@ export function CreateMalfunctionForm({
         </div>
       )}
       <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        <label className={malfunctionLabelClass}>
+        <label className={stackedMediumLabelClass}>
           Athlete / firing point
           <select
             value={laneId}
@@ -209,7 +209,7 @@ export function CreateMalfunctionForm({
           minimum={1}
           disabled={selectedDeclaration !== null}
         />
-        <label className={malfunctionLabelClass}>
+        <label className={stackedMediumLabelClass}>
           Record mode
           <select
             value={claimMode}
@@ -239,7 +239,7 @@ export function CreateMalfunctionForm({
           disabled={selectedDeclaration !== null}
         />
         {supportsExceptionalMatchParts && (
-          <label className={malfunctionLabelClass}>
+          <label className={stackedMediumLabelClass}>
             Exceptional match part
             <select
               value={exceptionalPart}
@@ -252,11 +252,11 @@ export function CreateMalfunctionForm({
             </select>
           </label>
         )}
-        <label className={`${malfunctionLabelClass} md:col-span-2`}>
+        <label className={`${stackedMediumLabelClass} md:col-span-2`}>
           Observed facts
           <input value={summary} onChange={(event) => setSummary(event.target.value)} className={paddedInputClass} />
         </label>
-        <label className={malfunctionLabelClass}>
+        <label className={stackedMediumLabelClass}>
           Opening official
           <input value={openedBy} onChange={(event) => setOpenedBy(event.target.value)} className={paddedInputClass} />
         </label>

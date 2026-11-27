@@ -7,10 +7,9 @@ import { unwrap } from '@/renderer/services/serviceError';
 import type { ProtestCaseDto, RecordProtestEntryPayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { Field } from '../shared/common/Field';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
-import { inputClass } from '../shared/common/formClasses';
-
-import { Field, protestFormClass } from './ProtestFields';
+import { inputClass, spacedPanelClass } from '../shared/common/formClasses';
 
 /** The selected record with its action form and history. The panel keys it by record. */
 export function ProtestDetail({
@@ -47,7 +46,7 @@ export function ProtestDetail({
       </div>
       {protest.status !== 'CLOSED' && protest.status !== 'VOID' && (
         <form
-          className={protestFormClass}
+          className={spacedPanelClass}
           onSubmit={(event) => {
             event.preventDefault();
             if (saving) return;

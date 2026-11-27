@@ -1,7 +1,4 @@
-import { paddedInputClass } from '../shared/common/formClasses';
-
-/** Label of the malfunction case and entry form fields. */
-export const malfunctionLabelClass = 'flex flex-col gap-1 text-xs font-medium text-vscode-text-muted';
+import { paddedInputClass, stackedMediumLabelClass } from '../shared/common/formClasses';
 
 export function NumberField({
   label,
@@ -17,7 +14,7 @@ export function NumberField({
   disabled?: boolean;
 }) {
   return (
-    <label className={malfunctionLabelClass}>
+    <label className={stackedMediumLabelClass}>
       {label}
       <input
         type="number"

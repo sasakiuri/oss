@@ -10,6 +10,7 @@ import { formatClockMetric } from './competitionFormatting';
 import { LANE_COMPETITION_TYPES, type SupportedLaneCompetitionType } from './supportedCompetitionTypes';
 import type { CompetitionCommands } from './useCompetitionCommands';
 import type { CompetitionSelection } from './useCompetitionSelection';
+import { stackedMediumLabelClass } from '../shared/common/formClasses';
 
 type Selection = Pick<
   CompetitionSelection,
@@ -105,7 +106,7 @@ export function LaneManagementPanel({
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs font-medium text-vscode-text-muted">
+          <label className={stackedMediumLabelClass}>
             Competition type
             <select
               value={competitionTypeId}

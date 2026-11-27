@@ -13,7 +13,9 @@ import type {
 
 import { Button } from '../shared/common/Button';
 
-import { FormButtons, Field, inputClass, formClass } from './InterruptionFields';
+import { spacedPanelClass } from '../shared/common/formClasses';
+
+import { FormButtons, Field, inputClass } from './InterruptionFields';
 import { type FormProps } from './interruptionPresentationTypes';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
 
@@ -23,7 +25,7 @@ export function EndInterruptionForm({ interruption, saving, onCancel, onMutate }
   const [officialName, setOfficialName] = useState(interruption.openedBy);
   return (
     <form
-      className={formClass}
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         void onMutate(async () => {
@@ -95,7 +97,7 @@ export function LaneOperationForm({
   const [officialName, setOfficialName] = useState(defaultOfficial);
   return (
     <form
-      className={formClass}
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         void onSubmit(officialName);
@@ -130,7 +132,7 @@ export function GenericEntryForm({
   const [ruleReference, setRuleReference] = useState('');
   return (
     <form
-      className={formClass}
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         void onMutate(async () => {

@@ -2,6 +2,8 @@ import { unwrap, type DataResponse } from '@/renderer/services/serviceError';
 import type { MqttCommandExecutionResultDto, RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
 import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
+import { formatDuration } from './interruptionFormatting';
+
 export interface RangeInterruptionLaneWorkflowPorts {
   lane: Pick<ElectronAPI['mqtt'], 'pauseLaneTimer' | 'resumeLaneTimer' | 'resumeLaneMatch'>;
   ledger: Pick<ElectronAPI['rangeInterruptions'], 'appendEntry'>;
@@ -145,10 +147,4 @@ function dateData(data: Record<string, unknown> | undefined, key: string): strin
   const value = data?.[key];
   if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) return null;
   return new Date(value).toISOString();
-}
-
-function formatDuration(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  return `${minutes}:${String(remainder).padStart(2, '0')}`;
 }
