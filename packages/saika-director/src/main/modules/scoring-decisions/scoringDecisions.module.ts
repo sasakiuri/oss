@@ -3,6 +3,7 @@ import { scoringDecisionsContract } from '@/shared/ipc/contracts';
 import { AppendScoringDecisionHandler } from './application/AppendScoringDecisionHandler';
 import { RevokeScoringDecisionHandler } from './application/RevokeScoringDecisionHandler';
 import { toScoringDecisionDtos } from './application/toScoringDecisionDto';
+import { compareDecisionOrder } from './domain/ScoringDecision';
 import { AppendScoringDecisionToken, RevokeScoringDecisionToken } from './application/tokens';
 
 export const scoringDecisionsModule = defineModule({
@@ -52,10 +53,7 @@ export const scoringDecisionsModule = defineModule({
             : [
                 ...scoringDecisionRepository.findByEventId(eventId, 'QUALIFICATION'),
                 ...scoringDecisionRepository.findByEventId(eventId, 'FINAL'),
-              ].sort(
-                (left, right) =>
-                  left.decidedAt.getTime() - right.decidedAt.getTime() || left.id.localeCompare(right.id),
-              ),
+              ].sort(compareDecisionOrder),
         ),
       }),
     });

@@ -1,10 +1,11 @@
-import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
+import { GetEventByIdToken } from '@/main/modules/championship';
 import {
   getCurrentFinalPlacementReview,
   type FinalPlacementReviewEntry,
   type IFinalPlacementReviewRepository,
 } from '@/main/modules/final-placement-review';
 import {
+  compareDecisionOrder,
   getActiveScoringDecisions,
   ScoringDecisionProjector,
   type IScoringDecisionRepository,
@@ -81,7 +82,7 @@ export class FinalResultsReader implements IFinalResultsReader, IResultDisplayRe
   private async projectSnapshot(
     eventId: string,
   ): Promise<{ snapshot: FinalResultsSnapshot; display: ResultDisplayProjection[] }> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
+    const event = await this.queryBus.execute(GetEventByIdToken, { eventId });
     if (!event) throw new Error(`Event ${eventId} not found`);
     const definition = this.competitionTypes.get(event.eventType);
     const declaredSeriesShotCounts = getMatchSeriesShotCounts(definition);
@@ -385,9 +386,4 @@ function compareProjectedResults(left: FinalRankedResultDto, right: FinalRankedR
   return (
     left.rank - right.rank || left.sourceRank - right.sourceRank || left.firingPointNumber - right.firingPointNumber
   );
-}
-
-function compareDecisionOrder(left: ScoringDecision, right: ScoringDecision): number {
-  const timeDifference = left.decidedAt.getTime() - right.decidedAt.getTime();
-  return timeDifference === 0 ? left.id.localeCompare(right.id) : timeDifference;
 }

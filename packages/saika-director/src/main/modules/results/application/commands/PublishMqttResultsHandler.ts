@@ -5,7 +5,6 @@ import {
   GetEventByIdToken,
   GetFiringPointAssignmentsByRelayToken,
   ParticipantId,
-  type GetEventByIdResponse,
 } from '@/main/modules/championship';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { CompetitionShotPayload } from '@sasakiuri/saika-protocol/Shots';
@@ -16,6 +15,7 @@ import { Result } from '../../domain/Result';
 import { ResultId } from '../../domain/ResultId';
 import { layoutQualificationScoreSeries } from '../../domain/QualificationScoreLayout';
 import type { PublishMqttResultsCommand, PublishResultsResponse } from './PublishMqttResults';
+import { expectedScoreMode } from './laneScoreSnapshot';
 import { assembleRankingEvidence, type RankingShotSourceEvidence } from '../../domain/RankingEvidenceAssembler';
 
 function scoreFromX10(value: number): number {
@@ -76,9 +76,9 @@ export class PublishMqttResultsHandler {
   ) {}
 
   async execute(command: PublishMqttResultsCommand): Promise<PublishResultsResponse> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, {
+    const event = await this.queryBus.execute(GetEventByIdToken, {
       eventId: command.eventId,
-    })) as GetEventByIdResponse | null;
+    });
     if (!event) {
       return { savedCount: 0, errors: [`Event ${command.eventId} not found`] };
     }
@@ -112,7 +112,7 @@ export class PublishMqttResultsHandler {
     );
 
     const definition = this.competitionTypeRegistry.get(event.eventType);
-    const expectedAcc = definition.scoring.precision === 0 ? 'RING' : 'DECIMAL';
+    const expectedAcc = expectedScoreMode(definition);
     const errors: string[] = [];
     const results: Result[] = [];
     const laneIdByParticipantId = new Map<string, string>();

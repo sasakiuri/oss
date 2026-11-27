@@ -1,5 +1,6 @@
-import { GetEventByIdToken, type GetEventByIdResponse, type IParticipantRepository } from '@/main/modules/championship';
+import { GetEventByIdToken, type IParticipantRepository } from '@/main/modules/championship';
 import {
+  compareDecisionOrder,
   ScoringDecisionProjector,
   type IScoringDecisionRepository,
   type ScoringDecision,
@@ -73,7 +74,7 @@ export class QualificationResultsReader implements IQualificationResultsReader, 
     sourceResults: Result[],
     eventId: string,
   ): Promise<{ result: RankedResultDto; display: ResultDisplayProjection }[]> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
+    const event = await this.queryBus.execute(GetEventByIdToken, { eventId });
     if (!event) throw new Error(`Event ${eventId} not found`);
     const definition = this.competitionTypes.get(event.eventType);
     const strategy = this.competitionTypes.getStrategyFor(definition);
@@ -288,9 +289,4 @@ function calculateResultRevision(
     projected,
   };
   return sha256Json(canonical);
-}
-
-function compareDecisionOrder(left: ScoringDecision, right: ScoringDecision): number {
-  const timeDifference = left.decidedAt.getTime() - right.decidedAt.getTime();
-  return timeDifference === 0 ? left.id.localeCompare(right.id) : timeDifference;
 }

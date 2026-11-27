@@ -3,16 +3,15 @@ import {
   GetEventByIdToken,
   GetFiringPointAssignmentsByRelayToken,
   ParticipantId,
-  type GetEventByIdResponse,
 } from '@/main/modules/championship';
 import type { IFinalControlRepository } from '@/main/modules/final-control';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { LaneScorePayload } from '@sasakiuri/saika-protocol/LaneScore';
 import { FinalResult, type FinalStageConfig } from '../../domain/FinalResult';
 import { FinalResultId } from '../../domain/FinalResultId';
 import type { IFinalResultRepository } from '../../domain/IFinalResultRepository';
-import type { PublishMqttResultsCommand, PublishResultsResponse } from './PublishMqttResults';
+import { expectedScoreMode, flattenShots, sumShots } from './laneScoreSnapshot';
+import { failure, type PublishMqttResultsCommand, type PublishResultsResponse } from './PublishMqttResults';
 
 /** Publishes immutable MQTT score snapshots using the independent Final-control placing ledger. */
 export class PublishMqttFinalResultsHandler {
@@ -24,9 +23,9 @@ export class PublishMqttFinalResultsHandler {
   ) {}
 
   async execute(command: PublishMqttResultsCommand): Promise<PublishResultsResponse> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, {
+    const event = await this.queryBus.execute(GetEventByIdToken, {
       eventId: command.eventId,
-    })) as GetEventByIdResponse | null;
+    });
     if (!event) return failure(`Event ${command.eventId} not found`);
     if (event.eventType !== command.competitionTypeId) {
       return failure(`Event uses ${event.eventType}, but competition uses ${command.competitionTypeId}`);
@@ -63,7 +62,7 @@ export class PublishMqttFinalResultsHandler {
 
     const remaining = command.lanes.filter((lane) => !laneDecision.has(lane.laneId));
     if (remaining.length !== 1) return failure(`Final history must leave one winner; found ${remaining.length}`);
-    const expectedAcc = definition.scoring.precision === 0 ? 'RING' : 'DECIMAL';
+    const expectedAcc = expectedScoreMode(definition);
     const stageConfig = toFinalStageConfig(definition);
     const prepared: FinalResult[] = [];
     const seenParticipants = new Set<string>();
@@ -96,9 +95,9 @@ export class PublishMqttFinalResultsHandler {
           assignment.affiliation,
           assignment.firingPointNumber,
           stage1Shots,
-          sum(stage1Shots),
+          sumShots(stage1Shots),
           stage2Shots,
-          sum(stage2Shots),
+          sumShots(stage2Shots),
           score.totalScoreX10 / 10,
           rank,
           placing?.afterShot,
@@ -118,16 +117,6 @@ export class PublishMqttFinalResultsHandler {
   }
 }
 
-function flattenShots(score: LaneScorePayload): number[] {
-  return [...score.stages]
-    .sort((left, right) => left.stageIndex - right.stageIndex)
-    .flatMap((stage) =>
-      [...stage.series]
-        .sort((left, right) => left.seriesIndex - right.seriesIndex)
-        .flatMap((series) => series.shots.map((shot) => shot / 10)),
-    );
-}
-
 function toFinalStageConfig(definition: ReturnType<CompetitionTypeRegistry['get']>): FinalStageConfig {
   const stage1TotalShots = definition.resultFormat.stage1Shots ?? 0;
   const eliminationStage = definition.config.stages.find((stage) => stage.elimination);
@@ -141,12 +130,4 @@ function toFinalStageConfig(definition: ReturnType<CompetitionTypeRegistry['get'
     stage2ShotsPerSeries,
     maxParticipants: definition.config.maxParticipants ?? 99,
   };
-}
-
-function sum(values: readonly number[]): number {
-  return values.reduce((total, value) => total + value, 0);
-}
-
-function failure(message: string): PublishResultsResponse {
-  return { savedCount: 0, errors: [message] };
 }

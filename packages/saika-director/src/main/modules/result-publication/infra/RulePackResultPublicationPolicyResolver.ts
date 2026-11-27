@@ -1,5 +1,5 @@
 import type { RulePackRegistry } from '@sasakiuri/saika-rules';
-import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
+import { GetEventByIdToken } from '@/main/modules/championship';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { IResultPublicationPolicyResolver, ResultPublicationPolicy } from '../application/ResultPublicationPorts';
@@ -15,7 +15,7 @@ export class RulePackResultPublicationPolicyResolver implements IResultPublicati
   ) {}
 
   async resolve(eventId: string, _resultScope: ResultPublicationScope): Promise<ResultPublicationPolicy> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
+    const event = await this.queryBus.execute(GetEventByIdToken, { eventId });
     if (!event) throw new Error(`Event ${eventId} not found`);
     const definition = this.competitionTypes.get(event.eventType);
     if (!definition.rulePackId) return this.fallback;

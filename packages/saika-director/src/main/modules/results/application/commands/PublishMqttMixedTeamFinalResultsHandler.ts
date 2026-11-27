@@ -1,8 +1,4 @@
-import {
-  GetEventByIdToken,
-  GetFiringPointAssignmentsByRelayToken,
-  type GetEventByIdResponse,
-} from '@/main/modules/championship';
+import { GetEventByIdToken, GetFiringPointAssignmentsByRelayToken } from '@/main/modules/championship';
 import type { IMixedTeamFinalControlRepository } from '@/main/modules/mixed-team-final-control';
 import type {
   IMixedTeamFinalResultRepository,
@@ -13,7 +9,13 @@ import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type { LaneScorePayload } from '@sasakiuri/saika-protocol/LaneScore';
 
-import type { PublishMqttResultLane, PublishMqttResultsCommand, PublishResultsResponse } from './PublishMqttResults';
+import { expectedScoreMode, flattenShots, sumShots } from './laneScoreSnapshot';
+import {
+  failure,
+  type PublishMqttResultLane,
+  type PublishMqttResultsCommand,
+  type PublishResultsResponse,
+} from './PublishMqttResults';
 
 interface PreparedMember extends MixedTeamFinalMemberResult {
   laneId: string;
@@ -36,9 +38,9 @@ export class PublishMqttMixedTeamFinalResultsHandler {
   ) {}
 
   async execute(command: PublishMqttResultsCommand): Promise<PublishResultsResponse> {
-    const event = (await this.queryBus.execute(GetEventByIdToken, {
+    const event = await this.queryBus.execute(GetEventByIdToken, {
       eventId: command.eventId,
-    })) as GetEventByIdResponse | null;
+    });
     if (!event) return failure(`Event ${command.eventId} not found`);
     if (event.eventType !== command.competitionTypeId) {
       return failure(`Event uses ${event.eventType}, but competition uses ${command.competitionTypeId}`);
@@ -91,7 +93,7 @@ export class PublishMqttMixedTeamFinalResultsHandler {
       return failure('Mixed Team Final checkpoint history does not identify each placed team exactly once');
     }
 
-    const expectedAcc = definition.scoring.precision === 0 ? 'RING' : 'DECIMAL';
+    const expectedAcc = expectedScoreMode(definition);
     const stage1ShotCount = definition.resultFormat.stage1Shots ?? 0;
     const seenParticipants = new Set<string>();
     const membersByTeamId = new Map<string, PreparedMember[]>();
@@ -153,8 +155,8 @@ export class PublishMqttMixedTeamFinalResultsHandler {
       const publicMembers = members
         .map(({ laneId: _laneId, teamId: _teamId, teamName: _teamName, nationCode: _nationCode, ...member }) => member)
         .sort((left, right) => genderOrder(left.gender) - genderOrder(right.gender));
-      const stage1Total = sum(publicMembers.flatMap((member) => member.stage1Shots));
-      const stage2Total = sum(publicMembers.flatMap((member) => member.stage2Shots));
+      const stage1Total = sumShots(publicMembers.flatMap((member) => member.stage1Shots));
+      const stage2Total = sumShots(publicMembers.flatMap((member) => member.stage2Shots));
       results.push({
         id: crypto.randomUUID(),
         eventId: command.eventId,
@@ -182,7 +184,7 @@ export class PublishMqttMixedTeamFinalResultsHandler {
 function prepareMember(
   lane: PublishMqttResultLane,
   competitionId: string,
-  expectedAcc: 'RING' | 'DECIMAL',
+  expectedAcc: LaneScorePayload['acc'],
   stage1ShotCount: number,
   assignments: Map<
     string,
@@ -218,16 +220,6 @@ function prepareMember(
   };
 }
 
-function flattenShots(score: LaneScorePayload): number[] {
-  return [...score.stages]
-    .sort((left, right) => left.stageIndex - right.stageIndex)
-    .flatMap((stage) =>
-      [...stage.series]
-        .sort((left, right) => left.seriesIndex - right.seriesIndex)
-        .flatMap((series) => series.shots.map((shot) => shot / 10)),
-    );
-}
-
 function genderOrder(gender: MixedTeamFinalMemberResult['gender']): number {
   if (gender === 'F') return 0;
   if (gender === 'M') return 1;
@@ -236,12 +228,4 @@ function genderOrder(gender: MixedTeamFinalMemberResult['gender']): number {
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
-}
-
-function sum(values: readonly number[]): number {
-  return values.reduce((total, value) => total + value, 0);
-}
-
-function failure(message: string): PublishResultsResponse {
-  return { savedCount: 0, errors: [message] };
 }

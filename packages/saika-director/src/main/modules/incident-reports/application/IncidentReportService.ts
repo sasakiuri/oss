@@ -105,7 +105,7 @@ export class IncidentReportService {
   }
 
   private async findEvent(eventId: string): Promise<GetEventByIdResponse | null> {
-    return (await this.queryBus.execute(GetEventByIdToken, { eventId })) as GetEventByIdResponse | null;
+    return await this.queryBus.execute(GetEventByIdToken, { eventId });
   }
 
   private buildEventStatus(eventId: string, reports: readonly RangeIncidentReport[]): IncidentReportEventStatusDto {

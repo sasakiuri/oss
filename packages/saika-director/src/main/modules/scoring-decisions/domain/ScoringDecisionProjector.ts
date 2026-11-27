@@ -1,4 +1,9 @@
-import { getActiveScoringDecisions, type ScoringClassificationCode, type ScoringDecision } from './ScoringDecision';
+import {
+  compareDecisionOrder,
+  getActiveScoringDecisions,
+  type ScoringClassificationCode,
+  type ScoringDecision,
+} from './ScoringDecision';
 
 export interface ScoreProjectionInput {
   totalScoreX10: number;
@@ -123,11 +128,6 @@ export class ScoringDecisionProjector {
       issues: Object.freeze(issues),
     });
   }
-}
-
-function compareDecisionOrder(left: ScoringDecision, right: ScoringDecision): number {
-  const timeDifference = left.decidedAt.getTime() - right.decidedAt.getTime();
-  return timeDifference === 0 ? left.id.localeCompare(right.id) : timeDifference;
 }
 
 interface SeriesRange {
