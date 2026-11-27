@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { requestVista } from '@sasakiuri/saika-protocol/vista-node';
@@ -12,7 +11,15 @@ import { DocumentSchema, newDocument } from '../src/main/document';
 import { VistaApplication } from '../src/main/VistaApplication';
 import type { NodeState, ScreenConfig } from '../src/shared/model';
 
-import { desktopPort, internals, pausePolling, sourceServer } from './applicationFixtures';
+import {
+  afterTest,
+  cleanUp,
+  desktopPort,
+  internals,
+  pausePolling,
+  sourceServer,
+  temporaryDirectory,
+} from './applicationFixtures';
 import { screenConfig, snapshot } from './fixtures';
 
 const fault = vi.hoisted(() => ({ directory: '', phase: '', persistent: false, skip: 0 }));
@@ -54,17 +61,14 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   };
 });
 
-const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
   fault.phase = '';
   fault.persistent = false;
   fault.skip = 0;
-  for (const clean of cleanup.reverse()) await clean();
-  cleanup.length = 0;
+  await cleanUp();
 });
 async function directory() {
-  const path = await mkdtemp(join(tmpdir(), 'vista-storage-'));
-  cleanup.push(() => rm(path, { recursive: true, force: true }));
+  const path = await temporaryDirectory('vista-storage-');
   fault.directory = path;
   return path;
 }
@@ -83,7 +87,7 @@ for (const phase of failureCases) {
         }),
       });
       const app = await VistaApplication.start(path, desktop);
-      cleanup.push(async () => {
+      afterTest(async () => {
         await app.command({ type: 'setLoginStart', enabled: previous });
         await app.stop();
       });
@@ -161,7 +165,7 @@ async function display() {
     status: (id) => ({ revision: outputs.get(id)?.revision ?? null, alive: outputs.has(id) }),
   });
   const app = await VistaApplication.start(path, desktop);
-  cleanup.push(() => app.stop());
+  afterTest(() => app.stop());
   await pausePolling(app);
   const endpoint = () => `http://127.0.0.1:${app.state.document.port}`;
   const request = (method: 'GET' | 'POST', operation: string, body?: unknown, secret = app.view().pairingSecret) =>
@@ -320,7 +324,7 @@ it.skipIf(process.platform === 'win32')(
     const { app } = await display();
     const secret = 's'.repeat(43);
     const server = await sourceServer({ secret });
-    cleanup.push(() => server.close());
+    afterTest(() => server.close());
     fault.phase = 'directory-sync';
     await expect(
       app.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret }),

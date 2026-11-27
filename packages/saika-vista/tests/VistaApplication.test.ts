@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { requestVista, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
@@ -14,42 +13,42 @@ import { setLoginStart } from '../src/main/loginStart';
 import { VistaApplication } from '../src/main/VistaApplication';
 import { publicationLabel } from '../src/renderer/viewModel';
 
-import { desktopPort, internals, pausePolling, sourceServer } from './applicationFixtures';
+import {
+  afterTest,
+  cleanUp,
+  desktopPort,
+  internals,
+  pausePolling,
+  secret,
+  sourceServer,
+  startApplication,
+  temporaryDirectory,
+} from './applicationFixtures';
 import { screenConfig, snapshot } from './fixtures';
 
 vi.mock('electron', () => ({ app: { isPackaged: true, getPath: () => '/opt/saika-vista' } }));
 
-const cleanup: Array<() => Promise<unknown>> = [];
 afterEach(async () => {
   vi.restoreAllMocks();
   vi.useRealTimers();
   vi.unstubAllEnvs();
-  for (const clean of cleanup.reverse()) await clean();
-  cleanup.length = 0;
+  await cleanUp();
 });
-const secret = 'a'.repeat(43);
-async function start(port = desktopPort()) {
-  const directory = await mkdtemp(join(tmpdir(), 'vista-app-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
-  const app = await VistaApplication.start(directory, port);
-  cleanup.push(() => app.stop());
-  return app;
-}
+const start = (port = desktopPort()) => startApplication('vista-app-', port);
 async function source(
   current: (subjectId: string) => Promise<ReturnType<typeof snapshot>> = async () => snapshot(),
   kind: 'lane' | 'director' = 'lane',
   subjects = ['session-one'],
 ): Promise<VistaServer> {
   const server = await sourceServer({ secret, kind, subjects, current });
-  cleanup.push(() => server.close());
+  afterTest(() => server.close());
   return server;
 }
 
 it.skipIf(process.platform !== 'linux')(
   'refreshes saved login startup to the updated AppImage on restart',
   async () => {
-    const directory = await mkdtemp(join(tmpdir(), 'vista-login-update-'));
-    cleanup.push(() => rm(directory, { recursive: true, force: true }));
+    const directory = await temporaryDirectory('vista-login-update-');
     vi.stubEnv('XDG_CONFIG_HOME', join(directory, 'config'));
     const launcher = join(directory, 'config', 'autostart', 'saika-vista.desktop');
     const previousExecutable = join(directory, 'Saika-Vista-0.2.0.AppImage');
@@ -62,7 +61,7 @@ it.skipIf(process.platform !== 'linux')(
     const port = desktopPort();
     port.loginStart = setLoginStart;
     let app: VistaApplication | null = null;
-    cleanup.push(async () => app?.stop());
+    afterTest(async () => app?.stop());
 
     vi.stubEnv('APPIMAGE', previousExecutable);
     app = await VistaApplication.start(directory, port);
@@ -80,8 +79,7 @@ it.skipIf(process.platform !== 'linux')(
 );
 
 it('restores displays and source reception while reporting a failed login startup registration until retry', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'vista-login-restore-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const directory = await temporaryDirectory('vista-login-restore-');
   await new AtomicStore(join(directory, 'vista.json'), DocumentSchema).write({
     ...newDocument(),
     loginStart: true,
@@ -92,7 +90,7 @@ it('restores displays and source reception while reporting a failed login startu
   const port = desktopPort();
   port.loginStart = vi.fn().mockRejectedValueOnce(new Error('Access denied')).mockResolvedValue(undefined);
   const app = await VistaApplication.start(directory, port);
-  cleanup.push(() => app.stop());
+  afterTest(() => app.stop());
   expect(port.open).toHaveBeenCalledWith(screenConfig());
   expect(port.loginStart).toHaveBeenCalledWith(true);
   expect(app.state.audience('screen-one').entries[0]?.state).toBe('saved');
@@ -119,8 +117,7 @@ it('leaves OS login startup alone when the saved setting is disabled', async () 
 it.each([false, true])(
   'stops after a rejected setting and preserves an actual write failure (storageFailure=%s)',
   async (storageFailure) => {
-    const directory = await mkdtemp(join(tmpdir(), 'vista-stop-validation-'));
-    cleanup.push(() => rm(directory, { recursive: true, force: true }));
+    const directory = await temporaryDirectory('vista-stop-validation-');
     const app = await VistaApplication.start(directory, desktopPort());
     await pausePolling(app);
     const config = { ...screenConfig(), selections: [] };
@@ -143,15 +140,14 @@ it.each([false, true])(
 );
 
 it.each([false, true])('restores OS login startup after a save failure (previous=%s)', async (previous) => {
-  const directory = await mkdtemp(join(tmpdir(), 'vista-login-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const directory = await temporaryDirectory('vista-login-');
   let osEnabled = false;
   const port = desktopPort();
   port.loginStart = vi.fn(async (enabled) => {
     osEnabled = enabled;
   });
   const app = await VistaApplication.start(directory, port);
-  cleanup.push(() => app.stop());
+  afterTest(() => app.stop());
   await pausePolling(app);
   await app.command({ type: 'setLoginStart', enabled: previous });
   vi.mocked(port.loginStart).mockClear();
@@ -218,10 +214,9 @@ it('connects without a broker, restores complete history and separates persisted
 it('restores screens and continues source updates when its saved port is occupied, then recovers on that port', async () => {
   let revision = 1;
   const server = await source(async () => ({ ...snapshot(revision), finished: true }));
-  const directory = await mkdtemp(join(tmpdir(), 'vista-listener-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const directory = await temporaryDirectory('vista-listener-');
   const occupied = createServer();
-  cleanup.push(
+  afterTest(
     () =>
       new Promise<void>((resolve, reject) => {
         if (!occupied.listening) resolve();
@@ -229,7 +224,7 @@ it('restores screens and continues source updates when its saved port is occupie
       }),
   );
   let application: VistaApplication | null = null;
-  cleanup.push(async () => application?.stop());
+  afterTest(async () => application?.stop());
   application = await VistaApplication.start(directory, desktopPort());
   await application.command({ type: 'connectSource', endpoint: `http://127.0.0.1:${server.port}`, secret });
   await application.command({ type: 'inspectSubject', sourceId: 'lane-one', subjectId: 'session-one' });
@@ -284,15 +279,14 @@ it('keeps saved remote screens visible when the first connection after restart f
   if (!address || typeof address === 'string') throw new Error('Expected a TCP port');
   const endpoint = `http://127.0.0.1:${address.port}`;
   await new Promise<void>((resolve, reject) => unavailable.close((error) => (error ? reject(error) : resolve())));
-  const directory = await mkdtemp(join(tmpdir(), 'vista-offline-peer-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const directory = await temporaryDirectory('vista-offline-peer-');
   const config = screenConfig();
   await new AtomicStore(join(directory, 'vista.json'), DocumentSchema).write({
     ...newDocument(),
     peers: [{ id: 'saved-display', endpoint, secret, desired: [config] }],
   });
   const app = await VistaApplication.start(directory, desktopPort());
-  cleanup.push(() => app.stop());
+  afterTest(() => app.stop());
   const scheduled = await pausePolling(app);
   expect(app.view().peers[0]!.node?.screens[0]!.config).toEqual(config);
 
@@ -314,8 +308,7 @@ it('keeps saved remote screens visible when the first connection after restart f
 });
 
 it('keeps invalid pairing authority fatal instead of treating it as an unavailable listener', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'vista-authority-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const directory = await temporaryDirectory('vista-authority-');
   await new AtomicStore(join(directory, 'vista.json'), DocumentSchema).write({
     ...newDocument(),
     secret: 'a'.repeat(257),
@@ -327,8 +320,7 @@ it('keeps invalid pairing authority fatal instead of treating it as an unavailab
 });
 
 it('keeps failure to persist an allocated listener port fatal', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'vista-port-storage-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const directory = await temporaryDirectory('vista-port-storage-');
   const store = new AtomicStore(join(directory, 'vista.json'), DocumentSchema);
   await store.write({ ...newDocument(), screens: [screenConfig()] });
   const write = AtomicStore.prototype.write;
@@ -404,8 +396,7 @@ it('centrally applies remote screens, transfers saved data, and rejects old secr
 it('isolates a replacement controller cache conflict and restores healthy remote updates after restart', async () => {
   const controller = await start();
   const scheduled = await pausePolling(controller);
-  const directory = await mkdtemp(join(tmpdir(), 'vista-replacement-cache-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const directory = await temporaryDirectory('vista-replacement-cache-');
   const first = screenConfig();
   const second = {
     ...screenConfig(),
@@ -430,7 +421,7 @@ it('isolates a replacement controller cache conflict and restores healthy remote
     { id: 'monitor-two', name: 'Monitor 2', width: 1920, height: 1080, primary: false },
   ];
   let display: VistaApplication | null = await VistaApplication.start(directory, displayPort);
-  cleanup.push(async () => display?.stop());
+  afterTest(async () => display?.stop());
   // The replacement has an older saved copy of one now-unavailable source.
   await controller.state.updateEntry(entry(1));
   await controller.state.updateEntry({ ...entry(2, true), state: 'live' });
@@ -895,10 +886,9 @@ it.each([false, true])('repairs pairing without reviving requests from revoked a
   const controller = await start();
   const scheduled = internals(controller);
   if (scheduled.timer) clearTimeout(scheduled.timer);
-  const directory = await mkdtemp(join(tmpdir(), 'vista-pairing-'));
-  cleanup.push(() => rm(directory, { recursive: true, force: true }));
+  const directory = await temporaryDirectory('vista-pairing-');
   let display: VistaApplication | null = await VistaApplication.start(directory, desktopPort());
-  cleanup.push(async () => display?.stop());
+  afterTest(async () => display?.stop());
   const endpoint = `http://127.0.0.1:${display.state.document.port}`;
   const id = display.identity.sourceId;
   const original = { ...screenConfig(), selections: [] };
@@ -962,8 +952,15 @@ it.each(['ranking', 'final', 'athlete'] as const)(
 it.each(['missing', 'unfinished', 'finished'] as const)('checks inherited %s data before resuming', async (data) => {
   const hasSavedData = data !== 'missing';
   const canResume = data === 'finished';
-  const server = await source(async () => ({ ...snapshot(), finished: canResume }), 'director');
-  const sourceCleanupIndex = cleanup.length - 1;
+  const server = await sourceServer({
+    secret,
+    kind: 'director',
+    current: async () => ({ ...snapshot(), finished: canResume }),
+  });
+  let serverOpen = true;
+  afterTest(async () => {
+    if (serverOpen) await server.close();
+  });
   const controller = await start();
   const scheduled = internals(controller);
   if (scheduled.timer) clearTimeout(scheduled.timer);
@@ -977,7 +974,7 @@ it.each(['missing', 'unfinished', 'finished'] as const)('checks inherited %s dat
   const config = { ...screenConfig(), view: 'ranking' as const };
   await controller.command({ type: 'apply', nodeId: display.identity.sourceId, config });
   await server.close();
-  cleanup.splice(sourceCleanupIndex, 1);
+  serverOpen = false;
   await controller.command({ type: 'removePeer', id: display.identity.sourceId });
   await vi.waitFor(() => expect(display.view().pairingSecret).not.toBe(oldSecret));
 
