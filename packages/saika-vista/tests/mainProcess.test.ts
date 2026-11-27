@@ -493,3 +493,34 @@ describe('Vista update shutdown', () => {
     }
   });
 });
+
+describe('Vista development renderer', () => {
+  it('loads the operator and audience views from a local development server', async () => {
+    vi.stubEnv('VITE_DEV_SERVER_URL', 'http://localhost:5173/');
+    await launch();
+    expect(operatorWindow().loadURL).toHaveBeenCalledExactlyOnceWith('http://localhost:5173/');
+
+    desktop().open(outputConfig());
+
+    expect(windows()[1]!.loadURL).toHaveBeenCalledExactlyOnceWith('http://localhost:5173/?screen=screen-one');
+    expect(windows().every((window) => window.loadFile.mock.calls.length === 0)).toBe(true);
+    expect(mocks.error).not.toHaveBeenCalled();
+  });
+
+  it('accepts the loopback address as a local development server', async () => {
+    vi.stubEnv('VITE_DEV_SERVER_URL', 'http://127.0.0.1:5173/');
+    await launch();
+    expect(operatorWindow().loadURL).toHaveBeenCalledExactlyOnceWith('http://127.0.0.1:5173/');
+  });
+
+  it('refuses a development server on another host and reports it', async () => {
+    vi.stubEnv('VITE_DEV_SERVER_URL', 'http://192.0.2.7:5173/');
+    await launch();
+
+    await vi.waitFor(() =>
+      expect(mocks.error).toHaveBeenCalledExactlyOnceWith('Saika Vista', 'The development renderer must be local'),
+    );
+    expect(operatorWindow().loadURL).not.toHaveBeenCalled();
+    expect(operatorWindow().loadFile).not.toHaveBeenCalled();
+  });
+});
