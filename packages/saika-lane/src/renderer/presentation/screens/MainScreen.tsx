@@ -64,6 +64,11 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>('general');
   const [zoomMode, setZoomMode] = useState<ZoomMode>('AUTO');
 
+  const openSettings = useCallback((tab: SettingsTab) => {
+    setSettingsInitialTab(tab);
+    setIsSettingsModalOpen(true);
+  }, []);
+
   const handleZoomClick = useCallback(() => {
     setZoomMode((prev) => getNextZoomMode(prev));
   }, []);
@@ -80,7 +85,8 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
     setIsSettingsModalOpen,
   });
 
-  const { isMaximized, isFullscreen, handleMinimize, handleMaximize, handleClose } = useTitleBar();
+  const { isMaximized, isFullscreen, handleMinimize, handleMaximize, handleClose, handleToggleFullscreen } =
+    useTitleBar();
 
   const { handlePreparationClick, handleMatchClick, handleNextStageClick, progressError, dismissProgressError } =
     modeSwitchActions;
@@ -100,13 +106,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
           className="absolute bottom-4 left-24 z-40 max-w-lg rounded border border-red-500 bg-zinc-900 p-4 text-red-300"
         >
           <p>{printError}</p>
-          <button
-            onClick={() => {
-              setSettingsInitialTab('printing');
-              setIsSettingsModalOpen(true);
-            }}
-            className="mr-4 mt-3 text-zinc-100"
-          >
+          <button onClick={() => openSettings('printing')} className="mr-4 mt-3 text-zinc-100">
             Printing Settings
           </button>
           <button onClick={dismissError} className="mt-3 text-zinc-100">
@@ -134,11 +134,9 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
         onMinimize={handleMinimize}
         onMaximize={handleMaximize}
         onClose={handleClose}
+        onToggleFullscreen={handleToggleFullscreen}
         useNativeControlsOverlay={useNativeControlsOverlay}
-        onSettingsOpen={() => {
-          setSettingsInitialTab('general');
-          setIsSettingsModalOpen(true);
-        }}
+        onSettingsOpen={() => openSettings('general')}
         onDebugPanelToggle={() => setIsDebugPaneOpen((prev) => !prev)}
         onZoomIn={handleZoomClick}
         onZoomOut={handleZoomOutClick}
@@ -149,10 +147,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
           onPreparationClick={handlePreparationClick}
           onMatchClick={handleMatchClick}
           onNextStageClick={handleNextStageClick}
-          onSettingsClick={() => {
-            setSettingsInitialTab('general');
-            setIsSettingsModalOpen(true);
-          }}
+          onSettingsClick={() => openSettings('general')}
           onPrintClick={currentSessionId && !isPrinting ? printCurrentSession : undefined}
         />
 
@@ -211,12 +206,7 @@ export const MainScreen: React.FC<MainScreenProps> = ({ className = '', modeSwit
 
       {isDebugPaneOpen && <DebugPane onClose={() => setIsDebugPaneOpen(false)} className="h-64" />}
 
-      <ConnectionWarningToast
-        onOpenSettings={() => {
-          setSettingsInitialTab('connection');
-          setIsSettingsModalOpen(true);
-        }}
-      />
+      <ConnectionWarningToast onOpenSettings={() => openSettings('connection')} />
 
       <StatusBar isConnected={isConnected} onDebugPanelToggle={() => setIsDebugPaneOpen((prev) => !prev)} />
 

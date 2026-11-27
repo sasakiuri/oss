@@ -4,16 +4,12 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { competitionService } from '@/renderer/services/competitionService';
 import { settingsService } from '@/renderer/services/settingsService';
+import type { CompetitionTypeDto } from '@/shared/ipc/contracts';
 
 import { localProgressControls } from '../../policies/localProgressControls';
 import { useCompetitionStore } from '../../stores/competitionStore';
 import { useDirectorMembershipStore } from '../../stores/directorMembershipStore';
 import { isProgressAllowed } from '../../stores/localProgressPermission';
-
-interface CompetitionTypeItem {
-  id: string;
-  name: string;
-}
 
 export const SettingsTargetTab: React.FC = () => {
   // Subscribe only to the fields the progress policy reads, not to every timer tick.
@@ -34,14 +30,13 @@ export const SettingsTargetTab: React.FC = () => {
   const permission = localProgressControls(membershipState, 'progress', competition);
   const reasonId = useId();
   const savedCompetitionTypeId = useCompetitionStore((s) => s.savedCompetitionTypeId);
-  const [competitionTypes, setCompetitionTypes] = useState<CompetitionTypeItem[]>([]);
+  const [competitionTypes, setCompetitionTypes] = useState<CompetitionTypeDto[]>([]);
   const [isApplying, setIsApplying] = useState(false);
 
   useEffect(() => {
     const loadTypes = async () => {
       try {
-        const types = await competitionService.getCompetitionTypes();
-        setCompetitionTypes(types.map((t: { id: string; name: string }) => ({ id: t.id, name: t.name })));
+        setCompetitionTypes(await competitionService.getCompetitionTypes());
       } catch {
         // Failed to load competition types
       }

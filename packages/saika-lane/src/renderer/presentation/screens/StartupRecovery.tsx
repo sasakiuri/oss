@@ -9,12 +9,12 @@ import { competitionService } from '@/renderer/services/competitionService';
 import { settingsService } from '@/renderer/services/settingsService';
 import { startupService } from '@/renderer/services/startupService';
 import { errorMessage } from '@/shared/errors/errorMessage';
-import type { StartupStateDto } from '@/shared/ipc/contracts';
+import type { CompetitionTypeDto, StartupStateDto } from '@/shared/ipc/contracts';
 
 export function StartupRecovery({ state, onRetry }: { state: StartupStateDto; onRetry: () => Promise<void> }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [setAsideConfirmation, setSetAsideConfirmation] = useState(false);
-  const [types, setTypes] = useState<Array<{ id: string; name: string }>>([]);
+  const [types, setTypes] = useState<CompetitionTypeDto[]>([]);
   const [typeId, setTypeId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
