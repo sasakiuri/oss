@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useRef, useState } from 'react';
 
-import type { AppState, NodeState, ScreenConfig, ScreenStatus } from '../../shared/model';
+import {
+  findEntry,
+  sameSubject,
+  type AppState,
+  type NodeState,
+  type ScreenConfig,
+  type ScreenStatus,
+} from '../../shared/model';
 import { selectedSlots, usesRankingRows } from '../viewModel';
 
 import { NumberField } from './NumberField';
@@ -62,39 +69,25 @@ export function ScreenEditor({
     draft.selections.length === 1 &&
     (state.sources.find((s) => s.id === draft.selections[0]?.sourceId)?.catalog?.identity.kind === 'director' ||
       state.snapshots.some(
-        (entry) =>
-          entry.snapshot.sourceId === draft.selections[0]?.sourceId &&
-          entry.snapshot.subjectId === draft.selections[0]?.subjectId &&
-          entry.snapshot.ranking !== null,
+        (entry) => sameSubject(entry.snapshot, draft.selections[0]!) && entry.snapshot.ranking !== null,
       ) ||
       (Boolean(status) &&
         initial.view === draft.view &&
-        draft.selections[0]!.sourceId === initial.selections[0]?.sourceId &&
-        draft.selections[0]!.subjectId === initial.selections[0]?.subjectId &&
-        draft.selections[0]!.follow === initial.selections[0]?.follow));
+        !!initial.selections[0] &&
+        sameSubject(draft.selections[0]!, initial.selections[0]) &&
+        draft.selections[0]!.follow === initial.selections[0].follow));
   const valid =
     draft.name.trim().length > 0 &&
     draft.monitorId.length > 0 &&
     draft.selections.every((s) => s.sourceId && s.subjectId) &&
     (!rankView || rankAllowed);
-  const selectedEntry = state.snapshots.find(
-    (entry) =>
-      entry.snapshot.sourceId === draft.selections[0]?.sourceId &&
-      entry.snapshot.subjectId === draft.selections[0]?.subjectId,
-  );
+  const selectedEntry = draft.selections[0] && findEntry(state.snapshots, draft.selections[0]);
   const resultRows = usesRankingRows(draft, state.snapshots);
   const count = resultRows
     ? (selectedEntry?.snapshot.ranking?.rows.length ?? null)
     : draft.view === 'final' && !selectedEntry
       ? null
-      : draft.selections.some(
-            (selection) =>
-              !selection.participantIds.length &&
-              !state.snapshots.some(
-                ({ snapshot }) =>
-                  snapshot.sourceId === selection.sourceId && snapshot.subjectId === selection.subjectId,
-              ),
-          )
+      : draft.selections.some((selection) => !selection.participantIds.length && !findEntry(state.snapshots, selection))
         ? null
         : selectedSlots(draft, state.snapshots).length;
   const pages = count === null ? null : Math.max(1, Math.ceil(count / (draft.view === 'focus' ? 1 : draft.slots)));

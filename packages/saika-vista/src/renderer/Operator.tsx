@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
+import type { VistaNode } from '@sasakiuri/saika-protocol/Vista';
 import { useEffect, useState } from 'react';
 
 import appIcon from '../../resources/appIcon.png';
-import type { AppState, Discovery } from '../shared/model';
+import type { AppState } from '../shared/model';
 
 import { DevicesTab } from './operator/DevicesTab';
 import { ScreensTab, type ScreenSelection } from './operator/ScreensTab';
@@ -28,7 +29,7 @@ export function Operator() {
   const [selection, setSelection] = useState<ScreenSelection | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [discovered, setDiscovered] = useState<Discovery[]>([]);
+  const [discovered, setDiscovered] = useState<VistaNode[]>([]);
   const [discovering, setDiscovering] = useState(false);
   const [discoveryComplete, setDiscoveryComplete] = useState(false);
   const [showSecret, setShowSecret] = useState(false);

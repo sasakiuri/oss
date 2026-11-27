@@ -8,7 +8,7 @@ import { app, BrowserWindow, dialog, nativeTheme, powerMonitor, screen } from 'e
 import { registerIpcHandlers } from './ipcHandlers';
 import { setLoginStart } from './loginStart';
 import { OutputWindows } from './OutputWindows';
-import { protectWindow } from './protectWindow';
+import { isolatedWebPreferences, protectWindow } from './protectWindow';
 import { VistaApplication } from './VistaApplication';
 
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -110,12 +110,7 @@ function createOperator(): void {
     title: 'Saika Vista',
     icon: appIcon,
     backgroundColor: '#14191d',
-    webPreferences: {
-      preload,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
+    webPreferences: isolatedWebPreferences(preload),
   });
   protectWindow(operator);
   operator.on('closed', () => {

@@ -7,7 +7,7 @@ import { createServer, request, type IncomingMessage } from 'node:http';
 import { networkInterfaces } from 'node:os';
 import { dirname } from 'node:path';
 
-import { VistaIdentitySchema, type VistaIdentity } from './Vista';
+import { VistaIdentitySchema, type VistaIdentity, type VistaNode } from './Vista';
 
 const IDENTITY_PATH = '/vista/v1/identity';
 const SECURE_PATH = '/vista/v1/secure';
@@ -23,10 +23,6 @@ const AAD = Buffer.from('saika-vista/v1');
 export interface VistaCredentials {
   sourceId: string;
   secret: string;
-}
-export interface VistaNode {
-  identity: VistaIdentity;
-  endpoint: string;
 }
 export interface VistaServer {
   port: number;
@@ -268,6 +264,18 @@ export async function createVistaHost(options: VistaServerOptions): Promise<Vist
   };
 }
 
+/** Whether a URL names a Vista listener: plain HTTP with a host and port only. */
+export function isVistaEndpoint(url: URL): boolean {
+  return (
+    url.protocol === 'http:' &&
+    !url.username &&
+    !url.password &&
+    !url.search &&
+    !url.hash &&
+    (url.pathname === '/' || url.pathname === '')
+  );
+}
+
 export async function requestVista<T = unknown>(
   endpoint: string,
   secret: string,
@@ -277,16 +285,7 @@ export async function requestVista<T = unknown>(
   expectedSourceId?: string,
 ): Promise<T> {
   const url = new URL(endpoint);
-  if (
-    url.protocol !== 'http:' ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
-    (url.pathname !== '/' && url.pathname !== '')
-  ) {
-    throw new Error('Use a Vista endpoint in the form http://host:port');
-  }
+  if (!isVistaEndpoint(url)) throw new Error('Use a Vista endpoint in the form http://host:port');
   const deadlineAt = Date.now() + TIMEOUT_MS;
   const key = keyFor(secret);
   // An unauthenticated challenge can only deny service: it is bound into the

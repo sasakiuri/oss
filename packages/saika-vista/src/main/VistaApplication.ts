@@ -2,10 +2,18 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
-import { VISTA_PROTOCOL_VERSION, type VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
-import { discoverVistaNodes, type VistaNode } from '@sasakiuri/saika-protocol/vista-node';
+import { VISTA_PROTOCOL_VERSION, type VistaIdentity, type VistaNode } from '@sasakiuri/saika-protocol/Vista';
+import { discoverVistaNodes } from '@sasakiuri/saika-protocol/vista-node';
 
-import { CommandSchema, type AppState, type Command, type NodeState, type ScreenConfig } from '../shared/model';
+import {
+  CommandSchema,
+  findEntry,
+  sameSubject,
+  type AppState,
+  type Command,
+  type NodeState,
+  type ScreenConfig,
+} from '../shared/model';
 
 import { AtomicStore } from './AtomicStore';
 import type { DesktopPort } from './DesktopPort';
@@ -126,13 +134,7 @@ export class VistaApplication {
           monitorAvailable: available,
           error: available
             ? (entries.find(
-                (entry) =>
-                  entry.error &&
-                  config.selections.some(
-                    (selection) =>
-                      selection.sourceId === entry.snapshot.sourceId &&
-                      selection.subjectId === entry.snapshot.subjectId,
-                  ),
+                (entry) => entry.error && config.selections.some((selection) => sameSubject(selection, entry.snapshot)),
               )?.error ??
               this.state.persistenceError ??
               this.state.snapshotErrors(config.selections))
@@ -269,11 +271,7 @@ export class VistaApplication {
       previous.selections.length === config.selections.length &&
       config.selections.every((selection, index) => {
         const saved = previous.selections[index]!;
-        return (
-          selection.sourceId === saved.sourceId &&
-          selection.subjectId === saved.subjectId &&
-          selection.follow === saved.follow
-        );
+        return sameSubject(selection, saved) && selection.follow === saved.follow;
       });
     const kindOf = (id?: string) =>
       this.state.document.sources.find((source) => source.id === id)?.catalog.identity.kind ??
@@ -286,11 +284,7 @@ export class VistaApplication {
     }
     for (const selection of config.selections) {
       const source = this.state.document.sources.find((candidate) => candidate.id === selection.sourceId);
-      const saved = this.state
-        .getEntries()
-        .some(
-          (entry) => entry.snapshot.sourceId === selection.sourceId && entry.snapshot.subjectId === selection.subjectId,
-        );
+      const saved = findEntry(this.state.getEntries(), selection) !== undefined;
       if (!source && !saved && !preservesSubjects) throw new Error('Connect the selected source first');
       if (selection.follow === 'athlete' && !permitsDirectorSelection(selection.sourceId))
         throw new Error('Athlete tracking requires Director');
@@ -306,18 +300,14 @@ export class VistaApplication {
       !config.standby &&
       config.selections.length &&
       !config.selections.some((selection) =>
-        this.resumableSubjects().some(
-          (subject) => subject.sourceId === selection.sourceId && subject.subjectId === selection.subjectId,
-        ),
+        this.resumableSubjects().some((subject) => sameSubject(subject, selection)),
       )
     ) {
       // A replacement controller may have no source cache while the display retains its finished results.
       const remote = nodeId === this.identity.sourceId ? null : await this.peers.fetchNode(nodeId);
       if (
         !config.selections.some((selection) =>
-          remote?.resumableSubjects.some(
-            (subject) => subject.sourceId === selection.sourceId && subject.subjectId === selection.subjectId,
-          ),
+          remote?.resumableSubjects.some((subject) => sameSubject(subject, selection)),
         )
       )
         throw new Error('The selected display has no current data or saved finished result. Standby was retained.');

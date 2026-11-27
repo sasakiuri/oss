@@ -7,7 +7,7 @@ import {
 } from '@sasakiuri/saika-protocol/Vista';
 import { requestVista } from '@sasakiuri/saika-protocol/vista-node';
 
-import type { ScreenConfig, SourceView } from '../shared/model';
+import { findEntry, type ScreenConfig, type SourceView } from '../shared/model';
 
 import type { DisplayState } from './DisplayState';
 import { Endpoint, messageOf, type Document } from './document';
@@ -126,9 +126,7 @@ export class SourceAcquisition {
           await this.fetchSubject(source, subjectId);
         } catch (error) {
           if (!isCurrent()) return;
-          const old = this.state
-            .getEntries()
-            .find((entry) => entry.snapshot.sourceId === source.id && entry.snapshot.subjectId === subjectId);
+          const old = findEntry(this.state.getEntries(), { sourceId: source.id, subjectId });
           if (old) await this.state.updateEntry({ ...old, state: 'stale', error: messageOf(error) }, isCurrent);
           if (!isCurrent()) return;
           this.views.set(source.id, {

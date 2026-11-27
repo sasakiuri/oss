@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { AppState, ScreenConfig } from '../../shared/model';
+import { findEntry, type AppState, type ScreenConfig } from '../../shared/model';
 import { selectedSlots, stateLabel, usesRankingRows } from '../viewModel';
 
 import { StatusPill } from './StatusPill';
@@ -12,9 +12,7 @@ export function SourceDataStatus({ config, state }: { config: ScreenConfig; stat
       {!config.selections.length && <p className="muted">No content selected.</p>}
       {config.selections.map((selection, index) => {
         const source = state.sources.find((candidate) => candidate.id === selection.sourceId);
-        const entry = state.snapshots.find(
-          ({ snapshot }) => snapshot.sourceId === selection.sourceId && snapshot.subjectId === selection.subjectId,
-        );
+        const entry = findEntry(state.snapshots, selection);
         const resultRows = usesRankingRows(config, state.snapshots);
         const slots = selectedSlots(
           {
