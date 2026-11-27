@@ -10,6 +10,7 @@ import { Field, inputClass } from './InterruptionFields';
 import { formatDuration } from './interruptionFormatting';
 import { type RangeInterruptionLaneOption } from './interruptionPresentationTypes';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
+import { spacedPanelClass } from '../shared/common/formClasses';
 
 export function CreateInterruptionForm({
   scopes,
@@ -46,7 +47,7 @@ export function CreateInterruptionForm({
 
   return (
     <form
-      className="space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3"
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         void onCreate({

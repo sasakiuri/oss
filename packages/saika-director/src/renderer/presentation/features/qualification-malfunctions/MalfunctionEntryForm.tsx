@@ -8,9 +8,9 @@ import type {
 
 import { useEntryTypeSelection } from '../shared/cases/useEntryTypeSelection';
 import { Button } from '../shared/common/Button';
-import { paddedInputClass } from '../shared/common/formClasses';
+import { paddedInputClass, stackedMediumLabelClass } from '../shared/common/formClasses';
 
-import { Fact, malfunctionLabelClass, NumberField } from './MalfunctionFields';
+import { Fact, NumberField } from './MalfunctionFields';
 import { availableEntryTypes, requiredRemedy } from './malfunctionRules';
 
 const OFFICIAL_ROLES = ['RANGE_OFFICER', 'CRO', 'JURY_MEMBER', 'RTS_OFFICER', 'TECHNICAL_OFFICER'] as const;
@@ -78,7 +78,7 @@ export function MalfunctionEntryForm({
     <div className="border-t border-vscode-border pt-3">
       <p className="text-xs font-semibold text-vscode-text">Append an official entry</p>
       <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-        <label className={malfunctionLabelClass}>
+        <label className={stackedMediumLabelClass}>
           Entry type
           <select
             value={type}
@@ -92,7 +92,7 @@ export function MalfunctionEntryForm({
             ))}
           </select>
         </label>
-        <label className={malfunctionLabelClass}>
+        <label className={stackedMediumLabelClass}>
           Official role
           <select
             value={officialRole}
@@ -106,7 +106,7 @@ export function MalfunctionEntryForm({
             ))}
           </select>
         </label>
-        <label className={malfunctionLabelClass}>
+        <label className={stackedMediumLabelClass}>
           Official name
           <input
             value={officialName}
@@ -114,7 +114,7 @@ export function MalfunctionEntryForm({
             className={paddedInputClass}
           />
         </label>
-        <label className={malfunctionLabelClass}>
+        <label className={stackedMediumLabelClass}>
           Statement
           <input
             value={statement}
@@ -125,7 +125,7 @@ export function MalfunctionEntryForm({
 
         {type === 'CLASSIFIED' && (
           <>
-            <label className={malfunctionLabelClass}>
+            <label className={stackedMediumLabelClass}>
               Official classification
               <select
                 value={classification}
@@ -136,7 +136,7 @@ export function MalfunctionEntryForm({
                 <option value="NON_ALLOWABLE">Non-allowable</option>
               </select>
             </label>
-            <label className={`${malfunctionLabelClass} md:col-span-2`}>
+            <label className={`${stackedMediumLabelClass} md:col-span-2`}>
               Inspected cause
               <select
                 value={causeCode}
@@ -164,7 +164,7 @@ export function MalfunctionEntryForm({
           <NumberField label="Extension seconds" value={repairSeconds} onChange={setRepairSeconds} minimum={1} />
         )}
         {(type === 'EXECUTION_RECORDED' || type === 'SCORE_SETTLED') && (
-          <label className={`${malfunctionLabelClass} md:col-span-2`}>
+          <label className={`${stackedMediumLabelClass} md:col-span-2`}>
             Saved evidence reference
             <input
               value={artifactId}

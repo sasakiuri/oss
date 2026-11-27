@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useChampionshipStore } from '../stores/domain/championship.store';
 import { useNotificationStore } from '../stores/ui/notifications.store';
 import { championshipService } from '@/renderer/services';
-import type { DataResponse } from '@/renderer/services/serviceError';
+import { errorMessage, type DataResponse } from '@/renderer/services/serviceError';
 import type {
   CreateChampionshipPayload,
   UpdateChampionshipPayload,
@@ -19,7 +19,7 @@ async function refreshAfterCommand(refresh: () => Promise<DataResponse<unknown>>
     const response = await refresh();
     message = response.success ? null : response.error.message;
   } catch (error) {
-    message = error instanceof Error ? error.message : String(error);
+    message = errorMessage(error);
   }
   if (message !== null) useNotificationStore.getState().addNotification('error', `${failure}: ${message}`);
 }

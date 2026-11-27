@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 import type { TargetExaminationCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -7,7 +8,7 @@ import { Button } from '../shared/common/Button';
 import { EvidenceFilesPanel } from './EvidenceFilesPanel';
 import { EvidenceForm, EntryForm } from './ExaminationEntryForms';
 import { Detail } from './ExaminationFields';
-import { formatEnum, statusClass, statusLabel } from './examinationPresentation';
+import { statusClass, statusLabel } from './examinationPresentation';
 import type { TargetExaminationCommands } from './examinationTypes';
 import { LinkScopeForm } from './LinkScopeForm';
 
@@ -38,7 +39,7 @@ export function CaseDetail({
           <div>
             <h3 className="text-sm font-semibold text-vscode-text">{examination.summary}</h3>
             <p className="mt-1 text-xs text-vscode-text-muted">
-              {formatEnum(examination.issueKind)} · {new Date(examination.occurredAt).toLocaleString()} · Case{' '}
+              {lowerCaseLabel(examination.issueKind)} · {new Date(examination.occurredAt).toLocaleString()} · Case{' '}
               {examination.id.slice(0, 8)}
             </p>
           </div>
@@ -115,7 +116,7 @@ export function CaseDetail({
               </p>
               <p className="text-vscode-text-muted">{step.guidance}</p>
               <p className="text-vscode-dimmed">
-                {step.ruleReference} · {formatEnum(step.status)}
+                {step.ruleReference} · {lowerCaseLabel(step.status)}
               </p>
             </li>
           ))}
@@ -133,7 +134,7 @@ export function CaseDetail({
                 key={item.id}
                 className="border-t border-vscode-border pt-2 text-xs leading-5 first:border-t-0 first:pt-0"
               >
-                <p className="font-semibold text-vscode-text">{formatEnum(item.type)}</p>
+                <p className="font-semibold text-vscode-text">{lowerCaseLabel(item.type)}</p>
                 <p className="text-vscode-text-muted">{item.description}</p>
                 <p className="text-vscode-dimmed">
                   Collected by {item.collectedBy} · {new Date(item.collectedAt).toLocaleString()}
@@ -167,7 +168,7 @@ export function CaseDetail({
                 className="border-t border-vscode-border pt-2 text-xs leading-5 first:border-t-0 first:pt-0"
               >
                 <p className="font-semibold text-vscode-text">
-                  {formatEnum(entry.type)} · {entry.officialName}
+                  {lowerCaseLabel(entry.type)} · {entry.officialName}
                 </p>
                 <p className="text-vscode-text-muted">{entry.statement}</p>
                 <p className="text-vscode-dimmed">

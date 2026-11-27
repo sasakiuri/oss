@@ -10,11 +10,12 @@ import type {
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { Field } from '../shared/common/Field';
 
 import { EstBackupCapturePanel } from '../est-backup-capture/EstBackupCapturePanel';
 import { EstBackupResultChecksPanel } from './EstBackupResultChecksPanel';
 import { EstBackupSourcesPanel } from '../est-backup-sources/EstBackupSourcesPanel';
-import { inputClass } from '@/renderer/presentation/features/shared/common/formClasses';
+import { inputClass, spacedPanelClass } from '@/renderer/presentation/features/shared/common/formClasses';
 import { InlineError } from '../shared/common/InlineError';
 
 export function EstBackupVerificationPanel({
@@ -67,7 +68,7 @@ export function EstBackupVerificationPanel({
     void load();
   }, [load]);
   return (
-    <section className="space-y-3 rounded-[3px] border border-vscode-border bg-vscode-bg p-3">
+    <section className={spacedPanelClass}>
       <header className="flex justify-between gap-3">
         <div>
           <h3 className="text-[13px] font-semibold text-vscode-text">EST printout / independent-memory verification</h3>
@@ -413,13 +414,5 @@ export function EstBackupVerificationPanel({
         ))}
       </div>
     </section>
-  );
-}
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 text-xs text-vscode-text-muted">
-      {label}
-      {children}
-    </label>
   );
 }

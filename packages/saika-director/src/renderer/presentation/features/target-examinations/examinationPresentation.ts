@@ -85,11 +85,3 @@ export function statusClass(examination: TargetExaminationCaseDto): string {
   if (examination.evidenceHoldActive) return 'text-vscode-warning';
   return 'text-vscode-success';
 }
-
-export function formatEnum(value: string): string {
-  return value.replaceAll('_', ' ').toLowerCase();
-}
-
-export function toLocalInputValue(value: Date): string {
-  return new Date(value.getTime() - value.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-}

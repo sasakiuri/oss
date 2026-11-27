@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 import type {
   FiringWindowViolationDto,
   MqttControlSnapshotDto,
@@ -89,7 +90,7 @@ export function CompetitionEvidencePanel({
                     {violation.kind.replaceAll('_', ' ')} · {new Date(violation.evaluatedShotAt).toLocaleString()}
                   </p>
                   <p className="text-vscode-dimmed">
-                    Evidence: {violation.timestampSource.replaceAll('_', ' ').toLowerCase()} · boundary tolerance{' '}
+                    Evidence: {lowerCaseLabel(violation.timestampSource)} · boundary tolerance{' '}
                     {violation.clockToleranceMilliseconds} ms
                   </p>
                   <p className="text-vscode-text-muted">{violation.reviewGuidance}</p>

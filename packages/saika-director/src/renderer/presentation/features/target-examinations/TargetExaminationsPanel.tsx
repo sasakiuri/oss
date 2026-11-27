@@ -1,6 +1,7 @@
 import { FileSearch, Plus, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { lowerCaseLabel } from '@/renderer/presentation/formatters/enumLabel';
 import type { CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { CaseListItem } from '../shared/cases/CaseListItem';
@@ -8,7 +9,7 @@ import { Button } from '../shared/common/Button';
 
 import { CaseDetail } from './CaseDetail';
 import { CreateCaseForm } from './CreateCaseForm';
-import { formatEnum, statusClass, statusLabel, uniqueScopes } from './examinationPresentation';
+import { statusClass, statusLabel, uniqueScopes } from './examinationPresentation';
 import type { TargetExaminationLaneOption } from './examinationTypes';
 import { useTargetExaminationCases } from './useTargetExaminationCases';
 import { InlineError } from '../shared/common/InlineError';
@@ -119,7 +120,7 @@ function TargetExaminationWorkspace({
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-vscode-text-muted">
                     {examination.firingPointNumber ? `Firing point ${examination.firingPointNumber}` : 'Range-wide'} ·{' '}
-                    {formatEnum(examination.issueKind)}
+                    {lowerCaseLabel(examination.issueKind)}
                   </span>
                   <span className="block text-xs text-vscode-dimmed">
                     {new Date(examination.occurredAt).toLocaleString()} · {examination.id.slice(0, 8)}

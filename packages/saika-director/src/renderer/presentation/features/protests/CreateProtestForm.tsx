@@ -6,10 +6,9 @@ import { unwrap } from '@/renderer/services/serviceError';
 import type { ProtestCaseDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
+import { Field } from '../shared/common/Field';
 import { toDateTimeLocalValue } from '../shared/common/dateUtils';
-import { inputClass } from '../shared/common/formClasses';
-
-import { Field, protestFormClass } from './ProtestFields';
+import { inputClass, spacedPanelClass } from '../shared/common/formClasses';
 
 /** Lodges a protest or appeal. The panel mounts it only while lodging, keyed by event. */
 export function CreateProtestForm({
@@ -38,7 +37,7 @@ export function CreateProtestForm({
   const formal = kind === 'WRITTEN' || kind === 'APPEAL';
   return (
     <form
-      className={protestFormClass}
+      className={spacedPanelClass}
       onSubmit={(event) => {
         event.preventDefault();
         if (saving) return;
