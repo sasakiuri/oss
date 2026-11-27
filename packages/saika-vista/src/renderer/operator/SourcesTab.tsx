@@ -25,22 +25,22 @@ export function SourcesTab({
         {state.sources.map((source) => (
           <article className="connection-card" key={source.id}>
             <div className="section-heading">
-              <h3>{source.catalog?.identity.name || 'Data source'}</h3>
+              <h3>{source.catalog.identity.name || 'Data source'}</h3>
               <StatusPill good={source.state === 'connected'}>
                 {source.state === 'connected' ? 'Connected' : source.state === 'connecting' ? 'Connecting' : 'Offline'}
               </StatusPill>
             </div>
             <p className="endpoint">
-              {source.catalog?.identity.kind === 'lane'
+              {source.catalog.identity.kind === 'lane'
                 ? 'Lane'
-                : source.catalog?.identity.kind === 'director'
+                : source.catalog.identity.kind === 'director'
                   ? 'Director'
                   : 'Connecting'}{' '}
               · {source.endpoint}
             </p>
             {source.error && <p className="inline-error">{source.error}</p>}
             <ul className="subject-list">
-              {source.catalog?.subjects.map((s) => (
+              {source.catalog.subjects.map((s) => (
                 <li key={s.id}>
                   <strong>{s.label}</strong>
                   <span>

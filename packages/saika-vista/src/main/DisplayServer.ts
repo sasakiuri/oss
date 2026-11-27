@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-import { randomBytes } from 'node:crypto';
-
 import type { VistaIdentity } from '@sasakiuri/saika-protocol/Vista';
 import { createVistaHost, type VistaServer } from '@sasakiuri/saika-protocol/vista-node';
 import { z } from 'zod';
@@ -10,7 +8,7 @@ import { ScreenConfigSchema, type NodeState } from '../shared/model';
 
 import type { DesktopPort } from './DesktopPort';
 import { OwnerSchema, type DisplayState } from './DisplayState';
-import { messageOf } from './document';
+import { messageOf, withoutController } from './document';
 
 /**
  * Serves this PC's screens to its controlling Vista and advertises it for discovery. Releasing or
@@ -81,17 +79,12 @@ export class DisplayServer {
   async revoke(): Promise<void> {
     await this.releaseTask;
     await this.server?.close();
-    await this.state.transact((document) => ({
-      ...document,
-      controller: null,
-      releasing: false,
-      secret: randomBytes(32).toString('base64url'),
-    }));
+    await this.state.transact(withoutController);
     await this.listen();
   }
 
   private async handle(method: string, path: string, input: unknown): Promise<unknown> {
-    if (this.releaseTask || this.state.document.releasing) throw new Error('Display control is being released');
+    this.state.assertNotReleasing(this.releaseTask !== null);
     const authoritySecret = this.state.document.secret;
     if (method === 'GET' && path === VISTA_DISPLAY_PATH.state) return this.options.node();
     if (method !== 'POST') throw new Error('Unsupported Vista operation');
@@ -109,8 +102,7 @@ export class DisplayServer {
     else if (path === VISTA_DISPLAY_PATH.identify || path === VISTA_DISPLAY_PATH.remove) {
       const body = OwnerSchema.extend({ screenId: z.string().min(1) }).parse(input);
       if (path === VISTA_DISPLAY_PATH.identify) {
-        this.state.identifyScreen(body.screenId);
-        this.desktop.open(this.state.document.screens.find((screen) => screen.id === body.screenId)!);
+        this.desktop.open(this.state.identifyScreen(body.screenId));
       } else {
         await this.state.remove(body.screenId, owner, authoritySecret);
         this.desktop.close(body.screenId);
@@ -129,12 +121,7 @@ export class DisplayServer {
         .then(async () => {
           await this.server?.close();
           this.server = null;
-          await this.state.transact((document) => ({
-            ...document,
-            controller: null,
-            releasing: false,
-            secret: randomBytes(32).toString('base64url'),
-          }));
+          await this.state.transact(withoutController);
           if (!this.stopped) await this.listen();
         })
         .catch((error) => this.options.releaseFailed(error))

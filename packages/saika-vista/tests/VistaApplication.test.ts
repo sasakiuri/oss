@@ -739,7 +739,7 @@ it('ignores a snapshot response that arrives after its source was disconnected',
   }
 });
 
-it('does not resurrect a removed remote screen when an earlier state request finishes late', async () => {
+it('does not resurrect a removed remote screen when an earlier poll finishes late', async () => {
   const controller = await start();
   const display = await start();
   const scheduledController = internals(controller);
@@ -767,7 +767,7 @@ it('does not resurrect a removed remote screen when an earlier state request fin
   const handle = displayServer.handle.bind(displayServer);
   let hold = true;
   vi.spyOn(displayServer, 'handle').mockImplementation(async (method, path, body) => {
-    if (hold && method === 'GET' && path === '/vista/v1/display/state') {
+    if (hold && method === 'POST' && path === '/vista/v1/display/register') {
       hold = false;
       entered();
       await gate;
@@ -782,8 +782,8 @@ it('does not resurrect a removed remote screen when an earlier state request fin
       nodeId: display.identity.sourceId,
       screenId: 'screen-one',
     });
-    // Before the fix removal completes while the earlier read is held, then that
-    // read sees a missing screen and reapplies its obsolete desired configuration.
+    // Before the fix removal completes while the earlier registration is held, then that
+    // poll sees a missing screen and reapplies its obsolete desired configuration.
     await Promise.race([removal, new Promise<void>((resolve) => setTimeout(resolve, 100))]);
     release();
     await Promise.all([pendingPoll, removal]);

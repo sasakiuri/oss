@@ -35,9 +35,9 @@ export function SourceDataStatus({ config, state }: { config: ScreenConfig; stat
         return (
           <article key={index} className="subject-data-status">
             <strong>
-              {source?.catalog?.identity.name || selection.sourceId} ·{' '}
+              {source?.catalog.identity.name || selection.sourceId} ·{' '}
               {entry?.snapshot.label ||
-                source?.catalog?.subjects.find((subject) => subject.id === selection.subjectId)?.label ||
+                source?.catalog.subjects.find((subject) => subject.id === selection.subjectId)?.label ||
                 selection.subjectId}
             </strong>
             <StatusPill good={dataState === 'live' && !issues.length}>

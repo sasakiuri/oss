@@ -105,12 +105,15 @@ export class PeerController {
   async connect(endpointInput: string, secret: string): Promise<string | null> {
     this.assertControllerRole();
     const endpoint = Endpoint.parse(endpointInput);
-    const node = NodeStateSchema.parse(await requestVista(endpoint, secret, 'GET', VISTA_DISPLAY_PATH.state));
+    const node = await this.request({ endpoint, secret }, 'GET', VISTA_DISPLAY_PATH.state);
     if (node.identity.kind !== 'display' || node.identity.sourceId === this.localId)
       throw new Error('Choose another Vista display PC');
     this.assertControllerRole();
-    const registered = NodeStateSchema.parse(
-      await requestVista(endpoint, secret, 'POST', VISTA_DISPLAY_PATH.register, this.owner(), node.identity.sourceId),
+    const registered = await this.request(
+      { endpoint, secret, id: node.identity.sourceId },
+      'POST',
+      VISTA_DISPLAY_PATH.register,
+      this.owner(),
     );
     try {
       await this.state.transact((document) => {
@@ -151,9 +154,7 @@ export class PeerController {
   async remove(id: string): Promise<string | null> {
     const peer = this.peer(id);
     // A disconnected peer remains listed until revocation reaches the actual device.
-    const released = NodeStateSchema.parse(
-      await requestVista(peer.endpoint, peer.secret, 'POST', VISTA_DISPLAY_PATH.release, this.owner(), peer.id),
-    );
+    const released = await this.request(peer, 'POST', VISTA_DISPLAY_PATH.release, this.owner());
     await this.state.transact((document) => ({
       ...document,
       peers: document.peers.filter((saved) => saved.id !== peer.id),
@@ -190,16 +191,7 @@ export class PeerController {
   async identify(id: string, screenId: string): Promise<string | null> {
     this.assertControllerRole();
     const peer = this.peer(id);
-    const identified = NodeStateSchema.parse(
-      await requestVista(
-        peer.endpoint,
-        peer.secret,
-        'POST',
-        VISTA_DISPLAY_PATH.identify,
-        { ...this.owner(), screenId },
-        peer.id,
-      ),
-    );
+    const identified = await this.request(peer, 'POST', VISTA_DISPLAY_PATH.identify, { ...this.owner(), screenId });
     return identified.persistenceError;
   }
 
@@ -209,16 +201,7 @@ export class PeerController {
     let warning: string | null = null;
     await this.enqueue(id, async () => {
       const peer = this.peer(id);
-      const removed = NodeStateSchema.parse(
-        await requestVista(
-          peer.endpoint,
-          peer.secret,
-          'POST',
-          VISTA_DISPLAY_PATH.remove,
-          { ...this.owner(), screenId },
-          peer.id,
-        ),
-      );
+      const removed = await this.request(peer, 'POST', VISTA_DISPLAY_PATH.remove, { ...this.owner(), screenId });
       warning = removed.persistenceError;
       await this.state.transact((document) => ({
         ...document,
@@ -234,15 +217,22 @@ export class PeerController {
 
   /** The current state reported by a display PC. */
   async fetchNode(id: string): Promise<NodeState> {
-    const peer = this.peer(id);
-    return NodeStateSchema.parse(
-      await requestVista(peer.endpoint, peer.secret, 'GET', VISTA_DISPLAY_PATH.state, undefined, peer.id),
-    );
+    return this.request(this.peer(id), 'GET', VISTA_DISPLAY_PATH.state);
   }
 
   /** Queues delivery of the requested screens and selected data to a display PC. */
   sync(id: string): Promise<void> {
     return this.enqueue(id, () => this.push(id));
+  }
+
+  /** Sends one authenticated request to a display PC and validates the state it reports. */
+  private async request(
+    peer: { endpoint: string; secret: string; id?: string },
+    method: 'GET' | 'POST',
+    path: string,
+    body?: unknown,
+  ): Promise<NodeState> {
+    return NodeStateSchema.parse(await requestVista(peer.endpoint, peer.secret, method, path, body, peer.id));
   }
 
   private owner(): z.infer<typeof OwnerSchema> {
@@ -260,26 +250,12 @@ export class PeerController {
     if (!peer) return;
     try {
       this.assertControllerRole();
-      let node = NodeStateSchema.parse(
-        await requestVista(peer.endpoint, peer.secret, 'GET', VISTA_DISPLAY_PATH.state, undefined, peer.id),
-      );
-      node = NodeStateSchema.parse(
-        await requestVista(peer.endpoint, peer.secret, 'POST', VISTA_DISPLAY_PATH.register, this.owner(), peer.id),
-      );
+      let node = await this.request(peer, 'POST', VISTA_DISPLAY_PATH.register, this.owner());
       const screenErrors = new Map<string, string>();
       for (const config of peer.desired) {
         if (node.screens.find((screen) => screen.config.id === config.id)?.appliedRevision !== config.revision) {
           try {
-            node = NodeStateSchema.parse(
-              await requestVista(
-                peer.endpoint,
-                peer.secret,
-                'POST',
-                VISTA_DISPLAY_PATH.apply,
-                { ...this.owner(), config },
-                peer.id,
-              ),
-            );
+            node = await this.request(peer, 'POST', VISTA_DISPLAY_PATH.apply, { ...this.owner(), config });
           } catch (error) {
             screenErrors.set(config.id, messageOf(error));
           }
@@ -305,16 +281,12 @@ export class PeerController {
         Date.now() - (this.frameAt.get(peer.id) ?? 0) > 1000 ||
         node.identity.bootId !== this.views.get(peer.id)?.node?.identity.bootId
       ) {
-        node = NodeStateSchema.parse(
-          await requestVista(
-            peer.endpoint,
-            peer.secret,
-            'POST',
-            VISTA_DISPLAY_PATH.frame,
-            { ...this.owner(), sequence: this.sequence++, configs, entries },
-            peer.id,
-          ),
-        );
+        node = await this.request(peer, 'POST', VISTA_DISPLAY_PATH.frame, {
+          ...this.owner(),
+          sequence: this.sequence++,
+          configs,
+          entries,
+        });
         this.signatures.set(peer.id, signature);
         this.frameAt.set(peer.id, Date.now());
       }

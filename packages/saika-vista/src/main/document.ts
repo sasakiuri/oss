@@ -31,11 +31,12 @@ export const DocumentSchema = z.object({
   loginStart: z.boolean(),
 });
 export type Document = z.infer<typeof DocumentSchema>;
+const newSecret = (): string => randomBytes(32).toString('base64url');
 export const newDocument = (): Document => ({
   version: 1,
   id: randomUUID(),
   name: hostname(),
-  secret: randomBytes(32).toString('base64url'),
+  secret: newSecret(),
   port: 0,
   generation: 0,
   controller: null,
@@ -46,6 +47,13 @@ export const newDocument = (): Document => ({
   peers: [],
   snapshots: [],
   loginStart: false,
+});
+/** Revokes the controller. The new pairing secret also invalidates the previous pairing. */
+export const withoutController = (document: Document): Document => ({
+  ...document,
+  controller: null,
+  releasing: false,
+  secret: newSecret(),
 });
 export const snapshotKey = (subject: SubjectRef): string => JSON.stringify([subject.sourceId, subject.subjectId]);
 export const messageOf = (error: unknown): string =>
