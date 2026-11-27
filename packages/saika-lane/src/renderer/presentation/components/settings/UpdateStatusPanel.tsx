@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+import { updateErrorSummary } from '@sasakiuri/saika-updater';
+
 import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
 import { updateService } from '@/renderer/services/updateService';
 import { errorMessage } from '@/shared/errors/errorMessage';
@@ -54,7 +56,7 @@ function describeUpdateState(state: AppUpdateStateDto, fallbackVersion: string):
     case 'no-update':
       return `You are already on the latest version (${state.currentVersion || fallbackVersion}).`;
     case 'error':
-      return state.errorMessage ?? 'Update check failed.';
+      return 'The update could not be completed.';
     default:
       return 'Update status is unavailable.';
   }
@@ -96,6 +98,7 @@ export function UpdateStatusPanel({
   const formattedTransferred = formatByteCount(updateState.transferredBytes);
   const formattedTotal = formatByteCount(updateState.totalBytes);
   const visibleUpdateError = actionError ?? (updateState.status === 'error' ? updateState.errorMessage : null);
+  const updateErrorText = visibleUpdateError === null ? null : updateErrorSummary(visibleUpdateError);
 
   return (
     <div className="rounded-lg border border-zinc-700 bg-zinc-900/60 p-4">
@@ -163,14 +166,22 @@ export function UpdateStatusPanel({
       )}
 
       {visibleUpdateError && (
-        <div
-          className="mt-3 rounded border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-300"
-          role="alert"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {visibleUpdateError}
-        </div>
+        <>
+          <div
+            className="mt-3 rounded border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-300"
+            role="alert"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {updateErrorText}
+          </div>
+          {updateErrorText !== visibleUpdateError && (
+            <details className="mt-2 text-xs text-zinc-400">
+              <summary className="cursor-pointer">Technical details</summary>
+              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all">{visibleUpdateError}</pre>
+            </details>
+          )}
+        </>
       )}
     </div>
   );

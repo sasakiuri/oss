@@ -5,6 +5,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { StartupRecovery } from '@/renderer/presentation/screens/StartupRecovery';
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { competitionService } from '@/renderer/services/competitionService';
+import { ServiceError } from '@/renderer/services/createServiceMethod';
 import { settingsService } from '@/renderer/services/settingsService';
 
 import { createMockElectronAPI } from '../../../../helpers/mockElectronAPI';
@@ -71,4 +72,12 @@ it('creates only the operator-selected valid type after an unknown saved type', 
   await waitFor(() => expect(retry).toHaveBeenCalledOnce());
   expect(competitionService.startCompetition).toHaveBeenCalledWith({ competitionTypeId: 'AP60' });
   expect(settingsService.saveUserPreferences).toHaveBeenCalledWith({ competitionTypeId: 'AP60' });
+});
+
+it('shows a failed competition type list by its message', async () => {
+  vi.mocked(competitionService.getCompetitionTypes).mockRejectedValue(
+    new ServiceError('Competition types are unavailable', 'IPC_ERROR'),
+  );
+  render(<StartupRecovery state={{ ...state, canChooseType: true }} onRetry={vi.fn()} />);
+  expect(await screen.findByText('Competition types are unavailable')).toHaveAttribute('role', 'alert');
 });

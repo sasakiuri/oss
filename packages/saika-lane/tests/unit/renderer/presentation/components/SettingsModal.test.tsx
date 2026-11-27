@@ -363,7 +363,8 @@ describe('SettingsModal', () => {
       [{ status: 'available' }, 'Version unknown is available. Downloading will start automatically.'],
       [{ status: 'downloaded', targetVersion: '0.2.2' }, 'Version 0.2.2 has been downloaded and is ready to install.'],
       [{ status: 'no-update', currentVersion: '' }, 'You are already on the latest version (0.1.0).'],
-      [{ status: 'error' }, 'Update check failed.'],
+      [{ status: 'error' }, 'The update could not be completed.'],
+      [{ status: 'error', errorMessage: 'network down' }, 'The update could not be completed.'],
     ] as Array<[Partial<AppUpdateStateDto>, string]>)('describes %o as "%s"', (overrides, text) => {
       useUpdateStore.getState().setState(updateState(overrides));
 
@@ -382,6 +383,17 @@ describe('SettingsModal', () => {
       expect(alert.className).toBe('mt-3 rounded border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-300');
       expect(alert).toHaveAttribute('aria-live', 'polite');
       expect(alert).toHaveAttribute('aria-atomic', 'true');
+    });
+
+    it('summarizes a multi-line updater error and keeps the full text under Technical details', () => {
+      const message = 'Download failed\nError: net::ERR_CONNECTION_RESET\n    at ClientRequest.onError';
+      useUpdateStore.getState().setState(updateState({ status: 'error', errorMessage: message }));
+
+      render(<SettingsModal isOpen={true} onClose={mockOnClose} />);
+
+      expect(screen.getByRole('alert')).toHaveTextContent(/^Download failed$/);
+      fireEvent.click(screen.getByText('Technical details'));
+      expect(screen.getByText(/ERR_CONNECTION_RESET/).textContent).toBe(message);
     });
 
     it('keeps a failed update action message when switching tabs and back', async () => {
