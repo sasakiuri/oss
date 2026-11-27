@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { copyFile, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { copyFile, readFile, stat, unlink } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 
 import Database from 'better-sqlite3';
@@ -8,6 +8,7 @@ import type BetterSqlite3 from 'better-sqlite3';
 
 import { assertEvidenceFileContents } from '@/main/infrastructure/database/EvidenceFileContents';
 import { replaceFileAtomic } from '@/main/shared-infra/files/replaceFileAtomic';
+import { writeFileAtomic } from '@/main/shared-infra/files/writeFileAtomic';
 
 import type {
   DatabaseBackupGateway,
@@ -115,7 +116,7 @@ export class SqliteDatabaseBackupGateway implements DatabaseBackupGateway {
         recoveryCopyWillBeCreated: true,
         pendingFileName: PENDING_RESTORE_DATABASE,
       };
-      await writeJsonAtomic(this.markerPath(), marker);
+      await writeFileAtomic(this.markerPath(), `${JSON.stringify(marker)}\n`, 0o666);
       return marker;
     } catch (error) {
       await unlink(temporary).catch(() => undefined);
@@ -183,17 +184,6 @@ async function hashFile(path: string): Promise<string> {
     stream.on('end', resolvePromise);
   });
   return hash.digest('hex');
-}
-
-async function writeJsonAtomic(path: string, value: unknown): Promise<void> {
-  const temporary = `${path}.partial-${crypto.randomUUID()}`;
-  try {
-    await writeFile(temporary, `${JSON.stringify(value)}\n`, { encoding: 'utf8', flag: 'wx' });
-    await replaceFileAtomic(temporary, path);
-  } catch (error) {
-    await unlink(temporary).catch(() => undefined);
-    throw error;
-  }
 }
 
 function isMissing(error: unknown): boolean {

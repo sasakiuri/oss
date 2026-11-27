@@ -1,7 +1,6 @@
 import { dialog } from 'electron';
-import { writeFile, unlink } from 'node:fs/promises';
 
-import { replaceFileAtomic } from '@/main/shared-infra/files/replaceFileAtomic';
+import { writeFileAtomic } from '@/main/shared-infra/files/writeFileAtomic';
 
 import type { ArchiveFileGateway } from '../application/OperationalArchivePorts';
 
@@ -42,14 +41,7 @@ export class ElectronArchiveFileGateway implements ArchiveFileGateway {
     return result.canceled ? null : (result.filePaths[0] ?? null);
   }
 
-  async writeUtf8Atomic(destination: string, content: string): Promise<void> {
-    const temporary = `${destination}.partial-${crypto.randomUUID()}`;
-    try {
-      await writeFile(temporary, content, { encoding: 'utf8', flag: 'wx' });
-      await replaceFileAtomic(temporary, destination);
-    } catch (error) {
-      await unlink(temporary).catch(() => undefined);
-      throw error;
-    }
+  writeUtf8Atomic(destination: string, content: string): Promise<void> {
+    return writeFileAtomic(destination, content, 0o666);
   }
 }
