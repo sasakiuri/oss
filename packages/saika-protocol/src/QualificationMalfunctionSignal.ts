@@ -2,37 +2,9 @@
 
 import { z } from 'zod';
 
-const QualificationMalfunctionSignalContextSchema = z
-  .object({
-    competitionId: z.string().uuid(),
-    sessionId: z.string().uuid(),
-    participantId: z.string().min(1),
-    participantName: z.string().min(1),
-    startNumber: z.string().min(1).nullable(),
-    phase: z.enum(['SIGHTING', 'MATCH']),
-    stageIndex: z.number().int().nonnegative(),
-    seriesIndex: z.number().int().nonnegative(),
-    seriesShotLimit: z.number().int().positive().nullable(),
-    recordedShots: z.number().int().nonnegative(),
-    timedTargetProgramId: z.string().min(1).nullable(),
-    exposureIndex: z.number().int().nonnegative().nullable(),
-  })
-  .superRefine((snapshot, context) => {
-    if (snapshot.seriesShotLimit !== null && snapshot.recordedShots > snapshot.seriesShotLimit) {
-      context.addIssue({
-        code: 'custom',
-        path: ['recordedShots'],
-        message: 'Recorded shots cannot exceed the series shot limit',
-      });
-    }
-    if (snapshot.exposureIndex !== null && !snapshot.timedTargetProgramId) {
-      context.addIssue({
-        code: 'custom',
-        path: ['exposureIndex'],
-        message: 'An exposure index requires a timed-target program',
-      });
-    }
-  });
+import { refineSignalContext, signalContextShape } from './SignalContext';
+
+const QualificationMalfunctionSignalContextSchema = z.object(signalContextShape).superRefine(refineSignalContext);
 
 export const QualificationMalfunctionSignalPayloadSchema = z
   .object({

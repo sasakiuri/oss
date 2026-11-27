@@ -2,6 +2,9 @@
 
 import { z } from 'zod';
 
+import { RulePackIdentitySchema } from './CompetitionState';
+import { refineSignalContext, signalContextShape } from './SignalContext';
+
 export const EstComplaintIssueSchema = z.enum([
   'SHOT_VALUE',
   'SHOT_NOT_REGISTERED',
@@ -19,11 +22,7 @@ const EstComplaintLastShotSchema = z.object({
 
 const EstComplaintRuleContextSchema = z.object({
   round: z.enum(['ELIMINATION', 'QUALIFICATION', 'FINAL']),
-  identity: z.object({
-    id: z.string().min(1),
-    schemaVersion: z.literal(1),
-    fingerprint: z.object({ algorithm: z.literal('SHA-256'), value: z.string().regex(/^[a-f0-9]{64}$/) }),
-  }),
+  identity: RulePackIdentitySchema,
   procedures: z
     .array(
       z.object({
@@ -53,36 +52,10 @@ export const EstComplaintSignalContextSchema = z
         ruleReference: z.string().min(1),
       })
       .optional(),
-    competitionId: z.string().uuid(),
-    sessionId: z.string().uuid(),
-    participantId: z.string().min(1),
-    participantName: z.string().min(1),
-    startNumber: z.string().min(1).nullable(),
-    phase: z.enum(['SIGHTING', 'MATCH']),
-    stageIndex: z.number().int().nonnegative(),
-    seriesIndex: z.number().int().nonnegative(),
-    seriesShotLimit: z.number().int().positive().nullable(),
-    recordedShots: z.number().int().nonnegative(),
-    timedTargetProgramId: z.string().min(1).nullable(),
-    exposureIndex: z.number().int().nonnegative().nullable(),
+    ...signalContextShape,
     lastShot: EstComplaintLastShotSchema.nullable(),
   })
-  .superRefine((snapshot, context) => {
-    if (snapshot.seriesShotLimit !== null && snapshot.recordedShots > snapshot.seriesShotLimit) {
-      context.addIssue({
-        code: 'custom',
-        path: ['recordedShots'],
-        message: 'Recorded shots cannot exceed the series shot limit',
-      });
-    }
-    if (snapshot.exposureIndex !== null && !snapshot.timedTargetProgramId) {
-      context.addIssue({
-        code: 'custom',
-        path: ['exposureIndex'],
-        message: 'An exposure index requires a timed-target program',
-      });
-    }
-  });
+  .superRefine(refineSignalContext);
 
 export const EstComplaintSignalPayloadSchema = z
   .object({

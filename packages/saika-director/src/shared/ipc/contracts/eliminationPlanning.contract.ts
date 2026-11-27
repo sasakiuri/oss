@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { RulePackIdentitySchema } from '@sasakiuri/saika-protocol/CompetitionState';
 
 const uuid = z.string().uuid();
 const entry = z.object({
@@ -14,11 +15,7 @@ const plan = z.object({
   id: uuid,
   eventId: uuid,
   competitionTypeId: z.string().min(1),
-  rulePackIdentity: z.object({
-    id: z.string().min(1),
-    schemaVersion: z.literal(1),
-    fingerprint: z.object({ algorithm: z.literal('SHA-256'), value: z.string().regex(/^[a-f0-9]{64}$/) }),
-  }),
+  rulePackIdentity: RulePackIdentitySchema,
   sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
   entryCount: z.number().int().positive(),
   usableFiringPoints: z.number().int().positive(),
