@@ -1,12 +1,5 @@
 // SPDX-License-Identifier: MIT
-import {
-  CommandResponseSchema,
-  command,
-  commandDataResponseSchema,
-  defineContract,
-  query,
-  queryResponseSchema,
-} from '@sasakiuri/saika-ipc';
+import { CommandResponseSchema, command, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { z } from 'zod';
 
 import { DisciplineSchema } from '../schemas/common';
@@ -27,10 +20,6 @@ export const ShotCompetitionContextSchema = z.object({
 // Command input schemas
 // ============================================================
 
-const StartSessionInputSchema = z.object({
-  discipline: DisciplineSchema,
-});
-
 const RecordShotInputSchema = z.object({
   sessionId: z.string(),
   impactPoint: z
@@ -45,10 +34,6 @@ const RecordShotInputSchema = z.object({
 const SwitchModeInputSchema = z.object({
   sessionId: z.string(),
   mode: SessionModeSchema,
-});
-
-const ResetSessionInputSchema = z.object({
-  sessionId: z.string(),
 });
 
 // ============================================================
@@ -109,27 +94,15 @@ const ShotHistoryDtoSchema = z.object({
 });
 
 // ============================================================
-// Custom response for startSession (returns sessionId)
-// ============================================================
-
-const StartSessionResponseSchema = commandDataResponseSchema(z.object({ sessionId: z.string() }));
-
-// ============================================================
 // Contract definition
 // ============================================================
 
 export const sessionContract = defineContract('session', {
-  startSession: command(StartSessionInputSchema, StartSessionResponseSchema, {
-    channel: 'command:startSession',
-  }),
   recordShot: command(RecordShotInputSchema, CommandResponseSchema, {
     channel: 'command:recordShot',
   }),
   switchMode: command(SwitchModeInputSchema, CommandResponseSchema, {
     channel: 'command:switchMode',
-  }),
-  resetSession: command(ResetSessionInputSchema, CommandResponseSchema, {
-    channel: 'command:resetSession',
   }),
   getSessionScore: query(GetSessionScoreInputSchema, queryResponseSchema(SessionScoreDtoSchema), {
     channel: 'query:getSessionScore',
@@ -143,16 +116,13 @@ export const sessionContract = defineContract('session', {
 // Exported inferred types
 // ============================================================
 
-export type StartSessionInput = z.infer<typeof StartSessionInputSchema>;
 export type RecordShotInput = z.infer<typeof RecordShotInputSchema>;
 export type SwitchModeInput = z.infer<typeof SwitchModeInputSchema>;
-export type ResetSessionInput = z.infer<typeof ResetSessionInputSchema>;
 export type GetSessionScoreInput = z.infer<typeof GetSessionScoreInputSchema>;
 export type GetShotHistoryInput = z.infer<typeof GetShotHistoryInputSchema>;
 export type SessionScoreDto = z.infer<typeof SessionScoreDtoSchema>;
 export type ShotDto = z.infer<typeof ShotDtoSchema>;
 export type NullifiedExtraDto = z.infer<typeof NullifiedExtraDtoSchema>;
 export type ShotHistoryDto = z.infer<typeof ShotHistoryDtoSchema>;
-export type StartSessionResponse = z.infer<typeof StartSessionResponseSchema>;
 export type Discipline = z.infer<typeof DisciplineSchema>;
 export type SessionMode = z.infer<typeof SessionModeSchema>;

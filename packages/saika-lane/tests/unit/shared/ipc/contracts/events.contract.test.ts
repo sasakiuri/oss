@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { eventsContract } from '@/shared/ipc/contracts/events.contract';
 
 describe('eventsContract', () => {
-  it('has 25 events', () => {
+  it('has 24 events', () => {
     const eventKeys = Object.keys(eventsContract.events);
-    expect(eventKeys).toHaveLength(25);
+    expect(eventKeys).toHaveLength(24);
   });
 
   it('all events have kind=event', () => {
@@ -33,7 +33,6 @@ describe('eventsContract', () => {
     expect(eventsContract.channels.competitionCueChanged).toBe('event:competitionCueChanged');
     expect(eventsContract.channels.timedTargetSequenceChanged).toBe('event:timedTargetSequenceChanged');
     expect(eventsContract.channels.seriesCompleted).toBe('event:seriesCompleted');
-    expect(eventsContract.channels.stageAdvanced).toBe('event:stageAdvanced');
     expect(eventsContract.channels.competitionFinished).toBe('event:competitionFinished');
     expect(eventsContract.channels.directorMembershipChanged).toBe('event:directorMembershipChanged');
     expect(eventsContract.channels.mqttStatusChanged).toBe('event:mqttStatusChanged');

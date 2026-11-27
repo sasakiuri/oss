@@ -151,13 +151,6 @@ const SeriesCompletedEventSchema = z.object({
   shotCount: z.number(),
 });
 
-const StageAdvancedEventSchema = z.object({
-  previousStageIndex: z.number(),
-  newStageIndex: z.number(),
-  stageName: z.string(),
-  scored: z.boolean(),
-});
-
 const CompetitionFinishedEventSchema = z.object({
   sessionId: z.string(),
 });
@@ -238,9 +231,6 @@ export const eventsContract = defineEventContract('events', {
   seriesCompleted: defineEvent(SeriesCompletedEventSchema, {
     channel: 'event:seriesCompleted',
   }),
-  stageAdvanced: defineEvent(StageAdvancedEventSchema, {
-    channel: 'event:stageAdvanced',
-  }),
   competitionFinished: defineEvent(CompetitionFinishedEventSchema, {
     channel: 'event:competitionFinished',
   }),
@@ -281,7 +271,6 @@ export type SafetyStopChangedEventPayload = z.infer<typeof SafetyStopChangedEven
 export type CompetitionCueChangedEventPayload = z.infer<typeof CompetitionCueChangedEventSchema>;
 export type TimedTargetSequenceChangedEventPayload = z.infer<typeof TimedTargetSequenceChangedEventSchema>;
 export type SeriesCompletedEventPayload = z.infer<typeof SeriesCompletedEventSchema>;
-export type StageAdvancedEventPayload = z.infer<typeof StageAdvancedEventSchema>;
 export type CompetitionFinishedEventPayload = z.infer<typeof CompetitionFinishedEventSchema>;
 export type MqttStatusChangedEventPayload = z.infer<typeof MqttStatusChangedEventSchema>;
 export type FullscreenChangedEventPayload = z.infer<typeof FullscreenChangedEventSchema>;

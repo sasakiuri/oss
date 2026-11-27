@@ -22,7 +22,6 @@ import type {
   SessionResetEvent,
   SessionStartedEvent,
   ShotRecordedEvent,
-  StageAdvancedEvent,
   TimerExpiredEvent,
   TimerTickEvent,
 } from '@/main/shared-infra/events/coreEvents';
@@ -248,18 +247,6 @@ function createSeriesCompletedEvent(): SeriesCompletedEvent {
   };
 }
 
-function createStageAdvancedEvent(): StageAdvancedEvent {
-  return {
-    type: 'StageAdvanced',
-    timestamp: now,
-    aggregateId: 'comp-1',
-    previousStageIndex: 0,
-    newStageIndex: 1,
-    stageName: 'Match',
-    scored: true,
-  };
-}
-
 function createCompetitionFinishedEvent(): CompetitionFinishedEvent {
   return {
     type: 'CompetitionFinished',
@@ -325,9 +312,9 @@ describe('ContractEventForwarder', () => {
   // start() — event forwarding verification
   // ============================
   describe('start()', () => {
-    it('subscribes to 21 events', () => {
+    it('subscribes to 22 events', () => {
       forwarder.start();
-      expect(eventBus.on).toHaveBeenCalledTimes(23);
+      expect(eventBus.on).toHaveBeenCalledTimes(22);
     });
 
     it.each([null, 'competition-1'])(
@@ -596,20 +583,6 @@ describe('ContractEventForwarder', () => {
       });
     });
 
-    it('forwards StageAdvanced to event:stageAdvanced', () => {
-      forwarder.start();
-      const event = createStageAdvancedEvent();
-
-      getFirstHandler(eventBus, 'StageAdvanced')(event);
-
-      expect(mainWindow.webContents.send).toHaveBeenCalledWith(eventsContract.channels.stageAdvanced, {
-        previousStageIndex: 0,
-        newStageIndex: 1,
-        stageName: 'Match',
-        scored: true,
-      });
-    });
-
     it('forwards CompetitionFinished to event:competitionFinished', () => {
       forwarder.start();
       const event = createCompetitionFinishedEvent();
@@ -768,8 +741,8 @@ describe('ContractEventForwarder', () => {
       forwarder.start();
       forwarder.start();
 
-      // Each start registers all 23 event subscriptions.
-      expect(eventBus.on).toHaveBeenCalledTimes(46);
+      // Each start registers all 22 event subscriptions.
+      expect(eventBus.on).toHaveBeenCalledTimes(44);
 
       // 2 handlers registered for each event
       expect(handlerCount(eventBus, 'ShotRecorded')).toBe(2);

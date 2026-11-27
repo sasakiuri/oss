@@ -61,10 +61,8 @@ const modeSwitchActions = {
   dismissProgressError: vi.fn(),
 };
 
-const setMockWindowChrome = (platform: string, hasNativeWindowFrame: boolean) => {
-  (window.electronAPI as { platform: string; hasNativeWindowFrame: boolean }).platform = platform;
-  (window.electronAPI as { platform: string; hasNativeWindowFrame: boolean }).hasNativeWindowFrame =
-    hasNativeWindowFrame;
+const setMockWindowChrome = (hasNativeWindowFrame: boolean) => {
+  (window.electronAPI as { hasNativeWindowFrame: boolean }).hasNativeWindowFrame = hasNativeWindowFrame;
 };
 
 // Mock hooks and stores
@@ -188,7 +186,7 @@ describe('MainScreen', () => {
     vi.clearAllMocks();
     useConnectionNotificationStore.getState().dismiss();
     capturedSideMenuProps = {};
-    setMockWindowChrome('linux', false);
+    setMockWindowChrome(false);
     vi.mocked(useSessionModule.useSession).mockReturnValue(defaultMockSession);
     vi.mocked(useShotModule.useShot).mockReturnValue(defaultMockShot);
 
@@ -261,9 +259,9 @@ describe('MainScreen', () => {
     });
   });
 
-  describe('platform-specific window chrome', () => {
+  describe('window chrome', () => {
     it('shows custom window controls when the window is frameless', () => {
-      setMockWindowChrome('linux', false);
+      setMockWindowChrome(false);
 
       render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 
@@ -273,7 +271,7 @@ describe('MainScreen', () => {
     });
 
     it('hides custom window controls when using the native window frame', () => {
-      setMockWindowChrome('linux', true);
+      setMockWindowChrome(true);
 
       render(<MainScreen modeSwitchActions={modeSwitchActions} />);
 

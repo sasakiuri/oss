@@ -5,14 +5,11 @@ export type {
   GetSessionScoreInput,
   GetShotHistoryInput,
   RecordShotInput,
-  ResetSessionInput,
   SessionMode,
   SessionScoreDto,
   ShotDto,
   NullifiedExtraDto,
   ShotHistoryDto,
-  StartSessionInput,
-  StartSessionResponse,
   SwitchModeInput,
 } from './session.contract';
 
@@ -88,7 +85,6 @@ export type {
   SessionResetEventPayload,
   SessionStartedEventPayload,
   ShotRecordedEventPayload,
-  StageAdvancedEventPayload,
   TimerExpiredEventPayload,
   TimerTickEventPayload,
   TimedTargetSequenceChangedEventPayload,

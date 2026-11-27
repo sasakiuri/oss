@@ -26,7 +26,6 @@ import type {
   ShotRecordedEvent,
   PositionExtraNullifiedEvent,
   ShotRecordingFailedEvent,
-  StageAdvancedEvent,
   TimerExpiredEvent,
   TimerTickEvent,
   TimedTargetSequenceChangedEvent,
@@ -197,14 +196,6 @@ export class ContractEventForwarder {
       stageIndex: event.stageIndex,
       seriesIndex: event.seriesIndex,
       shotCount: event.shotCount,
-    }));
-
-    // StageAdvanced → event:stageAdvanced
-    this.forward('StageAdvanced', 'stageAdvanced', (event: StageAdvancedEvent) => ({
-      previousStageIndex: event.previousStageIndex,
-      newStageIndex: event.newStageIndex,
-      stageName: event.stageName,
-      scored: event.scored,
     }));
 
     // CompetitionFinished → event:competitionFinished

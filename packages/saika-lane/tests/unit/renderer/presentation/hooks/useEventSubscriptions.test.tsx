@@ -7,137 +7,30 @@ import { useEventSubscriptions } from '@/renderer/presentation/hooks/useEventSub
 import { useConnectionStore } from '@/renderer/presentation/stores/connectionStore';
 import { useFinalCueStore } from '@/renderer/presentation/stores/finalCueStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import type {
-  ConnectionStatusChangedEventPayload,
-  ModeSwitchedEventPayload,
-  SessionResetEventPayload,
-  SessionStartedEventPayload,
-  ShotRecordedEventPayload,
-} from '@/shared/ipc/contracts';
+
+import { emit, installMockElectronAPI, type MockedElectronAPI } from '../../../../helpers/mockElectronAPI';
+import { stubShotAudio } from '../../../../helpers/shotAudio';
 
 // Mock shot sound asset
 vi.mock('@/assets/sounds/shot.wav', () => ({
   default: 'mock-shot-sound.wav',
 }));
 
-// AudioContext mock (useAudioPlayback uses Web Audio API)
-const mockStart = vi.fn();
-const fakeBuffer = { duration: 1 } as AudioBuffer;
-const mockDecodeAudioData = vi.fn().mockResolvedValue(fakeBuffer);
-
-function createMockAudioContext() {
-  return {
-    state: 'running',
-    resume: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn().mockResolvedValue(undefined),
-    destination: {},
-    createBufferSource: vi.fn(() => ({
-      buffer: null as AudioBuffer | null,
-      connect: vi.fn(),
-      start: mockStart,
-    })),
-    createGain: vi.fn(() => ({
-      gain: { value: 1 },
-      connect: vi.fn(),
-    })),
-    decodeAudioData: mockDecodeAudioData,
-  };
-}
-
-const MockAudioContext = vi.fn().mockImplementation(function () {
-  return createMockAudioContext();
-});
-
-const mockFetch = vi.fn().mockResolvedValue({
-  arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
-});
-
-/** Wait for fetch → arrayBuffer → decodeAudioData → bufferRef chain to complete */
-async function flushAudioLoad() {
-  await vi.waitFor(() => {
-    expect(mockDecodeAudioData).toHaveBeenCalled();
-  });
-  // Flush the final .then that sets bufferRef.current
-  await act(async () => {
-    await Promise.resolve();
-  });
-}
-
-// Individual mock functions for each event
-const mockOnSessionStarted = vi.fn();
-const mockOnModeSwitched = vi.fn();
-const mockOnSessionReset = vi.fn();
-const mockOnConnectionStatusChanged = vi.fn();
-const mockOnShotReceived = vi.fn();
-const mockOnShotRecorded = vi.fn();
-const mockOnCompetitionCueChanged = vi.fn();
-const mockOnUpdateStateChanged = vi.fn();
-
 describe('useEventSubscriptions', () => {
+  let api: MockedElectronAPI;
+  let audio: ReturnType<typeof stubShotAudio>;
+
   beforeEach(() => {
     _resetAudioPlaybackForTest();
     useSessionStore.getState().resetSession();
     useConnectionStore.getState().disconnect();
     useFinalCueStore.getState().setCue('00000000-0000-4000-8000-000000000000', null);
-    vi.clearAllMocks();
-
-    // Default: return unsubscribe function
-    mockOnSessionStarted.mockReturnValue(vi.fn());
-    mockOnModeSwitched.mockReturnValue(vi.fn());
-    mockOnSessionReset.mockReturnValue(vi.fn());
-    mockOnConnectionStatusChanged.mockReturnValue(vi.fn());
-    mockOnShotReceived.mockReturnValue(vi.fn());
-    mockOnShotRecorded.mockReturnValue(vi.fn());
-    mockOnCompetitionCueChanged.mockReturnValue(vi.fn());
-    mockOnUpdateStateChanged.mockReturnValue(vi.fn());
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      writable: true,
-      value: {
-        mqtt: {
-          getDirectorMembership: vi
-            .fn()
-            .mockResolvedValue({ success: true, data: { competitionId: null, revision: 0 } }),
-        },
-        updates: {
-          getUpdateState: vi.fn(),
-          checkForUpdates: vi.fn(),
-          quitAndInstall: vi.fn(),
-        },
-        on: {
-          directorMembershipChanged: vi.fn().mockReturnValue(vi.fn()),
-          sessionStarted: mockOnSessionStarted,
-          modeSwitched: mockOnModeSwitched,
-          sessionReset: mockOnSessionReset,
-          connectionStatusChanged: mockOnConnectionStatusChanged,
-          shotReceived: mockOnShotReceived,
-          shotRecorded: mockOnShotRecorded,
-          positionExtraNullified: vi.fn(() => vi.fn()),
-          error: vi.fn(() => vi.fn()),
-          competitionStarted: vi.fn().mockReturnValue(vi.fn()),
-          competitionProgressChanged: vi.fn().mockReturnValue(vi.fn()),
-          phaseChanged: vi.fn().mockReturnValue(vi.fn()),
-          timerTick: vi.fn().mockReturnValue(vi.fn()),
-          timerExpired: vi.fn().mockReturnValue(vi.fn()),
-          competitionInterruptionChanged: vi.fn().mockReturnValue(vi.fn()),
-          competitionCueChanged: mockOnCompetitionCueChanged,
-          seriesCompleted: vi.fn().mockReturnValue(vi.fn()),
-          stageAdvanced: vi.fn().mockReturnValue(vi.fn()),
-          competitionFinished: vi.fn().mockReturnValue(vi.fn()),
-          logMessage: vi.fn().mockReturnValue(vi.fn()),
-          updateStateChanged: mockOnUpdateStateChanged,
-        },
-      },
-    });
-
-    vi.stubGlobal('AudioContext', MockAudioContext);
-    vi.stubGlobal('fetch', mockFetch);
+    api = installMockElectronAPI();
+    audio = stubShotAudio();
   });
 
   afterEach(() => {
     _resetAudioPlaybackForTest();
-    delete (window as any).electronAPI;
     vi.unstubAllGlobals();
   });
 
@@ -145,13 +38,13 @@ describe('useEventSubscriptions', () => {
     it('registers all event listeners on mount', () => {
       renderHook(() => useEventSubscriptions());
 
-      expect(mockOnSessionStarted).toHaveBeenCalledTimes(1);
-      expect(mockOnModeSwitched).toHaveBeenCalledTimes(1);
-      expect(mockOnSessionReset).toHaveBeenCalledTimes(1);
-      expect(mockOnConnectionStatusChanged).toHaveBeenCalledTimes(1);
-      expect(mockOnShotRecorded).toHaveBeenCalledTimes(2);
-      expect(mockOnCompetitionCueChanged).toHaveBeenCalledTimes(1);
-      expect(mockOnUpdateStateChanged).toHaveBeenCalledTimes(1);
+      expect(api.on.sessionStarted).toHaveBeenCalledTimes(1);
+      expect(api.on.modeSwitched).toHaveBeenCalledTimes(1);
+      expect(api.on.sessionReset).toHaveBeenCalledTimes(1);
+      expect(api.on.connectionStatusChanged).toHaveBeenCalledTimes(1);
+      expect(api.on.shotRecorded).toHaveBeenCalledTimes(2);
+      expect(api.on.competitionCueChanged).toHaveBeenCalledTimes(1);
+      expect(api.on.updateStateChanged).toHaveBeenCalledTimes(1);
     });
 
     it('unregisters all event listeners on unmount', () => {
@@ -163,13 +56,13 @@ describe('useEventSubscriptions', () => {
       const unsubCompetitionCueChanged = vi.fn();
       const unsubUpdateStateChanged = vi.fn();
 
-      mockOnSessionStarted.mockReturnValue(unsubSessionStarted);
-      mockOnModeSwitched.mockReturnValue(unsubModeSwitched);
-      mockOnSessionReset.mockReturnValue(unsubSessionReset);
-      mockOnConnectionStatusChanged.mockReturnValue(unsubConnectionStatusChanged);
-      mockOnShotRecorded.mockReturnValue(unsubShotRecorded);
-      mockOnCompetitionCueChanged.mockReturnValue(unsubCompetitionCueChanged);
-      mockOnUpdateStateChanged.mockReturnValue(unsubUpdateStateChanged);
+      api.on.sessionStarted.mockReturnValue(unsubSessionStarted);
+      api.on.modeSwitched.mockReturnValue(unsubModeSwitched);
+      api.on.sessionReset.mockReturnValue(unsubSessionReset);
+      api.on.connectionStatusChanged.mockReturnValue(unsubConnectionStatusChanged);
+      api.on.shotRecorded.mockReturnValue(unsubShotRecorded);
+      api.on.competitionCueChanged.mockReturnValue(unsubCompetitionCueChanged);
+      api.on.updateStateChanged.mockReturnValue(unsubUpdateStateChanged);
 
       const { unmount } = renderHook(() => useEventSubscriptions());
 
@@ -189,25 +82,6 @@ describe('useEventSubscriptions', () => {
     it('stores the active Final command cue', () => {
       renderHook(() => useEventSubscriptions());
 
-      const callback = mockOnCompetitionCueChanged.mock.calls[0]![0] as (event: {
-        competitionId: string;
-        cue: {
-          schemaVersion: 1;
-          competitionId: string;
-          runId: string;
-          cueId: string;
-          confirmationEntryId: string;
-          branch: 'MAIN';
-          iteration: number;
-          stepId: string;
-          actor: 'CRO';
-          kind: 'COMMAND';
-          text: string;
-          ruleReference: string;
-          effect: { type: 'OPEN_FIRING'; purpose: 'MATCH' };
-          publishedAt: string;
-        };
-      }) => void;
       const competitionId = '11111111-1111-4111-8111-111111111111';
       const cue = {
         schemaVersion: 1 as const,
@@ -226,7 +100,7 @@ describe('useEventSubscriptions', () => {
         publishedAt: '2026-09-02T09:00:00.000Z',
       };
 
-      act(() => callback({ competitionId, cue }));
+      act(() => emit('competitionCueChanged', { competitionId, cue }));
 
       expect(useFinalCueStore.getState()).toMatchObject({ competitionId, cue });
     });
@@ -236,9 +110,7 @@ describe('useEventSubscriptions', () => {
     it('updates the store on sessionStarted event', () => {
       renderHook(() => useEventSubscriptions());
 
-      const callback = mockOnSessionStarted.mock.calls[0]![0] as (event: SessionStartedEventPayload) => void;
-
-      callback({
+      emit('sessionStarted', {
         sessionId: 'session-abc',
         discipline: 'AIR_RIFLE_10M',
       });
@@ -253,9 +125,7 @@ describe('useEventSubscriptions', () => {
     it('updates the store on modeSwitched event', () => {
       renderHook(() => useEventSubscriptions());
 
-      const callback = mockOnModeSwitched.mock.calls[0]![0] as (event: ModeSwitchedEventPayload) => void;
-
-      callback({
+      emit('modeSwitched', {
         sessionId: 'session-abc',
         mode: 'MATCH',
       });
@@ -273,9 +143,7 @@ describe('useEventSubscriptions', () => {
 
       renderHook(() => useEventSubscriptions());
 
-      const callback = mockOnSessionReset.mock.calls[0]![0] as (event: SessionResetEventPayload) => void;
-
-      callback({
+      emit('sessionReset', {
         sessionId: 'session-abc',
       });
 
@@ -294,11 +162,7 @@ describe('useEventSubscriptions', () => {
 
       renderHook(() => useEventSubscriptions());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-123',
         status: 'connected',
         manufacturer: 'KOHTO',
@@ -321,11 +185,7 @@ describe('useEventSubscriptions', () => {
 
       renderHook(() => useEventSubscriptions());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-123',
         status: 'disconnected',
         reason: 'Device removed',
@@ -344,11 +204,7 @@ describe('useEventSubscriptions', () => {
     it('does not update the store on connected event without manufacturer', () => {
       renderHook(() => useEventSubscriptions());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-123',
         status: 'connected',
       });
@@ -366,9 +222,7 @@ describe('useEventSubscriptions', () => {
     it('adds a shot on shotRecorded event', () => {
       renderHook(() => useEventSubscriptions());
 
-      const callback = mockOnShotRecorded.mock.calls[0]![0] as (event: ShotRecordedEventPayload) => void;
-
-      callback({
+      emit('shotRecorded', {
         sessionId: 'session-abc',
         shot: {
           id: 'shot-1',
@@ -402,13 +256,11 @@ describe('useEventSubscriptions', () => {
       useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useEventSubscriptions());
-      await flushAudioLoad();
+      await audio.flushAudioLoad();
 
-      mockStart.mockClear();
+      audio.start.mockClear();
 
-      const callback = mockOnShotRecorded.mock.calls[0]![0] as (event: ShotRecordedEventPayload) => void;
-
-      callback({
+      emit('shotRecorded', {
         sessionId: 'session-abc',
         shot: {
           id: 'shot-1',
@@ -423,7 +275,7 @@ describe('useEventSubscriptions', () => {
         },
       });
 
-      expect(mockStart).not.toHaveBeenCalled();
+      expect(audio.start).not.toHaveBeenCalled();
     });
   });
 
@@ -432,14 +284,13 @@ describe('useEventSubscriptions', () => {
       useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useEventSubscriptions());
-      await flushAudioLoad();
+      await audio.flushAudioLoad();
 
-      mockStart.mockClear();
+      audio.start.mockClear();
 
-      const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
-      callback();
+      emit('shotReceived', {});
 
-      expect(mockStart).toHaveBeenCalledTimes(1);
+      expect(audio.start).toHaveBeenCalledTimes(1);
     });
 
     it.each(['DISAG_KT_RDT_ZIE_1_RIFLE', 'DISAG_KT_RDT_ZIE_1_PISTOL'])(
@@ -448,14 +299,13 @@ describe('useEventSubscriptions', () => {
         useSessionStore.getState().setDeviceId(deviceId);
 
         renderHook(() => useEventSubscriptions());
-        await flushAudioLoad();
+        await audio.flushAudioLoad();
 
-        mockStart.mockClear();
+        audio.start.mockClear();
 
-        const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
-        callback();
+        emit('shotReceived', {});
 
-        expect(mockStart).toHaveBeenCalledTimes(1);
+        expect(audio.start).toHaveBeenCalledTimes(1);
       },
     );
 
@@ -463,14 +313,13 @@ describe('useEventSubscriptions', () => {
       useSessionStore.getState().setDeviceId('HS10');
 
       renderHook(() => useEventSubscriptions());
-      await flushAudioLoad();
+      await audio.flushAudioLoad();
 
-      mockStart.mockClear();
+      audio.start.mockClear();
 
-      const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
-      callback();
+      emit('shotReceived', {});
 
-      expect(mockStart).not.toHaveBeenCalled();
+      expect(audio.start).not.toHaveBeenCalled();
     });
   });
 });

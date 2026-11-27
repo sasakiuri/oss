@@ -7,10 +7,8 @@ import {
   GetShotHistoryToken,
   RecordShotToken,
   ResetSessionToken,
-  StartSessionToken,
   SwitchModeToken,
 } from '@/main/composition/tokens';
-import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
 import { sessionContract } from '@/shared/ipc/contracts';
@@ -19,7 +17,6 @@ import { createGetSessionScoreHandler } from './application/handlers/GetSessionS
 import { createGetShotHistoryHandler } from './application/handlers/GetShotHistoryHandler';
 import { createRecordShotHandler } from './application/handlers/RecordShotHandler';
 import { createResetSessionHandler } from './application/handlers/ResetSessionHandler';
-import { createStartSessionHandler } from './application/handlers/StartSessionHandler';
 import { createSwitchModeHandler } from './application/handlers/SwitchModeHandler';
 import { ScoreDiscrepancyDetector } from './domain/ScoreDiscrepancyDetector';
 import { CsvScoreDiscrepancyLogger } from './infra/CsvScoreDiscrepancyLogger';
@@ -71,7 +68,6 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     eventBus.on('ShotRecorded', (event) => shotLogService.handleShotRecorded(event));
 
     // Register CQRS handlers
-    commandBus.register(StartSessionToken, createStartSessionHandler(sessionRepository, eventBus));
     commandBus.register(
       RecordShotToken,
       createRecordShotHandler(sessionRepository, scoreService, eventBus, discrepancyDetector, applyShotProgress),
@@ -87,12 +83,6 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
 
     // Register IPC handlers via IpcRouter
     const sessionHandlers: InferHandlers<typeof sessionContract> = {
-      startSession: async (input) => {
-        const discipline = Discipline.fromValue(input.discipline);
-        const { sessionId } = await commandBus.execute(StartSessionToken, { discipline });
-        return { sessionId };
-      },
-
       recordShot: async (input) => {
         const impactPoint =
           input.impactPoint !== null ? new ImpactPoint(input.impactPoint.x, input.impactPoint.y) : null;
@@ -121,12 +111,6 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
         await commandBus.execute(SwitchModeToken, {
           sessionId: input.sessionId,
           mode,
-        });
-      },
-
-      resetSession: async (input) => {
-        await commandBus.execute(ResetSessionToken, {
-          sessionId: input.sessionId,
         });
       },
 

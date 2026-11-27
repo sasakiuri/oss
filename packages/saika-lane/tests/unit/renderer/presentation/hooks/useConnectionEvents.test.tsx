@@ -1,49 +1,34 @@
 // SPDX-License-Identifier: MIT
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useConnectionEvents } from '@/renderer/presentation/hooks/useConnectionEvents';
 import { useConnectionNotificationStore } from '@/renderer/presentation/stores/connectionNotificationStore';
 import { useConnectionStore } from '@/renderer/presentation/stores/connectionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import type { ConnectionStatusChangedEventPayload } from '@/shared/ipc/contracts';
 
-const mockOnConnectionStatusChanged = vi.fn();
+import { emit, installMockElectronAPI, type MockedElectronAPI } from '../../../../helpers/mockElectronAPI';
 
 describe('useConnectionEvents', () => {
+  let api: MockedElectronAPI;
+
   beforeEach(() => {
     useSessionStore.getState().resetSession();
     useConnectionStore.getState().disconnect();
     useConnectionNotificationStore.getState().dismiss();
-    vi.clearAllMocks();
-
-    mockOnConnectionStatusChanged.mockReturnValue(vi.fn());
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      writable: true,
-      value: {
-        on: {
-          connectionStatusChanged: mockOnConnectionStatusChanged,
-        },
-      },
-    });
-  });
-
-  afterEach(() => {
-    Reflect.deleteProperty(window, 'electronAPI');
+    api = installMockElectronAPI();
   });
 
   describe('subscription registration', () => {
     it('subscribes to connectionStatusChanged on mount', () => {
       renderHook(() => useConnectionEvents());
 
-      expect(mockOnConnectionStatusChanged).toHaveBeenCalledTimes(1);
+      expect(api.on.connectionStatusChanged).toHaveBeenCalledTimes(1);
     });
 
     it('unsubscribes on unmount', () => {
       const unsubscribe = vi.fn();
-      mockOnConnectionStatusChanged.mockReturnValue(unsubscribe);
+      api.on.connectionStatusChanged.mockReturnValue(unsubscribe);
 
       const { unmount } = renderHook(() => useConnectionEvents());
       unmount();
@@ -58,11 +43,7 @@ describe('useConnectionEvents', () => {
 
       renderHook(() => useConnectionEvents());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-1',
         status: 'connected',
         manufacturer: 'KOHTO',
@@ -82,11 +63,7 @@ describe('useConnectionEvents', () => {
     it('ignores connected events without manufacturer', () => {
       renderHook(() => useConnectionEvents());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-1',
         status: 'connected',
       });
@@ -102,11 +79,7 @@ describe('useConnectionEvents', () => {
 
       renderHook(() => useConnectionEvents());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-1',
         status: 'disconnected',
         reason: 'Device removed',
@@ -123,11 +96,7 @@ describe('useConnectionEvents', () => {
     it('shows a warning notification for unexpected disconnects', () => {
       renderHook(() => useConnectionEvents());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-1',
         status: 'disconnected',
         reason: 'USB device disconnected unexpectedly',
@@ -142,11 +111,7 @@ describe('useConnectionEvents', () => {
     it('clears an unexpected disconnect warning after a later reconnection succeeds', () => {
       renderHook(() => useConnectionEvents());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-1',
         status: 'disconnected',
         reason: 'USB device disconnected unexpectedly',
@@ -156,7 +121,7 @@ describe('useConnectionEvents', () => {
         title: 'Target Disconnected',
       });
 
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-2',
         status: 'connected',
         manufacturer: 'KOHTO',
@@ -169,11 +134,7 @@ describe('useConnectionEvents', () => {
     it('does not show a warning notification for user-requested disconnects', () => {
       renderHook(() => useConnectionEvents());
 
-      const callback = mockOnConnectionStatusChanged.mock.calls[0]![0] as (
-        event: ConnectionStatusChangedEventPayload,
-      ) => void;
-
-      callback({
+      emit('connectionStatusChanged', {
         connectionId: 'conn-1',
         status: 'disconnected',
         reason: 'User requested disconnection',
