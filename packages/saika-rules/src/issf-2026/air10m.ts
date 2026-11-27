@@ -1,13 +1,19 @@
 import { defineRulePack, type RulePack } from '../RulePack';
 
+import {
+  FINAL_VERIFICATION,
+  ISSF_2026_AUTHORITY,
+  PUBLICATION,
+  QUALIFICATION_COMMANDS,
+  QUALIFICATION_FIRING_WINDOW_REVIEW,
+  VERIFICATION,
+} from './common';
 import { ISSF_2026_FINAL_EST_COMPLAINTS } from './estComplaint';
 import { buildIssf10mFinalCommandScript } from './finalCommandScript';
 import { buildIssfGeneralQualificationMalfunction } from './qualificationMalfunction';
 
 const authority = {
-  organization: 'ISSF',
-  edition: '2025 Edition (Second Print 07/2026)',
-  effectiveFrom: '2026-07-01',
+  ...ISSF_2026_AUTHORITY,
   ruleReferences: ['6.3.3.2', '6.11.1', '6.11.9.1', '6.14', '6.15.1', '6.16.5.1', '6.17.2'],
 } as const;
 
@@ -73,35 +79,6 @@ const finalCourse = {
   ],
 } as const;
 
-const publication = { preliminaryRequired: true, scoreProtestWindowSeconds: 600 } as const;
-const verification = { topIndividualResults: 10, topTeamResultsWhenPublished: 3 } as const;
-const finalVerification = { topIndividualResults: 10, topTeamResultsWhenPublished: 0 } as const;
-const qualificationFiringWindowReview = {
-  rules: [
-    {
-      id: 'issf.6.11.1.1.h.before-preparation-start',
-      kind: 'BEFORE_PREPARATION_AND_SIGHTING_START',
-      ruleReference: '6.11.1.1(h)',
-      reviewGuidance:
-        'Determine whether a safety issue warrants disqualification; otherwise register the first competition shot as a miss.',
-    },
-    {
-      id: 'issf.6.11.1.1.k.between-phases',
-      kind: 'BETWEEN_PREPARATION_AND_SIGHTING_STOP_AND_MATCH_START',
-      ruleReference: '6.11.1.1(k)',
-      reviewGuidance:
-        'Do not count this shot as a MATCH shot; review the two-point penalty on the first competition shot.',
-    },
-    {
-      id: 'issf.6.11.1.3.after-match-stop',
-      kind: 'AFTER_MATCH_STOP',
-      ruleReference: '6.11.1.3',
-      reviewGuidance:
-        'Review shot identification, the required miss, and any best-hit deduction when the shot cannot be identified.',
-    },
-  ],
-} as const;
-
 export const ISSF_2026_AR60: RulePack = defineRulePack({
   schemaVersion: 1,
   id: 'ISSF:2026:AR60:QUALIFICATION',
@@ -118,19 +95,11 @@ export const ISSF_2026_AR60: RulePack = defineRulePack({
     scoring: { mode: 'DECIMAL', minimumShotScore: 0, maximumSeriesScore: 109, precision: 1 },
     courseOfFire: qualificationCourse,
     ranking: { strategy: 'ISSF_6_15_1_DECIMAL_RIFLE', totalShots: 60, totalSeries: 6 },
-    verification,
-    publication,
+    verification: VERIFICATION,
+    publication: PUBLICATION,
     qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
-    firingWindowReview: qualificationFiringWindowReview,
-    commands: {
-      athleteCallToLineLeadSeconds: 1500,
-      sightingTargetVisibilityLeadSeconds: 600,
-      setupPeriodSeconds: 600,
-      preparationAndSightingSeconds: 900,
-      preparationWarningsAtRemainingSeconds: [30],
-      matchWarningsAtRemainingSeconds: [600, 300],
-      resetPauseSeconds: 30,
-    },
+    firingWindowReview: QUALIFICATION_FIRING_WINDOW_REVIEW,
+    commands: QUALIFICATION_COMMANDS,
   },
 });
 
@@ -150,19 +119,11 @@ export const ISSF_2026_AP60: RulePack = defineRulePack({
     scoring: { mode: 'RING', minimumShotScore: 0, maximumSeriesScore: 100, precision: 0 },
     courseOfFire: qualificationCourse,
     ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 6 },
-    verification,
-    publication,
+    verification: VERIFICATION,
+    publication: PUBLICATION,
     qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
-    firingWindowReview: qualificationFiringWindowReview,
-    commands: {
-      athleteCallToLineLeadSeconds: 1500,
-      sightingTargetVisibilityLeadSeconds: 600,
-      setupPeriodSeconds: 600,
-      preparationAndSightingSeconds: 900,
-      preparationWarningsAtRemainingSeconds: [30],
-      matchWarningsAtRemainingSeconds: [600, 300],
-      resetPauseSeconds: 30,
-    },
+    firingWindowReview: QUALIFICATION_FIRING_WINDOW_REVIEW,
+    commands: QUALIFICATION_COMMANDS,
   },
 });
 
@@ -191,7 +152,7 @@ function finalPack(eventCode: 'AR60_FINAL' | 'AP60_FINAL', discipline: string, d
         stage1Shots: 10,
         finalRuleReference: '6.17.2',
       },
-      verification: finalVerification,
+      verification: FINAL_VERIFICATION,
       commands: {
         preparationAndSightingSeconds: 300,
         preparationWarningsAtRemainingSeconds: [30],

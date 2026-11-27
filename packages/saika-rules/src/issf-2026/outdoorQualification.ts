@@ -1,5 +1,13 @@
 import { defineRulePack, type RulePack, type RuleSeries } from '../RulePack';
 
+import {
+  ISSF_2026_AUTHORITY,
+  outdoorEliminationPlanning,
+  PUBLICATION,
+  QUALIFICATION_COMMANDS,
+  qualificationCourse,
+  VERIFICATION,
+} from './common';
 import { buildIssfGeneralQualificationMalfunction } from './qualificationMalfunction';
 
 /** Continuous outdoor EST firing, independent of application state machines and hardware. */
@@ -21,9 +29,7 @@ export function outdoorQualification(input: {
     discipline: input.discipline,
     round: 'QUALIFICATION',
     authority: {
-      organization: 'ISSF',
-      edition: '2025 Edition (Second Print 07/2026)',
-      effectiveFrom: '2026-07-01',
+      ...ISSF_2026_AUTHORITY,
       ruleReferences: ['6.11.1', '6.13', '6.14', '6.15.1', ...input.ruleReferences],
     },
     capabilities: {
@@ -32,31 +38,10 @@ export function outdoorQualification(input: {
         scoringGaugeProfileId: input.scoringGaugeProfileId,
       },
       scoring: { mode: 'RING', minimumShotScore: 0, maximumSeriesScore: 100, precision: 0 },
-      courseOfFire: {
-        hasRelays: true,
-        stages: [
-          {
-            id: 'PREPARATION_AND_SIGHTING',
-            name: 'Preparation and Sighting',
-            phase: 'PREPARATION',
-            series: [{ shots: 0 }],
-            timer: { mode: 'stage', durationSeconds: 900 },
-            requiresNewSession: false,
-          },
-          {
-            id: 'MATCH',
-            name: 'Match',
-            phase: 'MATCH',
-            series: input.series,
-            timer: { mode: 'stage', durationSeconds: input.matchSeconds },
-            requiresNewSession: true,
-            seriesTransition: 'AUTOMATIC',
-          },
-        ],
-      },
+      courseOfFire: qualificationCourse(input.matchSeconds, input.series),
       ranking: { strategy: 'ISSF_6_15_1_FULL_RING', totalShots: 60, totalSeries: 6 },
-      verification: { topIndividualResults: 10, topTeamResultsWhenPublished: 3 },
-      publication: { preliminaryRequired: true, scoreProtestWindowSeconds: 600 },
+      verification: VERIFICATION,
+      publication: PUBLICATION,
       qualificationMalfunction: buildIssfGeneralQualificationMalfunction(['MATCH']),
       firingWindowReview: {
         rules: [
@@ -80,15 +65,7 @@ export function outdoorQualification(input: {
           },
         ],
       },
-      commands: {
-        athleteCallToLineLeadSeconds: 1500,
-        sightingTargetVisibilityLeadSeconds: 600,
-        setupPeriodSeconds: 600,
-        preparationAndSightingSeconds: 900,
-        preparationWarningsAtRemainingSeconds: [30],
-        matchWarningsAtRemainingSeconds: [600, 300],
-        resetPauseSeconds: 30,
-      },
+      commands: QUALIFICATION_COMMANDS,
     },
   });
 }
@@ -107,18 +84,7 @@ export function outdoorElimination(qualification: RulePack, minimumQualification
     },
     capabilities: {
       ...qualification.capabilities,
-      outdoorEliminationPlanning: {
-        venue: 'OUTDOOR',
-        requiredWhenEntriesExceedUsableCapacity: true,
-        waiverAuthority: 'TECHNICAL_DELEGATE',
-        waiverReason: 'SCHEDULE_LIMITATIONS',
-        completeCourseOfFire: true,
-        randomSquadding: true,
-        quotaMethod: 'PROPORTIONAL_RELAY_STARTS',
-        balanceTeamsAndNationsAcrossRelays: true,
-        ...(minimumQualificationAthletes === undefined ? {} : { minimumQualificationAthletes }),
-        preferredDaysBeforeQualification: 1,
-      },
+      outdoorEliminationPlanning: outdoorEliminationPlanning(minimumQualificationAthletes),
     },
   });
 }

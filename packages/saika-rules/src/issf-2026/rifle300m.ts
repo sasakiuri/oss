@@ -1,15 +1,6 @@
-import type { RuleSeries } from '../RulePack';
-
+import { THREE_POSITION_SERIES } from './common';
 import { outdoorElimination, outdoorQualification } from './outdoorQualification';
 
-const threePositions: readonly RuleSeries[] = [
-  { shots: 10, label: 'Kneeling 1', position: 'KNEELING' },
-  { shots: 10, label: 'Kneeling 2', position: 'KNEELING' },
-  { shots: 10, label: 'Prone 1', position: 'PRONE', targetModeControl: 'ATHLETE' },
-  { shots: 10, label: 'Prone 2', position: 'PRONE' },
-  { shots: 10, label: 'Standing 1', position: 'STANDING', targetModeControl: 'ATHLETE' },
-  { shots: 10, label: 'Standing 2', position: 'STANDING' },
-];
 const target = {
   discipline: 'RIFLE_300M',
   scoringProfileId: 'ISSF_RIFLE_300M_2026',
@@ -21,7 +12,7 @@ export const ISSF_2026_R300_3P60 = outdoorQualification({
   eventCode: 'R300_3P60',
   displayName: '300m Rifle 3 Positions 60 shots (EST)',
   matchSeconds: 6300,
-  series: threePositions,
+  series: THREE_POSITION_SERIES,
   ruleReferences: ['6.3.4.1', '7.7.1-4'],
 });
 export const ISSF_2026_R300_PR60 = outdoorQualification({
@@ -37,7 +28,7 @@ export const ISSF_2026_R300_STD60 = outdoorQualification({
   eventCode: 'R300_STD60',
   displayName: '300m Standard Rifle 3 Positions 60 shots (EST)',
   matchSeconds: 6300,
-  series: threePositions,
+  series: THREE_POSITION_SERIES,
   ruleReferences: ['6.3.4.1', '6.11.9.5', '7.7.1-4'],
 });
 

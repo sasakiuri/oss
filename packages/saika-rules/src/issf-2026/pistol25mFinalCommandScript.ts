@@ -5,7 +5,8 @@ import type {
   RuleCommandSeriesTarget,
 } from '../RulePack';
 
-const NO_EFFECT = { type: 'NONE' } as const;
+import { checkpoint, step, withEffect } from './commandScriptSteps';
+
 const FINAL_STAGE_ID = 'FINAL_SERIES';
 const FINAL_STAGE_INDEX = 1;
 
@@ -554,19 +555,6 @@ function completionSteps(prefix: string, ruleReference: string): RuleCommandScri
   ];
 }
 
-function checkpoint(
-  prefix: string,
-  suffix: string,
-  afterMatchShot: number,
-  text: string,
-  ruleReference: string,
-): RuleCommandScriptStep {
-  return withEffect(step(prefix, suffix, 'OFFICIAL', 'CHECK', text, ruleReference, { mode: 'MANUAL' }), {
-    type: 'CHECKPOINT',
-    afterMatchShot,
-  });
-}
-
 function selectedTimedStep(
   input: Omit<Parameters<typeof timedStep>[0], 'participantSelection'> & { participantCount: number },
 ): RuleCommandScriptStep {
@@ -641,23 +629,4 @@ function script(
     main,
     shootOff,
   };
-}
-
-function step(
-  prefix: string,
-  suffix: string,
-  actor: RuleCommandScriptStep['actor'],
-  kind: RuleCommandScriptStep['kind'],
-  text: string,
-  ruleReference: string,
-  timing: RuleCommandScriptStep['timing'],
-): RuleCommandScriptStep {
-  return { id: `${prefix}.${suffix}`, actor, kind, text, ruleReference, timing, effect: NO_EFFECT };
-}
-
-function withEffect<T extends RuleCommandScriptStep['effect']>(
-  value: RuleCommandScriptStep,
-  effect: T,
-): RuleCommandScriptStep {
-  return { ...value, effect };
 }
