@@ -255,14 +255,14 @@ export class ShootoffCommandHandler {
   } {
     const shootoff = this.shootoffRepository.findById(shootoffId);
     if (!shootoff) {
-      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
+      throw new DomainError(ErrorCatalog.DATA.NOT_FOUND, {
         messageOverride: `Shootoff not found: ${shootoffId}`,
       });
     }
 
     const laneToParticipant = this.participantsByShootoff.get(shootoffId);
     if (!laneToParticipant) {
-      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
+      throw new DomainError(ErrorCatalog.DATA.NOT_FOUND, {
         messageOverride: `Shootoff mapping not found: ${shootoffId}`,
       });
     }

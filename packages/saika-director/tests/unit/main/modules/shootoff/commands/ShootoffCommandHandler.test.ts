@@ -371,6 +371,7 @@ describe('ShootoffCommandHandler', () => {
 
       await expect(handler.executeAddShootoffShot(command)).rejects.toThrow(DomainError);
       await expect(handler.executeAddShootoffShot(command)).rejects.toThrow(/Shootoff not found/);
+      await expect(handler.executeAddShootoffShot(command)).rejects.toMatchObject({ code: 'DATA_001' });
     });
 
     it('should throw DomainError when lane is not part of the shootoff', async () => {
@@ -592,6 +593,7 @@ describe('ShootoffCommandHandler', () => {
 
       await expect(handler.executeResolveShootoff(command)).rejects.toThrow(DomainError);
       await expect(handler.executeResolveShootoff(command)).rejects.toThrow(/Shootoff not found/);
+      await expect(handler.executeResolveShootoff(command)).rejects.toMatchObject({ code: 'DATA_001' });
     });
 
     it('should throw DomainError when shootoff mapping is not found', async () => {
@@ -609,6 +611,7 @@ describe('ShootoffCommandHandler', () => {
 
       await expect(handler.executeResolveShootoff(command)).rejects.toThrow(DomainError);
       await expect(handler.executeResolveShootoff(command)).rejects.toThrow(/mapping not found/);
+      await expect(handler.executeResolveShootoff(command)).rejects.toMatchObject({ code: 'DATA_001' });
     });
   });
 });
