@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 
 import { getSeriesIndexForShot, type RankingShotEvidence } from '@/shared/competitionTypes';
 

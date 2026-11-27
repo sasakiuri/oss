@@ -1,6 +1,5 @@
-import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultPublicationReadiness, ResultPublicationReadiness } from '../application/ResultPublicationPorts';
-import type { ResultVerificationStatusDto } from '@/shared/ipc/contracts';
+import type { ResultVerificationStatusDto, ResultScope } from '@/shared/ipc/contracts';
 
 export interface ResultVerificationStatusReader {
   getStatus(eventId: string, resultScope: ResultScope): Promise<ResultVerificationStatusDto>;

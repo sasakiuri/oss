@@ -17,7 +17,7 @@ export class ServiceError extends Error {
 }
 
 /** Query and data-command responses: the failure branch always carries an error. */
-type DataResponse<T> = { success: true; data: T } | { success: false; error: IpcErrorDto };
+export type DataResponse<T> = { success: true; data: T } | { success: false; error: IpcErrorDto };
 
 /** Commands without a discriminated union: `{ success: boolean, data?: T, error?: IpcErrorDto }`. */
 interface LooseResponse<T> {

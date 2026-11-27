@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { resultScopeSchema } from './resultScope.schema';
 
 const uuid = z.string().uuid();
-const resultScope = z.enum(['QUALIFICATION', 'FINAL']);
 const kind = z.enum([
   'EXCESS_SHOTS',
   'CROSS_FIRE',
@@ -81,7 +81,7 @@ const irregularShotCase = z.object({
   id: uuid,
   eventId: uuid,
   competitionId: uuid,
-  resultScope,
+  resultScope: resultScopeSchema,
   kind,
   subjectLaneId: uuid,
   adjacentLaneIds: z.array(uuid),
@@ -99,11 +99,11 @@ const irregularShotCase = z.object({
   entries: z.array(entry),
 });
 
-const list = z.object({ eventId: uuid, resultScope: resultScope.optional() });
+const list = z.object({ eventId: uuid, resultScope: resultScopeSchema.optional() });
 const create = z.object({
   eventId: uuid,
   competitionId: uuid,
-  resultScope,
+  resultScope: resultScopeSchema,
   kind,
   subjectLaneId: uuid,
   adjacentLaneIds: z.array(uuid).max(6),

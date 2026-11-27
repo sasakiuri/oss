@@ -8,8 +8,14 @@ import {
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
+import {
+  caseScopeDtoSchema,
+  caseScopeInputSchema,
+  linkCaseScopeInputSchema,
+  refineUniqueCaseScopes,
+} from './caseScope.schema';
+
 const uuidSchema = z.string().uuid();
-const scopeTypeSchema = z.enum(['COMPETITION', 'EVENT']);
 const causeSchema = z.enum([
   'ATHLETE_NON_FAULT',
   'ALL_TARGET_FAILURE',
@@ -29,16 +35,6 @@ const entryTypeSchema = z.enum([
   'REOPENED',
   'VOID',
 ]);
-
-const RangeInterruptionScopeDtoSchema = z.object({
-  id: uuidSchema,
-  caseId: uuidSchema,
-  scopeType: scopeTypeSchema,
-  scopeId: z.string().min(1),
-  linkedBy: z.string().min(1),
-  note: z.string().min(1).nullable(),
-  linkedAt: z.string().datetime(),
-});
 
 const RangeInterruptionEntryDtoSchema = z.object({
   id: uuidSchema,
@@ -289,10 +285,10 @@ const RangeInterruptionCaseDtoSchema = z.object({
   details: z.string().min(1),
   openedBy: z.string().min(1),
   createdAt: z.string().datetime(),
-  scopes: z.array(RangeInterruptionScopeDtoSchema).min(1),
+  scopes: z.array(caseScopeDtoSchema).min(1),
   entries: z.array(RangeInterruptionEntryDtoSchema),
   targetRecoveryAssessments: z.array(TargetRecoveryAssessmentDtoSchema),
-  commandBatches: z.array(RangeInterruptionCommandBatchDtoSchema).optional(),
+  commandBatches: z.array(RangeInterruptionCommandBatchDtoSchema),
   qualificationTimedTargetContext: QualificationTimedTargetContextDtoSchema.nullable(),
   qualificationTimedTargetRecoveryDecisions: z.array(QualificationTimedTargetRecoveryDecisionDtoSchema),
   qualificationRecoveryExecutions: z.array(QualificationRecoveryExecutionDtoSchema),
@@ -304,15 +300,10 @@ const RangeInterruptionCaseDtoSchema = z.object({
     .nullable(),
 });
 
-const ScopeInputSchema = z.object({
-  scopeType: scopeTypeSchema,
-  scopeId: z.string().trim().min(1).max(200),
-});
-
 const CreateRangeInterruptionCaseInputSchema = z
   .object({
     id: uuidSchema.optional(),
-    scopes: z.array(ScopeInputSchema).min(1).max(4),
+    scopes: z.array(caseScopeInputSchema).min(1).max(4),
     cause: causeSchema,
     phase: phaseSchema,
     startedAt: z.string().datetime(),
@@ -334,19 +325,7 @@ const CreateRangeInterruptionCaseInputSchema = z
       })
       .optional(),
   })
-  .superRefine((value, context) => {
-    const keys = value.scopes.map((scope) => `${scope.scopeType}:${scope.scopeId}`);
-    if (new Set(keys).size !== keys.length) {
-      context.addIssue({ code: 'custom', path: ['scopes'], message: 'Scope links must be unique' });
-    }
-  });
-
-const LinkRangeInterruptionScopeInputSchema = z.object({
-  caseId: uuidSchema,
-  scope: ScopeInputSchema,
-  linkedBy: z.string().trim().min(1).max(200),
-  note: z.string().trim().min(1).max(1000).optional(),
-});
+  .superRefine(refineUniqueCaseScopes);
 
 const RecordTargetRecoveryAssessmentInputSchema = z
   .object({
@@ -499,11 +478,9 @@ const ApplyQualificationRecoverySettlementInputSchema = z.object({
   statement: z.string().trim().min(1).max(1_000),
 });
 
-export type RangeInterruptionScopeTypeDto = z.infer<typeof scopeTypeSchema>;
 export type RangeInterruptionCauseDto = z.infer<typeof causeSchema>;
 export type RangeInterruptionPhaseDto = z.infer<typeof phaseSchema>;
 export type RangeInterruptionEntryTypeDto = z.infer<typeof entryTypeSchema>;
-export type RangeInterruptionScopeDto = z.infer<typeof RangeInterruptionScopeDtoSchema>;
 export type RangeInterruptionEntryDto = z.infer<typeof RangeInterruptionEntryDtoSchema>;
 export type TargetRecoveryAssessmentDto = z.infer<typeof TargetRecoveryAssessmentDtoSchema>;
 export type RangeInterruptionCommandBatchDto = z.infer<typeof RangeInterruptionCommandBatchDtoSchema>;
@@ -528,9 +505,7 @@ export type ApplyQualificationRecoverySettlementPayload = z.infer<
   typeof ApplyQualificationRecoverySettlementInputSchema
 >;
 export type RangeInterruptionCaseDto = z.infer<typeof RangeInterruptionCaseDtoSchema>;
-export type RangeInterruptionScopePayload = z.infer<typeof ScopeInputSchema>;
 export type CreateRangeInterruptionCasePayload = z.infer<typeof CreateRangeInterruptionCaseInputSchema>;
-export type LinkRangeInterruptionScopePayload = z.infer<typeof LinkRangeInterruptionScopeInputSchema>;
 export type AppendRangeInterruptionEntryPayload = z.infer<typeof AppendRangeInterruptionEntryInputSchema>;
 export type RecordTargetRecoveryAssessmentPayload = z.infer<typeof RecordTargetRecoveryAssessmentInputSchema>;
 export type RecordRangeCommandBatchPayload = z.infer<typeof RecordRangeCommandBatchInputSchema>;
@@ -540,10 +515,10 @@ export type RecordQualificationTimedTargetRecoveryDecisionPayload = z.infer<
 
 export const rangeInterruptionsContract = defineContract('rangeInterruptions', {
   listAll: query(queryResponseSchema(z.array(RangeInterruptionCaseDtoSchema))),
-  listByScope: query(ScopeInputSchema, queryResponseSchema(z.array(RangeInterruptionCaseDtoSchema))),
+  listByScope: query(caseScopeInputSchema, queryResponseSchema(z.array(RangeInterruptionCaseDtoSchema))),
   getById: query(z.object({ caseId: uuidSchema }), queryResponseSchema(RangeInterruptionCaseDtoSchema)),
   create: command(CreateRangeInterruptionCaseInputSchema, commandDataResponseSchema(RangeInterruptionCaseDtoSchema)),
-  linkScope: command(LinkRangeInterruptionScopeInputSchema, commandDataResponseSchema(RangeInterruptionCaseDtoSchema)),
+  linkScope: command(linkCaseScopeInputSchema, commandDataResponseSchema(RangeInterruptionCaseDtoSchema)),
   appendEntry: command(
     AppendRangeInterruptionEntryInputSchema,
     commandDataResponseSchema(RangeInterruptionCaseDtoSchema),

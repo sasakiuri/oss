@@ -8,7 +8,7 @@ import type {
   AppendRangeInterruptionEntryPayload,
   RangeInterruptionCaseDto,
   RangeInterruptionEntryTypeDto,
-  RangeInterruptionScopePayload,
+  CaseScopePayload,
 } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -200,7 +200,7 @@ export function LinkScopeForm({
   onMutate,
 }: {
   interruption: RangeInterruptionCaseDto;
-  scope: RangeInterruptionScopePayload;
+  scope: CaseScopePayload;
   saving: boolean;
   onMutate: FormProps['onMutate'];
 }) {

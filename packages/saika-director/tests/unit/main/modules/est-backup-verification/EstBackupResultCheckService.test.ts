@@ -1,4 +1,3 @@
-import type { ResultScope } from '@/main/domain/resultScope';
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,7 +16,12 @@ import {
   SqliteResultVerificationRepository,
   type VerifiableResult,
 } from '@/main/modules/result-verification';
-import type { RankedResultDto, ApplyEstBackupChecksPayload, EstBackupVerificationRunDto } from '@/shared/ipc/contracts';
+import type {
+  RankedResultDto,
+  ApplyEstBackupChecksPayload,
+  EstBackupVerificationRunDto,
+  ResultScope,
+} from '@/shared/ipc/contracts';
 
 import { migratedDatabase } from '../../../../helpers/database';
 

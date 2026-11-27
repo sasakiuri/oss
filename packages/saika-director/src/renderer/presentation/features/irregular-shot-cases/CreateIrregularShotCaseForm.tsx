@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { AsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { irregularShotCasesService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
-import type { IrregularShotCaseDto } from '@/shared/ipc/contracts';
+import type { IrregularShotCaseDto, ResultScope } from '@/shared/ipc/contracts';
 
 import { lowerCaseLabel } from '../../formatters/enumLabel';
 import { Button } from '../shared/common/Button';
@@ -15,7 +15,7 @@ import { toggleSetMember } from '../shared/common/toggleSetMember';
 interface CreateIrregularShotCaseFormProps {
   eventId: string;
   competitionId: string;
-  resultScope: 'QUALIFICATION' | 'FINAL';
+  resultScope: ResultScope;
   lanes: readonly { laneId: string; label: string }[];
   adjudication?: FinalSeriesAdjudicationCapability;
   disabled: boolean;

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { officialSigningEvidenceSchema, officialSigningRequestFields } from './officialSigning.schema';
+import { resultScopeSchema } from './resultScope.schema';
 
 const uuid = z.string().uuid();
 const officialRole = z.enum([
@@ -39,7 +40,7 @@ const eligibleRecordMember = z.object({
 const eligibleResult = z.object({
   eventId: uuid,
   eventName: z.string().min(1),
-  resultScope: z.enum(['QUALIFICATION', 'FINAL']),
+  resultScope: resultScopeSchema,
   resultId: uuid,
   subjectKind: z.enum(['INDIVIDUAL', 'TEAM', 'MIXED_TEAM']),
   subjectId: z.string().min(1),
@@ -148,7 +149,7 @@ export const resultsBooksContract = defineContract('resultsBooks', {
     z.object({
       championshipId: uuid,
       resultId: uuid,
-      resultScope: z.enum(['QUALIFICATION', 'FINAL']),
+      resultScope: resultScopeSchema,
       code: recordCode,
       resultBasis: recordResultBasis,
       benchmarkScoreX10: z.number().int().nonnegative(),

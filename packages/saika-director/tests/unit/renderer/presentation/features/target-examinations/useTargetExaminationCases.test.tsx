@@ -3,7 +3,7 @@ import { StrictMode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useTargetExaminationCases } from '@/renderer/presentation/features/target-examinations/useTargetExaminationCases';
-import type { TargetExaminationCaseDto, TargetExaminationScopePayload } from '@/shared/ipc/contracts';
+import type { TargetExaminationCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { CASE_ID, caseFixture, deferred } from './fixtures';
 
@@ -16,7 +16,7 @@ vi.mock('@/renderer/services', () => ({ targetExaminationsService: { listAll, li
 
 const response = (...data: TargetExaminationCaseDto[]) => ({ success: true as const, data });
 const updated = () => ({ success: true as const, data: caseFixture() });
-const scope = (scopeId: string): TargetExaminationScopePayload => ({ scopeType: 'COMPETITION', scopeId });
+const scope = (scopeId: string): CaseScopePayload => ({ scopeType: 'COMPETITION', scopeId });
 const entry = { caseId: CASE_ID, type: 'NOTE' as const, statement: 'Examined records', officialName: 'RTS Officer' };
 
 beforeEach(() => {

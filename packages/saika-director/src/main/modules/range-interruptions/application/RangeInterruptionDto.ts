@@ -6,7 +6,7 @@ import type {
   RangeInterruptionCaseDto,
   RangeInterruptionCommandBatchDto,
   RangeInterruptionEntryDto,
-  RangeInterruptionScopeDto,
+  CaseScopeDto,
   TargetRecoveryAssessmentDto,
 } from '@/shared/ipc/contracts';
 
@@ -204,7 +204,7 @@ function toTargetRecoveryAssessmentDto(assessment: TargetRecoveryAssessment): Ta
   };
 }
 
-function toScopeDto(scope: RangeInterruptionScopeLink): RangeInterruptionScopeDto {
+function toScopeDto(scope: RangeInterruptionScopeLink): CaseScopeDto {
   return {
     id: scope.id,
     caseId: scope.caseId,

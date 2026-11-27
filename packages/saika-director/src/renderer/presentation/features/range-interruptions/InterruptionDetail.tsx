@@ -3,7 +3,7 @@ import { PauseCircle, Play } from 'lucide-react';
 
 import { mqttService, rangeInterruptionsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
-import type { RangeInterruptionCaseDto, RangeInterruptionScopePayload } from '@/shared/ipc/contracts';
+import type { RangeInterruptionCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 
@@ -53,7 +53,7 @@ export function InterruptionDetail({
   onMutate,
 }: {
   interruption: RangeInterruptionCaseDto;
-  additionalScopes: readonly RangeInterruptionScopePayload[];
+  additionalScopes: readonly CaseScopePayload[];
   lanes: readonly RangeInterruptionLaneOption[];
   competitionId?: string;
   saving: boolean;
@@ -507,11 +507,11 @@ export function InterruptionDetail({
         </section>
       )}
 
-      {(interruption.commandBatches?.length ?? 0) > 0 && (
+      {interruption.commandBatches.length > 0 && (
         <section className="rounded-[3px] border border-vscode-border bg-vscode-bg p-3">
           <h4 className="text-[13px] font-semibold text-vscode-text">Range command attempts</h4>
           <div className="mt-2 space-y-2">
-            {interruption.commandBatches!.map((batch) => (
+            {interruption.commandBatches.map((batch) => (
               <div key={batch.id} className="border-l-2 border-vscode-border pl-3 text-xs leading-5">
                 <p className={batch.success ? 'font-medium text-vscode-text' : 'font-medium text-vscode-warning'}>
                   {lowerCaseLabel(batch.operation)} ·{' '}

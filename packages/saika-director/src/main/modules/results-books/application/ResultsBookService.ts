@@ -1,4 +1,3 @@
-import type { ResultScope } from '@/main/domain/resultScope';
 import { createHash } from 'node:crypto';
 import { basename } from 'node:path';
 
@@ -9,7 +8,7 @@ import {
   type IOfficialSigningPolicy,
   type OfficialSigningRequest,
 } from '@/main/modules/official-signing';
-import type { ResultsBookWorkspaceDto } from '@/shared/ipc/contracts';
+import type { ResultsBookWorkspaceDto, ResultScope } from '@/shared/ipc/contracts';
 
 import type { IResultsBookDocumentExporter, ResultsBookDocumentFormat } from './IResultsBookDocumentExporter';
 import type { IResultsBookRepository } from '../domain/IResultsBookRepository';

@@ -1,12 +1,12 @@
 import { targetExaminationsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
-import type { TargetExaminationCaseDto, TargetExaminationScopePayload } from '@/shared/ipc/contracts';
+import type { TargetExaminationCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { useCaseWorkspace, type CaseWorkspaceOptions } from '../shared/cases/useCaseWorkspace';
 
 import type { TargetExaminationCommands } from './examinationTypes';
 
-const workspaceOptions: CaseWorkspaceOptions<TargetExaminationScopePayload['scopeType'], TargetExaminationCaseDto> = {
+const workspaceOptions: CaseWorkspaceOptions<CaseScopePayload['scopeType'], TargetExaminationCaseDto> = {
   list: async (scope) =>
     unwrap(scope ? await targetExaminationsService.listByScope(scope) : await targetExaminationsService.listAll()),
   isDefaultCandidate: (examination) => examination.status === 'OPEN',
@@ -15,7 +15,7 @@ const workspaceOptions: CaseWorkspaceOptions<TargetExaminationScopePayload['scop
 };
 
 /** Owns queries and commands for one workspace visit, independently of its forms. */
-export function useTargetExaminationCases(primaryScope?: TargetExaminationScopePayload) {
+export function useTargetExaminationCases(primaryScope?: CaseScopePayload) {
   const { cases, selectedCaseId, selectCase, selectedCase, loading, saving, error, loadCases, runMutation } =
     useCaseWorkspace(primaryScope, workspaceOptions);
 

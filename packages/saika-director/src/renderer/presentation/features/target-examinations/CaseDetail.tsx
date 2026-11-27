@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { TargetExaminationCaseDto, TargetExaminationScopePayload } from '@/shared/ipc/contracts';
+import type { TargetExaminationCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 
@@ -18,7 +18,7 @@ export function CaseDetail({
   commands,
 }: {
   examination: TargetExaminationCaseDto;
-  additionalScopes: readonly TargetExaminationScopePayload[];
+  additionalScopes: readonly CaseScopePayload[];
   saving: boolean;
   commands: TargetExaminationCommands;
 }) {

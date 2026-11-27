@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { IrregularShotCase, IrregularShotCaseEntry, IrregularShotEvidence } from './IrregularShotCase';
 
 export interface IIrregularShotCaseRepository {

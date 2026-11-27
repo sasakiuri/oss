@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 
 import { publicationReviewPolicyService } from '@/renderer/services';
 import { errorMessage, unwrap } from '@/renderer/services/serviceError';
-import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
+import type { ResultPublicationReviewSettingsDto, ResultScope } from '@/shared/ipc/contracts';
 import type { PublicationReviewPolicyStatus } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 
@@ -21,7 +21,7 @@ export function PublicationReviewPolicyPanel({
   onChanged,
 }: {
   eventId: string;
-  resultScope: 'QUALIFICATION' | 'FINAL';
+  resultScope: ResultScope;
   onChanged: () => Promise<void>;
 }) {
   const [status, setStatus] = useState<PublicationReviewPolicyStatus | null>(null);

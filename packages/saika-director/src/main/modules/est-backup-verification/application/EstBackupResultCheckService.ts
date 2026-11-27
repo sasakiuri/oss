@@ -1,4 +1,3 @@
-import type { ResultScope } from '@/main/domain/resultScope';
 import type {
   AddVerificationCheckPayload,
   ApplyEstBackupChecksPayload,
@@ -6,6 +5,7 @@ import type {
   EstBackupCheckReceiptDto,
   ResultVerificationCheckDto,
   ResultVerificationStatusDto,
+  ResultScope,
 } from '@/shared/ipc/contracts';
 import type { IEstBackupVerificationRepository } from '../domain/IEstBackupVerificationRepository';
 import { sha256Json } from '@/main/domain/sha256Json';

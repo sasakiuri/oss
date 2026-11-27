@@ -1,4 +1,3 @@
-import type { ResultScope } from '@/main/domain/resultScope';
 import { OfficialSigningPolicy, type IOfficialSigningPolicy } from '@/main/modules/official-signing';
 
 import type {
@@ -9,6 +8,7 @@ import type {
   ResultVerificationStatusDto,
   RevokeResultListApprovalPayload,
   VerificationResultItemDto,
+  ResultScope,
 } from '@/shared/ipc/contracts';
 
 import type { IResultVerificationRepository } from '../domain/IResultVerificationRepository';

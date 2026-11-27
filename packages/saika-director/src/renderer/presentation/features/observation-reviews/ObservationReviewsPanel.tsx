@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { observationReviewsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
-import type { ObservationReviewItemDto } from '@/shared/ipc/contracts';
+import type { ObservationReviewItemDto, ResultScope } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 
 type Props =
   | { competitionId: string; eventId?: never; resultScope?: never }
-  | { competitionId?: never; eventId: string; resultScope: 'QUALIFICATION' | 'FINAL' };
+  | { competitionId?: never; eventId: string; resultScope: ResultScope };
 export function ObservationReviewsPanel({ competitionId, eventId, resultScope }: Props) {
   const [items, setItems] = useState<ObservationReviewItemDto[]>([]);
   const [selectedId, setSelectedId] = useState('');

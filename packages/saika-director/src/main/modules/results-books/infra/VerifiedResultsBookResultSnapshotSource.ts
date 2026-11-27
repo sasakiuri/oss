@@ -1,6 +1,5 @@
-import type { ResultScope } from '@/main/domain/resultScope';
 import type { IResultPublicationReadiness } from '@/main/modules/result-publication';
-import type { ResultVerificationStatusDto } from '@/shared/ipc/contracts';
+import type { ResultVerificationStatusDto, ResultScope } from '@/shared/ipc/contracts';
 
 import type {
   IResultsBookOfficialRevisionSource,

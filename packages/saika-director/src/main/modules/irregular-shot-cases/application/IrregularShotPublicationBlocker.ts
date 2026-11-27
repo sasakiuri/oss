@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import { isRangeIncidentReportVoided, type IRangeIncidentReportRepository } from '@/main/modules/incident-reports';
 import { getActiveScoringDecisions, type IScoringDecisionRepository } from '@/main/modules/scoring-decisions';
 import type { IResultPublicationBlocker } from '@/main/modules/result-publication';

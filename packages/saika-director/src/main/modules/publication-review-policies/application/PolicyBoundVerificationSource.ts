@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { IResultVerificationSource } from '@/main/modules/result-verification';
 import { sha256Json } from '@/main/domain/sha256Json';
 

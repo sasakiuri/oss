@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 import { rangeInterruptionsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
-import type { RangeInterruptionCaseDto, RangeInterruptionScopePayload } from '@/shared/ipc/contracts';
+import type { RangeInterruptionCaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { useCaseWorkspace, type CaseWorkspaceOptions } from '../shared/cases/useCaseWorkspace';
 
-const workspaceOptions: CaseWorkspaceOptions<RangeInterruptionScopePayload['scopeType'], RangeInterruptionCaseDto> = {
+const workspaceOptions: CaseWorkspaceOptions<CaseScopePayload['scopeType'], RangeInterruptionCaseDto> = {
   list: async (scope) =>
     unwrap(scope ? await rangeInterruptionsService.listByScope(scope) : await rangeInterruptionsService.listAll()),
   isDefaultCandidate: (interruption) => interruption.status !== 'CLOSED' && interruption.status !== 'VOID',
@@ -14,7 +14,7 @@ const workspaceOptions: CaseWorkspaceOptions<RangeInterruptionScopePayload['scop
 };
 
 /** Owns one scope's queries, selection and mutation recovery. */
-export function useRangeInterruptionCases(primaryScope?: RangeInterruptionScopePayload) {
+export function useRangeInterruptionCases(primaryScope?: CaseScopePayload) {
   const { cases, selectedCaseId, selectCase, selectedCase, loading, saving, error, loadCases, runMutation } =
     useCaseWorkspace(primaryScope, workspaceOptions);
   return {

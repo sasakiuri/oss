@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { IResultPublicationRepository } from '../domain/IResultPublicationRepository';
 import { ResultPublication, type ResultPublicationStatus } from '../domain/ResultPublication';
 import type { ResultPublicationEntry } from '../domain/ResultPublicationEntry';

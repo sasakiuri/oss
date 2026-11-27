@@ -1,5 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
-import type { RankedResultDto } from '@/shared/ipc/contracts';
+import type { RankedResultDto, ResultScope } from '@/shared/ipc/contracts';
 
 export interface VerificationEvidenceSummary {
   readonly expectedShots: number;

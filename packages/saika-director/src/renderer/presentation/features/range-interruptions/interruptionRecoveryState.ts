@@ -34,7 +34,7 @@ export function rangeTargetLaneIds(
   interruption: RangeInterruptionCaseDto,
   lanes: readonly RangeInterruptionLaneOption[],
 ): string[] {
-  return interruption.commandBatches?.at(0)?.targetLaneIds ?? lanes.map((lane) => lane.laneId);
+  return interruption.commandBatches.at(0)?.targetLaneIds ?? lanes.map((lane) => lane.laneId);
 }
 
 export function pendingRangeLaneIds(
@@ -43,7 +43,7 @@ export function pendingRangeLaneIds(
   targetLaneIds: readonly string[],
 ): string[] {
   const latest = new Map<string, 'done' | 'error' | 'timeout'>();
-  for (const batch of interruption.commandBatches ?? []) {
+  for (const batch of interruption.commandBatches) {
     if (batch.operation !== operation || !sameLaneSet(batch.targetLaneIds, targetLaneIds)) continue;
     for (const outcome of batch.outcomes) latest.set(outcome.laneId, outcome.status);
   }
@@ -51,8 +51,9 @@ export function pendingRangeLaneIds(
 }
 
 export function rangeBatchRecoveryComplete(interruption: RangeInterruptionCaseDto): boolean {
-  const batches = interruption.commandBatches ?? [];
-  return batches.every((batch) => pendingRangeLaneIds(interruption, batch.operation, batch.targetLaneIds).length === 0);
+  return interruption.commandBatches.every(
+    (batch) => pendingRangeLaneIds(interruption, batch.operation, batch.targetLaneIds).length === 0,
+  );
 }
 
 function sameLaneSet(a: readonly string[], b: readonly string[]): boolean {

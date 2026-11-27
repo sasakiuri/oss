@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { RulePackRegistry } from '@sasakiuri/saika-rules';
 import { GetEventByIdToken } from '@/main/modules/championship';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';

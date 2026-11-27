@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { rangeInterruptionsService } from '@/renderer/services';
 import { unwrap } from '@/renderer/services/serviceError';
-import type { RangeInterruptionPhaseDto, RangeInterruptionScopePayload } from '@/shared/ipc/contracts';
+import type { RangeInterruptionPhaseDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 
@@ -175,8 +175,8 @@ export function RangeInterruptionsPanel({
 }
 
 interface RangeInterruptionsPanelProps {
-  primaryScope?: RangeInterruptionScopePayload;
-  additionalScopes?: readonly RangeInterruptionScopePayload[];
+  primaryScope?: CaseScopePayload;
+  additionalScopes?: readonly CaseScopePayload[];
   lanes?: readonly RangeInterruptionLaneOption[];
   competitionId?: string;
   defaultLaneId?: string;
@@ -185,7 +185,7 @@ interface RangeInterruptionsPanelProps {
   qualificationTimedTargetCompetitionTypeId?: string;
 }
 
-function uniqueScopes(scopes: readonly RangeInterruptionScopePayload[]): RangeInterruptionScopePayload[] {
+function uniqueScopes(scopes: readonly CaseScopePayload[]): CaseScopePayload[] {
   const seen = new Set<string>();
   return scopes.filter((scope) => {
     const key = `${scope.scopeType}:${scope.scopeId}`;

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { TargetExaminationIssueKindDto, TargetExaminationScopePayload } from '@/shared/ipc/contracts';
+import type { TargetExaminationIssueKindDto, CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
 
@@ -16,7 +16,7 @@ export function CreateCaseForm({
   onCreate,
   onCancel,
 }: {
-  scopes: TargetExaminationScopePayload[];
+  scopes: CaseScopePayload[];
   lanes: readonly TargetExaminationLaneOption[];
   defaultLaneId?: string;
   saving: boolean;

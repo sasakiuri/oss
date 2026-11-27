@@ -2,10 +2,11 @@
 import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
+import { resultScopeSchema } from './resultScope.schema';
 
 const uuid = z.string().uuid();
 const digest = z.string().regex(/^[a-f0-9]{64}$/);
-const target = z.object({ resultId: uuid, resultScope: z.enum(['QUALIFICATION', 'FINAL']) });
+const target = z.object({ resultId: uuid, resultScope: resultScopeSchema });
 const official = { officialName: z.string().trim().min(1).max(200), statement: z.string().trim().min(1).max(2000) };
 const ranking = z.object({
   shotId: z.string().nullable(),

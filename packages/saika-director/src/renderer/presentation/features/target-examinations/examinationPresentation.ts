@@ -3,7 +3,7 @@ import type {
   TargetExaminationEntryTypeDto,
   TargetExaminationEvidenceTypeDto,
   TargetExaminationIssueKindDto,
-  TargetExaminationScopePayload,
+  CaseScopePayload,
 } from '@/shared/ipc/contracts';
 
 export const ISSUE_OPTIONS: ReadonlyArray<{
@@ -64,7 +64,7 @@ export function defaultEntryRule(type: TargetExaminationEntryTypeDto, examinatio
   return '';
 }
 
-export function uniqueScopes(scopes: readonly TargetExaminationScopePayload[]): TargetExaminationScopePayload[] {
+export function uniqueScopes(scopes: readonly CaseScopePayload[]): CaseScopePayload[] {
   const seen = new Set<string>();
   return scopes.filter((scope) => {
     const key = `${scope.scopeType}:${scope.scopeId}`;

@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import { describe, expect, it } from 'vitest';
 import { ISSF_2026_P25_FINAL, ISSF_2026_RFPM_FINAL } from '@sasakiuri/saika-rules';
 

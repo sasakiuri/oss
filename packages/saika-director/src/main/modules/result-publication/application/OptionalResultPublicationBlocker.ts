@@ -1,4 +1,4 @@
-import type { ResultScope } from '@/main/domain/resultScope';
+import type { ResultScope } from '@/shared/ipc/contracts';
 import type { IResultPublicationBlocker } from './ResultPublicationPorts';
 
 /** Runtime installation policy is separate from the ledger and its factual review. */

@@ -2,8 +2,9 @@ import { z } from 'zod';
 
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 
+import { caseScopeTypeSchema as scopeType } from './caseScope.schema';
+
 const uuid = z.string().uuid();
-const scopeType = z.enum(['EVENT', 'COMPETITION']);
 const category = z.enum([
   'SCORING',
   'RANGE_INCIDENT',

@@ -2,8 +2,9 @@ import { z } from 'zod';
 import { command, commandDataResponseSchema, defineContract, query, queryResponseSchema } from '@sasakiuri/saika-ipc';
 import { officialSigningEvidenceSchema } from './officialSigning.schema';
 import { reviewSettingsSchema } from './resultPublication.contract';
+import { resultScopeSchema } from './resultScope.schema';
 
-const scope = z.object({ eventId: z.string().uuid(), resultScope: z.enum(['QUALIFICATION', 'FINAL']) });
+const scope = z.object({ eventId: z.string().uuid(), resultScope: resultScopeSchema });
 const mode = z.enum(['INHERIT', 'PINNED']);
 export const publicationReviewPolicyEntrySchema = scope.extend({
   id: z.string().uuid(),

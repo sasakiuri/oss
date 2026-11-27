@@ -1,7 +1,7 @@
 import { FileSearch, Plus, RefreshCw, ShieldAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import type { TargetExaminationScopePayload } from '@/shared/ipc/contracts';
+import type { CaseScopePayload } from '@/shared/ipc/contracts';
 
 import { CaseListItem } from '../shared/cases/CaseListItem';
 import { Button } from '../shared/common/Button';
@@ -14,8 +14,8 @@ import { useTargetExaminationCases } from './useTargetExaminationCases';
 import { InlineError } from '../shared/common/InlineError';
 
 interface TargetExaminationsPanelProps {
-  primaryScope?: TargetExaminationScopePayload;
-  additionalScopes?: readonly TargetExaminationScopePayload[];
+  primaryScope?: CaseScopePayload;
+  additionalScopes?: readonly CaseScopePayload[];
   lanes?: readonly TargetExaminationLaneOption[];
   defaultLaneId?: string;
 }

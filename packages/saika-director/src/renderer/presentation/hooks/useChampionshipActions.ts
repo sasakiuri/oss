@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useChampionshipStore } from '../stores/domain/championship.store';
 import { useNotificationStore } from '../stores/ui/notifications.store';
 import { championshipService } from '@/renderer/services';
+import type { DataResponse } from '@/renderer/services/serviceError';
 import type {
   CreateChampionshipPayload,
   UpdateChampionshipPayload,
@@ -11,10 +12,8 @@ import type {
   SaveFiringPointAssignmentsPayload,
 } from '@/shared/ipc/contracts';
 
-type RefreshResponse = { success: true } | { success: false; error: { message: string } };
-
 /** A reload after a successful command never turns it into a failure; a failed reload is reported on its own. */
-async function refreshAfterCommand(refresh: () => Promise<RefreshResponse>, failure: string): Promise<void> {
+async function refreshAfterCommand(refresh: () => Promise<DataResponse<unknown>>, failure: string): Promise<void> {
   let message: string | null;
   try {
     const response = await refresh();

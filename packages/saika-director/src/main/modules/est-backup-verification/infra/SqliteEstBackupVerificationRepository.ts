@@ -1,6 +1,9 @@
-import type { ResultScope } from '@/main/domain/resultScope';
 import type Database from 'better-sqlite3';
-import type { CreateEstBackupVerificationPayload, EstBackupVerificationRunDto } from '@/shared/ipc/contracts';
+import type {
+  CreateEstBackupVerificationPayload,
+  EstBackupVerificationRunDto,
+  ResultScope,
+} from '@/shared/ipc/contracts';
 import type { IEstBackupVerificationRepository } from '../domain/IEstBackupVerificationRepository';
 
 interface Row {

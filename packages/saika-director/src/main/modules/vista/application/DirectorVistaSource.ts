@@ -13,7 +13,7 @@ import { projectFinalOperation, type IFinalOperationRepository } from '@/main/mo
 import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
 import type { IReserveTransferRepository } from '@/main/modules/reserve-lane-transfers';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { MqttControlSnapshotDto } from '@/shared/ipc/contracts';
+import type { MqttControlSnapshotDto, ResultScope } from '@/shared/ipc/contracts';
 import type { ResultBoardSnapshotDto } from '@/shared/ipc/contracts';
 import { ReserveLaneTransferBundleSchema } from '@sasakiuri/saika-protocol/ReserveLaneTransfer';
 
@@ -37,7 +37,7 @@ type RankingScope = 'relay' | 'event';
 const unconfirmedReplacementReason = 'An unconfirmed Lane session replacement requires source synchronization';
 
 export interface DirectorVistaBoards {
-  getSnapshot(eventId: string, scope: 'QUALIFICATION' | 'FINAL'): Promise<ResultBoardSnapshotDto>;
+  getSnapshot(eventId: string, scope: ResultScope): Promise<ResultBoardSnapshotDto>;
 }
 
 /** The Final and reserve transfer history a Vista snapshot shows and an archive freezes. */

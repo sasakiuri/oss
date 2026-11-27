@@ -1,36 +1,10 @@
-import { unwrap } from '@/renderer/services/serviceError';
-import type {
-  AppendRangeInterruptionEntryPayload,
-  MqttCommandExecutionResultDto,
-  RangeInterruptionCaseDto,
-} from '@/shared/ipc/contracts';
-import type { IpcErrorDto } from '@sasakiuri/saika-ipc';
-
-type ApiResult<T> = { success: true; data: T } | { success: false; error: IpcErrorDto };
+import { unwrap, type DataResponse } from '@/renderer/services/serviceError';
+import type { MqttCommandExecutionResultDto, RangeInterruptionCaseDto } from '@/shared/ipc/contracts';
+import type { ElectronAPI } from '@/shared/types/ElectronAPI';
 
 export interface RangeInterruptionLaneWorkflowPorts {
-  lane: {
-    pauseLaneTimer(input: {
-      competitionId: string;
-      laneId: string;
-      interruptionId: string;
-    }): Promise<ApiResult<MqttCommandExecutionResultDto>>;
-    resumeLaneTimer(input: {
-      competitionId: string;
-      laneId: string;
-      interruptionId: string;
-      authorizedRemainingSeconds: number;
-      unlimitedSightingShots: boolean;
-    }): Promise<ApiResult<MqttCommandExecutionResultDto>>;
-    resumeLaneMatch(input: {
-      competitionId: string;
-      laneId: string;
-      interruptionId: string;
-    }): Promise<ApiResult<MqttCommandExecutionResultDto>>;
-  };
-  ledger: {
-    appendEntry(input: AppendRangeInterruptionEntryPayload): Promise<ApiResult<RangeInterruptionCaseDto>>;
-  };
+  lane: Pick<ElectronAPI['mqtt'], 'pauseLaneTimer' | 'resumeLaneTimer' | 'resumeLaneMatch'>;
+  ledger: Pick<ElectronAPI['rangeInterruptions'], 'appendEntry'>;
 }
 
 interface LaneActionContext {
@@ -130,7 +104,7 @@ export async function applyLaneMatchResume(
   );
 }
 
-function requireCommandSuccess(response: ApiResult<MqttCommandExecutionResultDto>): MqttCommandExecutionResultDto {
+function requireCommandSuccess(response: DataResponse<MqttCommandExecutionResultDto>): MqttCommandExecutionResultDto {
   const result = unwrap(response);
   if (!result.success) {
     const failures = result.lanes
@@ -148,7 +122,7 @@ function requireLaneResult(result: MqttCommandExecutionResultDto, laneId: string
   return lane;
 }
 
-function requireLedgerSuccess(response: ApiResult<RangeInterruptionCaseDto>): RangeInterruptionCaseDto {
+function requireLedgerSuccess(response: DataResponse<RangeInterruptionCaseDto>): RangeInterruptionCaseDto {
   if (!response.success) {
     throw new Error(`The Lane command succeeded, but its audit entry could not be recorded: ${response.error.message}`);
   }

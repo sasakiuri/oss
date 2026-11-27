@@ -2,9 +2,9 @@ import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
 import type {
   AppendRangeInterruptionEntryPayload,
   CreateRangeInterruptionCasePayload,
-  LinkRangeInterruptionScopePayload,
+  LinkCaseScopePayload,
   RangeInterruptionCaseDto,
-  RangeInterruptionScopePayload,
+  CaseScopePayload,
   RecordTargetRecoveryAssessmentPayload,
   RecordRangeCommandBatchPayload,
   RecordQualificationTimedTargetRecoveryDecisionPayload,
@@ -58,7 +58,7 @@ export class RangeInterruptionService {
     return this.projectCases(this.repository.findAllCases());
   }
 
-  async listByScope(scope: RangeInterruptionScopePayload): Promise<RangeInterruptionCaseDto[]> {
+  async listByScope(scope: CaseScopePayload): Promise<RangeInterruptionCaseDto[]> {
     return this.projectCases(this.repository.findCasesByScope(scope));
   }
 
@@ -96,7 +96,7 @@ export class RangeInterruptionService {
     return qualificationTimedTargetContextFor(this.competitionTypes.get(requested.competitionTypeId), requested);
   }
 
-  async linkScope(input: LinkRangeInterruptionScopePayload): Promise<RangeInterruptionCaseDto> {
+  async linkScope(input: LinkCaseScopePayload): Promise<RangeInterruptionCaseDto> {
     this.requireChangeableCase(input.caseId, { allowClosed: true });
     const existing = this.repository.findScopesByCaseIds([input.caseId]).get(input.caseId) ?? [];
     if (existing.some((scope) => scope.scopeType === input.scope.scopeType && scope.scopeId === input.scope.scopeId)) {
@@ -344,7 +344,7 @@ export class RangeInterruptionService {
   }
 }
 
-function validateUniqueScopes(scopes: readonly RangeInterruptionScopePayload[]): void {
+function validateUniqueScopes(scopes: readonly CaseScopePayload[]): void {
   const keys = scopes.map((scope) => `${scope.scopeType}:${scope.scopeId}`);
   if (new Set(keys).size !== keys.length) throw new Error('Range interruption scopes must be unique');
 }
