@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import type { RankingShotEvidence } from '@/shared/competitionTypes';
+import { getSeriesIndexForShot, type RankingShotEvidence } from '@/shared/competitionTypes';
 
 import type { FinalResult } from '../domain/FinalResult';
 import type { Result } from '../domain/Result';
@@ -103,11 +103,7 @@ export function finalCorrectionBasis(result: FinalResult, seriesShotCounts: read
   };
 }
 export function correctionSeriesIndex(counts: readonly number[], shotIndex: number): number {
-  let end = 0;
-  const index = counts.findIndex((count) => {
-    end += count;
-    return shotIndex < end;
-  });
-  if (index < 0) throw new Error('Shot does not belong to the source series layout');
+  const index = getSeriesIndexForShot(counts, shotIndex);
+  if (index === null) throw new Error('Shot does not belong to the source series layout');
   return index;
 }

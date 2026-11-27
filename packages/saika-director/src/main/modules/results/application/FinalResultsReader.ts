@@ -1,5 +1,6 @@
 import { GetEventByIdToken } from '@/main/modules/championship';
 import {
+  findPlacementViolation,
   getCurrentFinalPlacementReview,
   type FinalPlacementReviewEntry,
   type IFinalPlacementReviewRepository,
@@ -357,26 +358,12 @@ function validateCurrentReview(
   candidates: readonly FinalProjectionCandidate[],
 ): review is FinalPlacementReviewEntry {
   if (!review || review.scoringRevision !== scoringRevision) return false;
-  const rankedCandidates = candidates.filter((candidate) => candidate.dto.classificationCode === null);
-  if (review.placements.length !== rankedCandidates.length) return false;
-  const ranks = new Set<number>();
-  const placementByParticipant = new Map(review.placements.map((placement) => [placement.participantId, placement]));
-  if (placementByParticipant.size !== review.placements.length) return false;
-
-  for (const candidate of rankedCandidates) {
-    const placement = placementByParticipant.get(candidate.dto.participantId);
-    if (
-      !placement ||
-      placement.resultId !== candidate.dto.id ||
-      !Number.isInteger(placement.rank) ||
-      placement.rank < 1 ||
-      ranks.has(placement.rank)
-    ) {
-      return false;
-    }
-    ranks.add(placement.rank);
-  }
-  return true;
+  return (
+    findPlacementViolation(
+      review.placements,
+      candidates.map((candidate) => candidate.dto),
+    ) === null
+  );
 }
 
 function compareProjectedResults(left: FinalRankedResultDto, right: FinalRankedResultDto): number {

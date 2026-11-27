@@ -18,8 +18,14 @@ import {
   type QualificationRecoveryExecutionRecord,
 } from '../domain/QualificationRecoveryExecution';
 import type { QualificationRecoverySettlementRecord } from '../domain/QualificationRecoverySettlement';
-import { createQualificationTimedTargetInterruptionContext } from '../domain/QualificationTimedTargetInterruptionContext';
-import { QualificationTimedTargetRecoveryDecision } from '../domain/QualificationTimedTargetRecoveryDecision';
+import {
+  assertQualificationSeriesRecoveryApplies,
+  qualificationTimedTargetContextFor,
+} from '../domain/QualificationTimedTargetInterruptionContext';
+import {
+  assertQualificationRecoveryCarriedOut,
+  QualificationTimedTargetRecoveryDecision,
+} from '../domain/QualificationTimedTargetRecoveryDecision';
 import { RangeInterruptionCase } from '../domain/RangeInterruptionCase';
 import {
   RangeInterruptionCommandBatch,
@@ -86,49 +92,8 @@ export class RangeInterruptionService {
     input: CreateRangeInterruptionCasePayload,
     requested: NonNullable<CreateRangeInterruptionCasePayload['qualificationTimedTargetContext']>,
   ) {
-    if (!['ATHLETE_NON_FAULT', 'ALL_TARGET_FAILURE', 'SINGLE_TARGET_FAILURE'].includes(input.cause)) {
-      throw new Error('ISSF 8.8.1 Qualification recovery applies only to a safety or technical interruption');
-    }
-    if (input.phase !== 'MATCH') {
-      throw new Error('Qualification series recovery requires a MATCH interruption');
-    }
-    if (!input.laneId) throw new Error('Qualification series recovery requires an affected Lane');
-
-    const definition = this.competitionTypes.get(requested.competitionTypeId);
-    const recovery = definition.timedTarget?.recovery;
-    if (recovery?.procedure !== 'QUALIFICATION') {
-      throw new Error(`Competition type ${definition.id} has no Qualification timed-target recovery policy`);
-    }
-    const stage = definition.config.stages[requested.stageIndex];
-    if (!stage || stage.type !== 'match' || !stage.id) {
-      throw new Error(`Competition type ${definition.id} has no MATCH stage ${requested.stageIndex}`);
-    }
-    const series = stage.series[requested.seriesIndex];
-    if (!series?.timedTargetProgramId || series.shots <= 0) {
-      throw new Error(
-        `Competition type ${definition.id} has no timed series at ${requested.stageIndex}:${requested.seriesIndex}`,
-      );
-    }
-    const identity = definition.rulePackIdentity;
-    return createQualificationTimedTargetInterruptionContext({
-      competitionTypeId: definition.id,
-      rulePack: identity
-        ? {
-            id: identity.id,
-            schemaVersion: identity.schemaVersion,
-            fingerprintSha256: identity.fingerprint.value,
-          }
-        : null,
-      stageId: stage.id,
-      stageIndex: requested.stageIndex,
-      seriesIndex: requested.seriesIndex,
-      timedTargetProgramId: series.timedTargetProgramId,
-      seriesShotLimit: series.shots,
-      recordedShots: requested.recordedShots,
-      seriesComplete: requested.seriesComplete,
-      laneSnapshotCapturedAt: requested.laneSnapshotCapturedAt,
-      recoveryCapability: recovery,
-    });
+    assertQualificationSeriesRecoveryApplies(input);
+    return qualificationTimedTargetContextFor(this.competitionTypes.get(requested.competitionTypeId), requested);
   }
 
   async linkScope(input: LinkRangeInterruptionScopePayload): Promise<RangeInterruptionCaseDto> {
@@ -159,27 +124,11 @@ export class RangeInterruptionService {
       throw new Error('Qualification timed-target recovery must use its separate decision and execution workflow');
     }
     if (interruption.qualificationTimedTargetContext && input.type === 'CLOSED') {
-      const decisions =
-        this.repository.findQualificationTimedTargetRecoveryDecisionsByCaseIds([input.caseId]).get(input.caseId) ?? [];
-      const decision = decisions.at(-1);
-      if (!decision) {
-        throw new Error('Record an official Qualification recovery decision before closing this interruption');
-      }
-      if (decision.authorizedRecovery.seriesRecovery.treatment === 'KEEP_RECORDED_SERIES') {
-        const settlement = this.qualificationSettlements(input.caseId).find(
-          (candidate) => candidate.decisionId === decision.id,
-        );
-        if (settlement?.status !== 'APPLIED') {
-          throw new Error('Apply the Qualification retain-series settlement before closing this interruption');
-        }
-      } else {
-        const seriesExecution = this.qualificationExecutions(input.caseId).find(
-          (execution) => execution.decisionId === decision.id && execution.phase === 'SERIES_RECOVERY',
-        );
-        if (seriesExecution?.status !== 'ADJUDICATED') {
-          throw new Error('Adjudicate the authorized Qualification series recovery before closing this interruption');
-        }
-      }
+      assertQualificationRecoveryCarriedOut(
+        this.repository.findQualificationTimedTargetRecoveryDecisionsByCaseIds([input.caseId]).get(input.caseId) ?? [],
+        this.qualificationExecutions(input.caseId),
+        this.qualificationSettlements(input.caseId),
+      );
     }
     validateTransition(input.type, state);
 

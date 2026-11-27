@@ -1,4 +1,6 @@
 import { requiredText } from '@/main/domain/guards';
+import type { CompetitionTypeDefinition } from '@/shared/competitionTypes';
+import type { CreateRangeInterruptionCasePayload } from '@/shared/ipc/contracts';
 import {
   recommendQualificationTimedTargetInterruption,
   type QualificationTimedTargetRecoveryCapability,
@@ -23,6 +25,64 @@ export interface QualificationTimedTargetInterruptionContext {
   readonly laneSnapshotCapturedAt: string;
   /** Immutable copy used so later registry changes cannot rewrite the original recommendation. */
   readonly recoveryCapability: QualificationTimedTargetRecoveryCapability;
+}
+
+type RequestedQualificationTimedTargetContext = NonNullable<
+  CreateRangeInterruptionCasePayload['qualificationTimedTargetContext']
+>;
+
+/** Throws unless the interruption qualifies for ISSF 8.8.1 Qualification series recovery. */
+export function assertQualificationSeriesRecoveryApplies(
+  interruption: Pick<CreateRangeInterruptionCasePayload, 'cause' | 'phase' | 'laneId'>,
+): void {
+  if (!['ATHLETE_NON_FAULT', 'ALL_TARGET_FAILURE', 'SINGLE_TARGET_FAILURE'].includes(interruption.cause)) {
+    throw new Error('ISSF 8.8.1 Qualification recovery applies only to a safety or technical interruption');
+  }
+  if (interruption.phase !== 'MATCH') {
+    throw new Error('Qualification series recovery requires a MATCH interruption');
+  }
+  if (!interruption.laneId) throw new Error('Qualification series recovery requires an affected Lane');
+}
+
+/** Captures the requested series and the competition type's recovery policy for a Qualification interruption. */
+export function qualificationTimedTargetContextFor(
+  definition: CompetitionTypeDefinition,
+  requested: RequestedQualificationTimedTargetContext,
+): QualificationTimedTargetInterruptionContext {
+  const recovery = definition.timedTarget?.recovery;
+  if (recovery?.procedure !== 'QUALIFICATION') {
+    throw new Error(`Competition type ${definition.id} has no Qualification timed-target recovery policy`);
+  }
+  const stage = definition.config.stages[requested.stageIndex];
+  if (!stage || stage.type !== 'match' || !stage.id) {
+    throw new Error(`Competition type ${definition.id} has no MATCH stage ${requested.stageIndex}`);
+  }
+  const series = stage.series[requested.seriesIndex];
+  if (!series?.timedTargetProgramId || series.shots <= 0) {
+    throw new Error(
+      `Competition type ${definition.id} has no timed series at ${requested.stageIndex}:${requested.seriesIndex}`,
+    );
+  }
+  const identity = definition.rulePackIdentity;
+  return createQualificationTimedTargetInterruptionContext({
+    competitionTypeId: definition.id,
+    rulePack: identity
+      ? {
+          id: identity.id,
+          schemaVersion: identity.schemaVersion,
+          fingerprintSha256: identity.fingerprint.value,
+        }
+      : null,
+    stageId: stage.id,
+    stageIndex: requested.stageIndex,
+    seriesIndex: requested.seriesIndex,
+    timedTargetProgramId: series.timedTargetProgramId,
+    seriesShotLimit: series.shots,
+    recordedShots: requested.recordedShots,
+    seriesComplete: requested.seriesComplete,
+    laneSnapshotCapturedAt: requested.laneSnapshotCapturedAt,
+    recoveryCapability: recovery,
+  });
 }
 
 export function createQualificationTimedTargetInterruptionContext(

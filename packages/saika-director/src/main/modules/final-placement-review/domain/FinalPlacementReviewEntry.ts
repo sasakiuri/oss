@@ -103,6 +103,44 @@ export class FinalPlacementReviewEntry {
 }
 
 /** The latest review is authoritative unless a later entry explicitly revokes it. */
+/** A Final result that a placement review must place, unless it carries a classification code. */
+export interface FinalPlacementTarget {
+  readonly id: string;
+  readonly participantId: string;
+  readonly playerName: string;
+  readonly classificationCode: string | null;
+}
+
+/**
+ * Returns why the placements do not give every non-classified Final result exactly one unique positive rank,
+ * or null when they do.
+ */
+export function findPlacementViolation(
+  placements: readonly FinalPlacementAssignment[],
+  results: readonly FinalPlacementTarget[],
+): string | null {
+  const rankedResults = results.filter((result) => result.classificationCode === null);
+  if (placements.length !== rankedResults.length) {
+    return 'Every non-classified Final result must have exactly one placement';
+  }
+  const placementByParticipant = new Map(placements.map((placement) => [placement.participantId, placement]));
+  if (placementByParticipant.size !== placements.length) {
+    return 'Every non-classified Final participant must have exactly one placement';
+  }
+  const ranks = new Set<number>();
+  for (const result of rankedResults) {
+    const placement = placementByParticipant.get(result.participantId);
+    if (!placement || placement.resultId !== result.id) {
+      return `Placement target for ${result.playerName} does not match the current Final result`;
+    }
+    if (!Number.isInteger(placement.rank) || placement.rank < 1 || ranks.has(placement.rank)) {
+      return 'Final placements must use unique positive ranks';
+    }
+    ranks.add(placement.rank);
+  }
+  return null;
+}
+
 export function getCurrentFinalPlacementReview(
   entries: readonly FinalPlacementReviewEntry[],
 ): FinalPlacementReviewEntry | null {

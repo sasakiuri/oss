@@ -6,13 +6,15 @@ import {
   type ScoreCorrectionProjection,
 } from '@/main/modules/results';
 
-import type {
-  IScoreCorrectionRepository,
-  IScoreCorrectionTargetSource,
-  IScoreCorrectionCaseSource,
-  ScoreCorrectionRequest,
-  ScoreCorrectionPreview,
-  ScoreCorrectionWithdrawal,
+import {
+  applyCorrectionChange,
+  correctShots,
+  type IScoreCorrectionRepository,
+  type IScoreCorrectionTargetSource,
+  type IScoreCorrectionCaseSource,
+  type ScoreCorrectionRequest,
+  type ScoreCorrectionPreview,
+  type ScoreCorrectionWithdrawal,
 } from '../domain/ScoreCorrection';
 import { sha256Json } from '@/main/domain/sha256Json';
 
@@ -30,9 +32,7 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
     return {
       ...target,
       cases: this.cases.list(target.basis),
-      history: this.repository
-        .list(target.basis)
-        .map((application) => ({ application, withdrawal: this.repository.withdrawal(application.id) })),
+      history: this.history(target.basis),
       projection: this.project(target.basis),
     };
   }
@@ -46,54 +46,7 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
     }
     const caseRevision = this.cases.revision(request.caseId, request.decisionId, basis);
     this.cases.validate?.(request, basis);
-    if (!request.changes.length) throw new Error('At least one correction is required');
-    const shots = structuredClone([...basis.shots]);
-    const indices = new Set<number>();
-    for (const change of request.changes) {
-      if (!Number.isInteger(change.shotIndex) || !shots[change.shotIndex] || indices.has(change.shotIndex))
-        throw new Error('Select distinct existing shot positions');
-      indices.add(change.shotIndex);
-      if (!change.evidenceReference.trim()) throw new Error('Every correction requires an evidence reference');
-      if (
-        !Number.isInteger(change.scoreX10) ||
-        change.scoreX10 < 0 ||
-        change.scoreX10 > (scoring === 'HIT_MISS' ? 10 : 109) ||
-        (scoring !== 'DECIMAL' && change.scoreX10 % 10 !== 0)
-      )
-        throw new Error('The corrected score does not match the event scoring mode');
-      if (
-        change.decimalScore !== null &&
-        (!Number.isFinite(change.decimalScore) ||
-          change.decimalScore < 0 ||
-          change.decimalScore > 10.9 ||
-          Math.abs(change.decimalScore * 10 - Math.round(change.decimalScore * 10)) > 0.000001 ||
-          (scoring === 'RING' && Math.floor(change.decimalScore) !== change.scoreX10 / 10) ||
-          (scoring === 'DECIMAL' && Math.round(change.decimalScore * 10) !== change.scoreX10))
-      )
-        throw new Error('Independent decimal evidence conflicts with the corrected score');
-      if (scoring === 'HIT_MISS' && (change.innerTen !== null || change.decimalScore !== null))
-        throw new Error('Hit/miss result corrections must not invent decimal or inner-ten evidence');
-      if (change.innerTen === true && Math.floor(change.scoreX10 / 10) !== 10)
-        throw new Error('Only a ten may be classified as an inner ten');
-      const replacement = {
-        scoreX10: change.scoreX10,
-        ranking: {
-          shotId: change.sourceShotId,
-          ringScore: Math.floor(change.scoreX10 / 10),
-          decimalScore: change.decimalScore,
-          ...(change.decimalScore !== null ? { decimalScoreSource: 'DEVICE' as const } : {}),
-          innerTen: change.innerTen,
-          seriesIndex: 0,
-        },
-      };
-      if (change.operation === 'INSERT_MISSING') {
-        shots.splice(change.shotIndex, 0, replacement);
-        shots.pop();
-      } else if (change.operation === 'REPLACE') shots[change.shotIndex] = replacement;
-      else throw new Error('Unsupported correction operation');
-    }
-    const linkedIds = shots.map((shot) => shot.ranking.shotId).filter((id) => id !== null);
-    if (new Set(linkedIds).size !== linkedIds.length) throw new Error('A source shot cannot be counted twice');
+    const shots = correctShots(basis.shots, request.changes, scoring);
     const corrected = shots.map((shot, index) => ({
       ...shot,
       ranking: { ...shot.ranking, seriesIndex: correctionSeriesIndex(basis.seriesShotCounts, index) },
@@ -137,10 +90,14 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
     });
   }
 
-  project(basis: ScoreCorrectionBasis): ScoreCorrectionProjection {
-    const history = this.repository
+  private history(basis: ScoreCorrectionBasis) {
+    return this.repository
       .list(basis)
       .map((application) => ({ application, withdrawal: this.repository.withdrawal(application.id) }));
+  }
+
+  project(basis: ScoreCorrectionBasis): ScoreCorrectionProjection {
+    const history = this.history(basis);
     const active = history.filter((item) => !item.withdrawal).map((item) => item.application);
     const result = {
       shots: basis.shots,
@@ -163,11 +120,7 @@ export class ScoreCorrectionService implements IResultScoreCorrectionSource {
       // Derive provenance from the persisted instructions without changing their saved format.
       const shotOrigins: { sourceShotIndex: number | null; corrected: boolean }[] = [...result.shotOrigins];
       for (const change of correction.request.changes) {
-        const origin = { sourceShotIndex: null, corrected: true };
-        if (change.operation === 'INSERT_MISSING') {
-          shotOrigins.splice(change.shotIndex, 0, origin);
-          shotOrigins.pop();
-        } else shotOrigins[change.shotIndex] = origin;
+        applyCorrectionChange(shotOrigins, change, { sourceShotIndex: null, corrected: true });
       }
       return { ...result, shots: correction.shots, shotOrigins };
     } catch (error) {

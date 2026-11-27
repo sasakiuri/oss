@@ -2,12 +2,15 @@ import type { IFinalResultsReader } from '@/main/modules/results';
 import type {
   FinalPlacementReviewEntryDto,
   FinalPlacementReviewStatusDto,
-  FinalRankedResultDto,
   RecordFinalPlacementReviewPayload,
   RevokeFinalPlacementReviewPayload,
 } from '@/shared/ipc/contracts';
 
-import { FinalPlacementReviewEntry, getCurrentFinalPlacementReview } from '../domain/FinalPlacementReviewEntry';
+import {
+  FinalPlacementReviewEntry,
+  findPlacementViolation,
+  getCurrentFinalPlacementReview,
+} from '../domain/FinalPlacementReviewEntry';
 import type { IFinalPlacementReviewRepository } from '../domain/IFinalPlacementReviewRepository';
 
 /** Validates and records explicit Final placements against the current scoring snapshot. */
@@ -54,7 +57,8 @@ export class FinalPlacementReviewService {
       throw new Error('Final scoring changed after this placement form was opened; reload before recording');
     }
     if (snapshot.results.length === 0) throw new Error('No Final results are available');
-    validatePlacements(input.placements, snapshot.results);
+    const violation = findPlacementViolation(input.placements, snapshot.results);
+    if (violation) throw new Error(violation);
 
     const review = FinalPlacementReviewEntry.createReview({
       eventId: input.eventId,
@@ -82,31 +86,6 @@ export class FinalPlacementReviewService {
     });
     this.repository.append(revocation);
     return toDto(revocation, false, false);
-  }
-}
-
-function validatePlacements(
-  placements: RecordFinalPlacementReviewPayload['placements'],
-  results: readonly FinalRankedResultDto[],
-): void {
-  const rankedResults = results.filter((result) => result.classificationCode === null);
-  if (placements.length !== rankedResults.length) {
-    throw new Error('Every non-classified Final result must have exactly one placement');
-  }
-  const placementByParticipant = new Map(placements.map((placement) => [placement.participantId, placement]));
-  if (placementByParticipant.size !== placements.length) {
-    throw new Error('Every non-classified Final participant must have exactly one placement');
-  }
-  const ranks = new Set<number>();
-  for (const result of rankedResults) {
-    const placement = placementByParticipant.get(result.participantId);
-    if (!placement || placement.resultId !== result.id) {
-      throw new Error(`Placement target for ${result.playerName} does not match the current Final result`);
-    }
-    if (!Number.isInteger(placement.rank) || placement.rank < 1 || ranks.has(placement.rank)) {
-      throw new Error('Final placements must use unique positive ranks');
-    }
-    ranks.add(placement.rank);
   }
 }
 
