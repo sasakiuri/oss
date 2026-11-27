@@ -1,5 +1,6 @@
 import { defineCommand } from '@/main/shared-infra/cqrs/CommandBus';
 import { defineQuery } from '@/main/shared-infra/cqrs/QueryBus';
+import type { ActiveShootoffDto } from '@/shared/ipc/contracts';
 
 import type {
   StartShootoffCommand,
@@ -15,4 +16,4 @@ export const CompleteShootoffRoundToken = defineCommand<CompleteShootoffRoundCom
 export const ResolveShootoffToken = defineCommand<ResolveShootoffCommand>('ResolveShootoff');
 
 // --- Query Tokens ---
-export const GetActiveShootoffToken = defineQuery<{ eventId: string }, unknown>('GetActiveShootoff');
+export const GetActiveShootoffToken = defineQuery<{ eventId: string }, ActiveShootoffDto | null>('GetActiveShootoff');

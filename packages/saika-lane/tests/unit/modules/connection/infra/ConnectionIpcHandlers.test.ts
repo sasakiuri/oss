@@ -263,9 +263,7 @@ describe('ConnectionIpcHandlers', () => {
   describe('getDevicesByManufacturer handler', () => {
     it('should return devices for KOHTO manufacturer', async () => {
       const handlers = createConnectionIpcHandlers(deps);
-      const result = (await handlers.getDevicesByManufacturer({ manufacturer: 'KOHTO' })) as {
-        devices: Array<{ id: string; manufacturer: string; displayName: string; baudRate: number }>;
-      };
+      const result = await handlers.getDevicesByManufacturer({ manufacturer: 'KOHTO' });
 
       expect(result.devices).toBeInstanceOf(Array);
       expect(result.devices.length).toBeGreaterThan(0);
@@ -278,9 +276,7 @@ describe('ConnectionIpcHandlers', () => {
 
     it('should return devices with correct manufacturer field', async () => {
       const handlers = createConnectionIpcHandlers(deps);
-      const result = (await handlers.getDevicesByManufacturer({ manufacturer: 'KOHTO' })) as {
-        devices: Array<{ manufacturer: string }>;
-      };
+      const result = await handlers.getDevicesByManufacturer({ manufacturer: 'KOHTO' });
 
       for (const device of result.devices) {
         expect(device.manufacturer).toBe('KOHTO');
@@ -364,9 +360,7 @@ describe('ConnectionIpcHandlers', () => {
 
     it('should return supportedDisciplines as string arrays', async () => {
       const handlers = createConnectionIpcHandlers(deps);
-      const result = (await handlers.getDevicesByManufacturer({ manufacturer: 'KOHTO' })) as {
-        devices: Array<{ supportedDisciplines: string[] }>;
-      };
+      const result = await handlers.getDevicesByManufacturer({ manufacturer: 'KOHTO' });
 
       for (const device of result.devices) {
         expect(device.supportedDisciplines).toBeInstanceOf(Array);

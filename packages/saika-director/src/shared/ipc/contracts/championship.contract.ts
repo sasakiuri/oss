@@ -6,7 +6,6 @@ import {
   query,
   CommandResponseSchema,
   commandDataResponseSchema,
-  commandWithDataSchema,
   queryResponseSchema,
 } from '@sasakiuri/saika-ipc';
 import { RulePackIdentitySchema } from '@sasakiuri/saika-protocol/CompetitionState';
@@ -215,10 +214,10 @@ export type SaveFiringPointAssignmentsPayload = z.infer<typeof SaveFiringPointAs
 
 export const championshipContract = defineContract('championship', {
   // Commands
-  create: command(CreateChampionshipPayloadSchema, commandWithDataSchema(z.string())),
+  create: command(CreateChampionshipPayloadSchema, commandDataResponseSchema(z.string())),
   update: command(UpdateChampionshipPayloadSchema, CommandResponseSchema),
   delete: command(DeleteChampionshipPayloadSchema, CommandResponseSchema),
-  createEvent: command(CreateEventPayloadSchema, commandWithDataSchema(z.string())),
+  createEvent: command(CreateEventPayloadSchema, commandDataResponseSchema(z.string())),
   deleteEvent: command(DeleteEventPayloadSchema, CommandResponseSchema),
   updateEvent: command(UpdateEventPayloadSchema, CommandResponseSchema),
   saveParticipants: command(SaveParticipantsPayloadSchema, commandDataResponseSchema(ParticipantListResponseSchema)),

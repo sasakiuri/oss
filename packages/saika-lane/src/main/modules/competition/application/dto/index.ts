@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 /** Competition DTOs use primitive values for transport to the renderer. */
+import type { Phase } from '../../domain/Phase';
 
 export interface TimerDto {
   remainingSeconds: number;
@@ -28,7 +29,7 @@ export interface CompetitionStateDto {
   } | null;
   id: string;
   sessionId: string;
-  phase: string;
+  phase: Phase;
   currentStageIndex: number;
   currentSeriesIndex: number;
   seriesShotCount: number;

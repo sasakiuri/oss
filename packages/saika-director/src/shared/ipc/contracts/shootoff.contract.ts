@@ -27,6 +27,8 @@ const ActiveShootoffSchema = z.object({
   participantIds: z.array(z.string()).min(2),
 });
 
+export type ActiveShootoffDto = z.infer<typeof ActiveShootoffSchema>;
+
 const StartShootoffResponseSchema = z.object({
   shootoffId: uuidSchema,
 });
