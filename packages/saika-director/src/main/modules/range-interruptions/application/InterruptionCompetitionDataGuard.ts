@@ -1,35 +1,32 @@
-import type {
-  CompetitionDataOperationContext,
-  ICompetitionDataGuard,
+import {
+  competitionDataOperationLabel,
+  type CompetitionDataOperationContext,
+  type ICompetitionDataGuard,
 } from '@/main/shared-infra/operations/CompetitionDataGuard';
 
 import type { IRangeInterruptionRepository } from '../domain/IRangeInterruptionRepository';
+import { getRangeInterruptionState } from '../domain/RangeInterruptionEntry';
 
 /** Adapts unfinished interruption records to the generic competition-data guard port. */
 export class InterruptionCompetitionDataGuard implements ICompetitionDataGuard {
   constructor(private readonly repository: IRangeInterruptionRepository) {}
 
   assertAllowed(context: CompetitionDataOperationContext): void {
-    const active = this.repository.findActiveDataHolds(
-      { scopeType: 'COMPETITION', scopeId: context.competitionId },
-      context.laneId,
+    const cases = this.repository
+      .findCasesByScope({ scopeType: 'COMPETITION', scopeId: context.competitionId })
+      .filter(
+        (interruption) =>
+          context.laneId === undefined || interruption.laneId === null || interruption.laneId === context.laneId,
+      );
+    const entries = this.repository.findEntriesByCaseIds(cases.map((interruption) => interruption.id));
+    const active = cases.filter(
+      (interruption) => getRangeInterruptionState(entries.get(interruption.id) ?? []).dataHoldActive,
     );
     if (active.length === 0) return;
 
     const references = active.map((interruption) => interruption.id.slice(0, 8)).join(', ');
     throw new Error(
-      `Range interruption ${references} is not closed; finish its audit record before ${operationLabel(context.operation)}`,
+      `Range interruption ${references} is not closed; finish its audit record before ${competitionDataOperationLabel(context.operation)}`,
     );
-  }
-}
-
-function operationLabel(operation: CompetitionDataOperationContext['operation']): string {
-  switch (operation) {
-    case 'LEAVE_LANE':
-      return 'removing the Lane';
-    case 'RESET_LANE_SESSION':
-      return 'resetting the Lane session';
-    case 'CLEAR_COMPETITION_DATA':
-      return 'clearing competition data';
   }
 }

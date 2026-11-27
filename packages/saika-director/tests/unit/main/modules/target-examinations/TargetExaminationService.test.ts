@@ -7,7 +7,6 @@ import type {
   TargetExaminationScope,
 } from '@/main/modules/target-examinations/domain/ITargetExaminationRepository';
 import type { TargetExaminationCase } from '@/main/modules/target-examinations/domain/TargetExaminationCase';
-import { getTargetExaminationState } from '@/main/modules/target-examinations/domain/TargetExaminationEntry';
 import type { TargetExaminationEntry } from '@/main/modules/target-examinations/domain/TargetExaminationEntry';
 import type { TargetExaminationEvidence } from '@/main/modules/target-examinations/domain/TargetExaminationEvidence';
 import type { TargetExaminationScopeLink } from '@/main/modules/target-examinations/domain/TargetExaminationScopeLink';
@@ -51,13 +50,6 @@ function harness() {
     findEvidenceByCaseIds: vi.fn((ids) => group(ids, evidence)),
     appendEntry: vi.fn((entry) => entries.push(entry)),
     findEntriesByCaseIds: vi.fn((ids) => group(ids, entries)),
-    findActiveEvidenceHolds: vi.fn((scope, laneId) => {
-      const scopedCases = repository.findCasesByScope(scope);
-      return scopedCases.filter((examination) => {
-        if (laneId !== undefined && examination.laneId !== null && examination.laneId !== laneId) return false;
-        return getTargetExaminationState(entries.filter((entry) => entry.caseId === examination.id)).evidenceHoldActive;
-      });
-    }),
   };
   return {
     service: new TargetExaminationService(repository),

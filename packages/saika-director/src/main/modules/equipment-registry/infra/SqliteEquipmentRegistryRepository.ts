@@ -1,6 +1,10 @@
 import type Database from 'better-sqlite3';
 
-import { equipmentRegistryEntrySchema, type EquipmentRegistryEntry } from '@/shared/ipc/contracts';
+import {
+  equipmentRegistryEntrySchema,
+  type EquipmentAthlete,
+  type EquipmentRegistryEntry,
+} from '@/shared/ipc/contracts';
 
 import type { IEquipmentRegistryRepository } from '../application/EquipmentRegistryService';
 
@@ -23,5 +27,13 @@ export class SqliteEquipmentRegistryRepository implements IEquipmentRegistryRepo
         .prepare('INSERT INTO equipment_registry_entries (id, championship_id, kind, payload_json) VALUES (?, ?, ?, ?)')
         .run(validated.id, validated.championshipId, validated.kind, JSON.stringify(validated));
     })();
+  }
+  /** The Championship's athlete identities that equipment can be registered to. */
+  athletes(championshipId: string): EquipmentAthlete[] {
+    return this.database
+      .prepare(
+        'SELECT id, display_name AS name, issf_id AS issfId FROM athlete_identities WHERE championship_id = ? ORDER BY display_name, id',
+      )
+      .all(championshipId) as EquipmentAthlete[];
   }
 }

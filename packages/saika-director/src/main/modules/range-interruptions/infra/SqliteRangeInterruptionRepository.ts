@@ -16,11 +16,7 @@ import {
   type RangeInterruptionCause,
   type RangeInterruptionPhase,
 } from '../domain/RangeInterruptionCase';
-import {
-  getRangeInterruptionState,
-  RangeInterruptionEntry,
-  type RangeInterruptionEntryType,
-} from '../domain/RangeInterruptionEntry';
+import { RangeInterruptionEntry, type RangeInterruptionEntryType } from '../domain/RangeInterruptionEntry';
 import { RangeInterruptionScopeLink, type RangeInterruptionScopeType } from '../domain/RangeInterruptionScopeLink';
 import { TargetRecoveryAssessment } from '../domain/TargetRecoveryAssessment';
 import {
@@ -338,14 +334,6 @@ export class SqliteRangeInterruptionRepository implements IRangeInterruptionRepo
       (row: QualificationTimedTargetRecoveryDecisionRow) => row.case_id,
       toQualificationTimedTargetRecoveryDecision,
     );
-  }
-
-  findActiveDataHolds(scope: RangeInterruptionScope, laneId?: string): RangeInterruptionCase[] {
-    const cases = this.findCasesByScope(scope).filter(
-      (interruption) => laneId === undefined || interruption.laneId === null || interruption.laneId === laneId,
-    );
-    const entries = this.findEntriesByCaseIds(cases.map((interruption) => interruption.id));
-    return cases.filter((interruption) => getRangeInterruptionState(entries.get(interruption.id) ?? []).dataHoldActive);
   }
 
   private insertScope(scope: RangeInterruptionScopeLink): void {

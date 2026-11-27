@@ -19,5 +19,4 @@ export interface ITargetExaminationRepository {
   findEvidenceByCaseIds(caseIds: readonly string[]): Map<string, TargetExaminationEvidence[]>;
   appendEntry(entry: TargetExaminationEntry): void;
   findEntriesByCaseIds(caseIds: readonly string[]): Map<string, TargetExaminationEntry[]>;
-  findActiveEvidenceHolds(scope: TargetExaminationScope, laneId?: string): TargetExaminationCase[];
 }

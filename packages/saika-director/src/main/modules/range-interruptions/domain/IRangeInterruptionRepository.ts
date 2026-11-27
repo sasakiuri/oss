@@ -27,5 +27,4 @@ export interface IRangeInterruptionRepository {
   findQualificationTimedTargetRecoveryDecisionsByCaseIds(
     caseIds: readonly string[],
   ): Map<string, QualificationTimedTargetRecoveryDecision[]>;
-  findActiveDataHolds(scope: RangeInterruptionScope, laneId?: string): RangeInterruptionCase[];
 }

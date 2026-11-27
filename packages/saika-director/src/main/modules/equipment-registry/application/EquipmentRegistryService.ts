@@ -1,15 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import type { z } from 'zod';
 
-import {
+import type {
   recordCalibrationSchema,
   recordEquipmentInspectionSchema,
   saveEquipmentSchema,
   withdrawEquipmentRecordSchema,
-  type EquipmentAthlete,
-  type EquipmentDetails,
-  type EquipmentRegistryEntry,
-  type EquipmentRegistryWorkspace,
+  EquipmentAthlete,
+  EquipmentDetails,
+  EquipmentRegistryEntry,
+  EquipmentRegistryWorkspace,
 } from '@/shared/ipc/contracts';
 
 export interface IEquipmentRegistryRepository {
@@ -66,8 +66,7 @@ export class EquipmentRegistryService {
     };
   }
 
-  saveEquipment(input: z.input<typeof saveEquipmentSchema>) {
-    const data = saveEquipmentSchema.parse(input);
+  saveEquipment(data: z.infer<typeof saveEquipmentSchema>) {
     const workspace = this.getWorkspace(data);
     const previous = workspace.equipment.find((item) => item.equipmentId === data.equipmentId);
     if (data.equipmentId && !previous) throw new Error('Equipment not found in this championship');
@@ -105,8 +104,7 @@ export class EquipmentRegistryService {
     return this.getWorkspace(data);
   }
 
-  recordCalibration(input: z.input<typeof recordCalibrationSchema>) {
-    const data = recordCalibrationSchema.parse(input);
+  recordCalibration(data: z.infer<typeof recordCalibrationSchema>) {
     this.repository.append(
       {
         ...this.base(data),
@@ -120,8 +118,7 @@ export class EquipmentRegistryService {
     return this.getWorkspace(data);
   }
 
-  recordInspection(input: z.input<typeof recordEquipmentInspectionSchema>) {
-    const data = recordEquipmentInspectionSchema.parse(input);
+  recordInspection(data: z.infer<typeof recordEquipmentInspectionSchema>) {
     const workspace = this.getWorkspace(data);
     const item = workspace.equipment.find((entry) => entry.equipmentId === data.equipmentId);
     if (!item || item.details.retired) throw new Error('Choose active equipment from this championship');
@@ -153,8 +150,7 @@ export class EquipmentRegistryService {
     return this.getWorkspace(data);
   }
 
-  withdraw(input: z.input<typeof withdrawEquipmentRecordSchema>) {
-    const data = withdrawEquipmentRecordSchema.parse(input);
+  withdraw(data: z.infer<typeof withdrawEquipmentRecordSchema>) {
     const entries = this.repository.list(data.championshipId);
     const record = entries.find((entry) => entry.id === data.withdrawsId);
     if (!record || !['CALIBRATION', 'INSPECTION'].includes(record.kind))

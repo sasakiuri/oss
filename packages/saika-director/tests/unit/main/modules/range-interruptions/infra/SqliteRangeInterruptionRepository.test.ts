@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { identifyRulePack, ISSF_2026_P25, recommendQualificationTimedTargetInterruption } from '@sasakiuri/saika-rules';
 
+import { InterruptionCompetitionDataGuard } from '@/main/modules/range-interruptions/application/InterruptionCompetitionDataGuard';
 import { RangeInterruptionCase } from '@/main/modules/range-interruptions/domain/RangeInterruptionCase';
 import { QualificationTimedTargetRecoveryDecision } from '@/main/modules/range-interruptions/domain/QualificationTimedTargetRecoveryDecision';
 import { RangeInterruptionEntry } from '@/main/modules/range-interruptions/domain/RangeInterruptionEntry';
@@ -56,17 +57,18 @@ describe('SqliteRangeInterruptionRepository', () => {
       recordedAt: new Date('2026-08-31T01:06:00.000Z'),
     });
 
+    const guard = new InterruptionCompetitionDataGuard(repository);
+    const resetLane = { operation: 'RESET_LANE_SESSION', competitionId: COMPETITION_ID, laneId: LANE_ID } as const;
+
     repository.appendCase(interruption, [scope]);
     repository.appendEntry(ended);
-    expect(repository.findActiveDataHolds({ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }, LANE_ID)).toEqual([
-      interruption,
-    ]);
+    expect(() => guard.assertAllowed(resetLane)).toThrow(`Range interruption ${interruption.id.slice(0, 8)} `);
     repository.appendEntry(closed);
 
     expect(repository.findCaseById(interruption.id)).toEqual(interruption);
     expect(repository.findCasesByScope({ scopeType: 'COMPETITION', scopeId: COMPETITION_ID })).toEqual([interruption]);
     expect(repository.findEntriesByCaseIds([interruption.id]).get(interruption.id)).toEqual([ended, closed]);
-    expect(repository.findActiveDataHolds({ scopeType: 'COMPETITION', scopeId: COMPETITION_ID }, LANE_ID)).toEqual([]);
+    expect(() => guard.assertAllowed(resetLane)).not.toThrow();
   });
 
   it('rejects mutation and deletion at the database boundary', () => {
