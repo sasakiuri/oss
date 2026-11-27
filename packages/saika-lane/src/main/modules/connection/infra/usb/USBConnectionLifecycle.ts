@@ -90,41 +90,23 @@ export class USBConnectionLifecycle {
     // Save connection settings
     this.config = config;
 
+    const serialOptions = toSerialOptions(config);
+
     // Create Connection entity
     const connection = Connection.create({
       manufacturer: config.manufacturer,
       portPath: config.portName,
-      baudRate: config.baudRate || 9600,
+      baudRate: serialOptions.baudRate,
       deviceId: config.deviceId,
     });
     this.connection = connection;
 
-    // Create SerialPort instance
-    const port = new SerialPort({
-      path: config.portName,
-      baudRate: config.baudRate || 9600,
-      dataBits: config.dataBits || 8,
-      stopBits: config.stopBits || 1,
-      parity: config.parity || 'none',
-      autoOpen: false, // Open manually
-      // Explicitly disable flow control (consistent with minicom)
-      rtscts: false, // Hardware Flow Control
-      xon: false, // Software Flow Control (XON)
-      xoff: false, // Software Flow Control (XOFF)
-    });
+    // Create SerialPort instance, opened manually
+    const port = new SerialPort({ ...serialOptions, autoOpen: false });
     this.port = port;
     const generation = ++this.generation;
 
-    logger.debug('[USB] SerialPort instance created', 'usb', {
-      path: config.portName,
-      baudRate: config.baudRate || 9600,
-      dataBits: config.dataBits || 8,
-      stopBits: config.stopBits || 1,
-      parity: config.parity || 'none',
-      rtscts: false,
-      xon: false,
-      xoff: false,
-    });
+    logger.debug('[USB] SerialPort instance created', 'usb', serialOptions);
 
     const savedConfig = config;
     let openCompleted = false;
@@ -204,10 +186,7 @@ export class USBConnectionLifecycle {
     }
 
     if (port) {
-      await this.closePort(port);
-      if (this.port === port) {
-        this.port = null;
-      }
+      await this.releasePort(port);
     }
 
     if (connection && this.connection?.id === connection.id) {
@@ -380,10 +359,7 @@ export class USBConnectionLifecycle {
     }
     this.emitter.emit('error', { error, recoverable: false });
 
-    await this.closePort(port);
-    if (this.port === port) {
-      this.port = null;
-    }
+    await this.releasePort(port);
     this.rejectPendingConnect(generation, port, error);
   }
 
@@ -406,10 +382,7 @@ export class USBConnectionLifecycle {
     }
     this.emitter.emit('disconnected');
 
-    await this.closePort(port);
-    if (this.port === port) {
-      this.port = null;
-    }
+    await this.releasePort(port);
 
     // An explicit disconnect or a newer connect attempt supersedes this
     // recovery while the old port is closing. Do not reopen a connection after
@@ -453,6 +426,14 @@ export class USBConnectionLifecycle {
 
     this.pendingConnect = null;
     pending.reject(error);
+  }
+
+  /** Closes the port and forgets it unless a newer port has replaced it meanwhile. */
+  private async releasePort(port: SerialPort): Promise<void> {
+    await this.closePort(port);
+    if (this.port === port) {
+      this.port = null;
+    }
   }
 
   private async closePort(port: SerialPort): Promise<void> {
@@ -511,4 +492,18 @@ export class USBConnectionLifecycle {
       });
     });
   }
+}
+
+/** Serial settings with the defaults for omitted values and flow control explicitly disabled (as in minicom). */
+function toSerialOptions(config: USBConnectionConfig) {
+  return {
+    path: config.portName,
+    baudRate: config.baudRate || 9600,
+    dataBits: config.dataBits || 8,
+    stopBits: config.stopBits || 1,
+    parity: config.parity || 'none',
+    rtscts: false, // Hardware Flow Control
+    xon: false, // Software Flow Control (XON)
+    xoff: false, // Software Flow Control (XOFF)
+  } as const;
 }

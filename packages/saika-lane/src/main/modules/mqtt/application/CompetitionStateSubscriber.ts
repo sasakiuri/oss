@@ -11,6 +11,7 @@ import {
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import { StartCompetitionToken } from '@/main/composition/tokens';
+import { isRecordedMatchSeries } from '@/main/modules/competition/domain/CompetitionShotModePolicy';
 import type { ICompetitionRepository } from '@/main/modules/competition/domain/ICompetitionRepository';
 import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import {
@@ -155,10 +156,9 @@ export class CompetitionStateSubscriber {
           detail: 'A different local competition is active',
         });
       }
-      const totalSeries = existing.config.stages
-        .filter((stage) => stage.scored)
-        .flatMap((stage) => stage.series)
-        .filter((series) => series.maxShots > 0 && series.purpose !== 'POSITION_CHANGE_AND_SIGHTING').length;
+      const totalSeries = existing.config.stages.flatMap((stage) =>
+        stage.series.filter((series) => isRecordedMatchSeries(stage, series)),
+      ).length;
       const totalShots = existing.config.stages
         .filter((stage) => stage.scored)
         .flatMap((stage) => stage.series)

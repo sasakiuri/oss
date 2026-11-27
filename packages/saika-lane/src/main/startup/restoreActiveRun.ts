@@ -15,8 +15,8 @@ interface RestoreActiveRunDeps {
   competitions: ICompetitionRepository;
   sessions: ISessionRepository;
   membership: DirectorMembership;
-  timer: LaneTimerService;
-  interruptions: CompetitionInterruptionService;
+  timer: Pick<LaneTimerService, 'savedClock' | 'stop' | 'restore'>;
+  interruptions: Pick<CompetitionInterruptionService, 'get' | 'clear' | 'holdAfterRestart' | 'restoreTimedPause'>;
   safetyStopped: () => boolean;
   safetyCompetitionId: () => string | null;
   transferPending: () => boolean;
@@ -85,13 +85,7 @@ export class ActiveRunStartup {
 
   async snapshot(): Promise<StartupStateDto> {
     if (this.inFlight) await this.inFlight;
-    if (this.state.status === 'ERROR')
-      return {
-        ...this.state,
-        canFinish: !this.unreadableSavedRun && this.canFinish(),
-        canSetAside: this.unreadableSavedRun && this.recoveryAllowed(),
-        canChooseType: this.unknownCompetitionType && this.recoveryAllowed(),
-      };
+    if (this.state.status === 'ERROR') return { ...this.state, ...this.recoveryOptions() };
     const active = await this.deps.competitions.findActive();
     const saved =
       active ?? (this.state.competitionId ? await this.deps.competitions.findById(this.state.competitionId) : null);
@@ -99,6 +93,7 @@ export class ActiveRunStartup {
     return this.state;
   }
 
+  /** The saved run is Lane-owned: no Director membership, safety stop or pending reserve transfer controls it. */
   private recoveryAllowed(): boolean {
     return (
       this.deps.membership.snapshot.competitionId === null && !this.deps.safetyStopped() && !this.deps.transferPending()
@@ -106,13 +101,16 @@ export class ActiveRunStartup {
   }
 
   private canFinish(): boolean {
-    return (
-      this.state.competitionId !== null &&
-      this.state.sessionId !== null &&
-      this.deps.membership.snapshot.competitionId === null &&
-      !this.deps.safetyStopped() &&
-      !this.deps.transferPending()
-    );
+    return this.state.competitionId !== null && this.state.sessionId !== null && this.recoveryAllowed();
+  }
+
+  /** The recovery actions a startup error offers. */
+  private recoveryOptions(): Pick<StartupStateDto, 'canFinish' | 'canSetAside' | 'canChooseType'> {
+    return {
+      canFinish: !this.unreadableSavedRun && this.canFinish(),
+      canSetAside: this.unreadableSavedRun && this.recoveryAllowed(),
+      canChooseType: this.unknownCompetitionType && this.recoveryAllowed(),
+    };
   }
 
   private async describe(active: CompetitionState, error: string | null): Promise<StartupStateDto> {
@@ -130,11 +128,7 @@ export class ActiveRunStartup {
       competitionId: active.id,
       sessionId: active.sessionId,
       currentSeriesStartIndex: first < 0 ? session.allShots.length : first,
-      canFinish:
-        active.phase !== 'FINISHED' &&
-        this.deps.membership.snapshot.competitionId === null &&
-        !this.deps.safetyStopped() &&
-        !this.deps.transferPending(),
+      canFinish: active.phase !== 'FINISHED' && this.recoveryAllowed(),
     };
   }
 
@@ -223,14 +217,7 @@ export class ActiveRunStartup {
       this.deps.stopIndependentWorkflows();
       this.unknownCompetitionType = (error as { code?: string }).code === 'UNKNOWN_COMPETITION_TYPE';
       // Do not remove a recoverable deadline merely because membership/configuration needs repair.
-      this.state = {
-        ...this.state,
-        status: 'ERROR',
-        error: errorMessage(error),
-        canFinish: !this.unreadableSavedRun && this.canFinish(),
-        canSetAside: this.unreadableSavedRun && this.recoveryAllowed(),
-        canChooseType: this.unknownCompetitionType && this.recoveryAllowed(),
-      };
+      this.state = { ...this.state, status: 'ERROR', error: errorMessage(error), ...this.recoveryOptions() };
     }
     return this.state;
   }
