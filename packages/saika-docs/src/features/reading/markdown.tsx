@@ -18,13 +18,13 @@ import { remarkCodeMeta } from '@/entities/document/code-meta';
 import type { DocumentRecord } from '@/entities/document/model';
 import { remarkDocumentLinks } from '@/entities/document/parse';
 import { readServerEnv } from '@/shared/config/env';
-import { site } from '@/shared/config/site';
 
 import { CodeBlock } from './code-block';
 import { DotChart } from './dot-chart';
 import { MermaidChart } from './mermaid-chart';
 
 export function DocumentMarkdown({ document }: { document: DocumentRecord }) {
+  const env = readServerEnv();
   return (
     <div className="prose max-w-none">
       <Markdown
@@ -32,9 +32,9 @@ export function DocumentMarkdown({ document }: { document: DocumentRecord }) {
           remarkGfm,
           remarkMath,
           remarkCodeMeta,
-          ...(readServerEnv().DOCS_SOFT_BREAKS ? [remarkBreaks] : []),
+          ...(env.DOCS_SOFT_BREAKS ? [remarkBreaks] : []),
           remarkGithubBlockquoteAlert,
-          [remarkDocumentLinks, { sourcePath: document.sourcePath, sourceRef: site.sourceRef }],
+          [remarkDocumentLinks, { sourcePath: document.sourcePath, sourceRef: env.DOCS_SOURCE_REF }],
         ]}
         rehypePlugins={[
           rehypeRaw,

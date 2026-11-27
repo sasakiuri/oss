@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import chokidar from 'chokidar';
 
+import { siteLinkUrl } from '../src/entities/document/links';
 import type { DocumentRecord } from '../src/entities/document/model';
 import { documentLinks, parseDocument } from '../src/entities/document/parse';
 
@@ -50,8 +51,8 @@ async function generate() {
   }
   for (const record of records) {
     for (const link of documentLinks(record)) {
-      if (!link.startsWith('/') && !link.startsWith('#')) continue;
-      const url = new URL(link, `https://docs.invalid${record.href}`);
+      const url = siteLinkUrl(link, record.href);
+      if (!url) continue;
       const target = routes.get(url.pathname);
       if (!target) throw new Error(`Broken document link in ${record.sourcePath}: ${link}`);
       if (url.hash && !target.headings.some((heading) => heading.id === decodeURIComponent(url.hash.slice(1)))) {
