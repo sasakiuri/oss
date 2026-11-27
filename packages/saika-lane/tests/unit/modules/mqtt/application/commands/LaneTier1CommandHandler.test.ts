@@ -371,6 +371,59 @@ describe('LaneTier1CommandHandler', () => {
       const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1]);
       expect(ack).toMatchObject({ status: 'error', error: { message: 'Competition timer changed while pausing' } });
     });
+
+    it('still closes the shoot-off and publishes the STOP when the timed target cannot be cancelled', async () => {
+      vi.mocked(shootOffControl.getState).mockReturnValue({
+        competitionId: COMPETITION_ID,
+        runId: 'e5555555-5555-4555-a555-555555555555',
+        iteration: 3,
+        timerStartAt: '2026-09-02T00:00:00.000Z',
+        timerDurationSeconds: 50,
+        shotsPerLane: 1,
+        status: 'OPEN',
+        recordedShotIds: [],
+      });
+      vi.mocked(timedTargetControl.getState).mockReturnValue({
+        sequenceId: 'f6666666-6666-4666-a666-666666666666',
+        competitionId: COMPETITION_ID,
+        purpose: 'SHOOT_OFF',
+        phase: 'ARMED',
+      } as ReturnType<ITimedTargetControl['getState']>);
+      vi.mocked(timedTargetControl.cancel).mockImplementation(() => {
+        throw new Error('Timed target journal write failed');
+      });
+
+      await sendMessage(
+        'activate-safety-stop',
+        buildCommand({ safetyStopId: 'd4444444-4444-4444-a444-444444444444', reason: 'Unsafe condition' }),
+      );
+
+      expect(shootOffControl.close).toHaveBeenCalledWith(COMPETITION_ID, 'e5555555-5555-4555-a555-555555555555', 3);
+      expect(safetyStatePublisher.publishCurrentState).toHaveBeenCalled();
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1]);
+      expect(ack).toMatchObject({ status: 'error', error: { message: 'Timed target journal write failed' } });
+    });
+
+    it('reports the freeze failure when the timed target cannot be cancelled either', async () => {
+      vi.mocked(safetyStopControl.activate).mockRejectedValue(new Error('Competition timer changed while pausing'));
+      vi.mocked(timedTargetControl.getState).mockReturnValue({
+        sequenceId: 'f6666666-6666-4666-a666-666666666666',
+        competitionId: COMPETITION_ID,
+        purpose: 'MATCH',
+        phase: 'FIRING',
+      } as ReturnType<ITimedTargetControl['getState']>);
+      vi.mocked(timedTargetControl.cancel).mockImplementation(() => {
+        throw new Error('Timed target journal write failed');
+      });
+
+      await sendMessage(
+        'activate-safety-stop',
+        buildCommand({ safetyStopId: 'd4444444-4444-4444-a444-444444444444', reason: 'Unsafe condition' }),
+      );
+
+      const ack = JSON.parse(vi.mocked(mqttClient.publish).mock.calls.at(-1)![1]);
+      expect(ack).toMatchObject({ status: 'error', error: { message: 'Competition timer changed while pausing' } });
+    });
   });
 
   describe('ALREADY_IN_COMPETITION error', () => {
