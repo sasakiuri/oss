@@ -39,23 +39,8 @@ import type {
 } from '@/main/modules/qualification-recovery';
 import type { IReserveLaneTransferControl } from '@/main/modules/reserve-lane-transfer/domain/ReserveLaneTransfer';
 
-import { createMockCommandBus } from '../../../../../helpers/mockDependencies';
-
-function createMockMqttClient(): IMqttClientService {
-  return {
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    publish: vi.fn().mockResolvedValue(undefined),
-    subscribe: vi.fn().mockResolvedValue(undefined),
-    unsubscribe: vi.fn().mockResolvedValue(undefined),
-    setWill: vi.fn(),
-    clearWill: vi.fn(),
-    onMessage: vi.fn().mockReturnValue(() => {}),
-    onConnect: vi.fn(),
-    onDisconnect: vi.fn(),
-    isConnected: vi.fn().mockReturnValue(true),
-  };
-}
+import { flushPromises } from '../../../../../helpers/flushPromises';
+import { createMockCommandBus, createMockMqttClient } from '../../../../../helpers/mockDependencies';
 
 const LANE_ID = 'a1111111-1111-4111-a111-111111111111';
 const COMPETITION_ID = 'b2222222-2222-4222-a222-222222222222';
@@ -82,8 +67,6 @@ function buildCommand(overrides: Record<string, unknown> = {}): Record<string, u
     ...overrides,
   };
 }
-
-const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 50));
 
 describe('PerLaneCommandHandler', () => {
   let mqttClient: IMqttClientService;

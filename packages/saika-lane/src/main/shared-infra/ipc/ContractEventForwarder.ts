@@ -4,8 +4,7 @@
 import type { BrowserWindow } from 'electron';
 import type { z } from 'zod';
 
-import type { ShotDto } from '@/main/modules/session/application/dto';
-import type { Shot } from '@/main/modules/session/domain/Shot';
+import { toShotDto } from '@/main/modules/session/application/toShotDto';
 import { toTimedTargetStateDto } from '@/main/modules/timed-target/toTimedTargetStateDto';
 import type {
   CompetitionFinishedEvent,
@@ -62,7 +61,7 @@ export class ContractEventForwarder {
     // ShotRecorded → event:shotRecorded
     this.forward('ShotRecorded', 'shotRecorded', (event: ShotRecordedEvent) => ({
       sessionId: event.aggregateId,
-      shot: { ...this.transformShot(event.shot), reportedMode: event.reportedMode ?? null },
+      shot: toShotDto(event.shot, event.reportedMode ?? null),
     }));
 
     // ConnectionEstablished → event:connectionStatusChanged
@@ -255,22 +254,5 @@ export class ContractEventForwarder {
       }
     });
     this.unsubscribers.push(unsub);
-  }
-
-  private transformShot(shot: Shot): ShotDto {
-    return {
-      id: shot.id,
-      shotNumber: shot.shotNumber,
-      seriesNumber: shot.seriesNumber,
-      x: shot.impactPoint !== null ? shot.impactPoint.x : null,
-      y: shot.impactPoint !== null ? shot.impactPoint.y : null,
-      score: shot.score.value,
-      innerTen: shot.innerTen,
-      timestamp: shot.timestamp.toISOString(),
-      mode: shot.mode.value,
-      isRecorded: shot.mode.isMatch(),
-      receivedAt: shot.receivedAt.toISOString(),
-      competitionContext: shot.competitionContext ?? null,
-    };
   }
 }

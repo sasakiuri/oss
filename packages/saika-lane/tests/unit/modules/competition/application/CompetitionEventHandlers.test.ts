@@ -30,6 +30,13 @@ import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { buildCompetitionState } from '../../../../helpers/factories';
 
 describe('createShotRecordedHandler', () => {
+  const matchShotEvent = {
+    type: 'ShotRecorded',
+    timestamp: Date.now(),
+    aggregateId: 'session-1',
+    shot: { mode: Mode.match() },
+    scoringMode: 'DECIMAL',
+  } as ShotRecordedEvent;
   let mockRepo: ICompetitionRepository;
   let mockEventBus: IEventBus;
 
@@ -52,7 +59,7 @@ describe('createShotRecordedHandler', () => {
     vi.mocked(mockRepo.findActive).mockResolvedValue(null);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-    await handler();
+    await handler(matchShotEvent);
 
     expect(mockRepo.save).not.toHaveBeenCalled();
     expect(mockEventBus.emit).not.toHaveBeenCalled();
@@ -64,7 +71,7 @@ describe('createShotRecordedHandler', () => {
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-    await handler();
+    await handler(matchShotEvent);
 
     expect(mockRepo.save).not.toHaveBeenCalled();
   });
@@ -75,7 +82,7 @@ describe('createShotRecordedHandler', () => {
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-    await handler();
+    await handler(matchShotEvent);
 
     // canAcceptShot() returns true for IDLE, but recordShotInSeries is skipped
     expect(mockRepo.save).not.toHaveBeenCalled();
@@ -87,7 +94,7 @@ describe('createShotRecordedHandler', () => {
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-    await handler();
+    await handler(matchShotEvent);
 
     expect(mockRepo.save).toHaveBeenCalledTimes(1);
     const savedState = vi.mocked(mockRepo.save).mock.calls[0]![0];
@@ -107,7 +114,7 @@ describe('createShotRecordedHandler', () => {
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-    await handler();
+    await handler(matchShotEvent);
 
     expect(mockEventBus.emit).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -162,7 +169,7 @@ describe('createShotRecordedHandler', () => {
     vi.mocked(mockRepo.findActive).mockResolvedValue(state);
 
     const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-    await handler();
+    await handler(matchShotEvent);
 
     expect(mockEventBus.emit).toHaveBeenCalledExactlyOnceWith({
       type: 'CompetitionProgressChanged',
@@ -180,7 +187,7 @@ describe('createShotRecordedHandler', () => {
     vi.mocked(mockRepo.save).mockRejectedValue(new Error('DB failure'));
 
     await expect(
-      createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus })(),
+      createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus })(matchShotEvent),
     ).rejects.toThrow('DB failure');
     expect(mockEventBus.emit).not.toHaveBeenCalled();
   });
@@ -190,7 +197,7 @@ describe('createShotRecordedHandler', () => {
     async (failure) => {
       vi.mocked(mockRepo.findActive).mockRejectedValue(failure);
       const handler = createShotRecordedHandler({ competitionRepository: mockRepo, eventBus: mockEventBus });
-      await expect(handler()).rejects.toBe(failure);
+      await expect(handler(matchShotEvent)).rejects.toBe(failure);
       expect(mockEventBus.emit).not.toHaveBeenCalled();
     },
   );

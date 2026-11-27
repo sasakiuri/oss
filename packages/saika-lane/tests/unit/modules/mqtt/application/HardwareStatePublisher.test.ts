@@ -8,57 +8,13 @@ import type { ConnectionEstablishedEvent, ConnectionLostEvent } from '@/main/sha
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
+import { createMockEventBus, createMockMqttClient, createMockStorage } from '../../../../helpers/mockDependencies';
+
 // ── mock logger ────────────────────────────────────────────────
 const mockLogger = { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() };
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => mockLogger,
 }));
-
-function createMockMqttClient(): IMqttClientService {
-  return {
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-    publish: vi.fn().mockResolvedValue(undefined),
-    subscribe: vi.fn(),
-    unsubscribe: vi.fn(),
-    setWill: vi.fn(),
-    clearWill: vi.fn(),
-    onMessage: vi.fn().mockReturnValue(() => {}),
-    onConnect: vi.fn(),
-    onDisconnect: vi.fn(),
-    isConnected: vi.fn().mockReturnValue(true),
-  };
-}
-
-function createMockStorage(): ILocalStorage {
-  const store = new Map<string, unknown>([
-    ['mqtt.laneId', 'test-lane-uuid'],
-    ['mqtt.settings', { laneAlias: 'Lane 1' }],
-  ]);
-  return {
-    get: vi.fn(<T>(key: string) => (store.get(key) as T) ?? (null as T)),
-    set: vi.fn(<T>(key: string, value: T) => {
-      store.set(key, value);
-    }),
-    delete: vi.fn(),
-    has: vi.fn((key: string) => store.has(key)),
-  } as unknown as ILocalStorage;
-}
-
-function createMockEventBus(): IEventBus {
-  const handlers = new Map<string, Set<Function>>();
-  return {
-    emit: vi.fn((event) => {
-      const fns = handlers.get(event.type);
-      if (fns) for (const fn of fns) fn(event);
-    }),
-    on: vi.fn((type: string, handler: Function) => {
-      if (!handlers.has(type)) handlers.set(type, new Set());
-      handlers.get(type)!.add(handler);
-      return () => handlers.get(type)?.delete(handler);
-    }),
-  } as unknown as IEventBus;
-}
 
 describe('HardwareStatePublisher', () => {
   let mqttClient: IMqttClientService;
@@ -70,7 +26,7 @@ describe('HardwareStatePublisher', () => {
     vi.useFakeTimers();
     mqttClient = createMockMqttClient();
     eventBus = createMockEventBus();
-    storage = createMockStorage();
+    storage = createMockStorage({ 'mqtt.laneId': 'test-lane-uuid', 'mqtt.settings': { laneAlias: 'Lane 1' } });
     publisher = new HardwareStatePublisher(mqttClient, eventBus, storage, '1.0.0');
   });
 

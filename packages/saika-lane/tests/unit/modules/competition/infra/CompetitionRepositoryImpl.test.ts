@@ -8,29 +8,7 @@ import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { athleteCompetition, selectAthlete } from '../../../../helpers/athleteCompetition';
 import { buildCompetitionState } from '../../../../helpers/factories';
-
-function createMockStorage(): ILocalStorage {
-  const store = new Map<string, unknown>();
-  return {
-    get: vi.fn((key: string) => store.get(key) ?? undefined) as ILocalStorage['get'],
-    set: vi.fn((key: string, value: unknown) => {
-      store.set(key, value);
-    }),
-    setMany: vi.fn((entries: Record<string, unknown>) => {
-      for (const [key, value] of Object.entries(entries)) {
-        store.set(key, value);
-      }
-    }),
-    has: vi.fn((key: string) => store.has(key)),
-    delete: vi.fn((key: string) => {
-      store.delete(key);
-    }),
-    getAll: vi.fn(() => Object.fromEntries(store)),
-    clear: vi.fn(() => {
-      store.clear();
-    }),
-  };
-}
+import { createMockStorage } from '../../../../helpers/mockDependencies';
 
 describe('CompetitionRepositoryImpl', () => {
   let storage: ILocalStorage;

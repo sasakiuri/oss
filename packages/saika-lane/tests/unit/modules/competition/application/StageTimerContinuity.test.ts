@@ -14,6 +14,8 @@ import { AR60_FINAL, BR60S, BP60 } from '@/main/modules/competition/domain/compe
 import { CompetitionRepositoryImpl } from '@/main/modules/competition/infra/CompetitionRepositoryImpl';
 import { LaneTimerService } from '@/main/modules/competition/infra/LaneTimerService';
 import { CompetitionSafetyTimerFreezer } from '@/main/modules/safety-stop/infra/CompetitionSafetyTimerFreezer';
+import { Mode } from '@/main/modules/session/domain/Mode';
+import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
@@ -44,12 +46,20 @@ async function setup(type = BR60S, emitStart = true) {
   await repository.save(state);
   if (emitStart) emitPhaseChanged(events, state, 'STAGE_ENTERED');
   await vi.advanceTimersByTimeAsync(0);
+  const recordShot = createShotRecordedHandler({ competitionRepository: repository, eventBus: events });
+  const matchShot = {
+    type: 'ShotRecorded',
+    timestamp: Date.now(),
+    aggregateId: state.sessionId,
+    shot: { mode: Mode.match() },
+    scoringMode: 'DECIMAL',
+  } as ShotRecordedEvent;
   return {
     timer,
     events,
     repository,
     state,
-    shot: createShotRecordedHandler({ competitionRepository: repository, eventBus: events }),
+    shot: () => recordShot(matchShot),
     advance: createAdvanceStageHandler(
       repository,
       new SessionLifecycleService(createMockSessionRepository(), events),

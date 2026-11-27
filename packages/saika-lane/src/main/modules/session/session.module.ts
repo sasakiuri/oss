@@ -10,7 +10,6 @@ import {
   StartSessionToken,
   SwitchModeToken,
 } from '@/main/composition/tokens';
-import { createShotRecordedHandler } from '@/main/modules/competition/application/CompetitionEventHandlers';
 import { Discipline } from '@/main/modules/session/domain/Discipline';
 import { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import { Mode } from '@/main/modules/session/domain/Mode';
@@ -33,6 +32,7 @@ type SessionDeps =
   | 'eventBus'
   | 'sessionRepository'
   | 'competitionRepository'
+  | 'applyShotProgress'
   | 'ipcRouter'
   | 'userDataPath'
   | 'shotObservationRepository';
@@ -45,6 +45,7 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     'eventBus',
     'sessionRepository',
     'competitionRepository',
+    'applyShotProgress',
     'ipcRouter',
     'userDataPath',
     'shotObservationRepository',
@@ -55,6 +56,7 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     eventBus,
     sessionRepository,
     competitionRepository,
+    applyShotProgress,
     ipcRouter,
     userDataPath,
     shotObservationRepository,
@@ -72,13 +74,7 @@ export const sessionModule: ModuleDefinition<SessionDeps> = {
     commandBus.register(StartSessionToken, createStartSessionHandler(sessionRepository, eventBus));
     commandBus.register(
       RecordShotToken,
-      createRecordShotHandler(
-        sessionRepository,
-        scoreService,
-        eventBus,
-        discrepancyDetector,
-        createShotRecordedHandler({ competitionRepository, eventBus }),
-      ),
+      createRecordShotHandler(sessionRepository, scoreService, eventBus, discrepancyDetector, applyShotProgress),
     );
     commandBus.register(SwitchModeToken, createSwitchModeHandler(sessionRepository, eventBus));
     commandBus.register(ResetSessionToken, createResetSessionHandler(sessionRepository, eventBus));

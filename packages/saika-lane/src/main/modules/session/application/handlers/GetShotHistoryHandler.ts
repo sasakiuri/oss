@@ -8,6 +8,7 @@ import type { QueryHandler } from '@/main/shared-infra/cqrs';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 
 import type { ShotDto, ShotHistoryDto } from '../dto';
+import { toShotDto } from '../toShotDto';
 
 export function createGetShotHistoryHandler(
   sessionRepo: ISessionRepository,
@@ -24,21 +25,7 @@ export function createGetShotHistoryHandler(
     const shots: ShotDto[] = await Promise.all(
       session.allShots.map(async (shot) => {
         const observation = shot.sourceObservationId ? await observations.findById(shot.sourceObservationId) : null;
-        return {
-          id: shot.id,
-          shotNumber: shot.shotNumber,
-          seriesNumber: shot.seriesNumber,
-          x: shot.impactPoint !== null ? shot.impactPoint.x : null,
-          y: shot.impactPoint !== null ? shot.impactPoint.y : null,
-          score: shot.score.value,
-          innerTen: shot.innerTen,
-          timestamp: shot.timestamp.toISOString(),
-          mode: shot.mode.value,
-          isRecorded: shot.mode.isMatch(), // Only match shots are recorded
-          receivedAt: shot.receivedAt.toISOString(),
-          reportedMode: observation?.reportedMode ?? null,
-          competitionContext: shot.competitionContext ?? null,
-        };
+        return toShotDto(shot, observation?.reportedMode ?? null);
       }),
     );
     const extras = await observations.findBySessionAndOutcome(session.id, 'NULLIFIED_POSITION_EXTRA');
