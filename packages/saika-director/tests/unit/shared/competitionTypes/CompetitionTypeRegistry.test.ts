@@ -36,10 +36,7 @@ describe('CompetitionTypeRegistry', () => {
 
   const mockStrategy: CompetitionTypeStrategy = {
     id: 'standard',
-    padShots: vi.fn(),
-    padSeries: vi.fn(),
     compareResults: vi.fn(),
-    splitFinalStages: vi.fn(),
   };
 
   beforeEach(() => {
@@ -86,10 +83,7 @@ describe('CompetitionTypeRegistry', () => {
       const otherStrategy: CompetitionTypeStrategy = {
         ...mockStrategy,
         id: 'custom',
-        padShots: vi.fn(),
-        padSeries: vi.fn(),
         compareResults: vi.fn(),
-        splitFinalStages: vi.fn(),
       };
       registry.registerStrategy(mockStrategy);
       registry.registerStrategy(otherStrategy);

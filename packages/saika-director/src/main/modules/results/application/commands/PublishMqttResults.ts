@@ -17,3 +17,8 @@ export interface PublishMqttResultsCommand {
   relayNumber: number;
   lanes: PublishMqttResultLane[];
 }
+
+export interface PublishResultsResponse {
+  savedCount: number;
+  errors: string[];
+}

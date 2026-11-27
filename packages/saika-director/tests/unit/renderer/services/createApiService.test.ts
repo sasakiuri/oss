@@ -66,8 +66,6 @@ const mockMethods = {
     disconnect: vi.fn(),
   },
   results: {
-    publish: vi.fn(),
-    publishFinal: vi.fn(),
     confirm: vi.fn(),
     getByEvent: vi.fn(),
     getByRelay: vi.fn(),
@@ -130,7 +128,7 @@ describe('createApiService', () => {
     it('returns the same wrapper for repeated property reads', () => {
       const service = createApiService('results');
 
-      expect(service.publish).toBe(service.publish);
+      expect(service.confirm).toBe(service.confirm);
     });
 
     it('wraps a replaced bridge function again', async () => {
@@ -175,8 +173,8 @@ describe('createApiService', () => {
       { namespace: 'mqtt', method: 'setBrokerConfig', args: [{ mode: 'embedded' }] },
       {
         namespace: 'results',
-        method: 'publish',
-        args: [{ eventId: 'e1', laneIds: ['l1'] }],
+        method: 'confirm',
+        args: [{ eventId: 'e1', resultIds: ['r1'] }],
       },
       { namespace: 'results', method: 'getByEvent', args: [{ eventId: 'e1' }] },
       { namespace: 'shootoff', method: 'completeRound', args: [{ shootoffId: 's1' }] },

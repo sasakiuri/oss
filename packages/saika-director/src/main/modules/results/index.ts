@@ -37,4 +37,8 @@ export {
   PublishMqttMixedTeamFinalResultsToken,
   PublishMqttResultsToken,
 } from './application/tokens';
-export type { PublishMqttResultsCommand, PublishMqttResultLane } from './application/commands/PublishMqttResults';
+export type {
+  PublishMqttResultsCommand,
+  PublishMqttResultLane,
+  PublishResultsResponse,
+} from './application/commands/PublishMqttResults';

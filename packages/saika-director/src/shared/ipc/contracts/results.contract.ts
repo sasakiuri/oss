@@ -18,11 +18,6 @@ const uniqueUuidArraySchema = z
 // Response schemas
 // ---------------------------------------------------------------------------
 
-const PublishResultsResponseSchema = z.object({
-  savedCount: z.number(),
-  errors: z.array(z.string()),
-});
-
 const ConfirmResultsResponseSchema = z.object({
   confirmedCount: z.number(),
 });
@@ -110,7 +105,6 @@ const GetFinalEventResultsResponseSchema = z.object({
 
 export type RankedResultDto = z.infer<typeof RankedResultDtoSchema>;
 export type FinalRankedResultDto = z.infer<typeof FinalRankedResultDtoSchema>;
-export type PublishResultsResponse = z.infer<typeof PublishResultsResponseSchema>;
 export type ConfirmResultsResponse = z.infer<typeof ConfirmResultsResponseSchema>;
 export type GetRelayResultsResponse = z.infer<typeof GetRelayResultsResponseSchema>;
 export type GetEventResultsResponse = z.infer<typeof GetEventResultsResponseSchema>;
@@ -120,7 +114,6 @@ export type GetFinalEventResultsResponse = z.infer<typeof GetFinalEventResultsRe
 // Payload types (inferred from contract input schemas)
 // ---------------------------------------------------------------------------
 
-export type PublishResultsPayload = { eventId: string; laneIds: string[] };
 export type ConfirmResultsPayload = { eventId: string; resultIds: string[] };
 export type GetEventResultsPayload = { eventId: string };
 export type GetRelayResultsPayload = { eventId: string; relayNumber: number };
@@ -131,14 +124,6 @@ export type GetFinalEventResultsPayload = { eventId: string };
 // ---------------------------------------------------------------------------
 
 export const resultsContract = defineContract('results', {
-  publish: command(
-    z.object({ eventId: uuidSchema, laneIds: uniqueUuidArraySchema }),
-    commandDataResponseSchema(PublishResultsResponseSchema),
-  ),
-  publishFinal: command(
-    z.object({ eventId: uuidSchema, laneIds: uniqueUuidArraySchema }),
-    commandDataResponseSchema(PublishResultsResponseSchema),
-  ),
   confirm: command(
     z.object({ eventId: uuidSchema, resultIds: uniqueUuidArraySchema }),
     commandDataResponseSchema(ConfirmResultsResponseSchema),

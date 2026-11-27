@@ -8,7 +8,6 @@ import {
   type GetEventByIdResponse,
 } from '@/main/modules/championship';
 import type { CompetitionTypeRegistry } from '@/shared/competitionTypes';
-import type { PublishResultsResponse } from '@/shared/ipc/contracts';
 import type { CompetitionShotPayload } from '@sasakiuri/saika-protocol/Shots';
 import type { CompetitionShotObservation, ICompetitionShotJournal } from '@/main/modules/mqtt';
 
@@ -16,7 +15,7 @@ import type { IResultRepository } from '../../domain/IResultRepository';
 import { Result } from '../../domain/Result';
 import { ResultId } from '../../domain/ResultId';
 import { layoutQualificationScoreSeries } from '../../domain/QualificationScoreLayout';
-import type { PublishMqttResultsCommand } from './PublishMqttResults';
+import type { PublishMqttResultsCommand, PublishResultsResponse } from './PublishMqttResults';
 import { assembleRankingEvidence, type RankingShotSourceEvidence } from '../../domain/RankingEvidenceAssembler';
 
 function scoreFromX10(value: number): number {
