@@ -8,7 +8,7 @@ import {
 import { useConfirmDialogStore } from '@/renderer/presentation/stores/ui/confirmDialog.store';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import { championshipService, mqttService } from '@/renderer/services';
-import { errorMessage, unwrap } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap, type DataResponse } from '@/renderer/services/serviceError';
 import type { CompetitionStartPhase } from '@/shared/competitionTypes';
 import type { ClockQualityAssessmentDto, MqttCommandExecutionResultDto } from '@/shared/ipc/contracts';
 import type { Athlete } from '@sasakiuri/saika-protocol/LaneAssignment';
@@ -76,17 +76,14 @@ export function useCompetitionCommands({ selection, refresh }: CompetitionComman
     async (laneId: string) => {
       setBusyAction(`probe-clock-${laneId}`);
       try {
-        const response = await mqttService.probeLaneClock({ laneId });
-        if (!response.success) {
-          addNotification('error', response.error.message);
-          return;
-        }
-        setClockQuality((current) => ({ ...current, [laneId]: response.data.assessment }));
-        const assessment = response.data.assessment;
+        const { assessment } = unwrap(await mqttService.probeLaneClock({ laneId }));
+        setClockQuality((current) => ({ ...current, [laneId]: assessment }));
         addNotification(
           assessment.status === 'GOOD' || assessment.status === 'DISABLED' ? 'success' : 'warning',
           `Lane clock ${assessment.status.toLowerCase()}: offset ${formatClockMetric(assessment.offsetMilliseconds)}, uncertainty ${formatClockMetric(assessment.uncertaintyMilliseconds)}`,
         );
+      } catch (error) {
+        addNotification('error', errorMessage(error));
       } finally {
         setBusyAction(null);
       }
@@ -128,21 +125,10 @@ export function useCompetitionCommands({ selection, refresh }: CompetitionComman
   const createAndJoinCompetition = useCallback(() => {
     const laneIds = selectedAvailableLaneIds;
     return runAction('create', async () => {
-      const created = await mqttService.createCompetition({ competitionTypeId, laneIds });
-      if (!created.success) {
-        addNotification('error', created.error.message);
-        return;
-      }
-      setSelectedCompetitionId(created.data.competitionId);
-      const joined = await mqttService.joinCompetition({
-        competitionId: created.data.competitionId,
-        laneIds,
-      });
-      if (!joined.success) {
-        addNotification('error', joined.error.message);
-        return;
-      }
-      const failed = joined.data.commands.filter((command) => !command.success);
+      const { competitionId } = unwrap(await mqttService.createCompetition({ competitionTypeId, laneIds }));
+      setSelectedCompetitionId(competitionId);
+      const joined = unwrap(await mqttService.joinCompetition({ competitionId, laneIds }));
+      const failed = joined.commands.filter((command) => !command.success);
       setSelectedLaneIds(new Set(failed.flatMap((command) => command.lanes.map((lane) => lane.laneId))));
       addNotification(
         failed.length === 0 ? 'success' : 'error',
@@ -154,65 +140,40 @@ export function useCompetitionCommands({ selection, refresh }: CompetitionComman
   }, [addNotification, competitionTypeId, runAction, selectedAvailableLaneIds]);
 
   const invokeCompetitionCommand = useCallback(
-    (
-      name: string,
-      invoke: (
-        competitionId: string,
-      ) => Promise<
-        { success: true; data: MqttCommandExecutionResultDto } | { success: false; error: { message: string } }
-      >,
-    ) => {
+    (name: string, invoke: (competitionId: string) => Promise<DataResponse<MqttCommandExecutionResultDto>>) => {
       if (!activeCompetition) return Promise.resolve();
       return runAction(name, async () => {
-        const response = await invoke(activeCompetition.competitionId);
-        if (!response.success) {
-          addNotification('error', response.error.message);
-          return;
-        }
-        reportCommand(response.data);
+        reportCommand(unwrap(await invoke(activeCompetition.competitionId)));
       });
     },
-    [activeCompetition, addNotification, reportCommand, runAction],
+    [activeCompetition, reportCommand, runAction],
   );
 
   const invokeLaneCommand = useCallback(
     (
       name: string,
-      invoke: (
-        competitionId: string,
-        laneId: string,
-      ) => Promise<
-        { success: true; data: MqttCommandExecutionResultDto } | { success: false; error: { message: string } }
-      >,
+      invoke: (competitionId: string, laneId: string) => Promise<DataResponse<MqttCommandExecutionResultDto>>,
     ) => {
       if (!activeCompetition || !assignmentLaneId) return Promise.resolve();
       return runAction(name, async () => {
-        const response = await invoke(activeCompetition.competitionId, assignmentLaneId);
-        if (!response.success) {
-          addNotification('error', response.error.message);
-          return;
-        }
-        reportCommand(response.data);
+        reportCommand(unwrap(await invoke(activeCompetition.competitionId, assignmentLaneId)));
       });
     },
-    [activeCompetition, addNotification, assignmentLaneId, reportCommand, runAction],
+    [activeCompetition, assignmentLaneId, reportCommand, runAction],
   );
 
   const changeMembership = useCallback(
     (action: 'join' | 'leave', laneIds: string[]) => {
       if (!activeCompetition || laneIds.length === 0) return Promise.resolve();
       return runAction(action, async () => {
-        const response =
+        const result = unwrap(
           action === 'join'
             ? await mqttService.joinCompetition({ competitionId: activeCompetition.competitionId, laneIds })
-            : await mqttService.leaveCompetition({ competitionId: activeCompetition.competitionId, laneIds });
-        if (!response.success) {
-          addNotification('error', response.error.message);
-          return;
-        }
-        const succeeded = response.data.commands.filter((command) => command.success).length;
+            : await mqttService.leaveCompetition({ competitionId: activeCompetition.competitionId, laneIds }),
+        );
+        const succeeded = result.commands.filter((command) => command.success).length;
         addNotification(
-          response.data.success ? 'success' : 'error',
+          result.success ? 'success' : 'error',
           `${action === 'join' ? 'Join' : 'Leave'}: ${succeeded}/${laneIds.length} Lanes complete`,
         );
       });
@@ -408,16 +369,14 @@ export function useCompetitionCommands({ selection, refresh }: CompetitionComman
     if (discardingLinkedResults) clearResultContext(activeCompetition.competitionId);
 
     await runAction('finish', async () => {
-      const response = await mqttService.finishCompetition({
-        competitionId: activeCompetition.competitionId,
-        ...(publishResultContext ? { resultContext: publishResultContext } : {}),
-      });
-      if (!response.success) {
-        addNotification('error', response.error.message);
-        return;
-      }
-      reportCommand(response.data);
-      if (response.data.success && (response.data.resultPublication?.errors.length ?? 0) === 0) {
+      const result = unwrap(
+        await mqttService.finishCompetition({
+          competitionId: activeCompetition.competitionId,
+          ...(publishResultContext ? { resultContext: publishResultContext } : {}),
+        }),
+      );
+      reportCommand(result);
+      if (result.success && (result.resultPublication?.errors.length ?? 0) === 0) {
         clearResultContext(activeCompetition.competitionId);
       }
     });

@@ -3,7 +3,7 @@ import { Megaphone, Music, RefreshCw } from 'lucide-react';
 
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { productionOperationsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { ProductionOperationAssessmentDto, RecordProductionOperationPayload } from '@/shared/ipc/contracts';
 import { Button } from '../shared/common/Button';
 import { mutedLabelClass, smallBlockInputClass } from '@/renderer/presentation/features/shared/common/formClasses';
@@ -24,12 +24,11 @@ export function ProductionOperationsPanel(props: ProductionOperationsPanelProps)
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await productionOperationsService.assess(props);
-    if (!response.success) {
-      setError(response.error.message);
-      return;
+    try {
+      setAssessment(unwrap(await productionOperationsService.assess(props)));
+    } catch (caught) {
+      setError(errorMessage(caught));
     }
-    setAssessment(response.data);
   }, [props.competitionId, props.competitionTypeId, props.phase, props.roundName]);
 
   useEffect(() => {

@@ -44,11 +44,7 @@ export function RelayReadinessPanel({
       const loadedSettings = unwrap(settings);
       setStartSettings(loadedSettings);
       setMode(loadedSettings.mode);
-      if (!response.success) {
-        setError(response.error.message);
-        return;
-      }
-      setAssessment(response.data);
+      setAssessment(unwrap(response));
     } catch (caught) {
       setError(errorMessage(caught));
     }

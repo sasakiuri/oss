@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { athleteSanctionsService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import type { AthleteSanctionWorkspaceDto } from '@/shared/ipc/contracts';
 
@@ -18,9 +18,11 @@ export function useAthleteSanctionsWorkspace(championshipId: string) {
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await athleteSanctionsService.getWorkspace({ championshipId });
-    if (!response.success) setError(response.error.message);
-    else setWorkspace(response.data);
+    try {
+      setWorkspace(unwrap(await athleteSanctionsService.getWorkspace({ championshipId })));
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
   }, [championshipId, setError]);
 
   useEffect(() => {

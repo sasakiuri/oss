@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertOctagon, CheckCircle2, LoaderCircle, RotateCcw } from 'lucide-react';
 
 import { mqttService } from '@/renderer/services';
-import { errorMessage } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import { useNotificationStore } from '@/renderer/presentation/stores/ui/notifications.store';
 import type { DirectorLaneSnapshotDto, SafetyStopAuditEntryDto } from '@/shared/ipc/contracts';
 
@@ -64,8 +64,7 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
 
   const refreshAudit = useCallback(async () => {
     try {
-      const response = await mqttService.getSafetyStopAudit({});
-      if (response.success) setAudit(response.data);
+      setAudit(unwrap(await mqttService.getSafetyStopAudit({})));
     } catch {
       // Audit availability must not disable the emergency control surface.
     }
@@ -90,19 +89,17 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
 
     setBusy('stop');
     try {
-      const response = await mqttService.activateSafetyStop({
-        safetyStopId,
-        laneIds,
-        reason: normalizedReason,
-        officialName: normalizedOfficial,
-      });
-      if (!response.success) {
-        addNotification('error', response.error.message);
-        return;
-      }
-      const completed = response.data.commands.filter((command) => command.success).length;
+      const result = unwrap(
+        await mqttService.activateSafetyStop({
+          safetyStopId,
+          laneIds,
+          reason: normalizedReason,
+          officialName: normalizedOfficial,
+        }),
+      );
+      const completed = result.commands.filter((command) => command.success).length;
       addNotification(
-        response.data.success ? 'success' : 'error',
+        result.success ? 'success' : 'error',
         `Safety STOP acknowledged by ${completed}/${laneIds.length} Lane(s)`,
       );
       await refreshAudit();
@@ -155,16 +152,13 @@ export function SafetyStopPanel({ connected, lanes, targetLaneIds }: SafetyStopP
             };
           }),
         });
-        if (!response.success) {
-          addNotification('error', response.error.message);
-          return;
-        }
-        const completed = response.data.commands.filter((command) => command.success).length;
+        const result = unwrap(response);
+        const completed = result.commands.filter((command) => command.success).length;
         addNotification(
-          response.data.success ? 'success' : 'error',
+          result.success ? 'success' : 'error',
           `Safety latch cleared on ${completed}/${verifiedLanes.length} verified Lane(s); competition timers remain stopped`,
         );
-        if (response.data.success) {
+        if (result.success) {
           setClearanceDrafts((current) => {
             const next = { ...current };
             for (const lane of verifiedLanes) delete next[lane.laneId];

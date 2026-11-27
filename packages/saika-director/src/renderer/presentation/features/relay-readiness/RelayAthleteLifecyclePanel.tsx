@@ -42,17 +42,17 @@ export function RelayAthleteLifecyclePanel({
 
   const load = useCallback(async () => {
     setError(null);
-    const response = await relayAthleteLifecycleService.assess({
-      competitionId,
-      relayNumber,
-      phase,
-      athletes: athletes.map(({ laneLabel: _laneLabel, ...athlete }) => athlete),
-    });
-    if (!response.success) {
-      setError(response.error.message);
-      return;
+    try {
+      const response = await relayAthleteLifecycleService.assess({
+        competitionId,
+        relayNumber,
+        phase,
+        athletes: athletes.map(({ laneLabel: _laneLabel, ...athlete }) => athlete),
+      });
+      setAssessment(unwrap(response));
+    } catch (caught) {
+      setError(errorMessage(caught));
     }
-    setAssessment(response.data);
   }, [athletesKey, competitionId, phase, relayNumber]);
 
   useEffect(() => {

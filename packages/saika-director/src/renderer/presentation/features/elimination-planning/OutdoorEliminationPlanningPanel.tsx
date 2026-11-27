@@ -3,7 +3,7 @@ import { CheckCircle2, Megaphone, RefreshCw, ShieldAlert, XCircle } from 'lucide
 
 import { useAsyncAction } from '@/renderer/presentation/hooks/useAsyncAction';
 import { eliminationPlanningService } from '@/renderer/services';
-import { unwrap } from '@/renderer/services/serviceError';
+import { errorMessage, unwrap } from '@/renderer/services/serviceError';
 import type { OutdoorEliminationPlanDto } from '@/shared/ipc/contracts';
 
 import { Button } from '../shared/common/Button';
@@ -21,9 +21,11 @@ export function OutdoorEliminationPlanningPanel({ eventId }: { eventId: string }
   const latest = plans.at(-1) ?? null;
 
   const load = useCallback(async () => {
-    const response = await eliminationPlanningService.list({ eventId });
-    if (!response.success) setError(response.error.message);
-    else setPlans(response.data);
+    try {
+      setPlans(unwrap(await eliminationPlanningService.list({ eventId })));
+    } catch (caught) {
+      setError(errorMessage(caught));
+    }
   }, [eventId]);
 
   useEffect(() => {
