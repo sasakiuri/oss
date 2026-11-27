@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Operator } from '../../src/renderer/Operator';
@@ -567,6 +567,32 @@ describe('operator workflows', () => {
     expect(screen.getByLabelText('Starting page')).toHaveAttribute('max', '3');
     fireEvent.change(screen.getByLabelText('Starting page'), { target: { value: '4' } });
     expect(screen.getByLabelText('Starting page')).toHaveValue(3);
+  });
+  it('keeps the state loaded after a command when an older refresh finishes later', async () => {
+    let changed!: () => void;
+    vi.mocked(bridge.onChange).mockImplementation((callback) => {
+      changed = callback;
+      return () => undefined;
+    });
+    render(<Operator />);
+    fireEvent.click(await screen.findByRole('button', { name: /Display PCs/ }));
+    const older = structuredClone(state);
+    let finishOlder!: (value: AppState) => void;
+    vi.mocked(bridge.getState).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishOlder = resolve;
+        }),
+    );
+    act(() => changed());
+    vi.mocked(bridge.command).mockImplementationOnce(async () => {
+      state.loginStart = true;
+    });
+    const loginStart = screen.getByRole('checkbox', { name: 'Start Vista at login on this PC' });
+    fireEvent.click(loginStart);
+    await waitFor(() => expect(loginStart).toBeChecked());
+    await act(async () => finishOlder(older));
+    expect(loginStart).toBeChecked();
   });
   it('applies a valid fractional page duration without changing integer field constraints', async () => {
     render(<Operator />);

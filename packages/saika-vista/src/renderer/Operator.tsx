@@ -35,7 +35,7 @@ export function Operator() {
   const [discoveryComplete, setDiscoveryComplete] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
   const [filter, setFilter] = useState('');
-  useBridgeRefresh(
+  const refresh = useBridgeRefresh(
     () => window.vista.getState(),
     3000,
     setState,
@@ -46,7 +46,7 @@ export function Operator() {
     setError('');
     try {
       await window.vista.command(command);
-      setState(await window.vista.getState());
+      await refresh();
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The action could not be completed.');
