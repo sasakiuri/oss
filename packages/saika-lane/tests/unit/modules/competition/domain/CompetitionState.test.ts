@@ -203,7 +203,7 @@ describe('CompetitionState aggregate root', () => {
 
     it('throws error from IDLE phase', () => {
       const state = createIdleState();
-      expect(() => state.recordShotInSeries()).toThrow();
+      expect(() => state.recordShotInSeries()).toThrow('Invalid phase transition: Cannot record shot in phase: IDLE');
     });
 
     it('advances automatically inside the 50m shared-time position block', () => {

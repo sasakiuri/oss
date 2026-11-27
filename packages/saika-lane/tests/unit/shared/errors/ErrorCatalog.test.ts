@@ -42,13 +42,14 @@ describe('ErrorCatalog', () => {
     });
 
     it('substitutes multiple template variables', () => {
-      const error = ErrorCatalog.createError('INVALID_PHASE_TRANSITION', {
-        from: 'Idle',
-        to: 'Finished',
+      const error = ErrorCatalog.createError('INCOMPATIBLE_TARGET_DISCIPLINE', {
+        deviceId: 'T1',
+        requiredDiscipline: 'RIFLE',
+        currentDiscipline: 'PISTOL',
       });
 
-      expect(error.message).toBe('Invalid phase transition: Idle → Finished');
-      expect(error.userMessage).toBe('Invalid phase transition: Idle → Finished');
+      expect(error.message).toBe('Target T1 requires RIFLE, but the active session uses PISTOL');
+      expect(error.userMessage).toBe('Select a RIFLE competition before connecting target T1 (current: PISTOL)');
     });
 
     it('leaves placeholders intact when template variables are not provided', () => {

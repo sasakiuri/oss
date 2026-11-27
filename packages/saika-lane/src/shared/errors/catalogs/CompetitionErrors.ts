@@ -53,8 +53,8 @@ export const COMPETITION_ERRORS = {
     severity: 'error',
   },
   INVALID_PHASE_TRANSITION: {
-    message: 'Invalid phase transition: {{from}} → {{to}}',
-    userMessage: 'Invalid phase transition: {{from}} → {{to}}',
+    message: 'Invalid phase transition: {{detail}}',
+    userMessage: 'Invalid phase transition: {{detail}}',
     severity: 'error',
   },
   COMPETITION_ALREADY_FINISHED: {
