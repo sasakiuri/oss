@@ -37,10 +37,10 @@ export interface ShotRoutingDeps {
   competitionRepository: ICompetitionRepository;
   shotObservationRepository: IShotObservationRepository;
   eventBus: IEventBus;
-  interruptionReader?: Pick<ICompetitionInterruptionControl, 'get'>;
-  safetyStopReader?: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
-  shootOffReader?: Pick<ICompetitionShootOffControl, 'canAcceptShot' | 'getState'>;
-  timedTargetReader?: Pick<ITimedTargetControl, 'tryAcceptShot'>;
+  interruptionReader: Pick<ICompetitionInterruptionControl, 'get'>;
+  safetyStopReader: Pick<ILaneSafetyStopControl, 'isStopped' | 'getState'>;
+  shootOffReader: Pick<ICompetitionShootOffControl, 'canAcceptShot' | 'getState'>;
+  timedTargetReader: Pick<ITimedTargetControl, 'tryAcceptShot'>;
   onObservationFinalized?: (evidenceId: string) => void;
 }
 
@@ -162,7 +162,7 @@ export class ShotRoutingService {
       const recording = decideShotRecording({
         competition: activeCompetition,
         sessionShots: activeSession.allShots,
-        interruption: activeCompetition ? (this.deps.interruptionReader?.get(activeCompetition.id) ?? null) : null,
+        interruption: activeCompetition ? this.deps.interruptionReader.get(activeCompetition.id) : null,
         acceptedByShootOff: admission.acceptedByShootOff,
         timedTarget: timedTargetDecision,
         reportedMode: shotData.mode,
@@ -246,22 +246,20 @@ export class ShotRoutingService {
   /** The active safety stop id ('unknown' without state), or null while not stopped. */
   private readSafetyStopId(): string | null {
     const reader = this.deps.safetyStopReader;
-    if (!reader?.isStopped()) return null;
+    if (!reader.isStopped()) return null;
     return reader.getState()?.safetyStopId ?? 'unknown';
   }
 
   private readShootOffWindow(competitionId: string, firedAt: Date): ShootOffWindow {
     const reader = this.deps.shootOffReader;
-    if (reader?.canAcceptShot(competitionId, firedAt) !== true) return CLOSED_SHOOT_OFF_WINDOW;
+    if (!reader.canAcceptShot(competitionId, firedAt)) return CLOSED_SHOOT_OFF_WINDOW;
     const timedTargetProgramId = reader.getState()?.timedTargetProgramId;
     return timedTargetProgramId === undefined ? { open: true } : { open: true, timedTargetProgramId };
   }
 
   private assessTimedTargetShot(request: ReturnType<typeof timedTargetShotRequest>): TimedTargetShotDecision | null {
     if (!request) return null;
-    const reader = this.deps.timedTargetReader;
-    if (!reader) throw new Error('Timed target enforcement service is unavailable');
-    return reader.tryAcceptShot(request);
+    return this.deps.timedTargetReader.tryAcceptShot(request);
   }
 
   /** The extra is already final; a reset failure must not create another routing outcome. */

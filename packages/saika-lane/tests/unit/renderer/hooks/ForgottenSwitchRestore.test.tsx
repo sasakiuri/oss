@@ -32,7 +32,7 @@ import { useAppNavigation } from '@/renderer/presentation/hooks/useAppNavigation
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 
-import { createMockStorage } from '../../../helpers/mockDependencies';
+import { createIdleShotRoutingReaders, createMockStorage } from '../../../helpers/mockDependencies';
 import { createMockElectronAPI } from '../../../helpers/mockElectronAPI';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
@@ -85,6 +85,7 @@ it.each([false, true])(
       competitionRepository: competitions,
       shotObservationRepository: observations,
       eventBus: events,
+      ...createIdleShotRoutingReaders(),
     });
     for (let index = 0; index < 20; index++) {
       await ingest({ x: 0, y: 0, score: 100, mode: 'MATCH', timestamp: new Date() });

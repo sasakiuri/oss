@@ -27,6 +27,7 @@ import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 import {
+  createIdleShotRoutingReaders,
   createMockCompetitionRepository,
   createMockShotObservationRepository,
 } from '../../../../helpers/mockDependencies';
@@ -96,6 +97,7 @@ async function setup(type = BR60S) {
     competitionRepository: competitions,
     shotObservationRepository: createMockShotObservationRepository(),
     eventBus: events,
+    ...createIdleShotRoutingReaders(),
     interruptionReader: interruption,
   });
   return {

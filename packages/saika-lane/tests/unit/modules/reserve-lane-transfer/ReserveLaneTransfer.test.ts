@@ -36,7 +36,7 @@ import { TypedEventBus, type IEventBus } from '@/main/shared-infra/events/TypedE
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
 import { athleteCompetition, selectAthlete } from '../../../helpers/athleteCompetition';
-import { createMockShotObservationRepository } from '../../../helpers/mockDependencies';
+import { createIdleShotRoutingReaders, createMockShotObservationRepository } from '../../../helpers/mockDependencies';
 import { projectVistaTargetMode } from '../../../helpers/projectVistaTargetMode';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
@@ -335,6 +335,7 @@ describe('reserve Lane state transfer', () => {
       competitionRepository: target.competitions,
       shotObservationRepository: createMockShotObservationRepository(),
       eventBus: events,
+      ...createIdleShotRoutingReaders(),
       interruptionReader: interruptions,
     })({ x: 0, y: 0, score: 90, timestamp: new Date(), mode: cache.getContext().mode.value });
     const after = (await target.sessions.findById(sourceSession.id))!;

@@ -31,7 +31,11 @@ import { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import { TypedEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 
-import { createMockCompetitionRepository, createMockStorage } from '../../../../helpers/mockDependencies';
+import {
+  createIdleShotRoutingReaders,
+  createMockCompetitionRepository,
+  createMockStorage,
+} from '../../../../helpers/mockDependencies';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({ error: vi.fn(), debug: vi.fn(), warn: vi.fn(), info: vi.fn() }),
@@ -97,6 +101,7 @@ async function setup(type = R3P60) {
     competitionRepository: competitions,
     shotObservationRepository: observations,
     eventBus: events,
+    ...createIdleShotRoutingReaders(),
     interruptionReader: interruptions,
   });
   const publish = vi.fn().mockResolvedValue(undefined);

@@ -5,7 +5,7 @@ import type { RawShotPayload } from '@sasakiuri/saika-protocol/Shots';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';

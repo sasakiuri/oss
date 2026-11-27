@@ -2,7 +2,7 @@
 import { TimedTargetStatePayloadSchema } from '@sasakiuri/saika-protocol/TimedTargetState';
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { ITimedTargetControl, TimedTargetState } from '@/main/modules/timed-target';
 import { toTimedTargetStateDto } from '@/main/modules/timed-target/toTimedTargetStateDto';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';

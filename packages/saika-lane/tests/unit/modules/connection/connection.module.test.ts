@@ -33,6 +33,7 @@ import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
 import { athleteCompetition } from '../../../helpers/athleteCompetition';
 import { buildSession } from '../../../helpers/factories';
 import {
+  createIdleShotRoutingReaders,
   createMockCommandBus,
   createMockCompetitionRepository,
   createMockConnectionRepository,
@@ -113,6 +114,7 @@ describe('connection.module', () => {
       const ready = sessionContextCache.bootstrap(sessionRepository, competitionRepository, {
         get: getInterruption,
       } as never);
+      const { safetyStopReader, shootOffReader, timedTargetReader } = createIdleShotRoutingReaders();
       connectionModule.register({
         sessionContextCache,
         startup: {
@@ -129,6 +131,9 @@ describe('connection.module', () => {
         sessionRepository,
         competitionRepository,
         competitionInterruptionControl: { get: getInterruption },
+        safetyStopControl: safetyStopReader,
+        competitionShootOffControl: shootOffReader,
+        timedTargetControl: timedTargetReader,
         usbManager,
         ipcRouter,
         mainWindow,

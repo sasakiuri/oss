@@ -8,7 +8,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { LaneInterruptionRecord } from '@/main/modules/competition-interruption';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { mapToLanePhase } from '@/main/modules/mqtt/domain/PhaseMapper';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';

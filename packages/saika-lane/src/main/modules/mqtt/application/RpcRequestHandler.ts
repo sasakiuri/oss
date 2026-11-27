@@ -7,7 +7,7 @@ import { GetCompetitionStateToken, GetSessionScoreToken, GetShotHistoryToken } f
 import { TopicSubscription } from '@/main/modules/mqtt/application/TopicSubscription';
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import { RpcRequestSchema } from '@/main/modules/mqtt/domain/MqttRpcSchemas';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { errorMessage } from '@/shared/errors/errorMessage';

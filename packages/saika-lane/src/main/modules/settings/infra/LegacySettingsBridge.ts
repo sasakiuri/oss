@@ -9,7 +9,12 @@ import {
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 import type { StorageValue } from '@/shared/storage/types';
 
-import { MIRRORED_LANE_ID_KEY } from '../application/MirroredLaneId';
+import {
+  MIRRORED_CONNECTION_SETTINGS_KEY,
+  MIRRORED_LANE_ID_KEY,
+  MIRRORED_MQTT_SETTINGS_KEY,
+  MIRRORED_USER_PREFERENCES_KEY,
+} from '../application/MirroredSettings';
 import {
   asRecord,
   normalizeConnectionDraft,
@@ -34,11 +39,11 @@ export class LegacySettingsBridge {
   }
 
   saveUserPreferences(preferences: UserPreferencesDto): void {
-    this.storage.set('userPreferences', preferences);
+    this.storage.set(MIRRORED_USER_PREFERENCES_KEY, preferences);
   }
 
   private readLegacyConnectionInput(): unknown {
-    return this.storage.get('connectionSettings') ?? {};
+    return this.storage.get(MIRRORED_CONNECTION_SETTINGS_KEY) ?? {};
   }
 
   private readLegacyConnection(): AppSettingsDraftDto['connection'] {
@@ -46,11 +51,11 @@ export class LegacySettingsBridge {
   }
 
   private readLegacyUserPreferences(): AppSettingsDraftDto['userPreferences'] {
-    return normalizeUserPreferencesDraft(this.storage.get('userPreferences') ?? {});
+    return normalizeUserPreferencesDraft(this.storage.get(MIRRORED_USER_PREFERENCES_KEY) ?? {});
   }
 
   private readLegacyMqttSettings(): AppSettingsDraftDto['mqtt'] {
-    const legacy = this.storage.get('mqtt.settings') ?? {};
+    const legacy = this.storage.get(MIRRORED_MQTT_SETTINGS_KEY) ?? {};
     const laneId = this.storage.get<string>(MIRRORED_LANE_ID_KEY);
     return normalizeMqttDraft({
       ...(typeof legacy === 'object' && legacy !== null ? legacy : {}),
@@ -127,16 +132,16 @@ export class LegacySettingsBridge {
 
   syncLegacyStorage(settings: AppSettingsDto): void {
     this.setIfChanged(MIRRORED_LANE_ID_KEY, settings.mqtt.laneId);
-    this.setIfChanged('mqtt.settings', settings.mqtt);
+    this.setIfChanged(MIRRORED_MQTT_SETTINGS_KEY, settings.mqtt);
     this.setIfChanged(
-      'userPreferences',
+      MIRRORED_USER_PREFERENCES_KEY,
       toLegacyUserPreferences(settings.userPreferences, this.getStoredLegacyUserPreferences()),
     );
 
     if (settings.connection.portName) {
-      this.setIfChanged('connectionSettings', toLegacyConnectionSettings(settings.connection));
-    } else if (this.storage.has('connectionSettings')) {
-      this.storage.delete('connectionSettings');
+      this.setIfChanged(MIRRORED_CONNECTION_SETTINGS_KEY, toLegacyConnectionSettings(settings.connection));
+    } else if (this.storage.has(MIRRORED_CONNECTION_SETTINGS_KEY)) {
+      this.storage.delete(MIRRORED_CONNECTION_SETTINGS_KEY);
     }
   }
 
@@ -150,7 +155,7 @@ export class LegacySettingsBridge {
   }
 
   getStoredLegacyUserPreferences(): UserPreferencesDto {
-    const stored = this.storage.get('userPreferences');
+    const stored = this.storage.get(MIRRORED_USER_PREFERENCES_KEY);
     if (typeof stored !== 'object' || stored === null) {
       return {};
     }

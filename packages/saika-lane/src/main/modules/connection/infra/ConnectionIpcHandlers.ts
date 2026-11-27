@@ -7,83 +7,25 @@ import type { ITargetConnectionSupport } from '@/main/modules/target/domain/Targ
 import { TargetDevice } from '@/main/modules/target/domain/TargetDevice';
 import { TargetManufacturer } from '@/main/modules/target/domain/TargetManufacturer';
 import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
-import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
-import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
 import { connectionContract } from '@/shared/ipc/contracts';
 
 export interface ConnectionIpcHandlersDeps {
   commandBus: CommandBus;
-  eventBus: IEventBus;
   usbManager: IUSBConnectionManager;
   targetConnectionSupport: ITargetConnectionSupport;
 }
 
 export function createConnectionIpcHandlers(deps: ConnectionIpcHandlersDeps): InferHandlers<typeof connectionContract> {
-  const { commandBus, eventBus, usbManager, targetConnectionSupport } = deps;
+  const { commandBus, usbManager, targetConnectionSupport } = deps;
 
   return {
-    connect: async (input) => {
-      const manufacturer = TargetManufacturer.fromValue(input.manufacturer);
-
-      let unsubscribe: (() => void) | undefined;
-      let timeoutId: NodeJS.Timeout | null = null;
-      let rejectEvent: ((reason: unknown) => void) | undefined;
-
-      try {
-        // Prepare to capture connectionId from ConnectionEstablished event
-        const eventPromise = new Promise<string>((resolve, reject) => {
-          rejectEvent = reject;
-          unsubscribe = eventBus.on('ConnectionEstablished', (event) => {
-            if (event.portPath !== input.portName) {
-              return;
-            }
-
-            if (event.manufacturer.value !== input.manufacturer) {
-              return;
-            }
-
-            if (input.deviceId !== undefined && (event.deviceId ?? null) !== input.deviceId) {
-              return;
-            }
-
-            resolve(event.aggregateId);
-          });
-        });
-
-        // Prevent unhandled rejection if eventPromise loses the race
-        eventPromise.catch(() => {});
-
-        // Create timeout promise (10 seconds)
-        const timeoutPromise = new Promise<string>((_, reject) => {
-          timeoutId = setTimeout(() => {
-            reject(ErrorCatalog.createError('CONNECTION_TIMEOUT', { timeoutMs: 10000 }));
-          }, 10000);
-        });
-
-        // Prevent unhandled rejection when timeout loses the race
-        timeoutPromise.catch(() => {});
-
-        // Execute command via token-based dispatch (returns void)
-        await commandBus.execute(ConnectToTargetToken, {
-          portName: input.portName,
-          manufacturer,
-          baudRate: input.baudRate,
-          deviceId: input.deviceId,
-        });
-
-        // Wait for event to capture connectionId with timeout
-        const connectionId = await Promise.race([eventPromise, timeoutPromise]);
-
-        return { connectionId };
-      } finally {
-        // Reject the event promise to prevent it from pending indefinitely
-        rejectEvent?.(new Error('cleanup'));
-        unsubscribe?.();
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-      }
-    },
+    connect: (input) =>
+      commandBus.execute(ConnectToTargetToken, {
+        portName: input.portName,
+        manufacturer: TargetManufacturer.fromValue(input.manufacturer),
+        baudRate: input.baudRate,
+        deviceId: input.deviceId,
+      }),
 
     disconnect: async (input) => {
       await commandBus.execute(DisconnectFromTargetToken, {

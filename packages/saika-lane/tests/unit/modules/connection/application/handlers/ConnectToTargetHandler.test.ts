@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ConnectToTargetInput } from '@/main/composition/tokens';
+import type { ConnectToTargetInput, ConnectToTargetResult } from '@/main/composition/tokens';
 import { createConnectToTargetHandler } from '@/main/modules/connection/application/handlers/ConnectToTargetHandler';
 import { Connection } from '@/main/modules/connection/domain/Connection';
 import { IConnectionRepository } from '@/main/modules/connection/domain/IConnectionRepository';
@@ -12,7 +12,7 @@ import type { CommandHandler } from '@/main/shared-infra/cqrs';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 
 describe('createConnectToTargetHandler', () => {
-  let handler: CommandHandler<ConnectToTargetInput>;
+  let handler: CommandHandler<ConnectToTargetInput, ConnectToTargetResult>;
   let mockConnectionRepository: IConnectionRepository;
   let mockEventBus: IEventBus;
   let mockUSBManager: IUSBConnectionManager;
@@ -84,6 +84,14 @@ describe('createConnectToTargetHandler', () => {
       expect(mockConnectionRepository.save).toHaveBeenCalledTimes(1);
       const savedConnection = (mockConnectionRepository.save as any).mock.calls[0][0];
       expect(savedConnection).toBeInstanceOf(Connection);
+    });
+
+    it('should return the ID of the established connection', async () => {
+      (mockUSBManager.connect as any).mockResolvedValue(testConnection);
+
+      const result = await handler({ portName: 'COM3', manufacturer: TargetManufacturer.sius(), baudRate: 9600 });
+
+      expect(result).toEqual({ connectionId: testConnection.id });
     });
 
     it('should emit a ConnectionEstablished event', async () => {

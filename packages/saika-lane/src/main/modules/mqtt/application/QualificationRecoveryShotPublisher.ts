@@ -9,7 +9,7 @@ import type {
   IQualificationRecoveryShotOutbox,
 } from '@/main/modules/qualification-recovery';
 import { QUALIFICATION_RECOVERY_ACQUISITION_OWNER } from '@/main/modules/qualification-recovery';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';

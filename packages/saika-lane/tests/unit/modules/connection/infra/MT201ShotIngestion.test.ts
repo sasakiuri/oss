@@ -27,7 +27,7 @@ import { ContractEventForwarder } from '@/main/shared-infra/ipc/ContractEventFor
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { eventsContract } from '@/shared/ipc/contracts';
 
-import { createMockCompetitionRepository } from '../../../../helpers/mockDependencies';
+import { createIdleShotRoutingReaders, createMockCompetitionRepository } from '../../../../helpers/mockDependencies';
 
 vi.mock('@/main/shared-infra/logging/createLogger', () => ({
   getLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), isLevelEnabled: () => false }),
@@ -75,6 +75,7 @@ describe('MT-201 shot ingestion', () => {
       competitionRepository: competitions,
       shotObservationRepository: observations,
       eventBus: events,
+      ...createIdleShotRoutingReaders(),
     });
     const emitter = new USBEventEmitter();
     const pending: Promise<void>[] = [];

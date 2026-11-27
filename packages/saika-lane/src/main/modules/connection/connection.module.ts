@@ -104,7 +104,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
         throw new Error('Restore the saved run before connecting the target');
       await modeSync.settled();
       await unexpectedDisconnects.flushBeforeConnect();
-      await connectToTarget(input);
+      return connectToTarget(input);
     });
     const disconnectFromTarget = createDisconnectFromTargetHandler(connectionRepository, usbManager, eventBus);
     commandBus.register(DisconnectFromTargetToken, async (input) => {
@@ -115,7 +115,6 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
     // Register IPC handlers via IpcRouter
     const connectionHandlers = createConnectionIpcHandlers({
       commandBus,
-      eventBus,
       usbManager,
       targetConnectionSupport: new TargetConnectionSupport(adapterRegistry),
     });

@@ -47,6 +47,7 @@ import { LaneSafetyStopService } from '@/main/modules/safety-stop';
 import { CompetitionSafetyTimerFreezer } from '@/main/modules/safety-stop/infra/CompetitionSafetyTimerFreezer';
 import { SqliteLaneSafetyStopRepository } from '@/main/modules/safety-stop/infra/SqliteLaneSafetyStopRepository';
 import { SqliteSessionRepository } from '@/main/modules/session/infra/SqliteSessionRepository';
+import { readMirroredConnectionSettings } from '@/main/modules/settings/application/MirroredSettings';
 import { AppSettingsStore } from '@/main/modules/settings/infra/AppSettingsStore';
 import { LocalStorageAdapter } from '@/main/modules/settings/infra/LocalStorageAdapter';
 import { SqliteShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/infra/SqliteShotObservationEvidenceOutbox';
@@ -68,7 +69,6 @@ import { IpcRouter } from '@/main/shared-infra/ipc/IpcRouter';
 import { getLogger } from '@/main/shared-infra/logging';
 import { createSqliteDb } from '@/main/shared-infra/sqlite/SqliteDb';
 import { ActiveRunStartup } from '@/main/startup/restoreActiveRun';
-import { ConnectionSettingsSchema } from '@/shared/ipc/contracts';
 
 import type { ServiceRegistry } from './ModuleDefinition';
 import { StartCompetitionToken } from './tokens';
@@ -152,7 +152,7 @@ export function createLaneServices(
   );
   const timingProfileService = new TimingProfileService(new StoredTimingProfiles(storage), {
     // AppSettingsStore maintains this snapshot; assessment must not trigger settings-file writes.
-    connection: () => ConnectionSettingsSchema.nullable().parse(storage.get('connectionSettings') ?? null),
+    connection: () => readMirroredConnectionSettings(storage),
     hasActiveCompetition: async () => !!(await competitionRepository.findActive()),
   });
   const timedTargetSequenceRepository = new SqliteTimedTargetSequenceRepository(db);

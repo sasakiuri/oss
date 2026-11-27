@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { VistaIdentitySchema } from '@sasakiuri/saika-protocol/Vista';
 
+import { readMirroredLaneAlias } from '@/main/modules/settings/application/MirroredSettings';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 /** Vista names and labels share one text limit. */
@@ -13,6 +14,6 @@ const LABEL_SUFFIX_ALLOWANCE = 256;
  * otherwise null, so the caller keeps the numbered Lane name.
  */
 export function readVistaLaneAlias(storage: Pick<ILocalStorage, 'get'>): string | null {
-  const alias = storage.get<{ laneAlias?: string }>('mqtt.settings')?.laneAlias;
+  const alias = readMirroredLaneAlias(storage);
   return alias && alias.length + LABEL_SUFFIX_ALLOWANCE <= VISTA_TEXT_LIMIT ? alias : null;
 }

@@ -7,7 +7,7 @@ import type { ICompetitionRepository } from '@/main/modules/competition/domain/I
 import type { IMqttClientService } from '@/main/modules/mqtt/domain/IMqttClientService';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import type { Shot } from '@/main/modules/session/domain/Shot';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';

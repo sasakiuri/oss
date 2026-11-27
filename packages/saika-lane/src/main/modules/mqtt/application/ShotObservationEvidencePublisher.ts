@@ -4,7 +4,7 @@ import type { ShotObservationEvidencePayload } from '@sasakiuri/saika-protocol/S
 import { mqttTopics } from '@sasakiuri/saika-protocol/topics';
 
 import { OutboxDrainer } from '@/main/modules/mqtt/application/OutboxDrainer';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { IShotObservationEvidenceOutbox } from '@/main/modules/shot-observation/domain/IShotObservationEvidenceOutbox';
 import type { ShotObservationEvidence } from '@/main/modules/shot-observation/domain/ShotObservationEvidence';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';

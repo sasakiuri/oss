@@ -6,7 +6,7 @@ import type {
   IQualificationRecoveryControl,
   QualificationRecoveryRunRecord,
 } from '@/main/modules/qualification-recovery';
-import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
+import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredSettings';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
