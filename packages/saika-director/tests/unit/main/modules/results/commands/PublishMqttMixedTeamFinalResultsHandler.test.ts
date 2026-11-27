@@ -111,52 +111,57 @@ function decision(rank: 2 | 3 | 4, teamIndex: number, afterShot: number): MixedT
   };
 }
 
+async function publishFourTeams(): Promise<MemoryRepository> {
+  const shotCounts = new Map([
+    [1, 24],
+    [2, 24],
+    [3, 21],
+    [4, 18],
+  ]);
+  const lanes = [1, 2, 3, 4].flatMap((teamIndex) =>
+    [1, 2].map((memberIndex) => lane(teamIndex, memberIndex, shotCounts.get(teamIndex)!)),
+  );
+  const assignments = lanes.map((item, index) => ({
+    firingPointNumber: index + 1,
+    participantId: item.assignment!.athlete!.id,
+    playerName: item.assignment!.athlete!.name,
+    familyName: item.assignment!.athlete!.name,
+    affiliation: item.assignment!.athlete!.nationCode!,
+  }));
+  const queryBus = {
+    execute: vi
+      .fn()
+      .mockResolvedValueOnce({
+        id: eventId,
+        name: 'Mixed Final',
+        eventType: 'ARMIX_FINAL',
+        round: 'Final',
+        sortOrder: 0,
+      })
+      .mockResolvedValueOnce(assignments),
+  };
+  const repository = new MemoryRepository();
+  const registry = new CompetitionTypeRegistry();
+  registry.register(competitionTypeFromRulePack(ISSF_2026_ARMIX_FINAL));
+  const control = {
+    findByCompetition: () => [decision(4, 4, 18), decision(3, 3, 21), decision(2, 2, 24)],
+  };
+  const handler = new PublishMqttMixedTeamFinalResultsHandler(
+    queryBus as never,
+    repository,
+    registry,
+    control as never,
+  );
+
+  await expect(
+    handler.execute({ competitionId, competitionTypeId: 'ARMIX_FINAL', eventId, relayNumber: 1, lanes }),
+  ).resolves.toEqual({ savedCount: 4, errors: [] });
+  return repository;
+}
+
 describe('PublishMqttMixedTeamFinalResultsHandler', () => {
   it('combines two Lane snapshots per team and takes ranks only from completed decisions', async () => {
-    const shotCounts = new Map([
-      [1, 24],
-      [2, 24],
-      [3, 21],
-      [4, 18],
-    ]);
-    const lanes = [1, 2, 3, 4].flatMap((teamIndex) =>
-      [1, 2].map((memberIndex) => lane(teamIndex, memberIndex, shotCounts.get(teamIndex)!)),
-    );
-    const assignments = lanes.map((item, index) => ({
-      firingPointNumber: index + 1,
-      participantId: item.assignment!.athlete!.id,
-      playerName: item.assignment!.athlete!.name,
-      familyName: item.assignment!.athlete!.name,
-      affiliation: item.assignment!.athlete!.nationCode!,
-    }));
-    const queryBus = {
-      execute: vi
-        .fn()
-        .mockResolvedValueOnce({
-          id: eventId,
-          name: 'Mixed Final',
-          eventType: 'ARMIX_FINAL',
-          round: 'Final',
-          sortOrder: 0,
-        })
-        .mockResolvedValueOnce(assignments),
-    };
-    const repository = new MemoryRepository();
-    const registry = new CompetitionTypeRegistry();
-    registry.register(competitionTypeFromRulePack(ISSF_2026_ARMIX_FINAL));
-    const control = {
-      findByCompetition: () => [decision(4, 4, 18), decision(3, 3, 21), decision(2, 2, 24)],
-    };
-    const handler = new PublishMqttMixedTeamFinalResultsHandler(
-      queryBus as never,
-      repository,
-      registry,
-      control as never,
-    );
-
-    await expect(
-      handler.execute({ competitionId, competitionTypeId: 'ARMIX_FINAL', eventId, relayNumber: 1, lanes }),
-    ).resolves.toEqual({ savedCount: 4, errors: [] });
+    const repository = await publishFourTeams();
     expect(repository.results.map((result) => [result.teamId, result.finalRank, result.eliminatedAtShot])).toEqual(
       expect.arrayContaining([
         ['team-1', 1, null],
@@ -171,5 +176,23 @@ describe('PublishMqttMixedTeamFinalResultsHandler', () => {
         .find((result) => result.teamId === 'team-4')
         ?.members.every((member) => member.stage1Shots.length === 15 && member.stage2Shots.length === 3),
     ).toBe(true);
+  });
+
+  it('stores the stage totals and the team total in tenths', async () => {
+    const repository = await publishFourTeams();
+
+    expect(
+      Object.fromEntries(
+        repository.results.map((result) => [
+          result.teamId,
+          [result.stage1Total, result.stage2Total, result.totalScore],
+        ]),
+      ),
+    ).toEqual({
+      'team-1': [303, 181.8, 484.8],
+      'team-2': [306, 183.6, 489.6],
+      'team-3': [309, 123.6, 432.6],
+      'team-4': [312, 62.4, 374.4],
+    });
   });
 });

@@ -167,7 +167,7 @@ export class PublishMqttMixedTeamFinalResultsHandler {
         members: publicMembers,
         stage1Total,
         stage2Total,
-        totalScore: stage1Total + stage2Total,
+        totalScore: sumShots([stage1Total, stage2Total]),
         finalRank: rank,
         eliminatedAtShot: decision?.afterShot ?? null,
         shootoffId: decision?.resolution === 'SHOOT_OFF' ? decision.id : null,
