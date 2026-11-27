@@ -28,7 +28,7 @@ export class DisplayServer {
       /** This PC's current state, returned by every display request. */
       node(): NodeState;
       /** Reports a failure to finish a remote release after it was acknowledged. */
-      releaseFailed(error: unknown): void;
+      releaseFailed(): void;
     },
   ) {}
 
@@ -36,7 +36,10 @@ export class DisplayServer {
     return this.server?.endpoints ?? [];
   }
 
-  /** Why controllers cannot connect to this PC, if the listener could not start. */
+  /**
+   * Why controllers cannot connect to this PC: the listener could not start, or a remote release could not
+   * restart it. Reported until the listener starts.
+   */
   get error(): string | null {
     return this.listenerError;
   }
@@ -131,7 +134,10 @@ export class DisplayServer {
           await this.state.transact(withoutController);
           if (!this.stopped) await this.listen();
         })
-        .catch((error) => this.options.releaseFailed(error))
+        .catch((error) => {
+          this.listenerError = messageOf(error);
+          this.options.releaseFailed();
+        })
         .finally(() => {
           this.releaseTask = null;
         });
