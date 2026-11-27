@@ -32,7 +32,6 @@ export function usePhaseEvents(): void {
         data.newPhase,
         data.stageIndex,
         data.seriesIndex,
-        data.stageName,
         data.scored,
         data.targetProfileId && isTargetScoringProfileId(data.targetProfileId) ? data.targetProfileId : undefined,
         data.scoringGaugeProfileId && isScoringGaugeProfileId(data.scoringGaugeProfileId)
@@ -65,7 +64,7 @@ export function usePhaseEvents(): void {
 
   useEffect(() => {
     const unsubCompetitionFinished = window.electronAPI.on.competitionFinished(() => {
-      applyPhaseChange('FINISHED', 0, 0, '', false);
+      applyPhaseChange('FINISHED', 0, 0, false);
     });
     return () => unsubCompetitionFinished();
   }, [applyPhaseChange]);

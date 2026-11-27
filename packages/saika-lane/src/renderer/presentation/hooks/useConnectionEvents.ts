@@ -25,7 +25,7 @@ export function useConnectionEvents(): void {
           return;
         }
         dismissUnexpectedDisconnect();
-        setConnection(event.connectionId, event.portPath || null, event.manufacturer, selectedDeviceId ?? undefined);
+        setConnection(event.connectionId, selectedDeviceId ?? undefined);
         setDeviceId(event.deviceId ?? selectedDeviceId ?? null);
       } else {
         disconnectStore();

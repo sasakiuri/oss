@@ -106,7 +106,7 @@ function expectNoAction() {
 
 function startCompetition(scored = false) {
   useCompetitionStore.getState().setCompetitionId('comp-1');
-  useCompetitionStore.getState().setPhase('ACTIVE', 0, 0, scored ? 'Match' : 'Preparation', scored);
+  useCompetitionStore.getState().applyPhaseChange('ACTIVE', 0, 0, scored);
   useCompetitionStore.getState().setAthleteTargetControl(null);
 }
 
@@ -204,7 +204,7 @@ describe('Preparation and Match confirmation through App', () => {
       vi.mocked(competitionService.startStage).mockImplementation(async () => {
         useSessionStore.getState().clearSessionData();
         useSessionStore.getState().setSessionId('session-2');
-        useCompetitionStore.getState().setPhase('IDLE', 0, 0, '', false);
+        useCompetitionStore.getState().applyPhaseChange('IDLE', 0, 0, false);
         return { sessionId: 'session-2' };
       });
       const user = userEvent.setup({
@@ -243,10 +243,10 @@ describe('Preparation and Match confirmation through App', () => {
     vi.useRealTimers();
     startCompetition();
     vi.mocked(competitionService.endStage).mockImplementation(async () => {
-      useCompetitionStore.getState().setPhase('SERIES_COMPLETE', 0, 0, 'Preparation', false);
+      useCompetitionStore.getState().applyPhaseChange('SERIES_COMPLETE', 0, 0, false);
     });
     vi.mocked(competitionService.advanceStage).mockImplementation(async () => {
-      useCompetitionStore.getState().setPhase('STAGE_ENTERED', 1, 0, 'Match', true);
+      useCompetitionStore.getState().applyPhaseChange('STAGE_ENTERED', 1, 0, true);
     });
     let completeSeries!: () => void;
     const seriesPending = new Promise<void>((resolve) => {
@@ -379,7 +379,7 @@ describe('Preparation and Match confirmation through App', () => {
       act(() => {
         if (field === 'competition ID') useCompetitionStore.getState().setCompetitionId('comp-2');
         else if (field === 'session ID') useSessionStore.getState().setSessionId('session-2');
-        else useCompetitionStore.getState().setPhase('SERIES_COMPLETE', 0, 0, 'Preparation', false);
+        else useCompetitionStore.getState().applyPhaseChange('SERIES_COMPLETE', 0, 0, false);
       });
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       await press('Enter', 'Enter');

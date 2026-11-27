@@ -80,7 +80,6 @@ beforeEach(() => {
     stageIndex: 1,
     seriesIndex: 2,
     scored: true,
-    currentStageName: 'Match',
     remainingSeconds: 600,
     totalSeconds: 1000,
     acc: 'DECIMAL',

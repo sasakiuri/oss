@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useRef, useState } from 'react';
 
+import { InlineError } from '@/renderer/presentation/components/common/InlineError';
+import { useBusyAction } from '@/renderer/presentation/hooks/useBusyAction';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
-import { errorMessage } from '@/shared/errors/errorMessage';
 import {
   MAX_TIMING_MEASUREMENT_BYTES,
   type TimingMeasurementAnalysis,
@@ -25,8 +26,7 @@ export function TimingMeasurementImport({
   const [receiptMargin, setReceiptMargin] = useState('');
   const [clockMargin, setClockMargin] = useState('');
   const [analysis, setAnalysis] = useState<TimingMeasurementAnalysis | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useBusyAction();
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -39,16 +39,9 @@ export function TimingMeasurementImport({
     setError(null);
     onAnalyzed(null);
   };
-  const act = async (work: () => Promise<void>) => {
-    setBusy(true);
+  const act = (work: () => Promise<void>) => {
     invalidate();
-    try {
-      await work();
-    } catch (caught) {
-      setError(errorMessage(caught));
-    } finally {
-      setBusy(false);
-    }
+    return run(work);
   };
   return (
     <fieldset disabled={busy} className="space-y-2 rounded border border-zinc-700 p-2">
@@ -154,11 +147,7 @@ export function TimingMeasurementImport({
       >
         Analyze timing measurements
       </button>
-      {error && (
-        <p role="alert" className="text-red-400">
-          {error}
-        </p>
-      )}
+      {error && <InlineError>{error}</InlineError>}
       {analysis && (
         <div role="status">
           <p>

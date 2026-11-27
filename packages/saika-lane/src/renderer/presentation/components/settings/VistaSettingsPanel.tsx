@@ -1,28 +1,22 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
+import { InlineError } from '@/renderer/presentation/components/common/InlineError';
+import { useBusyAction } from '@/renderer/presentation/hooks/useBusyAction';
 import { vistaService } from '@/renderer/services/vistaService';
 import { errorMessage } from '@/shared/errors/errorMessage';
 import type { LaneVistaStatus } from '@/shared/ipc/contracts/vista.contract';
 
 export function VistaSettingsPanel() {
   const [status, setStatus] = useState<LaneVistaStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const { busy, error, setError, run } = useBusyAction();
   useEffect(() => {
     vistaService.getStatus().then(setStatus, (cause: unknown) => setError(errorMessage(cause)));
   }, []);
-  const update = async (change: () => Promise<LaneVistaStatus>) => {
-    setBusy(true);
-    setError(null);
-    try {
+  const update = (change: () => Promise<LaneVistaStatus>) =>
+    run(async () => {
       setStatus(await change());
-    } catch (cause) {
-      setError(errorMessage(cause));
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
   const toggle = () => update(() => vistaService.setEnabled({ enabled: !status?.enabled }));
   const resetPairing = () => update(() => vistaService.resetPairing({}));
   return (
@@ -73,11 +67,7 @@ export function VistaSettingsPanel() {
           </p>
         </>
       )}
-      {(error || status?.error) && (
-        <p role="alert" className="text-red-400">
-          {error || status?.error}
-        </p>
-      )}
+      {(error || status?.error) && <InlineError>{error || status?.error}</InlineError>}
     </section>
   );
 }

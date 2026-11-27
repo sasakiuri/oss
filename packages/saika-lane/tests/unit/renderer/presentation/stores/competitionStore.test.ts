@@ -24,11 +24,6 @@ describe('competitionStore', () => {
       expect(seriesIndex).toBe(0);
     });
 
-    it('currentStageName is empty string', () => {
-      const { currentStageName } = useCompetitionStore.getState();
-      expect(currentStageName).toBe('');
-    });
-
     it('scored is false', () => {
       const { scored } = useCompetitionStore.getState();
       expect(scored).toBe(false);
@@ -44,11 +39,6 @@ describe('competitionStore', () => {
       expect(totalSeconds).toBe(0);
     });
 
-    it('isTimerRunning is false', () => {
-      const { isTimerRunning } = useCompetitionStore.getState();
-      expect(isTimerRunning).toBe(false);
-    });
-
     it('isTimerExpired is false', () => {
       const { isTimerExpired } = useCompetitionStore.getState();
       expect(isTimerExpired).toBe(false);
@@ -61,85 +51,6 @@ describe('competitionStore', () => {
 
     it('has no interruption', () => {
       expect(useCompetitionStore.getState().interruption).toBeNull();
-    });
-  });
-
-  describe('setPhase', () => {
-    it('updates phase, stageIndex, seriesIndex, currentStageName, scored', () => {
-      const { setPhase } = useCompetitionStore.getState();
-
-      setPhase('ACTIVE', 1, 2, 'Qualification', true);
-
-      const state = useCompetitionStore.getState();
-      expect(state.phase).toBe('ACTIVE');
-      expect(state.stageIndex).toBe(1);
-      expect(state.seriesIndex).toBe(2);
-      expect(state.currentStageName).toBe('Qualification');
-      expect(state.scored).toBe(true);
-    });
-
-    it('sets scored to false', () => {
-      const { setPhase } = useCompetitionStore.getState();
-
-      setPhase('ACTIVE', 0, 0, 'Preparation', false);
-
-      const state = useCompetitionStore.getState();
-      expect(state.scored).toBe(false);
-    });
-
-    it('can set to FINISHED phase', () => {
-      const { setPhase } = useCompetitionStore.getState();
-
-      setPhase('FINISHED', 0, 0, '', false);
-
-      const { phase } = useCompetitionStore.getState();
-      expect(phase).toBe('FINISHED');
-    });
-
-    it('can set to SERIES_COMPLETE phase', () => {
-      const { setPhase } = useCompetitionStore.getState();
-
-      setPhase('SERIES_COMPLETE', 0, 3, 'Match', true);
-
-      const state = useCompetitionStore.getState();
-      expect(state.phase).toBe('SERIES_COMPLETE');
-      expect(state.seriesIndex).toBe(3);
-    });
-
-    it('can set to SERIES_ENTERED phase', () => {
-      const { setPhase } = useCompetitionStore.getState();
-
-      setPhase('SERIES_ENTERED', 1, 2, 'Match', true);
-
-      const state = useCompetitionStore.getState();
-      expect(state.phase).toBe('SERIES_ENTERED');
-      expect(state.stageIndex).toBe(1);
-      expect(state.seriesIndex).toBe(2);
-      expect(state.currentStageName).toBe('Match');
-    });
-
-    it('can set to STAGE_ENTERED phase', () => {
-      const { setPhase } = useCompetitionStore.getState();
-
-      setPhase('STAGE_ENTERED', 2, 0, 'Final', true);
-
-      const state = useCompetitionStore.getState();
-      expect(state.phase).toBe('STAGE_ENTERED');
-      expect(state.stageIndex).toBe(2);
-      expect(state.currentStageName).toBe('Final');
-    });
-
-    it('timer state is not changed when phase is set', () => {
-      const { setPhase, updateTimer, setTimerRunning } = useCompetitionStore.getState();
-
-      updateTimer(120, 300);
-      setTimerRunning(true);
-      setPhase('ACTIVE', 0, 0, 'Qualification', true);
-
-      const state = useCompetitionStore.getState();
-      expect(state.remainingSeconds).toBe(120);
-      expect(state.totalSeconds).toBe(300);
-      expect(state.isTimerRunning).toBe(true);
     });
   });
 
@@ -165,36 +76,15 @@ describe('competitionStore', () => {
     });
 
     it('phase is not changed when timer is updated', () => {
-      const { setPhase, updateTimer } = useCompetitionStore.getState();
+      const { applyPhaseChange, updateTimer } = useCompetitionStore.getState();
 
-      setPhase('ACTIVE', 1, 2, 'Match', true);
+      applyPhaseChange('ACTIVE', 1, 2, true);
       updateTimer(60, 300);
 
       const state = useCompetitionStore.getState();
       expect(state.phase).toBe('ACTIVE');
       expect(state.stageIndex).toBe(1);
       expect(state.seriesIndex).toBe(2);
-    });
-  });
-
-  describe('setTimerRunning', () => {
-    it('can set timer running state to true', () => {
-      const { setTimerRunning } = useCompetitionStore.getState();
-
-      setTimerRunning(true);
-
-      const { isTimerRunning } = useCompetitionStore.getState();
-      expect(isTimerRunning).toBe(true);
-    });
-
-    it('can set timer running state to false', () => {
-      const { setTimerRunning } = useCompetitionStore.getState();
-
-      setTimerRunning(true);
-      setTimerRunning(false);
-
-      const { isTimerRunning } = useCompetitionStore.getState();
-      expect(isTimerRunning).toBe(false);
     });
   });
 
@@ -216,32 +106,6 @@ describe('competitionStore', () => {
 
       const { isTimerExpired } = useCompetitionStore.getState();
       expect(isTimerExpired).toBe(false);
-    });
-  });
-
-  describe('advanceStage', () => {
-    it('updates stageIndex, currentStageName, scored and resets seriesIndex to 0', () => {
-      const { advanceSeries, advanceStage } = useCompetitionStore.getState();
-
-      advanceSeries(3);
-
-      advanceStage(2, 'Final', true);
-
-      const state = useCompetitionStore.getState();
-      expect(state.stageIndex).toBe(2);
-      expect(state.currentStageName).toBe('Final');
-      expect(state.scored).toBe(true);
-      expect(state.seriesIndex).toBe(0);
-    });
-
-    it('can advance to non-scored stage', () => {
-      const { advanceStage } = useCompetitionStore.getState();
-
-      advanceStage(0, 'Preparation', false);
-
-      const state = useCompetitionStore.getState();
-      expect(state.scored).toBe(false);
-      expect(state.currentStageName).toBe('Preparation');
     });
   });
 
@@ -289,12 +153,11 @@ describe('competitionStore', () => {
 
   describe('resetCompetition', () => {
     it('resets all fields to initial values', () => {
-      const { setPhase, updateTimer, setTimerRunning, setTimerExpired, setShotsPerSeries, resetCompetition } =
+      const { applyPhaseChange, updateTimer, setTimerExpired, setShotsPerSeries, resetCompetition } =
         useCompetitionStore.getState();
 
-      setPhase('ACTIVE', 2, 3, 'Final', true);
+      applyPhaseChange('ACTIVE', 2, 3, true);
       updateTimer(120, 300);
-      setTimerRunning(true);
       setTimerExpired(true);
       setShotsPerSeries(5);
 
@@ -304,11 +167,9 @@ describe('competitionStore', () => {
       expect(state.phase).toBe('IDLE');
       expect(state.stageIndex).toBe(0);
       expect(state.seriesIndex).toBe(0);
-      expect(state.currentStageName).toBe('');
       expect(state.scored).toBe(false);
       expect(state.remainingSeconds).toBe(0);
       expect(state.totalSeconds).toBe(0);
-      expect(state.isTimerRunning).toBe(false);
       expect(state.isTimerExpired).toBe(false);
       expect(state.shotsPerSeries).toBe(10);
     });
@@ -327,82 +188,72 @@ describe('competitionStore', () => {
   });
 
   describe('applyPhaseChange', () => {
-    it('sets isTimerRunning=true and isTimerExpired=false in batch for ACTIVE phase', () => {
+    it('updates the position and clears isTimerExpired for ACTIVE phase', () => {
       const { applyPhaseChange, setTimerExpired } = useCompetitionStore.getState();
 
       // Set expired to true beforehand
       setTimerExpired(true);
 
-      applyPhaseChange('ACTIVE', 1, 2, 'Qualification', true);
+      applyPhaseChange('ACTIVE', 1, 2, true);
 
       const state = useCompetitionStore.getState();
       expect(state.phase).toBe('ACTIVE');
       expect(state.stageIndex).toBe(1);
       expect(state.seriesIndex).toBe(2);
-      expect(state.currentStageName).toBe('Qualification');
       expect(state.scored).toBe(true);
-      expect(state.isTimerRunning).toBe(true);
       expect(state.isTimerExpired).toBe(false);
     });
 
-    it('sets isTimerRunning=false for non-ACTIVE phase without changing isTimerExpired', () => {
+    it('keeps isTimerExpired for non-ACTIVE phase', () => {
       const { applyPhaseChange, setTimerExpired } = useCompetitionStore.getState();
 
       // Set expired to true beforehand
       setTimerExpired(true);
 
-      applyPhaseChange('SERIES_COMPLETE', 0, 3, 'Match', true);
+      applyPhaseChange('SERIES_COMPLETE', 0, 3, true);
 
       const state = useCompetitionStore.getState();
       expect(state.phase).toBe('SERIES_COMPLETE');
       expect(state.stageIndex).toBe(0);
       expect(state.seriesIndex).toBe(3);
-      expect(state.currentStageName).toBe('Match');
       expect(state.scored).toBe(true);
-      expect(state.isTimerRunning).toBe(false);
       // isTimerExpired is not changed during non-ACTIVE phase
       expect(state.isTimerExpired).toBe(true);
     });
 
-    it('sets isTimerRunning=false for FINISHED phase', () => {
-      const { applyPhaseChange, setTimerRunning } = useCompetitionStore.getState();
+    it('can set FINISHED phase', () => {
+      const { applyPhaseChange } = useCompetitionStore.getState();
 
-      // Set timer to running state beforehand
-      setTimerRunning(true);
-
-      applyPhaseChange('FINISHED', 0, 0, '', false);
+      applyPhaseChange('FINISHED', 0, 0, false);
 
       const state = useCompetitionStore.getState();
       expect(state.phase).toBe('FINISHED');
-      expect(state.isTimerRunning).toBe(false);
       expect(state.scored).toBe(false);
     });
 
-    it('sets isTimerRunning=false for IDLE phase', () => {
-      const { applyPhaseChange } = useCompetitionStore.getState();
+    it('keeps the timer values', () => {
+      const { applyPhaseChange, updateTimer } = useCompetitionStore.getState();
 
-      applyPhaseChange('IDLE', 0, 0, '', false);
+      updateTimer(120, 300);
+      applyPhaseChange('ACTIVE', 0, 0, true);
 
       const state = useCompetitionStore.getState();
-      expect(state.phase).toBe('IDLE');
-      expect(state.isTimerRunning).toBe(false);
+      expect(state.remainingSeconds).toBe(120);
+      expect(state.totalSeconds).toBe(300);
     });
   });
 
   describe('integration scenarios', () => {
     it('competition start -> stage advance -> series advance -> reset flow works correctly', () => {
-      const { setPhase, advanceStage, advanceSeries, updateTimer, setTimerRunning, resetCompetition } =
-        useCompetitionStore.getState();
+      const { applyPhaseChange, advanceSeries, updateTimer, resetCompetition } = useCompetitionStore.getState();
 
-      setPhase('ACTIVE', 0, 0, 'Preparation', false);
-      setTimerRunning(true);
+      applyPhaseChange('ACTIVE', 0, 0, false);
       updateTimer(600, 600);
 
       let state = useCompetitionStore.getState();
       expect(state.phase).toBe('ACTIVE');
-      expect(state.isTimerRunning).toBe(true);
 
-      advanceStage(1, 'Qualification', true);
+      applyPhaseChange('STAGE_ENTERED', 1, 0, true);
       updateTimer(900, 900);
 
       state = useCompetitionStore.getState();
@@ -424,7 +275,6 @@ describe('competitionStore', () => {
       expect(state.phase).toBe('IDLE');
       expect(state.stageIndex).toBe(0);
       expect(state.seriesIndex).toBe(0);
-      expect(state.isTimerRunning).toBe(false);
       expect(state.remainingSeconds).toBe(0);
     });
   });

@@ -72,8 +72,6 @@ describe('useConnection', () => {
       // Verify store is updated
       const storeState = useConnectionStore.getState();
       expect(storeState.connectionId).toBe('conn-123');
-      expect(storeState.portName).toBe('/dev/ttyUSB0');
-      expect(storeState.manufacturer).toBe('SIUS');
       expect(storeState.status).toBe('connected');
     });
 
@@ -138,7 +136,7 @@ describe('useConnection', () => {
 
   describe('disconnect', () => {
     beforeEach(() => {
-      useConnectionStore.getState().setConnection('conn-123', '/dev/ttyUSB0', 'SIUS');
+      useConnectionStore.getState().setConnection('conn-123');
     });
 
     it('succeeds in disconnecting', async () => {
@@ -161,8 +159,6 @@ describe('useConnection', () => {
       // Verify store is reset
       const storeState = useConnectionStore.getState();
       expect(storeState.connectionId).toBeNull();
-      expect(storeState.portName).toBeNull();
-      expect(storeState.manufacturer).toBeNull();
       expect(storeState.status).toBe('disconnected');
     });
 
@@ -240,11 +236,7 @@ describe('useConnection', () => {
       });
 
       expect(result.current.status).toBe('connected');
-      expect(useConnectionStore.getState()).toMatchObject({
-        connectionId: 'conn-789',
-        portName: '/dev/ttyUSB0',
-        manufacturer: 'DISAG',
-      });
+      expect(useConnectionStore.getState()).toMatchObject({ connectionId: 'conn-789' });
 
       // Disconnect
       await act(async () => {
@@ -252,7 +244,7 @@ describe('useConnection', () => {
       });
 
       expect(result.current.status).toBe('disconnected');
-      expect(useConnectionStore.getState()).toMatchObject({ connectionId: null, portName: null, manufacturer: null });
+      expect(useConnectionStore.getState()).toMatchObject({ connectionId: null });
     });
 
     it('can reconnect after an error', async () => {

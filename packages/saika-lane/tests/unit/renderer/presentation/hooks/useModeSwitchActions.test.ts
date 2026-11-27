@@ -36,11 +36,8 @@ function setCompetitionState(overrides: Partial<{ competitionId: string | null; 
   if (overrides.competitionId !== undefined) {
     state.setCompetitionId(overrides.competitionId);
   }
-  if (overrides.phase !== undefined) {
-    state.setPhase(overrides.phase as 'IDLE', 0, 0, '', false);
-  }
-  if (overrides.scored !== undefined) {
-    state.advanceStage(0, '', overrides.scored);
+  if (overrides.phase !== undefined || overrides.scored !== undefined) {
+    state.applyPhaseChange((overrides.phase ?? state.phase) as 'IDLE', 0, 0, overrides.scored ?? false);
   }
   useCompetitionStore.getState().setAthleteTargetControl(null);
 }

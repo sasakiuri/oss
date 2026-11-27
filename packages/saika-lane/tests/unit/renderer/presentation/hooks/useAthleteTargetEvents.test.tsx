@@ -240,7 +240,7 @@ describe('athlete projection refresh', () => {
     });
     const control = useCompetitionStore.getState().athleteTargetControl;
     await act(async () => {
-      useCompetitionStore.getState().applyPhaseChange('ACTIVE', 1, 2, 'Match', true);
+      useCompetitionStore.getState().applyPhaseChange('ACTIVE', 1, 2, true);
     });
     expect(useCompetitionStore.getState().athleteTargetControl).toBe(control);
     expect(useCompetitionStore.getState().athleteTargetControlLoaded).toBe(true);

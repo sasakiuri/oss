@@ -70,21 +70,26 @@ describe('useTimerEvents', () => {
   });
 
   describe('timerExpired event', () => {
-    it('stops timer and sets expired flag on timer expired event', () => {
-      useCompetitionStore.getState().setTimerRunning(true);
+    it('sets the expired flag and clears the interruption on timer expired event', () => {
+      useCompetitionStore.getState().setInterruption({
+        interruptionId: '22222222-2222-4222-8222-222222222222',
+        status: 'RUNNING_MATCH',
+        remainingSeconds: 10,
+        unlimitedSightingShots: false,
+      });
 
       renderHook(() => useTimerEvents());
 
       emit('timerExpired', { stageIndex: 0 });
 
       const state = useCompetitionStore.getState();
-      expect(state.isTimerRunning).toBe(false);
       expect(state.isTimerExpired).toBe(true);
+      expect(state.interruption).toBeNull();
     });
   });
 
   describe('competitionInterruptionChanged event', () => {
-    it('stops the display timer and records the STOP state', () => {
+    it('records the STOP state', () => {
       renderHook(() => useTimerEvents());
 
       emit('competitionInterruptionChanged', {
@@ -96,7 +101,6 @@ describe('useTimerEvents', () => {
       });
 
       expect(useCompetitionStore.getState()).toMatchObject({
-        isTimerRunning: false,
         interruption: { status: 'PAUSED', remainingSeconds: 240 },
       });
     });

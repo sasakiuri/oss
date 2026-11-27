@@ -1,116 +1,29 @@
 // SPDX-License-Identifier: MIT
 /** Edits broker settings and controls the MQTT connection. */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 
 import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert';
-import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
-import { mqttService } from '@/renderer/services/mqttService';
-import { errorMessage } from '@/shared/errors/errorMessage';
+import { useMqttSettings } from '@/renderer/presentation/hooks/useMqttSettings';
 
 export const MqttSettingsTab: React.FC = () => {
-  const { status, error, isLoading, setStatus, setSettings, setError, setLoading } = useMqttStore();
-
-  const [enabled, setEnabled] = useState(false);
-  const [brokerUrl, setBrokerUrl] = useState('');
-  const [laneAlias, setLaneAlias] = useState('');
-  const [autoConnect, setAutoConnect] = useState(false);
-  const [laneId, setLaneId] = useState('');
-
-  useEffect(
-    () =>
-      window.electronAPI.on.mqttStatusChanged((next) => {
-        setStatus(next.status);
-        setError(next.error ?? null);
-      }),
-    [setStatus, setError],
-  );
-
-  // Load settings
-  useEffect(() => {
-    const controller = new AbortController();
-
-    (async () => {
-      try {
-        setLoading(true);
-        const [loadedSettings, mqttStatus] = await Promise.all([
-          mqttService.getMqttSettings(),
-          mqttService.getMqttStatus(),
-        ]);
-        if (controller.signal.aborted) return;
-
-        setSettings(loadedSettings);
-        setEnabled(loadedSettings.enabled);
-        setBrokerUrl(loadedSettings.brokerUrl);
-        setLaneAlias(loadedSettings.laneAlias);
-        setAutoConnect(loadedSettings.autoConnect);
-        setLaneId(loadedSettings.laneId);
-        setStatus(mqttStatus.status);
-        setError(mqttStatus.error ?? null);
-      } catch (err) {
-        if (controller.signal.aborted) return;
-        setError(errorMessage(err));
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => controller.abort();
-  }, [setSettings, setStatus, setError, setLoading]);
-
-  const handleSave = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const newSettings = {
-        enabled,
-        brokerUrl,
-        laneAlias,
-        autoConnect,
-        laneId,
-      };
-      await mqttService.saveMqttSettings(newSettings);
-      setSettings(newSettings);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled, brokerUrl, laneAlias, autoConnect, laneId, setSettings, setError, setLoading]);
-
-  const handleConnect = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      setStatus('connecting');
-      await mqttService.connectMqtt({
-        brokerUrl,
-        laneAlias: laneAlias || undefined,
-        autoConnect,
-      });
-      setStatus('connected');
-    } catch (err) {
-      setStatus('disconnected');
-      setError(errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [brokerUrl, laneAlias, autoConnect, setStatus, setError, setLoading]);
-
-  const handleDisconnect = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      await mqttService.disconnectMqtt();
-      setStatus('disconnected');
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [setStatus, setError, setLoading]);
+  const {
+    enabled,
+    setEnabled,
+    brokerUrl,
+    setBrokerUrl,
+    laneAlias,
+    setLaneAlias,
+    autoConnect,
+    setAutoConnect,
+    laneId,
+    status,
+    error,
+    isLoading,
+    save,
+    connect,
+    disconnect,
+  } = useMqttSettings();
 
   const isConnected = status === 'connected';
   const isConnecting = status === 'connecting';
@@ -215,7 +128,7 @@ export const MqttSettingsTab: React.FC = () => {
       <div className="mt-2 flex justify-end gap-3">
         <button
           type="button"
-          onClick={handleSave}
+          onClick={save}
           disabled={isLoading}
           className="rounded bg-zinc-700 px-4 py-2 text-sm font-medium text-zinc-100 transition-colors hover:bg-zinc-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -224,7 +137,7 @@ export const MqttSettingsTab: React.FC = () => {
         {isConnected ? (
           <button
             type="button"
-            onClick={handleDisconnect}
+            onClick={disconnect}
             disabled={isLoading || !enabled}
             className="rounded bg-red-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -233,7 +146,7 @@ export const MqttSettingsTab: React.FC = () => {
         ) : (
           <button
             type="button"
-            onClick={handleConnect}
+            onClick={connect}
             disabled={isLoading || !enabled || !brokerUrl}
             className="rounded bg-blue-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
