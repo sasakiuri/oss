@@ -34,9 +34,7 @@ export const shootoffModule = defineModule({
 
     // === Query Handlers ===
     queryBus.register(GetActiveShootoffToken, async (query) => {
-      const { eventId } = query;
-      const shootoffs = shootoffRepository.findByEventId(eventId);
-      const active = shootoffs.find((s) => !s.isResolved);
+      const active = shootoffRepository.findActiveByEventId(query.eventId);
       if (!active) return null;
       return {
         shootoffId: active.id.value,

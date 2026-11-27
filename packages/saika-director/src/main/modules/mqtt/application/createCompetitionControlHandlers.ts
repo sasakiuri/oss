@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { GetEventByIdToken, type GetEventByIdResponse } from '@/main/modules/championship';
+import { GetEventByIdToken } from '@/main/modules/championship';
 import {
   PublishMqttFinalResultsToken,
   PublishMqttMixedTeamFinalResultsToken,
@@ -282,9 +282,7 @@ export function createCompetitionControlHandlers({
               `Cannot publish results while competition ${input.competitionId} is in phase ${competition.phase}`,
             );
           }
-          const event = (await queryBus.execute(GetEventByIdToken, {
-            eventId: input.resultContext.eventId,
-          })) as GetEventByIdResponse | null;
+          const event = await queryBus.execute(GetEventByIdToken, { eventId: input.resultContext.eventId });
           if (event && event.eventType !== competition.competitionTypeId) {
             throw new Error(
               `Selected event uses competition type ${event.eventType}, but the active competition uses ${competition.competitionTypeId}`,

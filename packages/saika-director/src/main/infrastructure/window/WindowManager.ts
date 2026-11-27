@@ -10,9 +10,6 @@ import { resolveDevServerUrl } from './resolveDevServerUrl';
 
 const logger = Logger.create('WindowManager');
 
-// Re-export for backward compatibility
-export type { BoardType, BoardWindowConfig };
-
 /**
  * Window metadata.
  */

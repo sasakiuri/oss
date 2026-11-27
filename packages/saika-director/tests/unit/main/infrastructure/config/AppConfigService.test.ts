@@ -24,17 +24,10 @@ function createMockDb(rows: Record<string, string> = {}) {
     }),
   };
 
-  const deleteStmt = {
-    run: vi.fn((key: string) => {
-      store.delete(key);
-    }),
-  };
-
   const db = {
     prepare: vi.fn((sql: string) => {
       if (sql.includes('SELECT')) return getStmt;
       if (sql.includes('INSERT')) return upsertStmt;
-      if (sql.includes('DELETE')) return deleteStmt;
       throw new Error(`Unexpected SQL: ${sql}`);
     }),
     transaction: vi.fn((callback: () => void) => () => {
@@ -50,7 +43,6 @@ function createMockDb(rows: Record<string, string> = {}) {
     _store: store,
     _getStmt: getStmt,
     _upsertStmt: upsertStmt,
-    _deleteStmt: deleteStmt,
   };
 
   return db;
@@ -191,28 +183,6 @@ describe('AppConfigService', () => {
       expect(() => service.setMany({ 'mqtt.broker.mode': 'external' })).toThrow('disk full');
       expect(mockDb._store.size).toBe(0);
       expect(service.get('mqtt.broker.mode')).toBe('embedded');
-    });
-  });
-
-  describe('delete()', () => {
-    it('should delete from DB and clear cache', () => {
-      service.set('mqtt.broker.port', 2883);
-      service.delete('mqtt.broker.port');
-      expect(mockDb._deleteStmt.run).toHaveBeenCalledWith('mqtt.broker.port');
-
-      // After delete, next get should query DB again and return default
-      expect(service.get('mqtt.broker.port')).toBe(1883);
-    });
-  });
-
-  describe('clearCache()', () => {
-    it('should force re-read from DB on next get', () => {
-      service.get('mqtt.broker.port'); // cached
-      service.clearCache();
-      service.get('mqtt.broker.port'); // re-read
-
-      const selectCalls = mockDb.prepare.mock.calls.filter((c) => typeof c[0] === 'string' && c[0].includes('SELECT'));
-      expect(selectCalls).toHaveLength(2);
     });
   });
 });
