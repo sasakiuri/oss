@@ -325,8 +325,10 @@ export class VistaApplication {
     }
     try {
       this.notifyIfChanged();
+    } catch (error) {
+      // A failed notification is reported to the operator and must not end polling.
+      this.error = messageOf(error);
     } finally {
-      // A failed notification must not end polling.
       if (!this.stopped) this.timer = setTimeout(() => void this.tick(), 200);
     }
   }
