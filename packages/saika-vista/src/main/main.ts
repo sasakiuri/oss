@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { UpdaterService } from '@sasakiuri/saika-updater/main';
 import { app, BrowserWindow, dialog, nativeTheme, powerMonitor, screen } from 'electron';
 
+import { VISTA_CHANNEL } from '../shared/ipcChannels';
+
 import { registerIpcHandlers } from './ipcHandlers';
 import { setLoginStart } from './loginStart';
 import { OutputWindows } from './OutputWindows';
@@ -24,7 +26,7 @@ const outputs = new OutputWindows({
   icon: appIcon,
   preload,
   load: loadAndReport,
-  closed: () => operator?.webContents.send('vista:changed'),
+  closed: () => operator?.webContents.send(VISTA_CHANNEL.changed),
 });
 let quitting = false;
 let preparingUpdate = false;
@@ -36,7 +38,7 @@ const updater = new UpdaterService({
   metadataNamespace: 'vista',
   autoInstallOnAppQuit: false,
   onStateChange: (state) => {
-    if (operator && !operator.isDestroyed()) operator.webContents.send('vista:updates-changed', state);
+    if (operator && !operator.isDestroyed()) operator.webContents.send(VISTA_CHANNEL.updatesChanged, state);
     if (state.status === 'error' && preparingUpdate && !recoveringUpdate) {
       recoveringUpdate = true;
       setImmediate(() => {
@@ -162,7 +164,7 @@ else {
         status: (id) => outputs.status(id),
         loginStart: setLoginStart,
         changed: () => {
-          if (operator && !operator.isDestroyed()) operator.webContents.send('vista:changed');
+          if (operator && !operator.isDestroyed()) operator.webContents.send(VISTA_CHANNEL.changed);
           outputs.notify();
         },
       });
@@ -170,9 +172,9 @@ else {
       screen.on('display-removed', (_event, removed) => {
         for (const config of requireApplication().state.document.screens)
           if (config.monitorId === String(removed.id)) outputs.close(config.id);
-        operator?.webContents.send('vista:changed');
+        operator?.webContents.send(VISTA_CHANNEL.changed);
       });
-      screen.on('display-added', () => operator?.webContents.send('vista:changed'));
+      screen.on('display-added', () => operator?.webContents.send(VISTA_CHANNEL.changed));
       powerMonitor.on('resume', () => {
         for (const entry of requireApplication().state.getEntries())
           void requireApplication()

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 import { BrowserWindow, powerSaveBlocker, screen, type WebContents } from 'electron';
 
+import { VISTA_CHANNEL } from '../shared/ipcChannels';
 import type { ScreenConfig } from '../shared/model';
 
 import { isolatedWebPreferences, protectWindow } from './protectWindow';
@@ -32,7 +33,7 @@ export class OutputWindows {
       existing.window.setFullScreen(true);
       existing.window.showInactive();
       if (existing.window.webContents.isCrashed()) this.options.load(existing.window, config.id);
-      else existing.window.webContents.send('vista:changed');
+      else existing.window.webContents.send(VISTA_CHANNEL.changed);
       return;
     }
     const window = new BrowserWindow({
@@ -98,7 +99,7 @@ export class OutputWindows {
   /** Asks every open audience window to reload its state. */
   notify(): void {
     for (const output of this.outputs.values())
-      if (!output.window.isDestroyed()) output.window.webContents.send('vista:changed');
+      if (!output.window.isDestroyed()) output.window.webContents.send(VISTA_CHANNEL.changed);
   }
 
   private maintainPower(): void {
