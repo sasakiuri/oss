@@ -78,20 +78,17 @@ export const serverEnvSchema = z
     AXIOM_TOKEN: optionalText,
     AXIOM_DATASET: optionalText,
     API_BASE_URL: optionalUrl,
-    UPSTASH_REDIS_REST_URL: optionalUrl,
-    UPSTASH_REDIS_REST_TOKEN: optionalText,
     PREVIEW_AUTH_USER: optionalText,
     PREVIEW_AUTH_PASSWORD: optionalText,
     DOCS_PREVIEW_AUTH: flag,
   })
   .superRefine((value, context) => {
-    for (const [left, right] of [
-      ['AXIOM_TOKEN', 'AXIOM_DATASET'],
-      ['UPSTASH_REDIS_REST_URL', 'UPSTASH_REDIS_REST_TOKEN'],
-    ] as const) {
-      if (Boolean(value[left]) !== Boolean(value[right]))
-        context.addIssue({ code: 'custom', path: [left], message: `Configure both ${left} and ${right}` });
-    }
+    if (Boolean(value.AXIOM_TOKEN) !== Boolean(value.AXIOM_DATASET))
+      context.addIssue({
+        code: 'custom',
+        path: ['AXIOM_TOKEN'],
+        message: 'Configure both AXIOM_TOKEN and AXIOM_DATASET',
+      });
     if (value.DOCS_PREVIEW_AUTH && (!value.PREVIEW_AUTH_USER || !value.PREVIEW_AUTH_PASSWORD))
       context.addIssue({
         code: 'custom',
