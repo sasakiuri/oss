@@ -1,11 +1,11 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { migration003CreateSchema } from '@/main/infrastructure/database/migrations/003_create_schema';
-import { migration017ResultPublication } from '@/main/infrastructure/database/migrations/017_result_publication';
 import { ResultPublication } from '@/main/modules/result-publication/domain/ResultPublication';
 import { createProtestRegisteredEntry } from '@/main/modules/result-publication/domain/ResultPublicationEntry';
 import { SqliteResultPublicationRepository } from '@/main/modules/result-publication/infra/SqliteResultPublicationRepository';
+
+import { migratedDatabase, seedChampionship, seedEvent } from '../../../../helpers/database';
 
 const REVISION = 'a'.repeat(64);
 
@@ -15,21 +15,17 @@ describe('SqliteResultPublicationRepository', () => {
   afterEach(() => database?.close());
 
   function setup() {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration003CreateSchema.up(database);
-    migration017ResultPublication.up(database);
-    database
-      .prepare(
-        `INSERT INTO championships (id, name, date, venue) VALUES ('championship-1', 'Meet', '2026-08-29', 'Range')`,
-      )
-      .run();
-    database
-      .prepare(
-        `INSERT INTO events (id, championship_id, name, event_type, round, sort_order)
-         VALUES ('event-1', 'championship-1', 'Qualification', 'BR60S', 'Qualification', 0)`,
-      )
-      .run();
+    seedChampionship(database, { id: 'championship-1', name: 'Meet', date: '2026-08-29', venue: 'Range' });
+    seedEvent(database, {
+      id: 'event-1',
+      championship_id: 'championship-1',
+      name: 'Qualification',
+      event_type: 'BR60S',
+      round: 'Qualification',
+      sort_order: 0,
+    });
     return new SqliteResultPublicationRepository(database);
   }
 

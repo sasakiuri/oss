@@ -109,7 +109,7 @@ export class PublishMqttFinalResultsHandler {
       );
     }
 
-    this.repository.executeInTransaction(() => {
+    this.repository.transaction(() => {
       this.repository.deleteByEventId(command.eventId);
       prepared.forEach((result) => this.repository.save(result, command.competitionId));
     });

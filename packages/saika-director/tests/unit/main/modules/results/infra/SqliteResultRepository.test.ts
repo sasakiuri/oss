@@ -1,8 +1,7 @@
 import { ISSF_2026_RFPM } from '@sasakiuri/saika-rules';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 
-import { migration067QualificationResultSeries } from '@/main/infrastructure/database/migrations/067_qualification_result_series';
 import { EventId, Participant, ParticipantId } from '@/main/modules/championship';
 import { QualificationResultsReader } from '@/main/modules/results/application/QualificationResultsReader';
 import { Result } from '@/main/modules/results/domain/Result';
@@ -13,6 +12,9 @@ import { ScoringDecision } from '@/main/modules/scoring-decisions/domain/Scoring
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import { CompetitionTypeRegistry, competitionTypeFromRulePack, IssfStandardStrategy } from '@/shared/competitionTypes';
 
+import { migratedDatabase, seedChampionship, seedEvent, seedParticipant } from '../../../../../helpers/database';
+
+const CHAMPIONSHIP_ID = '99999999-9999-4999-8999-999999999999';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
 const FIRST_COMPETITION_ID = '11111111-1111-4111-8111-111111111111';
 const SECOND_COMPETITION_ID = '88888888-8888-4888-8888-888888888888';
@@ -57,33 +59,19 @@ describe('SqliteResultRepository', () => {
   });
 
   beforeEach(() => {
-    database = new Database(':memory:');
-    database.exec(`
-      CREATE TABLE results (
-        id TEXT PRIMARY KEY,
-        event_id TEXT NOT NULL,
-        participant_id TEXT NOT NULL,
-        player_name TEXT NOT NULL,
-        family_name TEXT,
-        affiliation TEXT NOT NULL DEFAULT '',
-        relay_number INTEGER NOT NULL,
-        total_score REAL NOT NULL,
-        series1 REAL NOT NULL DEFAULT 0.0,
-        series2 REAL NOT NULL DEFAULT 0.0,
-        series3 REAL NOT NULL DEFAULT 0.0,
-        series4 REAL NOT NULL DEFAULT 0.0,
-        series5 REAL NOT NULL DEFAULT 0.0,
-        series6 REAL NOT NULL DEFAULT 0.0,
-        shots_detail TEXT NOT NULL,
-        confirmed_at TEXT NOT NULL,
-        status TEXT NOT NULL,
-        source_competition_id TEXT,
-        source_lane_id TEXT,
-        ranking_shots_detail TEXT NOT NULL DEFAULT '[]',
-        UNIQUE(event_id, participant_id)
-      );
-    `);
-    migration067QualificationResultSeries.up(database);
+    database = migratedDatabase();
+    seedChampionship(database, { id: CHAMPIONSHIP_ID, name: 'Championship', date: '2026-09-01', venue: 'Range' });
+    seedEvent(database, {
+      id: EVENT_ID,
+      championship_id: CHAMPIONSHIP_ID,
+      name: 'Qualification',
+      event_type: 'RFPM',
+      round: 'Qualification',
+      sort_order: 0,
+    });
+    for (const id of [FIRST_PARTICIPANT_ID, SECOND_PARTICIPANT_ID, REPLACEMENT_PARTICIPANT_ID]) {
+      seedParticipant(database, { id, event_id: EVENT_ID, player_name: `Athlete ${id}`, sort_order: 0 });
+    }
   });
 
   it('replaces only results created by the selected competition', () => {

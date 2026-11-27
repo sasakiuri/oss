@@ -1,6 +1,5 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
-import { migration079ObservationReviews } from '@/main/infrastructure/database/migrations/079_observation_reviews';
 import {
   ObservationReviewService,
   type ReviewSubject,
@@ -9,14 +8,15 @@ import { SqliteObservationReviewRepository } from '@/main/modules/observation-re
 import { ObservationReviewPublicationBlocker } from '@/main/modules/observation-reviews/application/ObservationReviewPublicationBlocker';
 import { OptionalResultPublicationBlocker } from '@/main/modules/result-publication';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 const databases: Database.Database[] = [];
 afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
 function fixture() {
-  const db = new Database(':memory:');
+  const db = migratedDatabase();
   databases.push(db);
-  migration079ObservationReviews.up(db);
   const subject: ReviewSubject = {
     id: 'observation:evidence',
     competitionId: 'competition',

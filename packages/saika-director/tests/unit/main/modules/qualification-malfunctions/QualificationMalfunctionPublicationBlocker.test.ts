@@ -144,7 +144,7 @@ class MemoryRepository implements IQualificationMalfunctionRepository {
     return new Map(caseIds.map((id) => [id, this.entries.filter((value) => value.caseId === id)]));
   }
 
-  executeInTransaction<T>(work: () => T): T {
+  transaction<T>(work: () => T): T {
     return work();
   }
 }

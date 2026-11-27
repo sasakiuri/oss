@@ -1,9 +1,6 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { migration013ResultVerification } from '@/main/infrastructure/database/migrations/013_result_verification';
-import { migration077ResultApprovalSigningIdentity } from '@/main/infrastructure/database/migrations/077_result_approval_signing_identity';
-import { migration081PublicationReviewPolicies } from '@/main/infrastructure/database/migrations/081_publication_review_policies';
 import { OfficialSigningPolicy } from '@/main/modules/official-signing';
 import {
   PolicyBoundVerificationSource,
@@ -18,6 +15,8 @@ import {
   type ResultVerificationSourceSnapshot,
 } from '@/main/modules/result-verification';
 import type { ResultPublicationReviewSettingsDto } from '@/shared/ipc/contracts';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const eventId = '11111111-1111-4111-8111-111111111111';
 const otherEventId = '22222222-2222-4222-8222-222222222222';
@@ -35,9 +34,8 @@ afterEach(() => {
   for (const db of databases.splice(0)) db.close();
 });
 function setup() {
-  const db = new Database(':memory:');
+  const db = migratedDatabase();
   databases.push(db);
-  migration081PublicationReviewPolicies.up(db);
   let shared = { ...defaults };
   let editable = true;
   const repo = new SqlitePublicationReviewPolicyRepository(db);
@@ -153,8 +151,6 @@ describe('Event publication review policies', () => {
     'preserves legacy %s approval, then invalidates list approval without discarding individual checks',
     async (scope) => {
       const h = setup();
-      migration013ResultVerification.up(h.db);
-      migration077ResultApprovalSigningIdentity.up(h.db);
       const snapshot: ResultVerificationSourceSnapshot = {
         eventId,
         resultScope: scope,

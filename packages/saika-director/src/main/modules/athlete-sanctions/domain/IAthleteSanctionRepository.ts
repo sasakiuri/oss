@@ -12,5 +12,5 @@ export interface IAthleteSanctionRepository {
   appendDecision(decision: SanctionDecision): void;
   findDecisionById(id: string): SanctionDecision | null;
   findDecisionsByChampionship(championshipId: string): SanctionDecision[];
-  executeInTransaction<T>(operation: () => T): T;
+  transaction<T>(operation: () => T): T;
 }

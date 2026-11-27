@@ -1,11 +1,12 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { migration084BackupCaptureReadiness } from '@/main/infrastructure/database/migrations/084_backup_capture_readiness';
 import type { BackupCaptureHealthFacts } from '@/main/modules/backup-capture-readiness/domain/BackupCaptureHealthPolicy';
 import { BackupCaptureReadinessService } from '@/main/modules/backup-capture-readiness/application/BackupCaptureReadinessService';
 import { SqliteBackupCaptureReadinessSettingsRepository } from '@/main/modules/backup-capture-readiness/infra/SqliteBackupCaptureReadinessSettingsRepository';
 import { CompetitionStartReadiness } from '@/main/shared-infra/operations/CompetitionStartReadiness';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const competitionId = '11111111-1111-4111-8111-111111111111';
 const eventId = '22222222-2222-4222-8222-222222222222';
@@ -17,8 +18,7 @@ let service: BackupCaptureReadinessService;
 let readFacts: ReturnType<typeof vi.fn<(id: string) => BackupCaptureHealthFacts>>;
 
 beforeEach(() => {
-  db = new Database(':memory:');
-  migration084BackupCaptureReadiness.up(db);
+  db = migratedDatabase();
   now = new Date('2026-09-09T00:00:00Z');
   exists = true;
   facts = { runId: 'run', sourceId: 'source', state: 'READY', error: null, retainedSourceCheckedAt: now.toISOString() };

@@ -49,7 +49,7 @@ export class QualificationMalfunctionService {
   }
 
   create(input: CreateQualificationMalfunctionCasePayload): QualificationMalfunctionCaseDto {
-    const created = this.repository.executeInTransaction(() => {
+    const created = this.repository.transaction(() => {
       const sourceSignal = resolveSourceSignal(this.signals, input);
       const policy = this.policies.resolve({
         eventId: input.eventId,

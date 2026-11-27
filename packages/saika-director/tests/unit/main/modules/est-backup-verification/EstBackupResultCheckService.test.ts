@@ -1,10 +1,8 @@
 import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { migration013ResultVerification } from '@/main/infrastructure/database/migrations/013_result_verification';
 import { migration027EstBackupVerification } from '@/main/infrastructure/database/migrations/027_est_backup_verification';
 import { migration080EstBackupResultScope } from '@/main/infrastructure/database/migrations/080_est_backup_result_scope';
-import { migration082EstBackupSources } from '@/main/infrastructure/database/migrations/082_est_backup_sources';
 import { Participant, ParticipantId, EventId } from '@/main/modules/championship';
 import {
   EstBackupVerificationService,
@@ -20,6 +18,8 @@ import {
 } from '@/main/modules/result-verification';
 import type { RankedResultDto, ApplyEstBackupChecksPayload, EstBackupVerificationRunDto } from '@/shared/ipc/contracts';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 const eventId = '11111111-1111-4111-8111-111111111111';
 const runId = '22222222-2222-4222-8222-222222222222';
 const ids = ['33333333-3333-4333-8333-333333333333', '44444444-4444-4444-8444-444444444444'];
@@ -30,12 +30,8 @@ function setup(
   scope: 'QUALIFICATION' | 'FINAL' = 'QUALIFICATION',
   mixed = false,
 ) {
-  const db = new Database(':memory:');
+  const db = migratedDatabase();
   dbs.push(db);
-  migration013ResultVerification.up(db);
-  migration027EstBackupVerification.up(db);
-  migration080EstBackupResultScope.up(db);
-  migration082EstBackupSources.up(db);
   const results: VerifiableResult[] = ids.map((id, i) => ({
     resultId: id,
     participantId: mixed ? `TEAM:team-${i}` : `athlete-${i}`,

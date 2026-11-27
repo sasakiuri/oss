@@ -38,7 +38,7 @@ export class MalfunctionScoreSheetService {
   }
 
   save(input: MalfunctionScoreSheetInput, id: string, expectedDigest: string): MalfunctionScoreSheet {
-    return this.cases.executeInTransaction(() => {
+    return this.cases.transaction(() => {
       const existing = this.sheets.find(id);
       if (existing) {
         if (existing.digest !== expectedDigest || sha256Json(existing.input) !== sha256Json(input)) {

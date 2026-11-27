@@ -61,7 +61,7 @@ export class FinalRecoveryService {
     officialName: string;
     statement: string;
   }): FinalRecoveryCaseDto {
-    return this.repository.executeInTransaction(() => {
+    return this.repository.transaction(() => {
       const value = this.repository.findCaseById(input.caseId);
       if (!value) throw new Error('Final recovery case not found');
       const subject = FinalRecoveryCase.create({ ...value, allowanceSubject: input.subject }).allowanceSubject!;
@@ -83,7 +83,7 @@ export class FinalRecoveryService {
   }
 
   appendEntry(input: AppendFinalRecoveryEntryPayload): FinalRecoveryCaseDto {
-    return this.repository.executeInTransaction(() => this.appendValidatedEntry(input));
+    return this.repository.transaction(() => this.appendValidatedEntry(input));
   }
 
   private appendValidatedEntry(input: AppendFinalRecoveryEntryPayload): FinalRecoveryCaseDto {

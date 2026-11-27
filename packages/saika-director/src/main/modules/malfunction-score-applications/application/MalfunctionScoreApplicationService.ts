@@ -91,7 +91,7 @@ export class MalfunctionScoreApplicationService {
     confirmed: true;
   }): MalfunctionScoreApplication {
     if (input.confirmed !== true) throw new Error('Explicit score-application confirmation is required');
-    return this.cases.executeInTransaction(() => {
+    return this.cases.transaction(() => {
       const previous = this.applications.find(input.id);
       if (previous) {
         if (previous.digest !== input.expectedDigest || sha256Json(previous.request) !== sha256Json(input.request))
@@ -120,7 +120,7 @@ export class MalfunctionScoreApplicationService {
 
   withdraw(input: Omit<MalfunctionScoreWithdrawal, 'recordedAt'>): MalfunctionScoreWithdrawal {
     assertOfficial(input);
-    return this.cases.executeInTransaction(() => {
+    return this.cases.transaction(() => {
       const application = this.applications.find(input.applicationId);
       if (!application) throw new Error('Score application not found');
       const previous = this.applications.withdrawal(application.id);

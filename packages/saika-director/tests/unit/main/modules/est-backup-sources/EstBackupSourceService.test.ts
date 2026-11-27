@@ -1,9 +1,8 @@
 import { createHash } from 'node:crypto';
 
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { migration082EstBackupSources } from '@/main/infrastructure/database/migrations/082_est_backup_sources';
 import { EstBackupSourceService, SqliteEstBackupSourceRepository } from '@/main/modules/est-backup-sources';
 import {
   CanonicalCsvEstBackupRecordParser,
@@ -11,6 +10,8 @@ import {
   EstBackupRecordParserRegistry,
   EstBackupVerificationService,
 } from '@/main/modules/est-backup-verification';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const eventId = '11111111-1111-4111-8111-111111111111';
 const otherEvent = '22222222-2222-4222-8222-222222222222';
@@ -34,9 +35,7 @@ function setup() {
 }
 describe('retained EST backup sources', () => {
   beforeEach(() => {
-    db = new Database(':memory:');
-    db.exec('CREATE TABLE est_backup_verification_runs (id TEXT PRIMARY KEY)');
-    migration082EstBackupSources.up(db);
+    db = migratedDatabase();
   });
   afterEach(() => db.close());
   it('retains the exact UTF-8 source and all parsed records without requiring competition results', async () => {

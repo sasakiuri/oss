@@ -43,7 +43,7 @@ export class EstComplaintCaseService {
     const signal = this.signals.findById(input.signalId);
     if (!signal) throw new Error(`Lane EST complaint ${input.signalId} has not been observed by Director`);
 
-    return this.links.executeInTransaction(() => {
+    return this.links.transaction(() => {
       const concurrent = this.links.findBySignalId(input.signalId);
       if (concurrent) {
         return {

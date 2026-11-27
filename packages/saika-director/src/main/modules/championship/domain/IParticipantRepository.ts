@@ -7,5 +7,5 @@ export interface IParticipantRepository {
   findByEventId(eventId: string): Participant[];
   delete(id: string): void;
   deleteByEventId(eventId: string): void;
-  executeInTransaction(fn: () => void): void;
+  transaction<T>(work: () => T): T;
 }
