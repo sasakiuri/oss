@@ -130,6 +130,25 @@ describe('useResults', () => {
       });
       expect(result.current.results).toEqual([{ id: 'newer' }]);
     });
+
+    it('resolves an older request with null once a newer one has started', async () => {
+      let resolveOlder!: (value: unknown) => void;
+      mockGetByEvent.mockReturnValueOnce(new Promise((resolve) => (resolveOlder = resolve)));
+      mockGetByRelay.mockResolvedValue(ok({ results: [{ id: 'newer' }] }));
+      const { result } = renderHook(() => useResults());
+      let olderRequest!: Promise<unknown>;
+      act(() => {
+        olderRequest = result.current.getEventResults('event-1');
+      });
+      await act(async () => {
+        await result.current.getRelayResults('event-1', 2);
+      });
+
+      await act(async () => {
+        resolveOlder(ok({ results: [{ id: 'older' }] }));
+        await expect(olderRequest).resolves.toBeNull();
+      });
+    });
   });
 
   describe('confirmResults', () => {
