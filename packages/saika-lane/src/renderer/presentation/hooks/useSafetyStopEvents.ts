@@ -16,9 +16,7 @@ export function useSafetyStopEvents(): void {
         if (active) setState(state);
       })
       .catch(() => undefined);
-    // Keep renderer tests and a rolling preload upgrade recoverable. The main
-    // process query still restores the latch when the push channel is absent.
-    const unsubscribe = window.electronAPI.on.safetyStopChanged?.(setState) ?? (() => undefined);
+    const unsubscribe = window.electronAPI.on.safetyStopChanged(setState);
     return () => {
       active = false;
       unsubscribe();

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUpdateEvents } from '@/renderer/presentation/hooks/useUpdateEvents';
 import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
 import { updateService } from '@/renderer/services/updateService';
 import type { AppUpdateStateDto } from '@/shared/ipc/contracts';
+
+import { emit, installMockElectronAPI } from '../../../../helpers/mockElectronAPI';
 
 vi.mock('@/renderer/services/updateService', () => ({
   updateService: {
@@ -36,11 +38,7 @@ function createState(overrides: Partial<AppUpdateStateDto>): AppUpdateStateDto {
 describe('useUpdateEvents', () => {
   beforeEach(() => {
     useUpdateStore.getState().reset();
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    delete (window as Partial<Window>).electronAPI;
+    installMockElectronAPI();
   });
 
   it('does not let a delayed bootstrap response overwrite a newer event state', async () => {
@@ -51,24 +49,11 @@ describe('useUpdateEvents', () => {
       }),
     );
 
-    let updateListener: ((state: AppUpdateStateDto) => void) | null = null;
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      writable: true,
-      value: {
-        on: {
-          updateStateChanged: vi.fn((listener: (state: AppUpdateStateDto) => void) => {
-            updateListener = listener;
-            return vi.fn();
-          }),
-        },
-      },
-    });
-
     renderHook(() => useUpdateEvents());
 
     await act(async () => {
-      updateListener?.(
+      emit(
+        'updateStateChanged',
         createState({
           status: 'downloaded',
           targetVersion: '0.2.2',

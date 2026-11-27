@@ -4,7 +4,6 @@
 import type { CompetitionStateDto, CompetitionTypeDto } from '@/main/modules/competition/application/dto';
 import type { ScoreSheetDto } from '@/main/modules/report/application/dto';
 import type { SessionScoreDto, ShotHistoryDto } from '@/main/modules/session/application/dto';
-import type { Discipline } from '@/main/modules/session/domain/Discipline';
 import type { ImpactPoint } from '@/main/modules/session/domain/ImpactPoint';
 import type { Mode } from '@/main/modules/session/domain/Mode';
 import type { ShotAcquisitionContext } from '@/main/modules/session/domain/ShotAcquisitionContext';
@@ -17,11 +16,6 @@ import type { ScoringGaugeProfileId, TargetScoringProfileId } from '@/shared/tar
 // ---------------------------------------------------------------------------
 // Command Input Interfaces
 // ---------------------------------------------------------------------------
-
-/** Input for the session start command */
-export interface StartSessionInput {
-  discipline: Discipline;
-}
 
 /** Input for the record impact point command */
 export interface RecordShotInput {
@@ -92,13 +86,6 @@ export interface GetShotHistoryInput {
 // ---------------------------------------------------------------------------
 // Command Tokens
 // ---------------------------------------------------------------------------
-
-/** Return value of the start session command */
-export interface StartSessionResult {
-  sessionId: string;
-}
-
-export const StartSessionToken = defineCommand<StartSessionInput, StartSessionResult>('StartSession');
 
 export const RecordShotToken = defineCommand<RecordShotInput>('RecordShot');
 

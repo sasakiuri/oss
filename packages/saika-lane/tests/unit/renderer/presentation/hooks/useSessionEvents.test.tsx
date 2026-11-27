@@ -1,53 +1,28 @@
 // SPDX-License-Identifier: MIT
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSessionEvents } from '@/renderer/presentation/hooks/useSessionEvents';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import type {
-  ModeSwitchedEventPayload,
-  SessionResetEventPayload,
-  SessionStartedEventPayload,
-} from '@/shared/ipc/contracts';
 
-const mockOnSessionStarted = vi.fn();
-const mockOnModeSwitched = vi.fn();
-const mockOnSessionReset = vi.fn();
+import { emit, installMockElectronAPI, type MockedElectronAPI } from '../../../../helpers/mockElectronAPI';
 
 describe('useSessionEvents', () => {
+  let api: MockedElectronAPI;
+
   beforeEach(() => {
     useSessionStore.getState().resetSession();
     useSessionStore.getState().setLaneNumber(1);
-    vi.clearAllMocks();
-
-    mockOnSessionStarted.mockReturnValue(vi.fn());
-    mockOnModeSwitched.mockReturnValue(vi.fn());
-    mockOnSessionReset.mockReturnValue(vi.fn());
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      writable: true,
-      value: {
-        on: {
-          sessionStarted: mockOnSessionStarted,
-          modeSwitched: mockOnModeSwitched,
-          sessionReset: mockOnSessionReset,
-        },
-      },
-    });
-  });
-
-  afterEach(() => {
-    Reflect.deleteProperty(window, 'electronAPI');
+    api = installMockElectronAPI();
   });
 
   describe('subscription registration', () => {
     it('subscribes to 3 events on mount', () => {
       renderHook(() => useSessionEvents());
 
-      expect(mockOnSessionStarted).toHaveBeenCalledTimes(1);
-      expect(mockOnModeSwitched).toHaveBeenCalledTimes(1);
-      expect(mockOnSessionReset).toHaveBeenCalledTimes(1);
+      expect(api.on.sessionStarted).toHaveBeenCalledTimes(1);
+      expect(api.on.modeSwitched).toHaveBeenCalledTimes(1);
+      expect(api.on.sessionReset).toHaveBeenCalledTimes(1);
     });
 
     it('unsubscribes from all on unmount', () => {
@@ -55,9 +30,9 @@ describe('useSessionEvents', () => {
       const unsubSwitched = vi.fn();
       const unsubReset = vi.fn();
 
-      mockOnSessionStarted.mockReturnValue(unsubStarted);
-      mockOnModeSwitched.mockReturnValue(unsubSwitched);
-      mockOnSessionReset.mockReturnValue(unsubReset);
+      api.on.sessionStarted.mockReturnValue(unsubStarted);
+      api.on.modeSwitched.mockReturnValue(unsubSwitched);
+      api.on.sessionReset.mockReturnValue(unsubReset);
 
       const { unmount } = renderHook(() => useSessionEvents());
       unmount();
@@ -72,9 +47,7 @@ describe('useSessionEvents', () => {
     it('sets session ID and transitions to sighting mode', () => {
       renderHook(() => useSessionEvents());
 
-      const callback = mockOnSessionStarted.mock.calls[0]![0] as (event: SessionStartedEventPayload) => void;
-
-      callback({ sessionId: 'sess-123', discipline: 'AIR_RIFLE_10M' });
+      emit('sessionStarted', { sessionId: 'sess-123', discipline: 'AIR_RIFLE_10M' });
 
       const state = useSessionStore.getState();
       expect(state.currentSessionId).toBe('sess-123');
@@ -85,9 +58,7 @@ describe('useSessionEvents', () => {
       useSessionStore.getState().setLaneNumber(6);
       renderHook(() => useSessionEvents());
 
-      const callback = mockOnSessionStarted.mock.calls[0]![0] as (event: SessionStartedEventPayload) => void;
-
-      callback({ sessionId: 'sess-123', discipline: 'AIR_RIFLE_10M' });
+      emit('sessionStarted', { sessionId: 'sess-123', discipline: 'AIR_RIFLE_10M' });
 
       expect(useSessionStore.getState().laneNumber).toBe(6);
     });
@@ -97,9 +68,7 @@ describe('useSessionEvents', () => {
     it('switches the mode', () => {
       renderHook(() => useSessionEvents());
 
-      const callback = mockOnModeSwitched.mock.calls[0]![0] as (event: ModeSwitchedEventPayload) => void;
-
-      callback({ sessionId: 'sess-123', mode: 'MATCH' });
+      emit('modeSwitched', { sessionId: 'sess-123', mode: 'MATCH' });
 
       expect(useSessionStore.getState().mode).toBe('MATCH');
     });
@@ -114,9 +83,7 @@ describe('useSessionEvents', () => {
 
       renderHook(() => useSessionEvents());
 
-      const callback = mockOnSessionReset.mock.calls[0]![0] as (event: SessionResetEventPayload) => void;
-
-      callback({ sessionId: 'sess-123' });
+      emit('sessionReset', { sessionId: 'sess-123' });
 
       const state = useSessionStore.getState();
       expect(state.currentSessionId).toBe('sess-123');

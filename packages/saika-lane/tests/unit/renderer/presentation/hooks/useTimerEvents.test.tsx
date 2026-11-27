@@ -1,47 +1,27 @@
 // SPDX-License-Identifier: MIT
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useTimerEvents } from '@/renderer/presentation/hooks/useTimerEvents';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 
-const mockOnTimerTick = vi.fn();
-const mockOnTimerExpired = vi.fn();
-const mockOnInterruptionChanged = vi.fn();
+import { emit, installMockElectronAPI, type MockedElectronAPI } from '../../../../helpers/mockElectronAPI';
 
 describe('useTimerEvents', () => {
+  let api: MockedElectronAPI;
+
   beforeEach(() => {
     useCompetitionStore.getState().resetCompetition();
-    vi.clearAllMocks();
-
-    mockOnTimerTick.mockReturnValue(vi.fn());
-    mockOnTimerExpired.mockReturnValue(vi.fn());
-    mockOnInterruptionChanged.mockReturnValue(vi.fn());
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      writable: true,
-      value: {
-        on: {
-          timerTick: mockOnTimerTick,
-          timerExpired: mockOnTimerExpired,
-          competitionInterruptionChanged: mockOnInterruptionChanged,
-        },
-      },
-    });
-  });
-
-  afterEach(() => {
-    delete (window as any).electronAPI;
+    api = installMockElectronAPI();
   });
 
   describe('event subscription registration', () => {
     it('registers timer event listeners on mount', () => {
       renderHook(() => useTimerEvents());
 
-      expect(mockOnTimerTick).toHaveBeenCalledTimes(1);
-      expect(mockOnTimerExpired).toHaveBeenCalledTimes(1);
-      expect(mockOnInterruptionChanged).toHaveBeenCalledTimes(1);
+      expect(api.on.timerTick).toHaveBeenCalledTimes(1);
+      expect(api.on.timerExpired).toHaveBeenCalledTimes(1);
+      expect(api.on.competitionInterruptionChanged).toHaveBeenCalledTimes(1);
     });
 
     it('unregisters timer event listeners on unmount', () => {
@@ -49,9 +29,9 @@ describe('useTimerEvents', () => {
       const unsubTimerExpired = vi.fn();
       const unsubInterruptionChanged = vi.fn();
 
-      mockOnTimerTick.mockReturnValue(unsubTimerTick);
-      mockOnTimerExpired.mockReturnValue(unsubTimerExpired);
-      mockOnInterruptionChanged.mockReturnValue(unsubInterruptionChanged);
+      api.on.timerTick.mockReturnValue(unsubTimerTick);
+      api.on.timerExpired.mockReturnValue(unsubTimerExpired);
+      api.on.competitionInterruptionChanged.mockReturnValue(unsubInterruptionChanged);
 
       const { unmount } = renderHook(() => useTimerEvents());
 
@@ -67,13 +47,7 @@ describe('useTimerEvents', () => {
     it('updates the store on timer tick event', () => {
       renderHook(() => useTimerEvents());
 
-      const callback = mockOnTimerTick.mock.calls[0]![0] as (data: {
-        remainingSeconds: number;
-        totalSeconds: number;
-        formattedRemaining: string;
-      }) => void;
-
-      callback({
+      emit('timerTick', {
         remainingSeconds: 120,
         totalSeconds: 300,
         formattedRemaining: '02:00',
@@ -87,16 +61,10 @@ describe('useTimerEvents', () => {
     it('updates the store sequentially on multiple tick events', () => {
       renderHook(() => useTimerEvents());
 
-      const callback = mockOnTimerTick.mock.calls[0]![0] as (data: {
-        remainingSeconds: number;
-        totalSeconds: number;
-        formattedRemaining: string;
-      }) => void;
-
-      callback({ remainingSeconds: 60, totalSeconds: 300, formattedRemaining: '01:00' });
+      emit('timerTick', { remainingSeconds: 60, totalSeconds: 300, formattedRemaining: '01:00' });
       expect(useCompetitionStore.getState().remainingSeconds).toBe(60);
 
-      callback({ remainingSeconds: 59, totalSeconds: 300, formattedRemaining: '00:59' });
+      emit('timerTick', { remainingSeconds: 59, totalSeconds: 300, formattedRemaining: '00:59' });
       expect(useCompetitionStore.getState().remainingSeconds).toBe(59);
     });
   });
@@ -107,9 +75,7 @@ describe('useTimerEvents', () => {
 
       renderHook(() => useTimerEvents());
 
-      const callback = mockOnTimerExpired.mock.calls[0]![0] as () => void;
-
-      callback();
+      emit('timerExpired', { stageIndex: 0 });
 
       const state = useCompetitionStore.getState();
       expect(state.isTimerRunning).toBe(false);
@@ -120,14 +86,9 @@ describe('useTimerEvents', () => {
   describe('competitionInterruptionChanged event', () => {
     it('stops the display timer and records the STOP state', () => {
       renderHook(() => useTimerEvents());
-      const callback = mockOnInterruptionChanged.mock.calls[0]![0] as (data: {
-        interruptionId: string;
-        status: 'PAUSED';
-        remainingSeconds: number;
-        unlimitedSightingShots: boolean;
-      }) => void;
 
-      callback({
+      emit('competitionInterruptionChanged', {
+        competitionId: 'competition-1',
         interruptionId: '22222222-2222-4222-8222-222222222222',
         status: 'PAUSED',
         remainingSeconds: 240,

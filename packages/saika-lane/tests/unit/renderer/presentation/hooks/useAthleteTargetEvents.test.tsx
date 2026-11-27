@@ -10,16 +10,30 @@ import {
 } from '@/renderer/presentation/stores/athleteTargetControl';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { competitionService } from '@/renderer/services/competitionService';
-import type { CompetitionStateDto } from '@/shared/ipc/contracts';
+import type { CompetitionStateDto, ShotDto } from '@/shared/ipc/contracts';
+
+import { emit, installMockElectronAPI } from '../../../../helpers/mockElectronAPI';
 
 vi.mock('@/renderer/services/competitionService', () => ({
   competitionService: { getCompetitionState: vi.fn(), setAthleteTargetMode: vi.fn() },
 }));
-const phase = vi.fn();
-const progress = vi.fn();
-const shot = vi.fn();
-const interruption = vi.fn();
-const unsubscribe = vi.fn();
+const shot: ShotDto = {
+  id: 'shot-1',
+  shotNumber: 1,
+  x: 0,
+  y: 0,
+  score: 100,
+  innerTen: false,
+  timestamp: '2026-10-29T00:00:00Z',
+  mode: 'MATCH',
+  isRecorded: true,
+};
+const interruption = {
+  interruptionId: '22222222-2222-4222-8222-222222222222',
+  status: 'PAUSED',
+  remainingSeconds: 600,
+  unlimitedSightingShots: false,
+} as const;
 function dto(series = 2, effective: 'SIGHTING' | 'MATCH' = 'MATCH'): CompetitionStateDto {
   return {
     id: 'comp-1',
@@ -54,22 +68,9 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 beforeEach(() => {
-  vi.clearAllMocks();
   useCompetitionStore.getState().resetCompetition();
   useCompetitionStore.setState({ competitionId: 'comp-1', phase: 'ACTIVE', stageIndex: 1, seriesIndex: 2 });
-  for (const subscribe of [phase, progress, shot, interruption]) subscribe.mockReturnValue(unsubscribe);
-  Object.defineProperty(window, 'electronAPI', {
-    configurable: true,
-    value: {
-      on: {
-        phaseChanged: phase,
-        competitionProgressChanged: progress,
-        shotRecorded: shot,
-        positionExtraNullified: vi.fn(() => unsubscribe),
-        competitionInterruptionChanged: interruption,
-      },
-    },
-  });
+  installMockElectronAPI();
   vi.mocked(competitionService.getCompetitionState).mockResolvedValue(dto());
 });
 
@@ -79,12 +80,12 @@ describe('athlete projection refresh', () => {
     vi.mocked(competitionService.getCompetitionState).mockReturnValueOnce(old.promise);
     renderHook(() => useAthleteTargetEvents());
     await act(async () => {
-      shot.mock.calls[0]![0]({ sessionId: 'session-1' });
+      emit('shotRecorded', { sessionId: 'session-1', shot });
     });
     expect(useCompetitionStore.getState().athleteTargetControl?.effective).toBe('MATCH');
     vi.mocked(competitionService.getCompetitionState).mockResolvedValue(dto(3, 'SIGHTING'));
     await act(async () => {
-      progress.mock.calls[0]![0]({ competitionId: 'comp-1', stageIndex: 1, seriesIndex: 3, shotCount: 0 });
+      emit('competitionProgressChanged', { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 3, shotCount: 0 });
     });
     expect(useCompetitionStore.getState().seriesIndex).toBe(3);
     expect(useCompetitionStore.getState().athleteTargetControl?.effective).toBe('SIGHTING');
@@ -94,11 +95,18 @@ describe('athlete projection refresh', () => {
     expect(useCompetitionStore.getState().athleteTargetControl?.effective).toBe('SIGHTING');
     const calls = vi.mocked(competitionService.getCompetitionState).mock.calls.length;
     await act(async () => {
-      phase.mock.calls[0]![0]({});
+      emit('phaseChanged', {
+        previousPhase: 'ACTIVE',
+        newPhase: 'ACTIVE',
+        stageIndex: 1,
+        seriesIndex: 3,
+        stageName: 'Match',
+        scored: true,
+      });
     });
     expect(competitionService.getCompetitionState).toHaveBeenCalledTimes(calls + 1);
     await act(async () => {
-      interruption.mock.calls[0]![0]({ competitionId: 'comp-1' });
+      emit('competitionInterruptionChanged', { competitionId: 'comp-1', ...interruption });
     });
     expect(competitionService.getCompetitionState).toHaveBeenCalledTimes(calls + 2);
   });
@@ -115,7 +123,7 @@ describe('athlete projection refresh', () => {
     const next = deferred<CompetitionStateDto>();
     vi.mocked(competitionService.getCompetitionState).mockReturnValueOnce(next.promise);
     await act(async () => {
-      shot.mock.calls[0]![0]({ sessionId: 'session-1' });
+      emit('shotRecorded', { sessionId: 'session-1', shot });
     });
     const current = useCompetitionStore.getState();
     expect(current.athleteTargetControlPending).toBe(false);
@@ -158,7 +166,7 @@ describe('athlete projection refresh', () => {
     expect(localProgressControls(membership, 'match', useCompetitionStore.getState()).allowed).toBe(false);
     vi.mocked(competitionService.getCompetitionState).mockResolvedValue(dto());
     await act(async () => {
-      interruption.mock.calls[0]![0]({ competitionId: 'comp-1' });
+      emit('competitionInterruptionChanged', { competitionId: 'comp-1', ...interruption });
     });
     expect(localProgressControls(membership, 'sighting', useCompetitionStore.getState()).allowed).toBe(true);
     expect(useCompetitionStore.getState().athleteTargetControlLoaded).toBe(true);
@@ -256,13 +264,26 @@ describe('athlete projection refresh', () => {
     const pending = deferred<CompetitionStateDto>();
     vi.mocked(competitionService.getCompetitionState).mockReturnValue(pending.promise);
     const { unmount } = renderHook(() => useAthleteTargetEvents());
-    progress.mock.calls[0]![0]({ competitionId: 'other', stageIndex: 1, seriesIndex: 3 });
+    emit('competitionProgressChanged', { competitionId: 'other', stageIndex: 1, seriesIndex: 3, shotCount: 0 });
     expect(competitionService.getCompetitionState).toHaveBeenCalledTimes(1);
     unmount();
     await act(async () => {
       pending.resolve(dto());
     });
     expect(useCompetitionStore.getState().athleteTargetControl).toBeNull();
-    expect(unsubscribe).toHaveBeenCalledTimes(5);
+    // Every subscription ended with the hook: none of its events queries again.
+    emit('phaseChanged', {
+      previousPhase: 'ACTIVE',
+      newPhase: 'ACTIVE',
+      stageIndex: 1,
+      seriesIndex: 2,
+      stageName: 'Match',
+      scored: true,
+    });
+    emit('competitionProgressChanged', { competitionId: 'comp-1', stageIndex: 1, seriesIndex: 3, shotCount: 0 });
+    emit('shotRecorded', { sessionId: 'session-1', shot });
+    emit('positionExtraNullified', { sessionId: 'session-1', competitionId: 'comp-1' });
+    emit('competitionInterruptionChanged', { competitionId: 'comp-1', ...interruption });
+    expect(competitionService.getCompetitionState).toHaveBeenCalledTimes(1);
   });
 });

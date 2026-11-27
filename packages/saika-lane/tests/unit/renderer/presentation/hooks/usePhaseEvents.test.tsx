@@ -1,65 +1,42 @@
 // SPDX-License-Identifier: MIT
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { usePhaseEvents } from '@/renderer/presentation/hooks/usePhaseEvents';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
 import type { PhaseChangedEventPayload, ShotDto } from '@/shared/ipc/contracts';
 
-// Individual mock functions for each event
-const mockOnPhaseChanged = vi.fn();
-const mockOnSeriesCompleted = vi.fn();
-const mockOnStageAdvanced = vi.fn();
-const mockOnCompetitionStarted = vi.fn();
-const mockOnCompetitionFinished = vi.fn();
+import { emit, installMockElectronAPI, type MockedElectronAPI } from '../../../../helpers/mockElectronAPI';
+
+function competitionStarted(acc: 'RING' | 'DECIMAL') {
+  return {
+    competitionId: 'competition-1',
+    competitionTypeId: 'AR60',
+    sessionId: 'session-1',
+    config: {},
+    shotsPerSeries: 10,
+    acc,
+  };
+}
 
 describe('usePhaseEvents', () => {
+  let api: MockedElectronAPI;
+
   beforeEach(() => {
     useCompetitionStore.getState().resetCompetition();
     useSessionStore.getState().resetSession();
-    vi.clearAllMocks();
-
-    // Default: return unsubscribe function
-    mockOnPhaseChanged.mockReturnValue(vi.fn());
-    mockOnSeriesCompleted.mockReturnValue(vi.fn());
-    mockOnStageAdvanced.mockReturnValue(vi.fn());
-    mockOnCompetitionStarted.mockReturnValue(vi.fn());
-    mockOnCompetitionFinished.mockReturnValue(vi.fn());
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      writable: true,
-      value: {
-        on: {
-          phaseChanged: mockOnPhaseChanged,
-          seriesCompleted: mockOnSeriesCompleted,
-          stageAdvanced: mockOnStageAdvanced,
-          competitionStarted: mockOnCompetitionStarted,
-          competitionFinished: mockOnCompetitionFinished,
-        },
-      },
-    });
-  });
-
-  afterEach(() => {
-    delete (window as any).electronAPI;
+    api = installMockElectronAPI();
   });
 
   describe('event subscription registration', () => {
     it('registers required event listeners on mount', () => {
       renderHook(() => usePhaseEvents());
 
-      expect(mockOnPhaseChanged).toHaveBeenCalledTimes(1);
-      expect(mockOnSeriesCompleted).toHaveBeenCalledTimes(1);
-      expect(mockOnCompetitionStarted).toHaveBeenCalledTimes(1);
-      expect(mockOnCompetitionFinished).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not subscribe to stageAdvanced (integrated into phaseChanged)', () => {
-      renderHook(() => usePhaseEvents());
-
-      expect(mockOnStageAdvanced).not.toHaveBeenCalled();
+      expect(api.on.phaseChanged).toHaveBeenCalledTimes(1);
+      expect(api.on.seriesCompleted).toHaveBeenCalledTimes(1);
+      expect(api.on.competitionStarted).toHaveBeenCalledTimes(1);
+      expect(api.on.competitionFinished).toHaveBeenCalledTimes(1);
     });
 
     it('unregisters all event listeners on unmount', () => {
@@ -68,10 +45,10 @@ describe('usePhaseEvents', () => {
       const unsubCompetitionStarted = vi.fn();
       const unsubCompetitionFinished = vi.fn();
 
-      mockOnPhaseChanged.mockReturnValue(unsubPhaseChanged);
-      mockOnSeriesCompleted.mockReturnValue(unsubSeriesCompleted);
-      mockOnCompetitionStarted.mockReturnValue(unsubCompetitionStarted);
-      mockOnCompetitionFinished.mockReturnValue(unsubCompetitionFinished);
+      api.on.phaseChanged.mockReturnValue(unsubPhaseChanged);
+      api.on.seriesCompleted.mockReturnValue(unsubSeriesCompleted);
+      api.on.competitionStarted.mockReturnValue(unsubCompetitionStarted);
+      api.on.competitionFinished.mockReturnValue(unsubCompetitionFinished);
 
       const { unmount } = renderHook(() => usePhaseEvents());
 
@@ -100,7 +77,6 @@ describe('usePhaseEvents', () => {
       useSessionStore.getState().addShot(shot);
       useCompetitionStore.getState().setPhase('SERIES_COMPLETE', 1, 0, 'Match', true);
       renderHook(() => usePhaseEvents());
-      const callback = mockOnPhaseChanged.mock.calls[0]![0] as (data: PhaseChangedEventPayload) => void;
       const phase: PhaseChangedEventPayload = {
         previousPhase: 'SERIES_COMPLETE',
         newPhase: 'STAGE_ENTERED',
@@ -109,11 +85,11 @@ describe('usePhaseEvents', () => {
         stageName: 'Preparation',
         scored: false,
       };
-      callback(phase);
+      emit('phaseChanged', phase);
       expect(useSessionStore.getState().currentSeriesStartIndex).toBe(1);
-      callback({ ...phase, previousPhase: 'STAGE_ENTERED', newPhase: 'ACTIVE' });
+      emit('phaseChanged', { ...phase, previousPhase: 'STAGE_ENTERED', newPhase: 'ACTIVE' });
       useSessionStore.getState().addShot({ ...shot, id: 'shot-2', shotNumber: 2 });
-      callback({ ...phase, previousPhase: 'ACTIVE', newPhase: 'ACTIVE' });
+      emit('phaseChanged', { ...phase, previousPhase: 'ACTIVE', newPhase: 'ACTIVE' });
       expect(useSessionStore.getState().currentSeriesStartIndex).toBe(1);
       expect(useSessionStore.getState().shots).toHaveLength(2);
     });
@@ -131,8 +107,7 @@ describe('usePhaseEvents', () => {
         isRecorded: false,
       });
       renderHook(() => usePhaseEvents());
-      const callback = mockOnPhaseChanged.mock.calls[0]![0] as (data: PhaseChangedEventPayload) => void;
-      callback({
+      emit('phaseChanged', {
         previousPhase: 'IDLE',
         newPhase: 'ACTIVE',
         stageIndex: 0,
@@ -147,15 +122,8 @@ describe('usePhaseEvents', () => {
     it('updates the store on phase change event', () => {
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnPhaseChanged.mock.calls[0]![0] as (data: {
-        newPhase: string;
-        stageIndex: number;
-        seriesIndex: number;
-        stageName: string;
-        scored: boolean;
-      }) => void;
-
-      callback({
+      emit('phaseChanged', {
+        previousPhase: 'STAGE_ENTERED',
         newPhase: 'ACTIVE',
         stageIndex: 1,
         seriesIndex: 2,
@@ -174,15 +142,8 @@ describe('usePhaseEvents', () => {
     it('sets timer to running during ACTIVE phase', () => {
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnPhaseChanged.mock.calls[0]![0] as (data: {
-        newPhase: string;
-        stageIndex: number;
-        seriesIndex: number;
-        stageName: string;
-        scored: boolean;
-      }) => void;
-
-      callback({
+      emit('phaseChanged', {
+        previousPhase: 'STAGE_ENTERED',
         newPhase: 'ACTIVE',
         stageIndex: 0,
         seriesIndex: 0,
@@ -201,15 +162,8 @@ describe('usePhaseEvents', () => {
 
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnPhaseChanged.mock.calls[0]![0] as (data: {
-        newPhase: string;
-        stageIndex: number;
-        seriesIndex: number;
-        stageName: string;
-        scored: boolean;
-      }) => void;
-
-      callback({
+      emit('phaseChanged', {
+        previousPhase: 'ACTIVE',
         newPhase: 'SERIES_COMPLETE',
         stageIndex: 0,
         seriesIndex: 3,
@@ -224,16 +178,9 @@ describe('usePhaseEvents', () => {
     it('correctly updates stageIndex/seriesIndex/scored via phaseChanged on stage advance', () => {
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnPhaseChanged.mock.calls[0]![0] as (data: {
-        newPhase: string;
-        stageIndex: number;
-        seriesIndex: number;
-        stageName: string;
-        scored: boolean;
-      }) => void;
-
       // Stage advance: STAGE_ENTERED, new stageIndex=2, seriesIndex=0 reset
-      callback({
+      emit('phaseChanged', {
+        previousPhase: 'SERIES_COMPLETE',
         newPhase: 'STAGE_ENTERED',
         stageIndex: 2,
         seriesIndex: 0,
@@ -253,9 +200,7 @@ describe('usePhaseEvents', () => {
     it('advances seriesIndex on series completed event', () => {
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnSeriesCompleted.mock.calls[0]![0] as (data: { seriesIndex: number }) => void;
-
-      callback({ seriesIndex: 2 });
+      emit('seriesCompleted', { stageIndex: 0, seriesIndex: 2, shotCount: 10 });
 
       const state = useCompetitionStore.getState();
       // advanceSeries(data.seriesIndex + 1) so 2+1=3
@@ -271,12 +216,7 @@ describe('usePhaseEvents', () => {
 
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnCompetitionStarted.mock.calls[0]![0] as (data: {
-        shotsPerSeries?: number;
-        acc: 'RING' | 'DECIMAL';
-      }) => void;
-
-      callback({ shotsPerSeries: 10, acc: 'DECIMAL' });
+      emit('competitionStarted', competitionStarted('DECIMAL'));
 
       const state = useCompetitionStore.getState();
       expect(state.phase).toBe('IDLE');
@@ -289,12 +229,7 @@ describe('usePhaseEvents', () => {
     it('acc: RING -> store is set to RING', () => {
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnCompetitionStarted.mock.calls[0]![0] as (data: {
-        shotsPerSeries?: number;
-        acc: 'RING' | 'DECIMAL';
-      }) => void;
-
-      callback({ acc: 'RING' });
+      emit('competitionStarted', competitionStarted('RING'));
 
       const state = useCompetitionStore.getState();
       expect(state.acc).toBe('RING');
@@ -303,12 +238,7 @@ describe('usePhaseEvents', () => {
     it('acc: DECIMAL -> store is set to DECIMAL', () => {
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnCompetitionStarted.mock.calls[0]![0] as (data: {
-        shotsPerSeries?: number;
-        acc: 'RING' | 'DECIMAL';
-      }) => void;
-
-      callback({ acc: 'DECIMAL' });
+      emit('competitionStarted', competitionStarted('DECIMAL'));
 
       const state = useCompetitionStore.getState();
       expect(state.acc).toBe('DECIMAL');
@@ -317,12 +247,7 @@ describe('usePhaseEvents', () => {
     it('calls setAcc on competitionStarted event', () => {
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnCompetitionStarted.mock.calls[0]![0] as (data: {
-        shotsPerSeries?: number;
-        acc: 'RING' | 'DECIMAL';
-      }) => void;
-
-      callback({ acc: 'RING' });
+      emit('competitionStarted', competitionStarted('RING'));
 
       // Verify that acc is correctly set in the store
       expect(useCompetitionStore.getState().acc).toBe('RING');
@@ -336,9 +261,7 @@ describe('usePhaseEvents', () => {
 
       renderHook(() => usePhaseEvents());
 
-      const callback = mockOnCompetitionFinished.mock.calls[0]![0] as () => void;
-
-      callback();
+      emit('competitionFinished', { sessionId: 'session-1' });
 
       const state = useCompetitionStore.getState();
       expect(state.phase).toBe('FINISHED');

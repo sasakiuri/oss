@@ -1,267 +1,147 @@
 // SPDX-License-Identifier: MIT
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 
-// Electron API type definition (new format - via preload)
-export interface MockedElectronAPI {
-  platform: string;
-  hasNativeWindowFrame: boolean;
-  appVersion: string;
-  commands: {
-    startSession: ReturnType<typeof vi.fn>;
-    recordShot: ReturnType<typeof vi.fn>;
-    switchMode: ReturnType<typeof vi.fn>;
-    resetSession: ReturnType<typeof vi.fn>;
-  };
-  usb: {
-    connect: ReturnType<typeof vi.fn>;
-    disconnect: ReturnType<typeof vi.fn>;
-    listPorts: ReturnType<typeof vi.fn>;
-    getDevicesByManufacturer: ReturnType<typeof vi.fn>;
-  };
-  queries: {
-    getSessionScore: ReturnType<typeof vi.fn>;
-    getShotHistory: ReturnType<typeof vi.fn>;
-  };
-  settings: {
-    savePrintSettings: ReturnType<typeof vi.fn>;
-    saveConnectionSettings: ReturnType<typeof vi.fn>;
-    getConnectionSettings: ReturnType<typeof vi.fn>;
-    saveUserPreferences: ReturnType<typeof vi.fn>;
-    getUserPreferences: ReturnType<typeof vi.fn>;
-    saveAppSettings: ReturnType<typeof vi.fn>;
-    getAppSettings: ReturnType<typeof vi.fn>;
-    getSettingsFileInfo: ReturnType<typeof vi.fn>;
-  };
-  startup: {
-    setAsideSavedRun: ReturnType<typeof vi.fn>;
-    getStartupState: ReturnType<typeof vi.fn>;
-    retryStartup: ReturnType<typeof vi.fn>;
-  };
-  competition: {
-    startCompetition: ReturnType<typeof vi.fn>;
-    startStage: ReturnType<typeof vi.fn>;
-    endStage: ReturnType<typeof vi.fn>;
-    startNextSeries: ReturnType<typeof vi.fn>;
-    advanceStage: ReturnType<typeof vi.fn>;
-    finishCompetition: ReturnType<typeof vi.fn>;
-    setAthleteTargetMode: ReturnType<typeof vi.fn>;
-    getCompetitionState: ReturnType<typeof vi.fn>;
-    getCompetitionTypes: ReturnType<typeof vi.fn>;
-  };
-  report: {
-    listPrinters: ReturnType<typeof vi.fn>;
-    printReady: ReturnType<typeof vi.fn>;
-    getScoreSheet: ReturnType<typeof vi.fn>;
-    openPrintWindow: ReturnType<typeof vi.fn>;
-  };
-  mqtt: {
-    getDirectorMembership: ReturnType<typeof vi.fn>;
-  };
-  timedTarget: {
-    getTimingSettings: ReturnType<typeof vi.fn>;
-    setTimingSettings: ReturnType<typeof vi.fn>;
-    getState: ReturnType<typeof vi.fn>;
-    cancel: ReturnType<typeof vi.fn>;
-  };
-  window: {
-    toggleFullscreen: ReturnType<typeof vi.fn>;
-    minimize: ReturnType<typeof vi.fn>;
-    maximize: ReturnType<typeof vi.fn>;
-    close: ReturnType<typeof vi.fn>;
-    getWindowState: ReturnType<typeof vi.fn>;
-  };
-  updates: {
-    getUpdateState: ReturnType<typeof vi.fn>;
-    checkForUpdates: ReturnType<typeof vi.fn>;
-    quitAndInstall: ReturnType<typeof vi.fn>;
-  };
-  on: {
-    shotReceived: ReturnType<typeof vi.fn>;
-    shotRecorded: ReturnType<typeof vi.fn>;
-    positionExtraNullified: ReturnType<typeof vi.fn>;
-    connectionStatusChanged: ReturnType<typeof vi.fn>;
-    sessionStarted: ReturnType<typeof vi.fn>;
-    modeSwitched: ReturnType<typeof vi.fn>;
-    sessionReset: ReturnType<typeof vi.fn>;
-    error: ReturnType<typeof vi.fn>;
-    logMessage: ReturnType<typeof vi.fn>;
-    competitionStarted: ReturnType<typeof vi.fn>;
-    competitionProgressChanged: ReturnType<typeof vi.fn>;
-    phaseChanged: ReturnType<typeof vi.fn>;
-    timerTick: ReturnType<typeof vi.fn>;
-    timerExpired: ReturnType<typeof vi.fn>;
-    competitionInterruptionChanged: ReturnType<typeof vi.fn>;
-    safetyStopChanged: ReturnType<typeof vi.fn>;
-    competitionCueChanged: ReturnType<typeof vi.fn>;
-    timedTargetSequenceChanged: ReturnType<typeof vi.fn>;
-    seriesCompleted: ReturnType<typeof vi.fn>;
-    stageAdvanced: ReturnType<typeof vi.fn>;
-    competitionFinished: ReturnType<typeof vi.fn>;
-    mqttStatusChanged: ReturnType<typeof vi.fn>;
-    directorMembershipChanged: ReturnType<typeof vi.fn>;
-    fullscreenChanged: ReturnType<typeof vi.fn>;
-    updateStateChanged: ReturnType<typeof vi.fn>;
-  };
+import { eventsContract, sessionContract } from '@/shared/ipc/contracts';
+import { laneBridgeContracts } from '@/shared/ipc/laneBridgeContracts';
+import type { ElectronAPI } from '@/shared/types/ElectronAPI';
+
+type Events = ElectronAPI['on'];
+
+/** The payload an event subscription delivers to its listener. */
+type EventPayload<E extends keyof Events> = Parameters<Parameters<Events[E]>[0]>[0];
+
+/** The preload API with a mock for every bridge method and event subscription. */
+export type MockedElectronAPI = {
+  -readonly [N in keyof ElectronAPI]: ElectronAPI[N] extends object
+    ? { [M in keyof ElectronAPI[N]]: Mock }
+    : ElectronAPI[N];
+};
+
+/** Listeners currently subscribed through each mock API's `on`, by event name. */
+const subscribedListeners = new WeakMap<object, Map<string, Set<(payload: unknown) => void>>>();
+
+function mockMethods(names: readonly string[]): Record<string, Mock> {
+  return Object.fromEntries(names.map((name) => [name, vi.fn()]));
 }
 
+/** Event subscriptions that keep their listener until the returned unsubscribe function is called. */
+function mockEvents(): Record<string, Mock> {
+  const listeners = new Map<string, Set<(payload: unknown) => void>>();
+  const on = Object.fromEntries(
+    Object.keys(eventsContract.events).map((name) => {
+      const subscribed = new Set<(payload: unknown) => void>();
+      listeners.set(name, subscribed);
+      return [
+        name,
+        vi.fn((listener: (payload: unknown) => void) => {
+          subscribed.add(listener);
+          return () => subscribed.delete(listener);
+        }),
+      ];
+    }),
+  );
+  subscribedListeners.set(on, listeners);
+  return on;
+}
+
+const IDLE_UPDATE_STATE = {
+  status: 'idle',
+  currentVersion: '0.1.0',
+  targetVersion: null,
+  releaseName: null,
+  releaseDate: null,
+  releaseNotes: null,
+  downloadPercent: null,
+  transferredBytes: null,
+  totalBytes: null,
+  bytesPerSecond: null,
+  lastCheckedAt: null,
+  errorMessage: null,
+  canCheckForUpdates: true,
+  canInstallUpdate: false,
+};
+
+/**
+ * A mock of the preload API with one `vi.fn()` per contract procedure and event. Queries the renderer reads on
+ * mount resolve with neutral data; every other method resolves to `undefined` until a test sets it.
+ */
 export function createMockElectronAPI(): MockedElectronAPI {
-  return {
-    platform: 'linux',
+  const bridge = Object.fromEntries(
+    Object.entries(laneBridgeContracts).map(([namespace, contract]) => [
+      namespace,
+      mockMethods(Object.keys(contract.procedures)),
+    ]),
+  );
+  const session = mockMethods(Object.keys(sessionContract.procedures));
+  const api = {
+    ...bridge,
     hasNativeWindowFrame: false,
     appVersion: '0.1.0',
-    commands: {
-      startSession: vi.fn(),
-      recordShot: vi.fn(),
-      switchMode: vi.fn(),
-      resetSession: vi.fn(),
+    commands: { recordShot: session.recordShot, switchMode: session.switchMode },
+    queries: { getSessionScore: session.getSessionScore, getShotHistory: session.getShotHistory },
+    on: mockEvents(),
+  } as MockedElectronAPI;
+
+  api.usb.listPorts.mockResolvedValue({
+    success: true,
+    data: {
+      ports: [
+        { path: 'COM3', manufacturer: 'FTDI' },
+        { path: 'COM4', manufacturer: 'Prolific' },
+        { path: '/dev/ttyUSB0', manufacturer: 'FTDI' },
+        { path: '/dev/ttyUSB1', manufacturer: undefined },
+      ],
     },
-    usb: {
-      connect: vi.fn(),
-      disconnect: vi.fn(),
-      listPorts: vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          ports: [
-            { path: 'COM3', manufacturer: 'FTDI' },
-            { path: 'COM4', manufacturer: 'Prolific' },
-            { path: '/dev/ttyUSB0', manufacturer: 'FTDI' },
-            { path: '/dev/ttyUSB1', manufacturer: undefined },
-          ],
-        },
-      }),
-      getDevicesByManufacturer: vi.fn(),
+  });
+  api.settings.savePrintSettings.mockResolvedValue({ success: true });
+  api.settings.getConnectionSettings.mockResolvedValue({ success: true, data: {} });
+  api.settings.getUserPreferences.mockResolvedValue({ success: true, data: {} });
+  api.settings.getAppSettings.mockResolvedValue({
+    success: true,
+    data: {
+      connection: { portName: '', manufacturer: 'KOHTO', deviceId: '' },
+      userPreferences: { laneNumber: 1, discipline: null, competitionTypeId: '', audioVolume: 50 },
+      mqtt: {
+        enabled: false,
+        brokerUrl: '',
+        laneAlias: '',
+        autoConnect: false,
+        laneId: '550e8400-e29b-41d4-a716-446655440000',
+      },
     },
-    queries: {
-      getSessionScore: vi.fn(),
-      getShotHistory: vi.fn(),
-    },
-    settings: {
-      savePrintSettings: vi.fn().mockResolvedValue({ success: true }),
-      saveConnectionSettings: vi.fn().mockResolvedValue(undefined),
-      getConnectionSettings: vi.fn().mockResolvedValue({ success: true, data: {} }),
-      saveUserPreferences: vi.fn().mockResolvedValue(undefined),
-      getUserPreferences: vi.fn().mockResolvedValue({ success: true, data: {} }),
-      saveAppSettings: vi.fn().mockResolvedValue(undefined),
-      getAppSettings: vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          connection: { portName: '', manufacturer: 'KOHTO', deviceId: '' },
-          userPreferences: { laneNumber: 1, discipline: null, competitionTypeId: '', audioVolume: 50 },
-          mqtt: {
-            enabled: false,
-            brokerUrl: '',
-            laneAlias: '',
-            autoConnect: false,
-            laneId: '550e8400-e29b-41d4-a716-446655440000',
-          },
-        },
-      }),
-      getSettingsFileInfo: vi.fn().mockResolvedValue({ success: true, data: { path: '/tmp/settings.json' } }),
-    },
-    startup: { setAsideSavedRun: vi.fn(), getStartupState: vi.fn(), retryStartup: vi.fn() },
-    competition: {
-      startCompetition: vi.fn(),
-      startStage: vi.fn(),
-      endStage: vi.fn(),
-      startNextSeries: vi.fn(),
-      advanceStage: vi.fn(),
-      finishCompetition: vi.fn(),
-      setAthleteTargetMode: vi.fn(),
-      getCompetitionState: vi.fn(),
-      getCompetitionTypes: vi.fn(),
-    },
-    report: {
-      listPrinters: vi.fn().mockResolvedValue({ success: true, data: [] }),
-      printReady: vi.fn().mockResolvedValue({ success: true }),
-      getScoreSheet: vi.fn(),
-      openPrintWindow: vi.fn(),
-    },
-    mqtt: {
-      getDirectorMembership: vi.fn().mockResolvedValue({ success: true, data: { competitionId: null, revision: 0 } }),
-    },
-    timedTarget: {
-      getTimingSettings: vi.fn().mockResolvedValue({
-        success: true,
-        data: { mode: 'BOUNDED', maximumReceiptDelayMilliseconds: null, clockUncertaintyMilliseconds: null },
-      }),
-      setTimingSettings: vi.fn(),
-      getState: vi.fn().mockResolvedValue({ success: true, data: null }),
-      cancel: vi.fn(),
-    },
-    window: {
-      toggleFullscreen: vi.fn(),
-      minimize: vi.fn().mockResolvedValue({ success: true }),
-      maximize: vi.fn().mockResolvedValue({ success: true, data: { isMaximized: false, isFullscreen: false } }),
-      close: vi.fn().mockResolvedValue({ success: true }),
-      getWindowState: vi.fn().mockResolvedValue({ success: true, data: { isMaximized: false, isFullscreen: false } }),
-    },
-    updates: {
-      getUpdateState: vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          status: 'idle',
-          currentVersion: '0.1.0',
-          targetVersion: null,
-          releaseName: null,
-          releaseDate: null,
-          releaseNotes: null,
-          downloadPercent: null,
-          transferredBytes: null,
-          totalBytes: null,
-          bytesPerSecond: null,
-          lastCheckedAt: null,
-          errorMessage: null,
-          canCheckForUpdates: true,
-          canInstallUpdate: false,
-        },
-      }),
-      checkForUpdates: vi.fn().mockResolvedValue({
-        success: true,
-        data: {
-          status: 'checking',
-          currentVersion: '0.1.0',
-          targetVersion: null,
-          releaseName: null,
-          releaseDate: null,
-          releaseNotes: null,
-          downloadPercent: null,
-          transferredBytes: null,
-          totalBytes: null,
-          bytesPerSecond: null,
-          lastCheckedAt: null,
-          errorMessage: null,
-          canCheckForUpdates: false,
-          canInstallUpdate: false,
-        },
-      }),
-      quitAndInstall: vi.fn().mockResolvedValue({ success: true }),
-    },
-    on: {
-      shotReceived: vi.fn().mockReturnValue(() => {}),
-      shotRecorded: vi.fn().mockReturnValue(() => {}),
-      positionExtraNullified: vi.fn().mockReturnValue(() => {}),
-      connectionStatusChanged: vi.fn().mockReturnValue(() => {}),
-      sessionStarted: vi.fn().mockReturnValue(() => {}),
-      modeSwitched: vi.fn().mockReturnValue(() => {}),
-      sessionReset: vi.fn().mockReturnValue(() => {}),
-      error: vi.fn().mockReturnValue(() => {}),
-      logMessage: vi.fn().mockReturnValue(() => {}),
-      competitionStarted: vi.fn().mockReturnValue(() => {}),
-      competitionProgressChanged: vi.fn().mockReturnValue(() => {}),
-      phaseChanged: vi.fn().mockReturnValue(() => {}),
-      timerTick: vi.fn().mockReturnValue(() => {}),
-      timerExpired: vi.fn().mockReturnValue(() => {}),
-      competitionInterruptionChanged: vi.fn().mockReturnValue(() => {}),
-      safetyStopChanged: vi.fn().mockReturnValue(() => {}),
-      competitionCueChanged: vi.fn().mockReturnValue(() => {}),
-      timedTargetSequenceChanged: vi.fn().mockReturnValue(() => {}),
-      seriesCompleted: vi.fn().mockReturnValue(() => {}),
-      stageAdvanced: vi.fn().mockReturnValue(() => {}),
-      competitionFinished: vi.fn().mockReturnValue(() => {}),
-      directorMembershipChanged: vi.fn().mockReturnValue(() => {}),
-      mqttStatusChanged: vi.fn().mockReturnValue(() => {}),
-      fullscreenChanged: vi.fn().mockReturnValue(() => {}),
-      updateStateChanged: vi.fn().mockReturnValue(() => {}),
-    },
-  };
+  });
+  api.settings.getSettingsFileInfo.mockResolvedValue({ success: true, data: { path: '/tmp/settings.json' } });
+  api.report.listPrinters.mockResolvedValue({ success: true, data: [] });
+  api.report.printReady.mockResolvedValue({ success: true });
+  api.mqtt.getDirectorMembership.mockResolvedValue({ success: true, data: { competitionId: null, revision: 0 } });
+  api.timedTarget.getTimingSettings.mockResolvedValue({
+    success: true,
+    data: { mode: 'BOUNDED', maximumReceiptDelayMilliseconds: null, clockUncertaintyMilliseconds: null },
+  });
+  api.timedTarget.getState.mockResolvedValue({ success: true, data: null });
+  api.window.minimize.mockResolvedValue({ success: true });
+  api.window.maximize.mockResolvedValue({ success: true, data: { isMaximized: false, isFullscreen: false } });
+  api.window.close.mockResolvedValue({ success: true });
+  api.window.getWindowState.mockResolvedValue({ success: true, data: { isMaximized: false, isFullscreen: false } });
+  api.updates.getUpdateState.mockResolvedValue({ success: true, data: IDLE_UPDATE_STATE });
+  api.updates.checkForUpdates.mockResolvedValue({
+    success: true,
+    data: { ...IDLE_UPDATE_STATE, status: 'checking', canCheckForUpdates: false },
+  });
+  api.updates.quitAndInstall.mockResolvedValue({ success: true });
+  return api;
+}
+
+/** Replaces `window.electronAPI` with a new mock and returns it. */
+export function installMockElectronAPI(): MockedElectronAPI {
+  const api = createMockElectronAPI();
+  window.electronAPI = api as unknown as ElectronAPI;
+  return api;
+}
+
+/** Delivers `payload` to the listeners subscribed to `event` on the installed mock API. */
+export function emit<E extends keyof Events>(event: E, payload: EventPayload<E>): void {
+  const listeners = subscribedListeners.get(window.electronAPI.on)?.get(event);
+  if (!listeners) throw new Error('window.electronAPI is not a mock from createMockElectronAPI');
+  for (const listener of [...listeners]) listener(payload);
 }

@@ -6,102 +6,40 @@ import { _resetAudioPlaybackForTest } from '@/renderer/presentation/hooks/useAud
 import { useShotEvents } from '@/renderer/presentation/hooks/useShotEvents';
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import type { ShotRecordedEventPayload } from '@/shared/ipc/contracts';
+
+import { emit, installMockElectronAPI, type MockedElectronAPI } from '../../../../helpers/mockElectronAPI';
+import { stubShotAudio } from '../../../../helpers/shotAudio';
 
 // Mock shot sound asset
 vi.mock('@/assets/sounds/shot.wav', () => ({
   default: 'mock-shot-sound.wav',
 }));
 
-// AudioContext mock (useAudioPlayback uses Web Audio API)
-const mockStart = vi.fn();
-const fakeBuffer = { duration: 1 } as AudioBuffer;
-const mockDecodeAudioData = vi.fn().mockResolvedValue(fakeBuffer);
-
-function createMockAudioContext() {
-  return {
-    state: 'running',
-    resume: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn().mockResolvedValue(undefined),
-    destination: {},
-    createBufferSource: vi.fn(() => ({
-      buffer: null as AudioBuffer | null,
-      connect: vi.fn(),
-      start: mockStart,
-    })),
-    createGain: vi.fn(() => ({
-      gain: { value: 1 },
-      connect: vi.fn(),
-    })),
-    decodeAudioData: mockDecodeAudioData,
-  };
-}
-
-const MockAudioContext = vi.fn().mockImplementation(function () {
-  return createMockAudioContext();
-});
-
-const mockFetch = vi.fn().mockResolvedValue({
-  arrayBuffer: vi.fn().mockResolvedValue(new ArrayBuffer(8)),
-});
-
-/** Wait for fetch → arrayBuffer → decodeAudioData → bufferRef chain to complete */
-async function flushAudioLoad() {
-  await vi.waitFor(() => {
-    expect(mockDecodeAudioData).toHaveBeenCalled();
-  });
-  // Flush the final .then that sets bufferRef.current
-  await act(async () => {
-    await Promise.resolve();
-  });
-}
-
-const mockOnShotRecorded = vi.fn();
-const mockOnShotReceived = vi.fn();
-
 describe('useShotEvents', () => {
+  let api: MockedElectronAPI;
+  let audio: ReturnType<typeof stubShotAudio>;
+
   beforeEach(() => {
     _resetAudioPlaybackForTest();
     useSessionStore.getState().resetSession();
-    vi.clearAllMocks();
-
-    mockOnShotRecorded.mockReturnValue(vi.fn());
-    mockOnShotReceived.mockReturnValue(vi.fn());
-
-    Object.defineProperty(window, 'electronAPI', {
-      configurable: true,
-      writable: true,
-      value: {
-        on: {
-          shotRecorded: mockOnShotRecorded,
-          shotReceived: mockOnShotReceived,
-          competitionProgressChanged: vi.fn(() => vi.fn()),
-          positionExtraNullified: vi.fn(() => vi.fn()),
-          error: vi.fn(() => vi.fn()),
-        },
-      },
-    });
-
-    vi.stubGlobal('AudioContext', MockAudioContext);
-    vi.stubGlobal('fetch', mockFetch);
+    api = installMockElectronAPI();
+    audio = stubShotAudio();
   });
 
   afterEach(() => {
     _resetAudioPlaybackForTest();
-    Reflect.deleteProperty(window, 'electronAPI');
     vi.unstubAllGlobals();
   });
 
   it('shows a commanded reset only for the current session and persists progress errors', () => {
     useSessionStore.getState().setSessionId('session');
     renderHook(() => useShotEvents());
-    const nullified = vi.mocked(window.electronAPI.on.positionExtraNullified).mock.calls[0]![0];
-    act(() => nullified({ sessionId: 'other', competitionId: 'comp' }));
+    act(() => emit('positionExtraNullified', { sessionId: 'other', competitionId: 'comp' }));
     expect(useSessionStore.getState().nullificationMessage).toBeNull();
-    act(() => nullified({ sessionId: 'session', competitionId: 'comp' }));
+    act(() => emit('positionExtraNullified', { sessionId: 'session', competitionId: 'comp' }));
     expect(useSessionStore.getState().nullificationMessage).toBe('Extra shot nullified. Target reset to Sighting.');
     act(() =>
-      vi.mocked(window.electronAPI.on.error).mock.calls[0]![0]({
+      emit('error', {
         code: 'SHOT_PROGRESS_FAILED',
         userMessage: 'The shot was saved, but competition progress failed. Contact a Range Officer.',
         message: 'Progress failed',
@@ -114,11 +52,16 @@ describe('useShotEvents', () => {
   it('shows a reset failure without claiming Sighting success, then clears it after a successful reset', () => {
     useSessionStore.getState().setSessionId('session');
     renderHook(() => useShotEvents());
-    const notify = vi.mocked(window.electronAPI.on.positionExtraNullified).mock.calls[0]![0];
-    act(() => notify({ sessionId: 'session', competitionId: 'comp', resetError: 'The Sighting reset failed.' }));
+    act(() =>
+      emit('positionExtraNullified', {
+        sessionId: 'session',
+        competitionId: 'comp',
+        resetError: 'The Sighting reset failed.',
+      }),
+    );
     expect(useSessionStore.getState().targetResetError).toBe('The Sighting reset failed.');
     expect(useSessionStore.getState().nullificationMessage).toBeNull();
-    act(() => notify({ sessionId: 'session', competitionId: 'comp' }));
+    act(() => emit('positionExtraNullified', { sessionId: 'session', competitionId: 'comp' }));
     expect(useSessionStore.getState().targetResetError).toBeNull();
     expect(useSessionStore.getState().nullificationMessage).toContain('Target reset to Sighting.');
   });
@@ -127,10 +70,13 @@ describe('useShotEvents', () => {
     useCompetitionStore.setState({ competitionId: 'comp' });
     useSessionStore.setState({ nullificationMessage: 'Extra shot nullified. Target reset to Sighting.' });
     renderHook(() => useShotEvents());
-    const progress = vi.mocked(window.electronAPI.on.competitionProgressChanged).mock.calls[0]![0];
-    act(() => progress({ competitionId: 'other', stageIndex: 1, seriesIndex: 2, shotCount: 1 }));
+    act(() =>
+      emit('competitionProgressChanged', { competitionId: 'other', stageIndex: 1, seriesIndex: 2, shotCount: 1 }),
+    );
     expect(useSessionStore.getState().nullificationMessage).not.toBeNull();
-    act(() => progress({ competitionId: 'comp', stageIndex: 1, seriesIndex: 2, shotCount: 1 }));
+    act(() =>
+      emit('competitionProgressChanged', { competitionId: 'comp', stageIndex: 1, seriesIndex: 2, shotCount: 1 }),
+    );
     expect(useSessionStore.getState().nullificationMessage).toBeNull();
   });
 
@@ -138,15 +84,15 @@ describe('useShotEvents', () => {
     it('subscribes to shotRecorded and shotReceived on mount', () => {
       renderHook(() => useShotEvents());
 
-      expect(mockOnShotRecorded).toHaveBeenCalledTimes(1);
-      expect(mockOnShotReceived).toHaveBeenCalledTimes(1);
+      expect(api.on.shotRecorded).toHaveBeenCalledTimes(1);
+      expect(api.on.shotReceived).toHaveBeenCalledTimes(1);
     });
 
     it('unsubscribes from both on unmount', () => {
       const unsubRecorded = vi.fn();
       const unsubReceived = vi.fn();
-      mockOnShotRecorded.mockReturnValue(unsubRecorded);
-      mockOnShotReceived.mockReturnValue(unsubReceived);
+      api.on.shotRecorded.mockReturnValue(unsubRecorded);
+      api.on.shotReceived.mockReturnValue(unsubReceived);
 
       const { unmount } = renderHook(() => useShotEvents());
       unmount();
@@ -161,42 +107,39 @@ describe('useShotEvents', () => {
       useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useShotEvents());
-      await flushAudioLoad();
+      await audio.flushAudioLoad();
 
-      mockStart.mockClear();
+      audio.start.mockClear();
 
-      const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
-      callback();
+      emit('shotReceived', {});
 
-      expect(mockStart).toHaveBeenCalledTimes(1);
+      expect(audio.start).toHaveBeenCalledTimes(1);
     });
 
     it.each(['BPT216', 'BPT216_RS232'])('plays shot sound on shotReceived for BPT-216 profile %s', async (deviceId) => {
       useSessionStore.getState().setDeviceId(deviceId);
 
       renderHook(() => useShotEvents());
-      await flushAudioLoad();
+      await audio.flushAudioLoad();
 
-      mockStart.mockClear();
+      audio.start.mockClear();
 
-      const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
-      callback();
+      emit('shotReceived', {});
 
-      expect(mockStart).toHaveBeenCalledTimes(1);
+      expect(audio.start).toHaveBeenCalledTimes(1);
     });
 
     it('does not play shot sound for unsupported devices', async () => {
       useSessionStore.getState().setDeviceId('HS10');
 
       renderHook(() => useShotEvents());
-      await flushAudioLoad();
+      await audio.flushAudioLoad();
 
-      mockStart.mockClear();
+      audio.start.mockClear();
 
-      const callback = mockOnShotReceived.mock.calls[0]![0] as () => void;
-      callback();
+      emit('shotReceived', {});
 
-      expect(mockStart).not.toHaveBeenCalled();
+      expect(audio.start).not.toHaveBeenCalled();
     });
   });
 
@@ -204,9 +147,7 @@ describe('useShotEvents', () => {
     it('adds shot to the store', () => {
       renderHook(() => useShotEvents());
 
-      const callback = mockOnShotRecorded.mock.calls[0]![0] as (event: ShotRecordedEventPayload) => void;
-
-      callback({
+      emit('shotRecorded', {
         sessionId: 'sess-1',
         shot: {
           id: 'shot-1',
@@ -230,13 +171,11 @@ describe('useShotEvents', () => {
       useSessionStore.getState().setDeviceId('MT201');
 
       renderHook(() => useShotEvents());
-      await flushAudioLoad();
+      await audio.flushAudioLoad();
 
-      mockStart.mockClear();
+      audio.start.mockClear();
 
-      const callback = mockOnShotRecorded.mock.calls[0]![0] as (event: ShotRecordedEventPayload) => void;
-
-      callback({
+      emit('shotRecorded', {
         sessionId: 'sess-1',
         shot: {
           id: 'shot-1',
@@ -251,7 +190,7 @@ describe('useShotEvents', () => {
         },
       });
 
-      expect(mockStart).not.toHaveBeenCalled();
+      expect(audio.start).not.toHaveBeenCalled();
     });
   });
 });

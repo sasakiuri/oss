@@ -6,10 +6,7 @@ import { isScoringGaugeProfileId, isTargetScoringProfileId } from '@/shared/targ
 import { useCompetitionStore } from '../stores/competitionStore';
 import { useSessionStore } from '../stores/sessionStore';
 
-/**
- * Applies stage, series and timer updates together from phaseChanged.
- * stageAdvanced is omitted because it would apply the same transition twice.
- */
+/** Applies stage, series and timer updates together from phaseChanged. */
 export function usePhaseEvents(): void {
   const applyPhaseChange = useCompetitionStore((s) => s.applyPhaseChange);
   const advanceSeries = useCompetitionStore((s) => s.advanceSeries);
