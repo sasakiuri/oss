@@ -39,21 +39,4 @@ export class InMemoryShootoffRepository implements IShootoffRepository {
   findActiveByEventId(eventId: string): FinalShootoff | undefined {
     return this.findByEventId(eventId).find((shootoff) => !shootoff.isResolved);
   }
-
-  delete(id: string): void {
-    this.shootoffs.delete(id);
-    for (const shootoffIds of this.eventIndex.values()) {
-      shootoffIds.delete(id);
-    }
-  }
-
-  clearByEventId(eventId: string): void {
-    const shootoffIds = this.eventIndex.get(eventId);
-    if (shootoffIds) {
-      for (const shootoffId of shootoffIds) {
-        this.shootoffs.delete(shootoffId);
-      }
-      this.eventIndex.delete(eventId);
-    }
-  }
 }

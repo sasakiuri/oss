@@ -8,6 +8,4 @@ export interface IShootoffRepository {
   findById(id: string): FinalShootoff | undefined;
 
   findByEventId(eventId: string): FinalShootoff[];
-
-  delete(id: string): void;
 }

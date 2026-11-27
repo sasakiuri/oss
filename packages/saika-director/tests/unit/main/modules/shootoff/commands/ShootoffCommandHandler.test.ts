@@ -117,7 +117,6 @@ function createMockShootoffRepo(store: Map<string, FinalShootoff>): IShootoffRep
     }),
     findById: vi.fn((id: string) => store.get(id)),
     findByEventId: vi.fn(() => []),
-    delete: vi.fn(),
   };
 }
 

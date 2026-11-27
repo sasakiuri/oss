@@ -14,7 +14,6 @@ import { EditShotHandler } from './application/commands/EditShotHandler';
 import { DeleteShotHandler } from './application/commands/DeleteShotHandler';
 import { InsertShotHandler } from './application/commands/InsertShotHandler';
 import { EliminatePlayerHandler } from './application/commands/EliminatePlayerHandler';
-import { RecordShotHandler } from './application/commands/RecordShotHandler';
 import { StartLaneShootoffHandler } from './application/commands/StartLaneShootoffHandler';
 import { AddLaneShootoffShotHandler } from './application/commands/AddLaneShootoffShotHandler';
 import { ResolveLaneShootoffHandler } from './application/commands/ResolveLaneShootoffHandler';
@@ -23,7 +22,6 @@ import { ResolveLaneShootoffHandler } from './application/commands/ResolveLaneSh
 import { GetScoreSheetsHandler } from './application/queries/GetScoreSheetsHandler';
 import { GetAllLaneControlsHandler } from './application/queries/GetAllLaneControlsHandler';
 import { GetLaneByIdHandler } from './application/queries/GetLaneByIdHandler';
-import { GetLaneByChannelHandler } from './application/queries/GetLaneByChannelHandler';
 import { GetAllLanesHandler } from './application/queries/GetAllLanesHandler';
 
 // IPC Contracts
@@ -51,14 +49,12 @@ import {
   DeleteShotToken,
   InsertShotToken,
   EliminatePlayerToken,
-  RecordShotToken,
   StartLaneShootoffToken,
   AddLaneShootoffShotToken,
   ResolveLaneShootoffToken,
   GetAllLaneControlsToken,
   GetScoreSheetsToken,
   GetLaneByIdToken,
-  GetLaneByChannelToken,
   GetAllLanesToken,
 } from './application/tokens';
 
@@ -170,7 +166,6 @@ export const laneControlModule = defineModule({
     const deleteShot = new DeleteShotHandler(laneControlRepository, eventBus);
     const insertShot = new InsertShotHandler(laneControlRepository, eventBus);
     const eliminatePlayer = new EliminatePlayerHandler(laneControlRepository, eventBus);
-    const recordShot = new RecordShotHandler(laneControlRepository, eventBus);
     const startLaneShootoff = new StartLaneShootoffHandler(laneControlRepository, eventBus);
     const addLaneShootoffShot = new AddLaneShootoffShotHandler(laneControlRepository, eventBus);
     const resolveLaneShootoff = new ResolveLaneShootoffHandler(laneControlRepository, eventBus);
@@ -186,7 +181,6 @@ export const laneControlModule = defineModule({
     commandBus.register(DeleteShotToken, (input) => deleteShot.execute(input));
     commandBus.register(InsertShotToken, (input) => insertShot.execute(input));
     commandBus.register(EliminatePlayerToken, (input) => eliminatePlayer.execute(input));
-    commandBus.register(RecordShotToken, (input) => recordShot.execute(input));
     commandBus.register(StartLaneShootoffToken, (input) => startLaneShootoff.execute(input));
     commandBus.register(AddLaneShootoffShotToken, (input) => addLaneShootoffShot.execute(input));
     commandBus.register(ResolveLaneShootoffToken, (input) => resolveLaneShootoff.execute(input));
@@ -195,13 +189,11 @@ export const laneControlModule = defineModule({
     const getScoreSheets = new GetScoreSheetsHandler(laneControlRepository);
     const getAllLaneControls = new GetAllLaneControlsHandler(laneControlRepository);
     const getLaneById = new GetLaneByIdHandler(laneControlRepository);
-    const getLaneByChannel = new GetLaneByChannelHandler(laneControlRepository);
     const getAllLanes = new GetAllLanesHandler(laneControlRepository);
 
     queryBus.register(GetScoreSheetsToken, async (input) => getScoreSheets.execute(input));
     queryBus.register(GetAllLaneControlsToken, async () => getAllLaneControls.execute());
     queryBus.register(GetLaneByIdToken, async (input) => getLaneById.execute(input));
-    queryBus.register(GetLaneByChannelToken, async (input) => getLaneByChannel.execute(input));
     queryBus.register(GetAllLanesToken, async () => getAllLanes.execute());
 
     // === IPC Registration: Lane Control ===

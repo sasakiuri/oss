@@ -68,13 +68,4 @@ export class AppConfigService {
 
     for (const [key, value] of validated) this.cache.set(key, value);
   }
-
-  delete(key: AppConfigKey): void {
-    this.db.prepare('DELETE FROM app_settings WHERE key = ?').run(key);
-    this.cache.delete(key);
-  }
-
-  clearCache(): void {
-    this.cache.clear();
-  }
 }

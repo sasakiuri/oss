@@ -59,7 +59,7 @@ export class PublishFinalResultsHandler {
       const laneIdByParticipantId = new Map<string, string>();
 
       for (const laneId of command.laneIds) {
-        const laneControl = (await this.queryBus.execute(GetLaneByIdToken, { laneId })) as LaneControl | undefined;
+        const laneControl = await this.queryBus.execute(GetLaneByIdToken, { laneId });
 
         if (!laneControl) {
           errors.push(`Lane ${laneId} not found`);

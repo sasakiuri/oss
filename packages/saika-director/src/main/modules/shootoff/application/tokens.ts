@@ -6,13 +6,16 @@ import type {
   StartShootoffCommand,
   AddShootoffShotCommand,
   CompleteShootoffRoundCommand,
+  CompleteShootoffRoundResult,
   ResolveShootoffCommand,
 } from './commands/ShootoffCommands';
 
 // --- Command Tokens ---
 export const StartShootoffToken = defineCommand<StartShootoffCommand, { shootoffId: string }>('StartShootoff');
 export const AddShootoffShotToken = defineCommand<AddShootoffShotCommand>('AddShootoffShot');
-export const CompleteShootoffRoundToken = defineCommand<CompleteShootoffRoundCommand, unknown>('CompleteShootoffRound');
+export const CompleteShootoffRoundToken = defineCommand<CompleteShootoffRoundCommand, CompleteShootoffRoundResult>(
+  'CompleteShootoffRound',
+);
 export const ResolveShootoffToken = defineCommand<ResolveShootoffCommand>('ResolveShootoff');
 
 // --- Query Tokens ---

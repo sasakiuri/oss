@@ -1,5 +1,5 @@
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
-import { type LaneControl, GetLaneByIdToken } from '@/main/modules/lane-control';
+import { GetLaneByIdToken } from '@/main/modules/lane-control';
 import type { IResultRepository } from '../../domain/IResultRepository';
 import { GetEventByIdToken } from '@/main/modules/championship';
 import { Result } from '../../domain/Result';
@@ -45,7 +45,7 @@ export class PublishResultsHandler {
     try {
       for (const laneId of command.laneIds) {
         logger.debug(`Processing lane: ${laneId}`);
-        const laneControl = (await this.queryBus.execute(GetLaneByIdToken, { laneId })) as LaneControl | undefined;
+        const laneControl = await this.queryBus.execute(GetLaneByIdToken, { laneId });
 
         if (!laneControl) {
           logger.debug(`Lane ${laneId} not found`);

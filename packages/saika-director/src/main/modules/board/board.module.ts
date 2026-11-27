@@ -25,7 +25,7 @@ export const boardModule = defineModule({
 
     // === Inline GetLiveRanking query handler on QueryBus ===
     queryBus.register(GetLiveRankingToken, async () => {
-      const lanes = (await queryBus.execute(GetAllLanesToken, {})) as LaneControl[];
+      const lanes = await queryBus.execute(GetAllLanesToken, {});
 
       const lanesWithPlayers = lanes.filter((lane) => lane.player !== null);
 

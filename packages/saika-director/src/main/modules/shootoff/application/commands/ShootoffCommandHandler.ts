@@ -10,7 +10,6 @@ import type { CommandBus } from '@/main/shared-infra/cqrs/CommandBus';
 import type { QueryBus } from '@/main/shared-infra/cqrs/QueryBus';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import {
-  type LaneControl,
   Score,
   GetLaneByIdToken,
   StartLaneShootoffToken,
@@ -23,8 +22,8 @@ import { ParticipantId } from '@/main/modules/championship';
 import { DomainError, ErrorCatalog } from '@/shared/errors';
 
 export class ShootoffCommandHandler {
-  private readonly laneToParticipantMap = new Map<string, Map<string, ParticipantId>>();
-  private readonly participantToLaneMap = new Map<string, Map<string, string>>();
+  /** The participant on each Lane of every running shoot-off. */
+  private readonly participantsByShootoff = new Map<string, Map<string, ParticipantId>>();
 
   constructor(
     private readonly shootoffRepository: IShootoffRepository,
@@ -35,11 +34,10 @@ export class ShootoffCommandHandler {
 
   async executeStartShootoff(command: StartShootoffCommand): Promise<{ shootoffId: string }> {
     const laneToParticipant = new Map<string, ParticipantId>();
-    const participantToLane = new Map<string, string>();
     const participantIds: ParticipantId[] = [];
 
     for (const laneId of command.targetLaneIds) {
-      const laneControl = (await this.queryBus.execute(GetLaneByIdToken, { laneId })) as LaneControl | undefined;
+      const laneControl = await this.queryBus.execute(GetLaneByIdToken, { laneId });
       if (!laneControl) {
         throw new DomainError(ErrorCatalog.COMPETITION.LANE_NOT_FOUND, {
           messageOverride: `Lane not found: ${laneId}`,
@@ -60,7 +58,6 @@ export class ShootoffCommandHandler {
 
       const participantId = ParticipantId.create(laneControl.player.participantId);
       laneToParticipant.set(laneId, participantId);
-      participantToLane.set(participantId.value, laneId);
       participantIds.push(participantId);
     }
 
@@ -72,8 +69,7 @@ export class ShootoffCommandHandler {
     }
 
     this.shootoffRepository.saveWithEventId(shootoff, command.eventId);
-    this.laneToParticipantMap.set(shootoffId, laneToParticipant);
-    this.participantToLaneMap.set(shootoffId, participantToLane);
+    this.participantsByShootoff.set(shootoffId, laneToParticipant);
 
     this.eventBus.emit({
       type: 'ShootoffStarted',
@@ -88,19 +84,7 @@ export class ShootoffCommandHandler {
   }
 
   async executeAddShootoffShot(command: AddShootoffShotCommand): Promise<void> {
-    const shootoff = this.shootoffRepository.findById(command.shootoffId);
-    if (!shootoff) {
-      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
-        messageOverride: `Shootoff not found: ${command.shootoffId}`,
-      });
-    }
-
-    const laneToParticipant = this.laneToParticipantMap.get(command.shootoffId);
-    if (!laneToParticipant) {
-      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
-        messageOverride: `Shootoff mapping not found: ${command.shootoffId}`,
-      });
-    }
+    const { shootoff, laneToParticipant } = this.requireShootoff(command.shootoffId);
 
     const participantId = laneToParticipant.get(command.laneId);
     if (!participantId) {
@@ -122,26 +106,13 @@ export class ShootoffCommandHandler {
   }
 
   async executeCompleteShootoffRound(command: CompleteShootoffRoundCommand): Promise<CompleteShootoffRoundResult> {
-    const shootoff = this.shootoffRepository.findById(command.shootoffId);
-    if (!shootoff) {
-      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
-        messageOverride: `Shootoff not found: ${command.shootoffId}`,
-      });
-    }
-
-    const laneToParticipant = this.laneToParticipantMap.get(command.shootoffId);
-    const participantToLane = this.participantToLaneMap.get(command.shootoffId);
-    if (!laneToParticipant || !participantToLane) {
-      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
-        messageOverride: `Shootoff mapping not found: ${command.shootoffId}`,
-      });
-    }
+    const { shootoff, laneToParticipant } = this.requireShootoff(command.shootoffId);
 
     const shots: ShootoffShot[] = [];
     const nextRoundNumber = shootoff.currentRoundNumber + 1;
 
     for (const [laneId, participantId] of laneToParticipant) {
-      const laneControl = (await this.queryBus.execute(GetLaneByIdToken, { laneId })) as LaneControl | undefined;
+      const laneControl = await this.queryBus.execute(GetLaneByIdToken, { laneId });
       if (!laneControl) {
         throw new DomainError(ErrorCatalog.COMPETITION.LANE_NOT_FOUND, {
           messageOverride: `Lane not found: ${laneId}`,
@@ -177,6 +148,9 @@ export class ShootoffCommandHandler {
     };
 
     if (resolvedShootoff.isResolved) {
+      const participantToLane = new Map(
+        [...laneToParticipant].map(([laneId, participantId]) => [participantId.value, laneId]),
+      );
       const winner = resolvedShootoff.getWinner();
       if (winner) {
         result.winnerLaneId = participantToLane.get(winner.value);
@@ -208,19 +182,7 @@ export class ShootoffCommandHandler {
   }
 
   async executeResolveShootoff(command: ResolveShootoffCommand): Promise<void> {
-    const shootoff = this.shootoffRepository.findById(command.shootoffId);
-    if (!shootoff) {
-      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
-        messageOverride: `Shootoff not found: ${command.shootoffId}`,
-      });
-    }
-
-    const laneToParticipant = this.laneToParticipantMap.get(command.shootoffId);
-    if (!laneToParticipant) {
-      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
-        messageOverride: `Shootoff mapping not found: ${command.shootoffId}`,
-      });
-    }
+    const { shootoff, laneToParticipant } = this.requireShootoff(command.shootoffId);
 
     if (!shootoff.isResolved || !shootoff.resolvedRanks) {
       throw DomainError.from(ErrorCatalog.SHOOTOFF.NOT_RESOLVED);
@@ -239,7 +201,7 @@ export class ShootoffCommandHandler {
     const rankedLanes: Array<{ laneId: string; rank: number }> = [];
 
     for (const laneId of command.rankedLaneIds) {
-      const laneControl = (await this.queryBus.execute(GetLaneByIdToken, { laneId })) as LaneControl | undefined;
+      const laneControl = await this.queryBus.execute(GetLaneByIdToken, { laneId });
       if (!laneControl) {
         throw new DomainError(ErrorCatalog.COMPETITION.LANE_NOT_FOUND, {
           messageOverride: `Lane not found: ${laneId}`,
@@ -284,7 +246,26 @@ export class ShootoffCommandHandler {
       contestedRank: shootoff.contestedRank,
     });
 
-    this.laneToParticipantMap.delete(command.shootoffId);
-    this.participantToLaneMap.delete(command.shootoffId);
+    this.participantsByShootoff.delete(command.shootoffId);
+  }
+
+  private requireShootoff(shootoffId: string): {
+    shootoff: FinalShootoff;
+    laneToParticipant: Map<string, ParticipantId>;
+  } {
+    const shootoff = this.shootoffRepository.findById(shootoffId);
+    if (!shootoff) {
+      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
+        messageOverride: `Shootoff not found: ${shootoffId}`,
+      });
+    }
+
+    const laneToParticipant = this.participantsByShootoff.get(shootoffId);
+    if (!laneToParticipant) {
+      throw new DomainError(ErrorCatalog.SHOOTOFF.NO_ROUNDS, {
+        messageOverride: `Shootoff mapping not found: ${shootoffId}`,
+      });
+    }
+    return { shootoff, laneToParticipant };
   }
 }
