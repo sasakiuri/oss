@@ -251,7 +251,8 @@ Common additions touch a fixed set of places:
   `DirectorOperatorPermissions.ts` and in the expected table of
   `DirectorOperatorPermissions.test.ts`. Register its handlers with
   `ipcRouter.register` in the owning module. The preload bridge and `ElectronAPI`
-  follow.
+  follow. A Lane contract is added to `laneBridgeContracts` the same way, without
+  a permission entry.
 - **Director migration**: add the next numbered file under
   `src/main/infrastructure/database/migrations/` and register it in `index.ts`. It
   may import only `./Migration`, Node.js built-ins by their `node:` specifier, `zod`,

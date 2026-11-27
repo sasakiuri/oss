@@ -38,11 +38,14 @@ Lane's `createLaneServices` constructs shared instances; `createLaneApp` loads t
 module catalog and restores state. `bindMainWindow` registers window controls, and
 `bindCompetitionEvents` returns subscriptions to release at shutdown. A Lane feature
 reaches another feature through its public interfaces or a service built in
-`composition/`, never through the other feature's `infra/`.
+`composition/`, never through the other feature's `infra/`. Module `index.ts` files
+export no `infra/` classes; composition imports them by path.
 
 Director's `createApp` in `createContainer.ts` combines service factories. Modules
 are declared with `defineModule`, which derives the services `register` receives
-from the `deps` list. `createAppRuntime` starts and stops modules and event
+from the `deps` list. Repositories and services used by more than one module are
+built in composition and passed through `ServiceRegistry`; a module does not
+construct another module's `infra/`. `createAppRuntime` starts and stops modules and event
 forwarding. Modules stop before infrastructure; pending Lane repository writes
 finish before SQLite closes. Module registration is not transactional, so a
 registration failure can leave partial side effects.
@@ -73,8 +76,9 @@ using `defineContract` from `saika-ipc`. Contracts supply channel names,
 input/output schemas, and TypeScript types:
 
 1. Each application's `IpcRouter` registers main-process handlers and validates
-   requests and responses. A response outside its contract is logged and replaced
-   by an invalid-response error.
+   requests and responses. `InferHandlers` types each handler's result by the
+   procedure's output schema. A response outside its contract is logged and
+   replaced by an invalid-response error.
 2. Preload scripts build invoke methods with `createProcedureBridge` and event
    subscriptions from the event contract. An event payload outside its contract is
    logged and not delivered.
@@ -84,10 +88,12 @@ input/output schemas, and TypeScript types:
 `saika-ipc` holds only what behaves the same in both applications. Routers, event
 forwarding, command and query buses, and error codes stay in each application.
 
-Director lists its procedure contracts in `directorBridgeContracts`, keyed by
-`window.electronAPI` namespace. The preload bridge and the `ElectronAPI` type are
-derived from that map, and the operator permission table has one entry per
-contract namespace, so a contract without a permission fails type checking.
+Lane and Director list their procedure contracts in `laneBridgeContracts` and
+`directorBridgeContracts`, keyed by `window.electronAPI` namespace. The preload
+bridge and the `ElectronAPI` type are derived from that map; Lane's session
+contract alone is split into `commands` and `queries`. Director's operator
+permission table has one entry per contract namespace, so a contract without a
+permission fails type checking.
 
 Lane uses `ContractEventForwarder` and Director uses `DomainEventForwarder` to
 convert domain events to IPC payloads; Director modules return their forwarding
@@ -102,16 +108,21 @@ Director state hooks discard stale query responses. Forms keep drafts with their
 case; dispatched commands continue after leaving a screen. Reopening reads
 persisted state. Command results and refresh errors are reported separately.
 Case panels share `useCaseWorkspace`, which owns one scope's list, selection,
-queries and command recovery.
+queries and command recovery. A feature hook exposes its commands, and forms call
+those commands rather than renderer services.
 
 ## MQTT Control
 
 `saika-protocol` supplies MQTT schemas, payload types, and command validation. It
 also owns the topic grammar: `mqttTopics` builds every topic, `mqttTopicFilters`
 the wildcard subscriptions, and `parseMqttTopic` reads a received topic back.
-`MQTT_COMMAND_ACTIONS` maps each command action to its topic scope and schema.
-Its portable modules depend on Zod and local contracts. Competition policies
-remain in the applications and `saika-rules`.
+`MQTT_COMMAND_ACTIONS` maps each command action to its topic scope and schema;
+command topic builders accept only the actions of their scope.
+`laneRetainedCompetitionTopics` lists the retained topics a Lane publishes for a
+competition; Lane clears them when it leaves, and Director again when the
+competition finishes. Its portable modules
+depend on Zod and local contracts. Competition policies remain in the
+applications and `saika-rules`.
 
 | Director component              | Responsibility                                                            |
 | ------------------------------- | ------------------------------------------------------------------------- |
@@ -129,6 +140,7 @@ remain in the applications and `saika-rules`.
 | `MqttCommandDispatcher`         | Publishing, acknowledgements, deadlines                                   |
 | `MqttObservationRecorder`       | Shot, evidence and firing-window journals; domain events                  |
 | `BrokerRuntime`                 | Embedded broker; switching between embedded and external                  |
+| `EmbeddedMqttAccessPolicy`      | Lets a Lane publish only the topic kinds it sends, under its own Lane ID  |
 | `registerMqttTransportCommands` | MQTT commands other modules send through the command bus                  |
 
 `KeyedOperationQueue` orders operations that share a competition or membership.
@@ -238,7 +250,8 @@ share a transaction. `SettingsDocument` performs no I/O or identity allocation.
 
 Lane and Director expose optional, read-only display sources. Portable contracts
 live at `@sasakiuri/saika-protocol/Vista`; the `vista-node` subpath contains Node
-transport and discovery code and cannot be imported by renderers.
+transport and discovery code and cannot be imported by renderers. Lane, Director
+and Vista start their listener and its discovery with `createVistaHost`.
 
 Lane supplies session histories; Director supplies assignments, standings, and
 result snapshots. Vista uses the source's scores, rankings, publication state,
