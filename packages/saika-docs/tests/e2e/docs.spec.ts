@@ -171,6 +171,10 @@ test('serves metadata, assets and security headers', async ({ page, request }) =
   expect((await request.get('/api/catalog/')).status()).toBe(200);
   expect((await request.get('/manifest.webmanifest')).status()).toBe(200);
   expect((await request.get('/opengraph-image.png')).status()).toBe(200);
+  const sitemaps = [...(await (await request.get('/robots.txt')).text()).matchAll(/^Sitemap: (.+)$/gm)];
+  expect(sitemaps).not.toHaveLength(0);
+  for (const [, url] of sitemaps)
+    expect((await request.get(new URL(url!).pathname, { maxRedirects: 0 })).status()).toBe(200);
 });
 test('renders the DOT diagram in a worker', async ({ page }) => {
   const errors: string[] = [];
