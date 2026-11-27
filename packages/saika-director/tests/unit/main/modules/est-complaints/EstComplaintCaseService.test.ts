@@ -61,7 +61,7 @@ describe('EstComplaintCaseService', () => {
 class InMemoryLinkRepository implements IEstComplaintCaseLinkRepository {
   private readonly values = new Map<string, EstComplaintCaseLink>();
 
-  executeInTransaction<T>(operation: () => T): T {
+  transaction<T>(operation: () => T): T {
     return operation();
   }
 

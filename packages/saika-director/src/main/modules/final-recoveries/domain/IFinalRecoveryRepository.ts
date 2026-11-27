@@ -2,7 +2,7 @@ import type { FinalRecoveryCase, FinalRecoveryEntry } from './FinalRecoveryCase'
 import type { FinalRecoveryAllowanceSubject } from './FinalRecoveryAuthorizationPolicy';
 
 export interface IFinalRecoveryRepository {
-  executeInTransaction<T>(operation: () => T): T;
+  transaction<T>(operation: () => T): T;
   appendAllowanceSubject(caseId: string, subject: FinalRecoveryAllowanceSubject): void;
   appendCase(value: FinalRecoveryCase): void;
   appendEntry(value: FinalRecoveryEntry): void;

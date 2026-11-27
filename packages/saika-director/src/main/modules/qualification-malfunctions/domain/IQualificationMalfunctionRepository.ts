@@ -8,5 +8,5 @@ export interface IQualificationMalfunctionRepository {
   findCasesByEvent(eventId: string): QualificationMalfunctionCase[];
   findCasesByEventAndParticipant(eventId: string, participantId: string): QualificationMalfunctionCase[];
   findEntries(caseIds: readonly string[]): Map<string, QualificationMalfunctionEntry[]>;
-  executeInTransaction<T>(work: () => T): T;
+  transaction<T>(work: () => T): T;
 }

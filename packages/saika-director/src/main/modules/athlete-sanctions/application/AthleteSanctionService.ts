@@ -57,7 +57,7 @@ export class AthleteSanctionService {
     this.assertLinksAvailable(participantIds, input.championshipId);
     participants.forEach((participant) => this.assertLinkBasis(identity, participant, input.linkBasis));
 
-    this.repository.executeInTransaction(() => {
+    this.repository.transaction(() => {
       this.repository.appendIdentity(identity);
       for (const participant of participants) {
         this.repository.appendLinkEntry(this.linkEntry(identity.id, participant, input.linkBasis, input));
@@ -131,7 +131,7 @@ export class AthleteSanctionService {
 
     let identitiesCreated = 0;
     let participantsLinked = 0;
-    this.repository.executeInTransaction(() => {
+    this.repository.transaction(() => {
       for (const [issfId, participants] of groups) {
         let identity = identityByIssfId.get(issfId);
         if (!identity) {

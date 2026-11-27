@@ -8,5 +8,5 @@ export interface IFinalResultRepository {
   updateStatus(id: string, status: FinalResultStatus): void;
   delete(id: string): void;
   deleteByEventId(eventId: string): void;
-  executeInTransaction(fn: () => void): void;
+  transaction<T>(work: () => T): T;
 }

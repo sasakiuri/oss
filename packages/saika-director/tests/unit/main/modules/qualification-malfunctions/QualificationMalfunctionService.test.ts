@@ -341,7 +341,7 @@ class InMemoryQualificationMalfunctionRepository implements IQualificationMalfun
     return new Map(caseIds.map((id) => [id, this.entries.filter((entry) => entry.caseId === id)]));
   }
 
-  executeInTransaction<T>(work: () => T): T {
+  transaction<T>(work: () => T): T {
     return work();
   }
 }

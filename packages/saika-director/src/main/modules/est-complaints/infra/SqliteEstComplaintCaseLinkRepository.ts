@@ -20,7 +20,7 @@ interface LinkRow {
 export class SqliteEstComplaintCaseLinkRepository implements IEstComplaintCaseLinkRepository {
   constructor(private readonly db: Database.Database) {}
 
-  executeInTransaction<T>(operation: () => T): T {
+  transaction<T>(operation: () => T): T {
     return this.db.transaction(operation)();
   }
 

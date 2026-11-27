@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration003CreateSchema } from '@/main/infrastructure/database/migrations/003_create_schema';
-import { migration025OfficialEntries } from '@/main/infrastructure/database/migrations/025_official_entries';
-import { migration046OutdoorEliminationPlans } from '@/main/infrastructure/database/migrations/046_outdoor_elimination_plans';
 import {
   OutdoorEliminationPlanningService,
   SqliteEliminationPlanningSource,
@@ -13,6 +10,8 @@ import {
 import { CompetitionTypeRegistry, competitionTypeFromRulePack } from '@/shared/competitionTypes';
 import { ISSF_2026_R3P60_ELIMINATION } from '@sasakiuri/saika-rules';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 describe('OutdoorEliminationPlanningService', () => {
   let database: Database.Database;
   let service: OutdoorEliminationPlanningService;
@@ -20,11 +19,8 @@ describe('OutdoorEliminationPlanningService', () => {
   const eventId = '22222222-2222-4222-8222-222222222222';
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration003CreateSchema.up(database);
-    migration025OfficialEntries.up(database);
-    migration046OutdoorEliminationPlans.up(database);
     database
       .prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)')
       .run(championshipId, 'Championship', '2026-09-01', 'Outdoor range');

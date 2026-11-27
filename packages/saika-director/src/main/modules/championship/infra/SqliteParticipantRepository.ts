@@ -124,11 +124,8 @@ export class SqliteParticipantRepository implements IParticipantRepository {
     stmt.run(id);
   }
 
-  executeInTransaction(fn: () => void): void {
-    const transaction = this.db.transaction(() => {
-      fn();
-    });
-    transaction();
+  transaction<T>(work: () => T): T {
+    return this.db.transaction(work)();
   }
 
   private toEntity(row: ParticipantRow): Participant {

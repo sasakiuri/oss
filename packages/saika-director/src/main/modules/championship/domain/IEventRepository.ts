@@ -7,5 +7,5 @@ export interface IEventRepository {
   findByChampionshipId(championshipId: string): Event[];
   delete(id: string): void;
   deleteByChampionshipId(championshipId: string): void;
-  executeInTransaction(fn: () => void): void;
+  transaction<T>(work: () => T): T;
 }

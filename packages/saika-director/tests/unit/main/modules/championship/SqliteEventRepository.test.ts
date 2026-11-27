@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { migration003CreateSchema } from '@/main/infrastructure/database/migrations/003_create_schema';
-import { migration044EventRulePackBinding } from '@/main/infrastructure/database/migrations/044_event_rule_pack_binding';
 import { ChampionshipId } from '@/main/modules/championship/domain/ChampionshipId';
 import { Event } from '@/main/modules/championship/domain/Event';
 import { EventId } from '@/main/modules/championship/domain/EventId';
@@ -11,6 +9,8 @@ import { EventType } from '@/main/modules/championship/domain/EventType';
 import { SqliteEventRepository } from '@/main/modules/championship/infra/SqliteEventRepository';
 import { Round } from '@/main/modules/lane-control';
 import { CompetitionTypeRegistry, type CompetitionTypeDefinition } from '@/shared/competitionTypes';
+
+import { migratedDatabase, seedChampionship } from '../../../../helpers/database';
 
 const competitionType: CompetitionTypeDefinition = {
   id: 'TEST:RULE-PACK',
@@ -40,13 +40,9 @@ describe('SqliteEventRepository Rule Pack binding', () => {
   const championshipId = '11111111-1111-4111-8111-111111111111';
 
   beforeEach(() => {
-    database = new Database(':memory:');
+    database = migratedDatabase();
     database.pragma('foreign_keys = ON');
-    migration003CreateSchema.up(database);
-    migration044EventRulePackBinding.up(database);
-    database
-      .prepare('INSERT INTO championships (id, name, date, venue) VALUES (?, ?, ?, ?)')
-      .run(championshipId, 'Championship', '2026-09-01', 'Range');
+    seedChampionship(database, { id: championshipId, name: 'Championship', date: '2026-09-01', venue: 'Range' });
     registry = new CompetitionTypeRegistry();
     registry.register(competitionType);
     repository = new SqliteEventRepository(database, registry);

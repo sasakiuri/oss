@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -6,6 +6,8 @@ import {
   type IResultsBookResultSnapshotSource,
   QualificationTeamRecordCandidateSource,
 } from '@/main/modules/results-books';
+
+import { migratedDatabase, seedChampionship, seedEvent } from '../../../../helpers/database';
 
 const CHAMPIONSHIP_ID = '11111111-1111-4111-8111-111111111111';
 const EVENT_ID = '22222222-2222-4222-8222-222222222222';
@@ -17,18 +19,16 @@ describe('QualificationTeamRecordCandidateSource', () => {
   afterEach(() => database?.close());
 
   function setup() {
-    database = new Database(':memory:');
-    database.exec(`
-      CREATE TABLE events (
-        id TEXT PRIMARY KEY,
-        championship_id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        sort_order INTEGER NOT NULL
-      )
-    `);
-    database
-      .prepare('INSERT INTO events (id, championship_id, name, sort_order) VALUES (?, ?, ?, ?)')
-      .run(EVENT_ID, CHAMPIONSHIP_ID, '10m Air Rifle Women', 1);
+    database = migratedDatabase();
+    seedChampionship(database, { id: CHAMPIONSHIP_ID, name: 'Championship', date: '2026-09-01', venue: 'Range' });
+    seedEvent(database, {
+      id: EVENT_ID,
+      championship_id: CHAMPIONSHIP_ID,
+      name: '10m Air Rifle Women',
+      event_type: 'AR60',
+      round: 'Qualification',
+      sort_order: 1,
+    });
     const revisions = [OFFICIAL_REVISION, OFFICIAL_REVISION];
     const snapshots: IResultsBookResultSnapshotSource = {
       load: vi.fn(async (eventId, resultScope) => {

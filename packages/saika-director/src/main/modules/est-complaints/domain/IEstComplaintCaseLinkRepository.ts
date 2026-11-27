@@ -10,7 +10,7 @@ export interface EstComplaintCaseLink {
 }
 
 export interface IEstComplaintCaseLinkRepository {
-  executeInTransaction<T>(operation: () => T): T;
+  transaction<T>(operation: () => T): T;
   append(link: EstComplaintCaseLink): void;
   findBySignalId(signalId: string): EstComplaintCaseLink | null;
   findByCompetitionId(competitionId: string): EstComplaintCaseLink[];

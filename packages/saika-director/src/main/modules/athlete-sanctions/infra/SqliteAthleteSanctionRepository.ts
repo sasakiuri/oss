@@ -188,7 +188,7 @@ export class SqliteAthleteSanctionRepository implements IAthleteSanctionReposito
     ).map(toSanction);
   }
 
-  executeInTransaction<T>(operation: () => T): T {
+  transaction<T>(operation: () => T): T {
     return this.database.transaction(operation)();
   }
 }

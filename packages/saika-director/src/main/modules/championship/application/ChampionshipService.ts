@@ -134,7 +134,7 @@ export class ChampionshipService {
   }
 
   deleteEvent(input: DeleteEventPayload): void {
-    this.events.executeInTransaction(() => {
+    this.events.transaction(() => {
       this.assignments.deleteByEventId(input.id);
       this.participants.deleteByEventId(input.id);
       this.events.delete(input.id);
@@ -202,7 +202,7 @@ export class ChampionshipService {
       throw new Error('Participant deletion list does not match the participants omitted from this save');
     }
 
-    this.participants.executeInTransaction(() => {
+    this.participants.transaction(() => {
       for (const p of toDelete) {
         this.participants.delete(p.id.value);
       }

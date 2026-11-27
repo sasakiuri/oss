@@ -126,11 +126,8 @@ export class SqliteFinalResultRepository implements IFinalResultRepository {
     stmt.run(eventId);
   }
 
-  executeInTransaction(fn: () => void): void {
-    const transaction = this.db.transaction(() => {
-      fn();
-    });
-    transaction();
+  transaction<T>(work: () => T): T {
+    return this.db.transaction(work)();
   }
 
   private getCreatedAt(id: string): string {

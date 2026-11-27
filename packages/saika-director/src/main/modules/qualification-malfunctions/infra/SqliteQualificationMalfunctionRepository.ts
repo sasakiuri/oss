@@ -170,7 +170,7 @@ export class SqliteQualificationMalfunctionRepository implements IQualificationM
     );
   }
 
-  executeInTransaction<T>(work: () => T): T {
+  transaction<T>(work: () => T): T {
     return this.db.transaction(work)();
   }
 

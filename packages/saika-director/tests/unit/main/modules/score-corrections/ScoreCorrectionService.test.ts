@@ -1,11 +1,12 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { migration069ScoreCorrections } from '@/main/infrastructure/database/migrations/069_score_corrections';
 import type { ScoreCorrectionBasis } from '@/main/modules/results';
 import { ScoreCorrectionService } from '@/main/modules/score-corrections';
 import type { ScoreCorrectionRequest } from '@/main/modules/score-corrections/domain/ScoreCorrection';
 import { SqliteScoreCorrectionRepository } from '@/main/modules/score-corrections/infra/SqliteScoreCorrectionRepository';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 const databases: Database.Database[] = [];
 afterEach(() => {
@@ -13,9 +14,8 @@ afterEach(() => {
 });
 
 function fixture(scoring: 'RING' | 'DECIMAL' | 'HIT_MISS' = 'RING') {
-  const db = new Database(':memory:');
+  const db = migratedDatabase();
   databases.push(db);
-  migration069ScoreCorrections.up(db);
   let basis: ScoreCorrectionBasis = {
     resultId: 'result',
     eventId: 'event',

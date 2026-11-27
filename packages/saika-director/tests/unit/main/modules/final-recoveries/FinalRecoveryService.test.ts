@@ -13,7 +13,7 @@ const laneId = '33333333-3333-4333-8333-333333333333';
 
 class MemoryRepository implements IFinalRecoveryRepository {
   readonly cases: FinalRecoveryCase[] = [];
-  executeInTransaction<T>(operation: () => T): T {
+  transaction<T>(operation: () => T): T {
     return operation();
   }
   appendAllowanceSubject(): void {

@@ -1,7 +1,5 @@
-import Database from 'better-sqlite3';
 import { describe, expect, it } from 'vitest';
 
-import { migration069ScoreCorrections } from '@/main/infrastructure/database/migrations/069_score_corrections';
 import { FinalRecoveryCase, FinalRecoveryEntry, type IFinalRecoveryRepository } from '@/main/modules/final-recoveries';
 import type { FinalFiringRecord, IFinalFiringRepository } from '@/main/modules/final-recovery-firing';
 import type { ScoreCorrectionBasis } from '@/main/modules/results';
@@ -13,6 +11,8 @@ import {
 } from '@/main/modules/score-corrections';
 import type { ScoreCorrectionRequest } from '@/main/modules/score-corrections/domain/ScoreCorrection';
 
+import { migratedDatabase } from '../../../../helpers/database';
+
 describe('Final firing evidence to Jury score correction', () => {
   it.each(['MALFUNCTION', 'EST_FAILURE'] as const)(
     'settles %s using reviewed missing slots and invalidates changed evidence',
@@ -20,9 +20,8 @@ describe('Final firing evidence to Jury score correction', () => {
       const shotCount = incidentType === 'EST_FAILURE' ? 1 : 3;
       const firstSlot = incidentType === 'EST_FAILURE' ? 1 : 2;
       const expectedScores = incidentType === 'EST_FAILURE' ? [10, 10, 0, 0, 0] : [10, 0, 10, 10, 10];
-      const db = new Database(':memory:');
+      const db = migratedDatabase();
       try {
-        migration069ScoreCorrections.up(db);
         const value = FinalRecoveryCase.create({
           competitionId: 'competition',
           eventId: 'event',

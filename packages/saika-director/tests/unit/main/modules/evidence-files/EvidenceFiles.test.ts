@@ -2,9 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { migration089EvidenceFileContents } from '@/main/infrastructure/database/migrations/089_evidence_file_contents';
 import { EvidenceFileService } from '@/main/modules/evidence-files/application/EvidenceFileService';
 import { SqliteEvidenceFileStore } from '@/main/modules/evidence-files/infra/SqliteEvidenceFileStore';
 import { EvidenceFileArchiveSource } from '@/main/modules/evidence-files/infra/EvidenceFileArchiveSource';
@@ -17,6 +16,8 @@ import {
   CompetitionEvidenceBundleBuilder,
   serializeEvidenceBundle,
 } from '@/main/modules/operational-archives/domain/CompetitionEvidenceBundle';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 class MemoryRepository implements IEvidenceFileRepository {
   files: EvidenceFile[] = [];
@@ -45,9 +46,8 @@ describe('Evidence file custody and portable archive', () => {
 
   function fixture() {
     const repository = new MemoryRepository();
-    const database = new Database(':memory:');
+    const database = migratedDatabase();
     databases.push(database);
-    migration089EvidenceFileContents.up(database);
     const store = new SqliteEvidenceFileStore(database, 1024);
     const transfer = {
       chooseSource: vi.fn(async () => ({ fileName: 'log.bin', bytes: new Uint8Array([0, 255, 13, 10, 128]) })),

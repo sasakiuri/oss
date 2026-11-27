@@ -1,8 +1,6 @@
 import { scryptSync } from 'node:crypto';
 
-import Database from 'better-sqlite3';
 import { describe, expect, it, vi } from 'vitest';
-import { migration075OperatorAccess } from '@/main/infrastructure/database/migrations/075_operator_access';
 import {
   OperatorAccessService,
   type IOperatorAccessStore,
@@ -13,6 +11,8 @@ import { SessionSanctionAuthorizationResolver } from '@/main/modules/operator-ac
 import { SqliteOperatorAccessStore } from '@/main/modules/operator-access/infra/SqliteOperatorAccessStore';
 import { ManualAttestationSanctionAuthorizationResolver } from '@/main/modules/athlete-sanctions';
 import type { OperatorAuditEntry } from '@/shared/ipc/contracts';
+
+import { migratedDatabase } from '../../../../helpers/database';
 
 class MemoryStore implements IOperatorAccessStore {
   required = false;
@@ -210,9 +210,8 @@ describe('Operator access', { timeout: 30_000 }, () => {
     expect(() => resolver.resolve(sanction)).toThrow('authenticated');
   });
   it('persists enabled mode and audit evidence without restoring authenticated sessions on restart', async () => {
-    const database = new Database(':memory:');
+    const database = migratedDatabase();
     try {
-      migration075OperatorAccess.up(database);
       const store = new SqliteOperatorAccessStore(database);
       const service = new OperatorAccessService(store, directorOperatorPermission, Date.now, testHashCost);
       await service.saveAccount(1, administrator);
