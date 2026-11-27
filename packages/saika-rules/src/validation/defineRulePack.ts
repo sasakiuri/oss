@@ -33,11 +33,8 @@ export function defineRulePack(pack: RulePack): RulePack {
   validateFinalRankingCheckpoints(pack);
   validateShotResultProjection(pack);
   const publication = pack.capabilities.publication;
-  if (
-    publication &&
-    (!Number.isInteger(publication.scoreProtestWindowSeconds) || publication.scoreProtestWindowSeconds <= 0)
-  ) {
-    throw new Error('publication.scoreProtestWindowSeconds must be a positive integer');
+  if (publication) {
+    validatePositiveInteger(publication.scoreProtestWindowSeconds, 'publication.scoreProtestWindowSeconds');
   }
   const eliminationPlanning = pack.capabilities.outdoorEliminationPlanning;
   if (eliminationPlanning) {

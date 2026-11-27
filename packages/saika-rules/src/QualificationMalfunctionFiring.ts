@@ -1,8 +1,6 @@
 import type { QualificationMalfunctionStageRule } from './QualificationMalfunction';
-import type { RecoveryFiringPlan as QualificationMalfunctionFiringPlan } from './RecoveryFiringPlan';
+import type { RecoveryFiringPlan } from './RecoveryFiringPlan';
 import type { TimedTargetExposure, TimedTargetProgram } from './RulePack';
-
-export type { RecoveryFiringPlan as QualificationMalfunctionFiringPlan } from './RecoveryFiringPlan';
 
 /** Projects timing for an already-authorized remedy; never grants a claim or changes scores. */
 export function planQualificationMalfunctionFiring(input: {
@@ -10,7 +8,7 @@ export function planQualificationMalfunctionFiring(input: {
   readonly matchProgram: TimedTargetProgram;
   readonly seriesShotLimit: number;
   readonly recordedShots: number;
-}): QualificationMalfunctionFiringPlan {
+}): RecoveryFiringPlan {
   const { stageRule, matchProgram, seriesShotLimit, recordedShots } = input;
   if (!Number.isInteger(seriesShotLimit) || seriesShotLimit <= 0) throw new Error('Invalid series shot limit');
   if (!Number.isInteger(recordedShots) || recordedShots < 0 || recordedShots > seriesShotLimit)

@@ -1,6 +1,6 @@
 import type { FinalCommandScriptCapability, RuleCommandScriptStep, RulePack } from '../RulePack';
 
-import { validatePositiveInteger, validateText } from './primitives';
+import { validateNonNegativeInteger, validatePositiveInteger, validateText } from './primitives';
 
 export function validateCommands(pack: RulePack): void {
   const commands = pack.capabilities.commands;
@@ -68,9 +68,7 @@ function validateCommandStepTiming(step: RuleCommandScriptStep): void {
     return;
   }
   if (timing.mode === 'AFTER_PREVIOUS') {
-    if (!Number.isInteger(timing.delaySeconds) || timing.delaySeconds < 0) {
-      throw new Error(`Command step ${step.id} delay must be a non-negative integer`);
-    }
+    validateNonNegativeInteger(timing.delaySeconds, `Command step ${step.id} delay`);
     return;
   }
   if (timing.mode === 'TIME_OR_ALL_SHOTS') {

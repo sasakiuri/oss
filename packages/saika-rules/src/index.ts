@@ -10,7 +10,6 @@ export { canonicalJson, identifyRulePack, sameRulePackIdentity } from './RulePac
 export { projectShotResult } from './ShotResultProjection';
 export { recommendQualificationTimedTargetInterruption } from './QualificationTimedTargetInterruption';
 export { planQualificationMalfunctionFiring } from './QualificationMalfunctionFiring';
-export type { QualificationMalfunctionFiringPlan } from './QualificationMalfunctionFiring';
 export {
   assessQualificationMalfunctionClaim,
   settleQualificationMalfunctionRepeat,

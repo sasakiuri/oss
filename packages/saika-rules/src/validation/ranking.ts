@@ -37,9 +37,7 @@ function validateFinalTieResolution(pack: RulePack, checkpoint: FinalRankingChec
   if (resolution.criteria.length === 0) throw new Error('Final countback criteria must not be empty');
   for (const criterion of resolution.criteria) {
     validateText(criterion.stageId, 'Final countback stageId');
-    if (!Number.isInteger(criterion.seriesIndex) || criterion.seriesIndex < 0) {
-      throw new Error('Final countback seriesIndex must be a non-negative integer');
-    }
+    validateNonNegativeInteger(criterion.seriesIndex, 'Final countback seriesIndex');
     const stage = pack.capabilities.courseOfFire.stages.find((candidate) => candidate.id === criterion.stageId);
     if (!stage?.series[criterion.seriesIndex] || stage.phase !== 'MATCH') {
       throw new Error(`Final countback references unavailable series ${criterion.stageId}/${criterion.seriesIndex}`);
