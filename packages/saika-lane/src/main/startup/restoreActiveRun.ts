@@ -8,6 +8,7 @@ import type { SessionContextCache } from '@/main/modules/connection/infra/Sessio
 import type { DirectorMembership } from '@/main/modules/mqtt/application/DirectorMembership';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { StartupStateDto } from '@/shared/ipc/contracts/startup.contract';
 
 interface RestoreActiveRunDeps {
@@ -70,7 +71,7 @@ export class ActiveRunStartup {
           for (const callback of this.readyCallbacks)
             void callback().catch((error: unknown) => {
               getLogger().error('Startup auto-connect failed', 'main', {
-                error: error instanceof Error ? error.message : String(error),
+                error: errorMessage(error),
               });
             });
         }
@@ -225,7 +226,7 @@ export class ActiveRunStartup {
       this.state = {
         ...this.state,
         status: 'ERROR',
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
         canFinish: !this.unreadableSavedRun && this.canFinish(),
         canSetAside: this.unreadableSavedRun && this.recoveryAllowed(),
         canChooseType: this.unknownCompetitionType && this.recoveryAllowed(),

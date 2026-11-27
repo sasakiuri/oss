@@ -13,6 +13,7 @@ import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
@@ -31,7 +32,7 @@ export class QualificationRecoveryShotPublisher {
     eventBus.on('ShotRecorded', (event) => {
       void this.capture(event).catch((error: unknown) => {
         getLogger().error('[QualificationRecoveryShotPublisher] Failed to capture recovery shot', 'mqtt', {
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
           shotId: event.shot.id,
         });
       });
@@ -48,7 +49,7 @@ export class QualificationRecoveryShotPublisher {
       .run(() => this.drain())
       .catch((error: unknown) => {
         getLogger().error('[QualificationRecoveryShotPublisher] Failed to drain outbox', 'mqtt', {
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         });
       });
   }

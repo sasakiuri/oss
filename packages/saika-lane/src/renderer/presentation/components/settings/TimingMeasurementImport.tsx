@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useRef, useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { timedTargetService } from '@/renderer/services/timedTargetService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import {
   MAX_TIMING_MEASUREMENT_BYTES,
   type TimingMeasurementAnalysis,

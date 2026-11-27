@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import { ModeSwitchConfirmation } from './ModeSwitchConfirmation';
 

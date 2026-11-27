@@ -9,6 +9,7 @@ import type { ISessionRepository } from '@/main/modules/session/domain/ISessionR
 import type { Shot } from '@/main/modules/session/domain/Shot';
 import { readMirroredLaneId } from '@/main/modules/settings/application/MirroredLaneId';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { EstComplaintSignalPublisher } from './EstComplaintSignalPublisher';
@@ -69,7 +70,7 @@ export class RetainPublisher {
       this.republish().catch((err: unknown) => {
         const logger = getLogger();
         logger.error('[RetainPublisher] Failed to republish on reconnect', 'mqtt', {
-          error: err instanceof Error ? err.message : String(err),
+          error: errorMessage(err),
         });
       });
     });

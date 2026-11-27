@@ -8,6 +8,7 @@ import {
 } from '@/main/modules/timed-target';
 import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import {
   MALFUNCTION_FIRING_OWNER,
@@ -93,11 +94,7 @@ export class MalfunctionFiringService implements IMalfunctionFiringControl {
           },
         });
       } catch (error) {
-        this.repository.finish(
-          request.runId,
-          'CANCELLED',
-          `Timing start failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        this.repository.finish(request.runId, 'CANCELLED', `Timing start failed: ${errorMessage(error)}`);
         throw error;
       }
       return this.require(request.competitionId, request.runId);

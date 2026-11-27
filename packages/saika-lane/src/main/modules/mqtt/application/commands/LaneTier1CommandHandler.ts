@@ -19,6 +19,7 @@ import type { ILaneSafetyStopControl } from '@/main/modules/safety-stop';
 import type { ITimedTargetControl } from '@/main/modules/timed-target';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import type { BroadcastCommandHandler } from './BroadcastCommandHandler';
 import { laneCommandTable, type LaneCommandProcessor, type ReceivedLaneCommandArgs } from './LaneCommandProcessor';
@@ -86,7 +87,7 @@ export class LaneTier1CommandHandler {
         this.deps.membership.setCompetitionId(null);
         getLogger().warn('[LaneTier1CommandHandler] Failed to restore competition membership', 'mqtt', {
           competitionId: savedCompetitionId,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         });
       }
     }

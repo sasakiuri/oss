@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { competitionService } from '@/renderer/services/competitionService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { CompetitionStateDto } from '@/shared/ipc/contracts';
 
 import { clearedAthleteTargetControl, isSameCompetitionPosition, useCompetitionStore } from './competitionStore';

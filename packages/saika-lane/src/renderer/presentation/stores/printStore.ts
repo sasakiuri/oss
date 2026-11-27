@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { create } from 'zustand';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { reportService } from '@/renderer/services/reportService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 interface PrintState {
   isPrinting: boolean;

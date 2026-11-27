@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { describe, expect, it } from 'vitest';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { ServiceError } from '@/renderer/services/createServiceMethod';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 describe('errorMessage', () => {
   it("returns an Error's message", () => {

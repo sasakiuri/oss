@@ -5,6 +5,7 @@ import type { AdapterContext } from '@/main/modules/target/domain/AdapterContext
 import type { RawData } from '@/main/modules/target/domain/ISerialDataParser';
 import { TargetDesign } from '@/main/modules/target/domain/TargetDesign';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { isDomainError } from '@/shared/errors/isDomainError';
 
 import { ITargetAdapter } from './ITargetAdapter';
@@ -57,7 +58,7 @@ export class CustomAdapter implements ITargetAdapter {
         {
           manufacturer: 'CUSTOM',
           rawDataLength: rawData.raw.length,
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: errorMessage(error),
         },
         error instanceof Error ? error : undefined,
       );
@@ -123,7 +124,7 @@ export class CustomAdapter implements ITargetAdapter {
         'DATA_CONVERSION_ERROR',
         {
           stage: 'CSV parsing',
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: errorMessage(error),
         },
         error instanceof Error ? error : undefined,
       );
@@ -148,7 +149,7 @@ export class CustomAdapter implements ITargetAdapter {
           field: 'impactPoint',
           x,
           y,
-          errorMessage: error instanceof Error ? error.message : String(error),
+          errorMessage: errorMessage(error),
         },
         error instanceof Error ? error : undefined,
       );

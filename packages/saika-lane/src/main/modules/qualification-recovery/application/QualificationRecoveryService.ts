@@ -4,6 +4,7 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { ITimedTargetControl, TimedTargetState } from '@/main/modules/timed-target';
 import type { ShotRecordedEvent, TimedTargetSequenceChangedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { requiredText } from '@/shared/validation';
 
 import type { IQualificationRecoveryControl } from '../domain/IQualificationRecoveryControl';
@@ -165,7 +166,7 @@ export class QualificationRecoveryService implements IQualificationRecoveryContr
         this.repository.appendTerminal({
           runId: start.runId,
           status: 'CANCELLED',
-          reason: `Timing start failed: ${error instanceof Error ? error.message : String(error)}`,
+          reason: `Timing start failed: ${errorMessage(error)}`,
           occurredAt: this.now(),
           recordedAt: this.now(),
         });

@@ -14,6 +14,7 @@ import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { resolveCompetitionShotPlacement } from './ShotCompetitionPlacement';
@@ -97,7 +98,7 @@ export class LaneScorePublisher {
   private logPublishError(error: unknown): void {
     const logger = getLogger();
     logger.error('[LaneScorePublisher] Failed to publish score', 'mqtt', {
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage(error),
     });
   }
 

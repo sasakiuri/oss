@@ -6,6 +6,7 @@ import { ConnectionStatus } from '@/main/modules/connection/domain/ConnectionSta
 import type { USBConnectionConfig, USBPortInfo } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { ErrorCatalog } from '@/shared/errors/ErrorCatalog';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { toError } from '@/shared/errors/toError';
 
 import { USBDeviceDetector } from './USBDeviceDetector';
@@ -277,7 +278,7 @@ export class USBConnectionLifecycle {
       await this.reconnect();
     } catch (error) {
       logger.error('[USB] reconnect() failed', 'usb', {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       });
 
       // Emit reconnect failure event

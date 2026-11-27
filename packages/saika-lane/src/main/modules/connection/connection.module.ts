@@ -3,6 +3,7 @@ import type { ModuleDefinition } from '@/main/composition/ModuleDefinition';
 import { ConnectToTargetToken, DisconnectFromTargetToken } from '@/main/composition/tokens';
 import { TargetConnectionSupport } from '@/main/modules/target/domain/TargetConnectionSupport';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { connectionContract, eventsContract } from '@/shared/ipc/contracts';
 
 import { createConnectToTargetHandler } from './application/handlers/ConnectToTargetHandler';
@@ -158,7 +159,7 @@ export const connectionModule: ModuleDefinition<ConnectionDeps> = {
           await modeSync.restoreAfterReconnect();
         } catch (err: unknown) {
           getLogger().warn('Failed to propagate automatic USB reconnect', 'main', {
-            err: err instanceof Error ? err.message : String(err),
+            err: errorMessage(err),
           });
         }
       })();

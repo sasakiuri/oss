@@ -11,12 +11,13 @@ export function competitionTypeFromRulePack(pack: RulePack): CompetitionTypeDefi
     .flatMap((stage) => stage.series)
     .find((series) => series.shots > 0)?.shots;
   if (shotsPerSeries === undefined) throw new Error(`Rule Pack ${pack.id} has no scored series`);
+  const rulePackIdentity = identifyRulePack(pack);
 
   return {
     id: pack.eventCode,
     name: pack.displayName,
     rulePackId: pack.id,
-    rulePackIdentity: identifyRulePack(pack),
+    rulePackIdentity,
     discipline: pack.discipline,
     targetProfileId: pack.capabilities.target.scoringProfileId,
     ...(pack.capabilities.target.scoringGaugeProfileId
@@ -27,7 +28,7 @@ export function competitionTypeFromRulePack(pack: RulePack): CompetitionTypeDefi
     config: {
       round: pack.round,
       ...(pack.capabilities.estComplaints ? { estComplaints: pack.capabilities.estComplaints } : {}),
-      rulePackIdentity: identifyRulePack(pack),
+      rulePackIdentity,
       ...(pack.capabilities.qualificationMalfunction
         ? { qualificationMalfunction: pack.capabilities.qualificationMalfunction }
         : {}),

@@ -23,6 +23,7 @@ import type { ICompetitionInterruptionControl } from '@/main/modules/competition
 import type { ICompetitionShootOffControl } from '@/main/modules/competition-shoot-off';
 import type { ISessionRepository } from '@/main/modules/session/domain/ISessionRepository';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import { laneVistaDefinition, projectLaneVista, type LaneVistaShotContext } from '../application/LaneVistaProjection';
@@ -149,7 +150,7 @@ export class LaneVistaSource {
     this.pendingRefresh = request;
     // Recorded before the next queued pass starts, as that pass clears it on success.
     void request.promise.catch((error: unknown) => {
-      this.refreshError = error instanceof Error ? error.message : 'Vista snapshot persistence failed';
+      this.refreshError = errorMessage(error, 'Vista snapshot persistence failed');
     });
     return request.promise;
   }
@@ -457,7 +458,7 @@ export class LaneVistaSource {
   private rejectCapture(competitionId: string, cause: unknown): void {
     const snapshot = this.current.get(competitionId)?.snapshot;
     const id = snapshot?.subjectId ?? competitionId;
-    const detail = cause instanceof Error ? cause.message : 'Stored data could not be read';
+    const detail = errorMessage(cause, 'Stored data could not be read');
     const subject: VistaCatalog['subjects'][number] = {
       id,
       label: snapshot?.label ?? `Vista subject ${id}`,

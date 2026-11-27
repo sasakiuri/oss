@@ -8,6 +8,7 @@ import type { ShotRecordedEvent } from '@/main/shared-infra/events/coreEvents';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import { SerialQueue } from '@/main/shared-infra/operations/SerialQueue';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ILocalStorage } from '@/shared/storage/ILocalStorage';
 
 import type { IMqttClientService } from '../domain/IMqttClientService';
@@ -27,7 +28,7 @@ export class CompetitionShootOffShotPublisher {
     eventBus.on('ShotRecorded', (event) => {
       void this.capture(event).catch((error: unknown) => {
         getLogger().error('[CompetitionShootOffShotPublisher] Failed to capture shoot-off shot', 'mqtt', {
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
           shotId: event.shot.id,
         });
       });
@@ -52,7 +53,7 @@ export class CompetitionShootOffShotPublisher {
         this.control.recordShot(state.competitionId, shot.shotId, new Date(shot.firedAt));
       } catch (error) {
         getLogger().error('[CompetitionShootOffShotPublisher] Failed to restore captured shot state', 'mqtt', {
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
           shotId: shot.shotId,
         });
       }
@@ -64,7 +65,7 @@ export class CompetitionShootOffShotPublisher {
       .run(() => this.drain())
       .catch((error: unknown) => {
         getLogger().error('[CompetitionShootOffShotPublisher] Failed to drain outbox', 'mqtt', {
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage(error),
         });
       });
   }

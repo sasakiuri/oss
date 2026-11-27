@@ -4,6 +4,7 @@ import { sanitizeBrokerUrl } from '@/main/modules/mqtt/domain/sanitizeBrokerUrl'
 import type { IAppSettingsStore } from '@/main/modules/settings/application/IAppSettingsStore';
 import type { IEventBus } from '@/main/shared-infra/events/TypedEventBus';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { ConnectMqttInput } from '@/shared/ipc/contracts';
 import type { MqttSettings, MqttStatus } from '@/shared/ipc/contracts/mqtt.contract';
 
@@ -76,7 +77,7 @@ export class MqttConnectionController {
         this.lastConnectError = null;
         this.emitConnected(settingsStore.getLaneId(), settings.brokerUrl);
       } catch (error) {
-        this.lastConnectError = error instanceof Error ? error.message : String(error);
+        this.lastConnectError = errorMessage(error);
         this.emitConnected(settingsStore.getLaneId(), settings.brokerUrl, this.lastConnectError);
         throw error;
       }
@@ -175,7 +176,7 @@ export class MqttConnectionController {
 
       logger.info(`[MQTT Module] Connected to ${sanitizeBrokerUrl(input.brokerUrl)}`, 'mqtt');
     } catch (error) {
-      this.lastConnectError = error instanceof Error ? error.message : String(error);
+      this.lastConnectError = errorMessage(error);
       hardwarePublisher.stopHeartbeat();
       await hardwarePublisher.publishOfflineState().catch(() => undefined);
       await tier1Handler.unsubscribe().catch(() => undefined);

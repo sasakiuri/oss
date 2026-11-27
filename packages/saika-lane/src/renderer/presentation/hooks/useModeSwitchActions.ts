@@ -12,7 +12,7 @@ import { isSameCompetitionPosition, useCompetitionStore } from '@/renderer/prese
 import { useDirectorMembershipStore } from '@/renderer/presentation/stores/directorMembershipStore';
 import { isProgressAllowed } from '@/renderer/presentation/stores/localProgressPermission';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 export interface ModeSwitchActions {
   handlePreparationClick: () => Promise<void>;

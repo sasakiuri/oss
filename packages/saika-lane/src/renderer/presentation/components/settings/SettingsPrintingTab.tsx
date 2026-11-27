@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 import { useEffect, useState } from 'react';
 
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { reportService } from '@/renderer/services/reportService';
 import { settingsService } from '@/renderer/services/settingsService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import { PrintSettingsSchema, type PrinterDto, type PrintSettingsDto } from '@/shared/ipc/contracts';
 
 const inputClass = 'w-full rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100';

@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 
 import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert';
 import { useUpdateStore } from '@/renderer/presentation/stores/updateStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { settingsService } from '@/renderer/services/settingsService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 import { useAudioPlayback } from '../hooks/useAudioPlayback';
 import { useSessionStore } from '../stores/sessionStore';

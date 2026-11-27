@@ -5,6 +5,7 @@ import { SerialPort } from 'serialport';
 import type { USBPortInfo } from '@/main/modules/connection/domain/IUSBConnectionManager';
 import { getLogger } from '@/main/shared-infra/logging/createLogger';
 import type { IpcLogger } from '@/main/shared-infra/logging/IpcLogger';
+import { errorMessage } from '@/shared/errors/errorMessage';
 
 /** Lists serial ports and finds devices by USB IDs or serial number. */
 export class USBDeviceDetector {
@@ -21,7 +22,7 @@ export class USBDeviceDetector {
       ports = await SerialPort.list();
     } catch (error) {
       logger.error('[USBDeviceDetector] SerialPort.list() threw an error', 'usb', {
-        errorMessage: error instanceof Error ? error.message : String(error),
+        errorMessage: errorMessage(error),
         errorStack: error instanceof Error ? error.stack : undefined,
       });
       throw error;

@@ -5,8 +5,8 @@ import { ErrorAlert } from '@/renderer/presentation/components/common/ErrorAlert
 import { useCompetitionStore } from '@/renderer/presentation/stores/competitionStore';
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { useSessionStore } from '@/renderer/presentation/stores/sessionStore';
-import { errorMessage } from '@/renderer/presentation/utils/errorMessage';
 import { settingsService } from '@/renderer/services/settingsService';
+import { errorMessage } from '@/shared/errors/errorMessage';
 import type { AppSettingsDto, AppSettingsInputDto, SettingsFileInfoDto } from '@/shared/ipc/contracts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {

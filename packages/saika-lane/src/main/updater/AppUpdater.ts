@@ -31,10 +31,7 @@ export class AppUpdater extends UpdaterService {
           app.requestSingleInstanceLock();
         }
         if (!options.mainWindow.isDestroyed()) {
-          options.mainWindow.webContents.send(
-            eventsContract?.channels?.updateStateChanged ?? 'event:updateStateChanged',
-            state,
-          );
+          options.mainWindow.webContents.send(eventsContract.channels.updateStateChanged, state);
         }
       },
       log: (level, message, details) => getLogger()[level](message, 'main', details),
