@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMqttStore } from '@/renderer/presentation/stores/mqttStore';
 import { mqttService } from '@/renderer/services/mqttService';
@@ -17,10 +17,13 @@ export function useMqttSettings() {
   const [laneAlias, setLaneAlias] = useState('');
   const [autoConnect, setAutoConnect] = useState(false);
   const [laneId, setLaneId] = useState('');
+  /** Counts status events, so the initial query cannot overwrite a status pushed while it was pending. */
+  const statusEvents = useRef(0);
 
   useEffect(
     () =>
       window.electronAPI.on.mqttStatusChanged((next) => {
+        statusEvents.current += 1;
         setStatus(next.status);
         setError(next.error ?? null);
       }),
@@ -32,6 +35,7 @@ export function useMqttSettings() {
     const controller = new AbortController();
 
     (async () => {
+      const queriedAfterEvent = statusEvents.current;
       try {
         setLoading(true);
         const [loadedSettings, mqttStatus] = await Promise.all([
@@ -45,8 +49,10 @@ export function useMqttSettings() {
         setLaneAlias(loadedSettings.laneAlias);
         setAutoConnect(loadedSettings.autoConnect);
         setLaneId(loadedSettings.laneId);
-        setStatus(mqttStatus.status);
-        setError(mqttStatus.error ?? null);
+        if (statusEvents.current === queriedAfterEvent) {
+          setStatus(mqttStatus.status);
+          setError(mqttStatus.error ?? null);
+        }
       } catch (err) {
         if (controller.signal.aborted) return;
         setError(errorMessage(err));

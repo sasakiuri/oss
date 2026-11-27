@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useBusyAction } from '@/renderer/presentation/hooks/useBusyAction';
 import { mqttService } from '@/renderer/services/mqttService';
@@ -28,30 +28,38 @@ export function useIncidentSignal<S extends { status: 'ACTIVE' | 'CLEARED' }>({
   const [message, setMessage] = useState('');
   const [mqttConnected, setMqttConnected] = useState(false);
   const { busy, error, setError, run } = useBusyAction();
+  /** Bumped by every read and every applied command result, so an older read cannot overwrite a newer state. */
+  const generation = useRef(0);
+  const mounted = useRef(false);
 
   const refresh = async () => {
+    const request = ++generation.current;
     try {
       const [nextState, mqtt] = await Promise.all([get(), mqttService.getMqttStatus()]);
+      if (request !== generation.current) return;
       setState(nextState);
       setMqttConnected(mqtt.status === 'connected');
       setError(null);
     } catch (caught) {
-      setError(errorMessage(caught));
+      if (request === generation.current) setError(errorMessage(caught));
     }
   };
 
+  // Read on mount and on each later open.
   useEffect(() => {
-    void refresh();
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) void refresh();
+    if (isOpen || !mounted.current) void refresh();
+    mounted.current = true;
   }, [isOpen]);
+
+  const applyResult = (next: S) => {
+    generation.current += 1;
+    setState(next);
+  };
 
   /** Sends the declaration built by `send`, then re-reads the MQTT status. */
   const declare = (send: () => Promise<S>) =>
     run(async () => {
-      setState(await send());
+      applyResult(await send());
       const mqtt = await mqttService.getMqttStatus();
       setMqttConnected(mqtt.status === 'connected');
     });
@@ -61,7 +69,7 @@ export function useIncidentSignal<S extends { status: 'ACTIVE' | 'CLEARED' }>({
     const id = state ? idOf(state) : null;
     if (!id) return;
     await run(async () => {
-      setState(await clearById(id));
+      applyResult(await clearById(id));
       setMessage('');
     });
   };
