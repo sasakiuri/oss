@@ -308,14 +308,14 @@ jobs:
           retention-days: 7
       - name: Upload Saika Lane coverage
         if: runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-lane')
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v5
         with:
           directory: packages/saika-lane/coverage
           flags: saika-lane
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload Saika Director coverage
         if: runner.os == 'Linux' && contains(fromJSON(needs.changes.outputs.packages), '@sasakiuri/saika-director')
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v5
         with:
           directory: packages/saika-director/coverage
           flags: saika-director
