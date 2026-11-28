@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: MIT
 import type { BrowserWindow } from 'electron';
 
-/** The isolated, sandboxed renderer settings of every Vista window. */
-export function isolatedWebPreferences(preload: string) {
-  return { preload, contextIsolation: true, nodeIntegration: false, sandbox: true };
-}
-
 /**
  * Keeps a Vista window on the page main loaded into it: no new windows, no navigation to another page, no webviews
  * and no permission grants. Reloading the page it shows, as the development server does after a change, stays

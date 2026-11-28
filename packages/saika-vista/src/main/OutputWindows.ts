@@ -4,7 +4,7 @@ import { BrowserWindow, powerSaveBlocker, screen, type WebContents } from 'elect
 import { VISTA_CHANNEL } from '../shared/ipcChannels';
 import type { ScreenConfig } from '../shared/model';
 
-import { isolatedWebPreferences, protectWindow } from './protectWindow';
+import { protectWindow } from './protectWindow';
 
 type Output = { window: BrowserWindow; revision: number | null; renderedAt: number };
 
@@ -45,7 +45,13 @@ export class OutputWindows {
       fullscreen: true,
       autoHideMenuBar: true,
       show: false,
-      webPreferences: { ...isolatedWebPreferences(this.options.preload), backgroundThrottling: false },
+      webPreferences: {
+        preload: this.options.preload,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: true,
+        backgroundThrottling: false,
+      },
     });
     protectWindow(window);
     this.outputs.set(config.id, { window, revision: null, renderedAt: 0 });
