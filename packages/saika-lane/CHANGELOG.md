@@ -1,5 +1,68 @@
 # @sasakiuri/saika-lane
 
+## 0.5.0
+
+### Minor Changes
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`3df0e2d`](https://github.com/sasakiuri/oss/commit/3df0e2d669f01188065a1b799682e6e8276ba8bb) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Require a Sighting switch before Match in athlete-controlled scored series. Nullify a forgotten-switch extra without consuming a score or shot slot, reset the Lane target to Sighting, and show the original device mode in review evidence.
+
+  Await persisted competition progress before announcing recorded shots. Preserve nullified observations in Director's append-only journal and require official review before result publication; Final deductions remain explicit Jury decisions.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`d3c0e9d`](https://github.com/sasakiuri/oss/commit/d3c0e9d8bbad61ddf59cfb9b004d4fe01fa5fcf3) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Allow immediate Sighting and Match selection in eligible three-position series. Disable Sighting after the first Match shot while preserving progress, scores, and the shared timer.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`d2ce368`](https://github.com/sasakiuri/oss/commit/d2ce368ca10b82c711cf78a050f66ec1954ce873) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Disable Lane progress controls, progress shortcuts, and competition-type selection while joined to Director. Expose membership independently of connection status and cancel pending confirmations when membership changes.
+
+### Patch Changes
+
+- [#261](https://github.com/sasakiuri/oss/pull/261) [`e7ddd68`](https://github.com/sasakiuri/oss/commit/e7ddd68578af6cd366c75e5d8707cc0b29ca58ca) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Save Lane `settings.json` through a temporary file so an interrupted save keeps the previous settings instead of leaving a damaged file.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`37f7dc7`](https://github.com/sasakiuri/oss/commit/37f7dc74deb2e59d3c251c85451f4afd1c702847) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Cancel Director start commands that are still waiting for their start time when the Lane leaves the competition or disconnects from MQTT, instead of starting the stage or match later.
+
+- [#265](https://github.com/sasakiuri/oss/pull/265) [`918ecaf`](https://github.com/sasakiuri/oss/commit/918ecafb3ce61cd0f9b682280ff741549c6360b6) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Install a downloaded update only through Restart & Install, as Director and Vista do, instead of also on a normal quit.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`00dd3f2`](https://github.com/sasakiuri/oss/commit/00dd3f2ea8dee1298e1080656efed9ba6cdc45c4) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Publish the Lane hardware state, and leave its offline will with the broker, only under the Lane's own ID instead of under `saika/lane/undefined/hardware/state` before the ID is known.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`1ceaa5d`](https://github.com/sasakiuri/oss/commit/1ceaa5d8aaa0b1e3288c1b4485f57392ff3f7378) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Reject Lane IPC responses that do not match their contract with an `IPC_INVALID_RESPONSE` error, and drop event payloads that do not match their schema before they reach the screen.
+
+- [#261](https://github.com/sasakiuri/oss/pull/261) [`6071054`](https://github.com/sasakiuri/oss/commit/6071054609e25aa0bc493ef8ef1eb3ffdb619d25) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Keep the saved target connection and discipline when Connect fails, so the next start does not auto-connect to a port that did not work.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`be9bc5f`](https://github.com/sasakiuri/oss/commit/be9bc5f6a9852fbd41b0d154571fb3ac2a5a0a8d) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Refuse local competition progress requests in the Lane main process, not only on screen, while the Lane is joined to a Director competition.
+
+- [#261](https://github.com/sasakiuri/oss/pull/261) [`77dcfe6`](https://github.com/sasakiuri/oss/commit/77dcfe638d6afb3f4e68cf272594fb248065b734) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Show why Preparation, Match or Next Stage could not start on the Lane screen instead of ignoring the click silently.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`107ac5b`](https://github.com/sasakiuri/oss/commit/107ac5b8dd5784cf5842b95b8f463826c0ed840d) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Confirm Preparation restarts and Match starts when the current session or series contains shots.
+  Share the confirmation between keyboard shortcuts and side-menu buttons, and cancel on timeout or state changes.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`ff6487d`](https://github.com/sasakiuri/oss/commit/ff6487dda587622dbe817d5e4a7d792bba042457) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Allow only one Lane to run per user data directory: launching it again brings the running window to the front instead of opening a second Lane on the same database and target port.
+
+- [#261](https://github.com/sasakiuri/oss/pull/261) [`2bc2b47`](https://github.com/sasakiuri/oss/commit/2bc2b479634cbe6ba365001d4e0663be85885236) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Show the Lane Alias as the Lane's name in Vista instead of always using the Lane number.
+
+- [#265](https://github.com/sasakiuri/oss/pull/265) [`b7eccc7`](https://github.com/sasakiuri/oss/commit/b7eccc77240ec4601a45bbf512c5f557d5f4e94e) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Compute Vista definition fingerprints independently of the operating system locale, so every Lane reports the same fingerprint for the same event.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`c968707`](https://github.com/sasakiuri/oss/commit/c9687075c402f0558ed2d31cf6e04d45170b8a91) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Keep the Lane main and score sheet windows on their own page, allowing only a reload of that page, and refuse new windows, webviews and browser permission requests in them.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`ba383f0`](https://github.com/sasakiuri/oss/commit/ba383f01ae920aa6068e291594220879b175d13e) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Make Zoom In (the Zoom button, numpad 6 and View > Zoom In) step from automatic zoom through the whole target and the 4, 6 and 8 rings toward higher magnification, and Zoom Out the other way.
+
+- [#261](https://github.com/sasakiuri/oss/pull/261) [`4cf98c5`](https://github.com/sasakiuri/oss/commit/4cf98c5f05801193f329c9d1bb45a0f840dec1c0) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Make View > Zoom Out step back through the zoom modes instead of repeating Zoom In.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`a9c090c`](https://github.com/sasakiuri/oss/commit/a9c090c775d916021fd5dae878a931f9412925b9) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Preserve official interruption cases after a completed-stage restart, reject Director competition commands until startup is ready, and reconcile resume state on recovery with MQTT already connected. Show completed-stage waiting without a stale clock and clarify recovery actions and evidence delivery.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`11f364e`](https://github.com/sasakiuri/oss/commit/11f364eb99ef0280571316aef76e6380fb8f5d09) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Limit reported-mode labels to series with a nullified extra and distinguish target observation evidence from official review. Clear reset notices after selection or progress, and format unscored device values using the event scoring method.
+
+  Preserve a single nullified outcome if the Sighting reset fails, show the failure, and require Sighting selection or another nullified Match observation to retry the reset. Require explicit policy inputs and share the scope and position-label rules.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`32b666c`](https://github.com/sasakiuri/oss/commit/32b666ce9a4e2aaef47f3c0418d3764d417b85ff) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Keep mode-cache restoration read-only after a failed Sighting reset. Preserve the final nullified observation and require the athlete to select Sighting, or retry the reset when another Match observation is nullified during ingestion.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`bc0a099`](https://github.com/sasakiuri/oss/commit/bc0a099bfd3b6331e06088fad170a09dbdebb57b) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Restore the saved Lane run, shots and original standalone clock deadline after a restart. Hold joined ordinary clocks for official adoption and resume, provide recovery and explicit finish paths, and reconnect and replay saved session data after startup readiness. Show retained interruption status in the Director lane table and document restart recovery.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`02618e7`](https://github.com/sasakiuri/oss/commit/02618e79566e7a11d41a88baa7eba2acdf7ca4d6) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Handle completed-stage restarts without blocking Director finish, keep READY retries from restarting connections, and provide explicit recovery for unreadable runs and unknown saved types. Show unverified remaining time on the Lane screen, keep ERROR states inactive, preserve athlete mode selection and qualification recovery cancellation, and honor queued manual MQTT settings with visible replay errors.
+
+- [#218](https://github.com/sasakiuri/oss/pull/218) [`bf5067b`](https://github.com/sasakiuri/oss/commit/bf5067bc97512157db7332505931d1bc82d4aa7d) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Show series totals in a two-row, three-column viewport with vertical scrolling and automatic tracking of the latest row. Remove the separate current-series label above the totals.
+
+- Updated dependencies [[`3df0e2d`](https://github.com/sasakiuri/oss/commit/3df0e2d669f01188065a1b799682e6e8276ba8bb), [`d3c0e9d`](https://github.com/sasakiuri/oss/commit/d3c0e9d8bbad61ddf59cfb9b004d4fe01fa5fcf3)]:
+  - @sasakiuri/saika-protocol@0.3.0
+  - @sasakiuri/saika-rules@0.2.1
+
 ## 0.4.1
 
 ### Patch Changes
