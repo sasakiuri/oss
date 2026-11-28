@@ -34,15 +34,14 @@ flowchart TB
 
 [GitHub Releases](https://github.com/sasakiuri/oss/releases) から、使用する版・アプリ・OS に合うファイルを選びます。ファイル名の先頭は `Saika-Lane-`、`Saika-Director-`、`Saika-Vista-` です。連携する Director と Lane は同じ版を使用してください。
 
-| OS          | 配布形式                                                 |
-| ----------- | -------------------------------------------------------- |
-| Windows x64 | インストーラー（`.exe`）。Lane・Director は ZIP も配布   |
-| macOS       | DMG または ZIP。Intel は `x64`、Apple Silicon は `arm64` |
-| Linux x64   | AppImage または Debian パッケージ（`.deb`）              |
+| OS          | 配布形式                                               |
+| ----------- | ------------------------------------------------------ |
+| Windows x64 | インストーラー（`.exe`）。Lane・Director は ZIP も配布 |
+| Linux x64   | AppImage または Debian パッケージ（`.deb`）            |
 
-主な動作対象は Windows 10 / 11 の x64 です。macOS・Linux は実験対象で、受信処理が実装されていても実機検証を終えていない機種があります。[対応機器と検証状態](./lane/SPEC.md#動作環境と対応機器) を確認してください。
+主な動作対象は Windows 10 / 11 の x64 です。Linux は実験対象で、受信処理が実装されていても実機検証を終えていない機種があります。[対応機器と検証状態](./lane/SPEC.md#動作環境と対応機器) を確認してください。
 
-macOS 版は署名用の証明書なしでも配布します。使用するリリースの署名状態を確認してください。署名のない版は DMG または ZIP から手動で更新します。
+macOS 版の配布は 0.4.1 で終了しました。
 
 インストール後、[Lane 操作ガイド](./lane/README.md#起動と準備) に従って競技種別を選び、標的装置に接続します。練習用の記録で、着弾位置・射数・得点が表示され、印刷画面でも記録を確認できることを確かめてください。
 
@@ -137,8 +136,6 @@ Windows の操作の詳細は [Microsoft のファイアウォール設定手順
 Lane は「Settings」→「General」の「Application Update」を開きます。「Check for Updates」を押し、ダウンロード後に「Restart & Install」で適用します。
 
 Director は「Settings」→「Updates」の「Application updates」を開きます。「Check for updates」を押し、ダウンロード後に「Restart and install」で適用します。操作権限を有効にしている場合は管理者としてサインインしてください。Director は通常の終了時には更新を適用しません。
-
-macOS の自動更新には、更新前後のアプリが同じ署名者によって署名されている必要があります。署名のない版や自動更新を利用できない配布形式では、同じ版の配布ファイルを使って手動で更新します。詳しくは [Electron の macOS 更新要件](https://www.electronjs.org/docs/latest/api/auto-updater#macos) を参照してください。
 
 ## 問い合わせに必要な情報
 
