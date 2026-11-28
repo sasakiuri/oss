@@ -97,11 +97,7 @@ test("an application change selects only that application", () => {
   assert.equal(plan.electron, true);
   assert.equal(plan.text, false);
   assert.equal(plan.infrastructure, false);
-  assert.deepEqual(plan.os, [
-    "ubuntu-latest",
-    "windows-latest",
-    "macos-latest",
-  ]);
+  assert.deepEqual(plan.os, ["ubuntu-latest", "windows-latest"]);
 });
 
 test("a zero-before push enables every full-verification scope", () => {
@@ -130,13 +126,9 @@ test("a zero-before push enables every full-verification scope", () => {
     "e2e",
   ])
     assert.equal(plan[flag], true, flag);
-  assert.deepEqual(plan.os, [
-    "ubuntu-latest",
-    "windows-latest",
-    "macos-latest",
-  ]);
-  assert.equal(plan.e2eMatrix.length, 4);
-  assert.equal(plan.e2eMatrix.flatMap((job) => job.suites).length, 10);
+  assert.deepEqual(plan.os, ["ubuntu-latest", "windows-latest"]);
+  assert.equal(plan.e2eMatrix.length, 3);
+  assert.equal(plan.e2eMatrix.flatMap((job) => job.suites).length, 7);
 });
 
 test("shared libraries select their transitive consumers", () => {
@@ -165,11 +157,7 @@ test("Electron unit tests retain all runners without an E2E script", () => {
   const plan = select(["packages/desktop/test.ts"], packages);
   assert.equal(plan.electron, true);
   assert.equal(plan.build, true);
-  assert.deepEqual(plan.os, [
-    "ubuntu-latest",
-    "windows-latest",
-    "macos-latest",
-  ]);
+  assert.deepEqual(plan.os, ["ubuntu-latest", "windows-latest"]);
 });
 
 test("development configuration dependencies include their consumers", () => {
@@ -733,7 +721,7 @@ test("Electron E2E shares setup per OS and preserves every suite and artifact in
     )
     .sort((a, b) => a.name.localeCompare(b.name));
   const jobs = e2eMatrix(packages, platformRunners);
-  assert.equal(jobs.length, 4);
+  assert.equal(jobs.length, 3);
   const suites = jobs
     .flatMap((job) => job.suites)
     .sort((a, b) => a.suite - b.suite);
@@ -752,7 +740,9 @@ test("Electron E2E shares setup per OS and preserves every suite and artifact in
           os,
           1,
           1,
-          index === 0 ? 0 : 1 + (index - 1) * 3 + runnerIndex,
+          index === 0
+            ? 0
+            : 1 + (index - 1) * platformRunners.length + runnerIndex,
         ],
       ),
     ),
@@ -772,7 +762,7 @@ test("Electron E2E shares setup per OS and preserves every suite and artifact in
       packages.filter((pkg) => pkg.name === name("saika-lane")),
       platformRunners,
     ).length,
-    3,
+    2,
   );
   assert.deepEqual(e2eMatrix([], ["ubuntu-latest"]), []);
 });

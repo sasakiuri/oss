@@ -16,9 +16,9 @@ npm run test --workspace=@sasakiuri/saika-vista
 npm run test:e2e --workspace=@sasakiuri/saika-vista
 ```
 
-Build installers on the respective OS with `build:win`, `build:mac` or `build:linux`. The packaged application includes its renderer, runtime, fonts supplied by the operating system, and third-party license notices. It does not download application assets or require an internet account at venue startup. Use an operating system with Japanese fonts installed when displaying Japanese athlete names.
+Build installers on the respective OS with `build:win` or `build:linux`. The packaged application includes its renderer, runtime, fonts supplied by the operating system, and third-party license notices. It does not download application assets or require an internet account at venue startup. Use an operating system with Japanese fonts installed when displaying Japanese athlete names.
 
-The application uses the same Electron version as Lane and Director. The initial installation targets are Windows 10/11 x64, macOS 12+ x64/arm64 and Ubuntu 22.04+ x64 desktop. The macOS floor follows the pinned Electron 43 runtime; see [Electron compatibility changes](https://www.electronjs.org/docs/latest/breaking-changes/). Before deployment, run native CI and venue acceptance checks on the target OS, monitors, graphics drivers, and network.
+The application uses the same Electron version as Lane and Director. The installation targets are Windows 10/11 x64 and Ubuntu 22.04+ x64 desktop. Before deployment, run native CI and venue acceptance checks on the target OS, monitors, graphics drivers, and network.
 
 ## Set up a venue
 
@@ -47,7 +47,7 @@ The operator and audience screens use a dark theme, consistent with Lane and Dir
 
 ## Startup and recovery
 
-Enable **Open this audience screen automatically when Vista starts** for each monitor and **Start Vista at login on this PC** in Display PCs. Windows/macOS use the operating system's login-item facility. Linux installs a per-user XDG autostart entry; the desktop session must support it. Login startup is available in packaged builds. OS login and machine power-on remain outside Vista. Active audience windows request prevention of display sleep; confirm monitor firmware, screen-lock and desktop power policy at the venue.
+Enable **Open this audience screen automatically when Vista starts** for each monitor and **Start Vista at login on this PC** in Display PCs. Windows uses the operating system's login-item facility. Linux installs a per-user XDG autostart entry; the desktop session must support it. Login startup is available in packaged builds. OS login and machine power-on remain outside Vista. Active audience windows request prevention of display sleep; confirm monitor firmware, screen-lock and desktop power policy at the venue.
 
 When saved login startup is enabled, each launch registers the current application path again, including the new AppImage path after an update. A registration failure appears in the operator window while audience restoration and data reception continue. Resolve the operating system error and retry the setting in **Display PCs → This PC**.
 

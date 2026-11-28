@@ -66,11 +66,10 @@ Unit tests run in two Vitest projects: `renderer` (jsdom) for
 
 By default, Saika Lane stores persistent data under the OS-specific user data directory:
 
-| OS      | Path                                        |
-| ------- | ------------------------------------------- |
-| Windows | `%APPDATA%\Saika Lane\`                     |
-| macOS   | `~/Library/Application Support/Saika Lane/` |
-| Linux   | `~/.config/Saika Lane/`                     |
+| OS      | Path                    |
+| ------- | ----------------------- |
+| Windows | `%APPDATA%\Saika Lane\` |
+| Linux   | `~/.config/Saika Lane/` |
 
 ### Stored files
 
@@ -93,12 +92,9 @@ Remove the user data directory listed above to clear the database, settings, and
 | Platform            | Status       |
 | ------------------- | ------------ |
 | Windows 10/11 (x64) | Supported    |
-| macOS               | Experimental |
 | Linux               | Experimental |
 
 > **Note:** Native modules (`serialport`, `better-sqlite3`) require C++ build tools. On Windows, install [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the "Desktop development with C++" workload.
->
-> macOS releases can be built without a signing certificate and require manual updates in that case. Signing is optional; notarization is not configured in the release workflow. Verify the release's signing status and first launch on your Mac.
 
 ## Distribution
 
@@ -106,7 +102,7 @@ Lane, Director, Vista, and Docs share one suite version and one `v<version>` rel
 The release and canary workflows build the three desktop applications for each supported
 platform. Tagged releases include automatic-update metadata for each application; Docs is
 included as versioned source at the same tag. See the [release checks](../../.github/PRE_RELEASE_CHECKLIST.md#update-distribution)
-for optional macOS signing and update requirements.
+for update metadata requirements.
 
 ## Getting Started
 

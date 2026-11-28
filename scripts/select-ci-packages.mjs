@@ -7,11 +7,7 @@ import { fileURLToPath } from "node:url";
 const docsName = "@sasakiuri/saika-docs";
 const knowledgeName = "@sasakiuri/nilay-knowledge";
 const aboutName = "@sasakiuri/nilay-about";
-export const platformRunners = [
-  "ubuntu-latest",
-  "windows-latest",
-  "macos-latest",
-];
+export const platformRunners = ["ubuntu-latest", "windows-latest"];
 const linuxOnlyPackages = new Set([
   knowledgeName,
   aboutName,

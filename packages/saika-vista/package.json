@@ -28,7 +28,6 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "build:win": "npm run build && electron-builder --win --publish never && node ../../scripts/namespace-update-metadata.mjs vista release",
-    "build:mac": "npm run build && electron-builder --mac --x64 --arm64 --publish never && node ../../scripts/namespace-update-metadata.mjs vista release",
     "build:linux": "npm run build && electron-builder --linux --publish never && node ../../scripts/namespace-update-metadata.mjs vista release",
     "pack:linux": "npm run build && electron-builder --linux --dir --publish never",
     "license-report": "node ../../scripts/generate-third-party-licenses.mjs --workspace=@sasakiuri/saika-vista",

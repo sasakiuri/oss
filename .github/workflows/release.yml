@@ -129,8 +129,6 @@ jobs:
         include:
           - os: windows-latest
             platform: win
-          - os: macos-latest
-            platform: mac
           - os: ubuntu-latest
             platform: linux
 
@@ -146,37 +144,19 @@ jobs:
           enable-electron-cache: "true"
 
       - name: Build Saika Lane artifacts
-        run: |
-          if [ -z "$CSC_LINK" ]; then unset CSC_LINK; fi
-          npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-lane
-        shell: bash
+        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-lane
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK != '' && 'true' || 'false' }}
-          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || '' }}
 
       - name: Build Saika Director artifacts
-        run: |
-          if [ -z "$CSC_LINK" ]; then unset CSC_LINK; fi
-          npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-director
-        shell: bash
+        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-director
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK != '' && 'true' || 'false' }}
-          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || '' }}
 
       - name: Build Saika Vista artifacts
-        run: |
-          if [ -z "$CSC_LINK" ]; then unset CSC_LINK; fi
-          npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-vista
-        shell: bash
+        run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-vista
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK != '' && 'true' || 'false' }}
-          CSC_LINK: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_LINK || '' }}
-          CSC_KEY_PASSWORD: ${{ runner.os == 'macOS' && secrets.MACOS_CSC_KEY_PASSWORD || '' }}
 
       - name: Verify packaged legal notices
         shell: bash
@@ -192,7 +172,7 @@ jobs:
             local directory="$2"
             pushd "$directory" >/dev/null
             shopt -s nullglob
-            artifacts=(*.exe *.zip *.dmg *.AppImage *.deb)
+            artifacts=(*.exe *.zip *.AppImage *.deb)
             if [ ${#artifacts[@]} -eq 0 ]; then
               echo "::error::No $application artifacts found"
               exit 1
@@ -255,17 +235,14 @@ jobs:
           subject-path: |
             packages/saika-lane/release/*.exe
             packages/saika-lane/release/*.zip
-            packages/saika-lane/release/*.dmg
             packages/saika-lane/release/*.AppImage
             packages/saika-lane/release/*.deb
             packages/saika-director/release/*.exe
             packages/saika-director/release/*.zip
-            packages/saika-director/release/*.dmg
             packages/saika-director/release/*.AppImage
             packages/saika-director/release/*.deb
             packages/saika-vista/release/*.exe
             packages/saika-vista/release/*.zip
-            packages/saika-vista/release/*.dmg
             packages/saika-vista/release/*.AppImage
             packages/saika-vista/release/*.deb
 
@@ -276,7 +253,6 @@ jobs:
           path: |
             packages/saika-lane/release/*.exe
             packages/saika-lane/release/*.zip
-            packages/saika-lane/release/*.dmg
             packages/saika-lane/release/*.AppImage
             packages/saika-lane/release/*.deb
             packages/saika-lane/release/latest*.yml
@@ -294,7 +270,6 @@ jobs:
           path: |
             packages/saika-director/release/*.exe
             packages/saika-director/release/*.zip
-            packages/saika-director/release/*.dmg
             packages/saika-director/release/*.AppImage
             packages/saika-director/release/*.deb
             packages/saika-director/release/director-*.yml
@@ -309,7 +284,6 @@ jobs:
           path: |
             packages/saika-vista/release/*.exe
             packages/saika-vista/release/*.zip
-            packages/saika-vista/release/*.dmg
             packages/saika-vista/release/*.AppImage
             packages/saika-vista/release/*.deb
             packages/saika-vista/release/vista-*.yml
@@ -358,7 +332,7 @@ jobs:
             (
               cd artifacts/lane
               shopt -s nullglob
-              files=(*.exe *.zip *.dmg *.AppImage *.deb)
+              files=(*.exe *.zip *.AppImage *.deb)
               if [ ${#files[@]} -eq 0 ]; then
                 echo "No Saika Lane release artifacts found" >&2
                 exit 1
@@ -368,7 +342,7 @@ jobs:
             (
               cd artifacts/director
               shopt -s nullglob
-              files=(*.exe *.zip *.dmg *.AppImage *.deb)
+              files=(*.exe *.zip *.AppImage *.deb)
               if [ ${#files[@]} -eq 0 ]; then
                 echo "No Saika Director release artifacts found" >&2
                 exit 1
@@ -378,7 +352,7 @@ jobs:
             (
               cd artifacts/vista
               shopt -s nullglob
-              files=(*.exe *.zip *.dmg *.AppImage *.deb)
+              files=(*.exe *.zip *.AppImage *.deb)
               if [ ${#files[@]} -eq 0 ]; then
                 echo "No Saika Vista release artifacts found" >&2
                 exit 1
@@ -401,7 +375,6 @@ jobs:
           files: |
             artifacts/lane/*.exe
             artifacts/lane/*.zip
-            artifacts/lane/*.dmg
             artifacts/lane/*.AppImage
             artifacts/lane/*.deb
             artifacts/lane/latest*.yml
@@ -413,8 +386,6 @@ jobs:
             artifacts/vista/*.exe
             artifacts/director/*.zip
             artifacts/vista/*.zip
-            artifacts/director/*.dmg
-            artifacts/vista/*.dmg
             artifacts/director/*.AppImage
             artifacts/vista/*.AppImage
             artifacts/director/*.deb

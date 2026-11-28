@@ -21,7 +21,7 @@ these checks.
 - [ ] Director connects through both embedded and external MQTT brokers and recovers from connection failure.
 - [ ] Competition workflows run from joining through finishing; timing and scores are checked against independent records.
 - [ ] Vista pairs with sources and display PCs, applies screen settings, and restores displays after restart.
-- [ ] Signing and notarization status is documented for each platform.
+- [ ] Signing status is documented for each platform.
 - [ ] Application updates are tested from the preceding installed version, including cancelled restart, interrupted download, and installation failure.
 
 ## Distribution
@@ -39,15 +39,7 @@ published checksums. Confirm that documentation links resolve to the released ve
 
 The desktop applications share one release. Lane uses `latest*.yml` (or its
 prerelease channel); Director and Vista use `director-*.yml` and `vista-*.yml`.
-Keep these metadata files, referenced installers, macOS ZIP archives, and blockmaps
-in the release. Run `npm run test:release-metadata` after changing packaging.
+Keep these metadata files, referenced installers, and blockmaps in the release.
+Run `npm run test:release-metadata` after changing packaging.
 
-macOS releases can be built without a signing certificate; these builds require
-manual updates from the DMG or ZIP. For signed releases, optionally configure
-`MACOS_CSC_LINK` (the exported Developer ID Application certificate) and
-`MACOS_CSC_KEY_PASSWORD` in repository secrets. The release workflow enables
-identity detection when the certificate is provided. Automatic macOS updates
-require a consistent signing identity across versions; an unsigned installation
-must be replaced manually. Notarization is not configured in the release workflow.
-Verify signing, first launch, and the applicable update path on macOS before release. See the
-[Electron update requirements](https://www.electronjs.org/docs/latest/api/auto-updater#macos).
+Releases are built for Windows x64 and Linux x64. macOS builds ended with 0.4.1.
