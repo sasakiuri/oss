@@ -9,7 +9,7 @@ import { VISTA_CHANNEL } from '../shared/ipcChannels';
 import { registerIpcHandlers } from './ipcHandlers';
 import { setLoginStart } from './loginStart';
 import { OutputWindows } from './OutputWindows';
-import { isolatedWebPreferences, protectWindow } from './protectWindow';
+import { protectWindow } from './protectWindow';
 import { rendererLoader } from './rendererLoader';
 import { createUpdater, type ShutdownState } from './updates';
 import { VistaApplication } from './VistaApplication';
@@ -47,7 +47,12 @@ function createOperator(): void {
     title: 'Saika Vista',
     icon: appIcon,
     backgroundColor: '#14191d',
-    webPreferences: isolatedWebPreferences(preload),
+    webPreferences: {
+      preload,
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
   });
   protectWindow(operator);
   operator.on('closed', () => {
