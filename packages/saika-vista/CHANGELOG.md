@@ -1,5 +1,19 @@
 # @sasakiuri/saika-vista
 
+## 0.4.2
+
+### Patch Changes
+
+- [#275](https://github.com/sasakiuri/oss/pull/275) [`f0e3e35`](https://github.com/sasakiuri/oss/commit/f0e3e3565bb182517e24a6e74790dd0ec328ae08) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Stop building macOS installers and update metadata; macOS builds end with 0.4.1. Releases provide Windows x64 and Linux x64 packages, and the installation guides no longer describe macOS distribution or signing.
+
+- [#273](https://github.com/sasakiuri/oss/pull/273) [`366f868`](https://github.com/sasakiuri/oss/commit/366f8680e8f79e5110f30c21d51fc230cb4afff1) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Clear operator errors once their cause is resolved, keep polling and report a failed change notice, send notices only to an open operator window, keep display connections when a local revocation cannot be saved, keep the state loaded after an operator command over older refreshes, show update status errors without an error prefix, allow a window to reload the page it shows, and retry update initialization after a loader fails synchronously.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`ada61ae`](https://github.com/sasakiuri/oss/commit/ada61aeea395358a5d7fe19a7bdaa48a18c75475) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Ask the operator and audience windows to reload only when the state they show has changed, instead of five times a second.
+
+- Updated dependencies [[`3df0e2d`](https://github.com/sasakiuri/oss/commit/3df0e2d669f01188065a1b799682e6e8276ba8bb), [`366f868`](https://github.com/sasakiuri/oss/commit/366f8680e8f79e5110f30c21d51fc230cb4afff1), [`366f868`](https://github.com/sasakiuri/oss/commit/366f8680e8f79e5110f30c21d51fc230cb4afff1)]:
+  - @sasakiuri/saika-protocol@0.2.2
+  - @sasakiuri/saika-updater@0.2.2
+
 ## 0.4.1
 
 ### Patch Changes
