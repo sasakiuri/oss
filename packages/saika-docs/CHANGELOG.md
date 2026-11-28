@@ -1,5 +1,40 @@
 # @sasakiuri/saika-docs
 
+## 0.4.2
+
+### Patch Changes
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`fe3d056`](https://github.com/sasakiuri/oss/commit/fe3d05624eac0a5bb8da8af501ebc68d5a740aa0) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Explain the Sighting-first workflow, automatic nullification and reset, transfer evidence limits, and official review before result publication.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`8f63ad0`](https://github.com/sasakiuri/oss/commit/8f63ad05e0b2f17b62f6781626b375a6f196b6e9) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Clarify reported modes, affected-series history, Director evidence and review panel names, and Sighting reset failure and recovery behavior.
+
+- [#265](https://github.com/sasakiuri/oss/pull/265) [`33eede5`](https://github.com/sasakiuri/oss/commit/33eede50a68e1281512c13525cbfa3d47e3b819f) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Make footnote references and their back-links jump to the footnote and back to the reference.
+
+- [#275](https://github.com/sasakiuri/oss/pull/275) [`f0e3e35`](https://github.com/sasakiuri/oss/commit/f0e3e3565bb182517e24a6e74790dd0ec328ae08) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Stop building macOS installers and update metadata; macOS builds end with 0.4.1. Releases provide Windows x64 and Linux x64 packages, and the installation guides no longer describe macOS distribution or signing.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`d3c0e9d`](https://github.com/sasakiuri/oss/commit/d3c0e9d8bbad61ddf59cfb9b004d4fe01fa5fcf3) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Allow immediate Sighting and Match selection in eligible three-position series. Disable Sighting after the first Match shot while preserving progress, scores, and the shared timer.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`d2ce368`](https://github.com/sasakiuri/oss/commit/d2ce368ca10b82c711cf78a050f66ec1954ce873) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Disable Lane progress controls, progress shortcuts, and competition-type selection while joined to Director. Expose membership independently of connection status and cancel pending confirmations when membership changes.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`be9bc5f`](https://github.com/sasakiuri/oss/commit/be9bc5f6a9852fbd41b0d154571fb3ac2a5a0a8d) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Refuse local competition progress requests in the Lane main process, not only on screen, while the Lane is joined to a Director competition.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`107ac5b`](https://github.com/sasakiuri/oss/commit/107ac5b8dd5784cf5842b95b8f463826c0ed840d) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Confirm Preparation restarts and Match starts when the current session or series contains shots.
+  Share the confirmation between keyboard shortcuts and side-menu buttons, and cancel on timeout or state changes.
+
+- [#260](https://github.com/sasakiuri/oss/pull/260) [`ba383f0`](https://github.com/sasakiuri/oss/commit/ba383f01ae920aa6068e291594220879b175d13e) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Make Zoom In (the Zoom button, numpad 6 and View > Zoom In) step from automatic zoom through the whole target and the 4, 6 and 8 rings toward higher magnification, and Zoom Out the other way.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`a9c090c`](https://github.com/sasakiuri/oss/commit/a9c090c775d916021fd5dae878a931f9412925b9) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Preserve official interruption cases after a completed-stage restart, reject Director competition commands until startup is ready, and reconcile resume state on recovery with MQTT already connected. Show completed-stage waiting without a stale clock and clarify recovery actions and evidence delivery.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`32b666c`](https://github.com/sasakiuri/oss/commit/32b666ce9a4e2aaef47f3c0418d3764d417b85ff) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Keep mode-cache restoration read-only after a failed Sighting reset. Preserve the final nullified observation and require the athlete to select Sighting, or retry the reset when another Match observation is nullified during ingestion.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`bc0a099`](https://github.com/sasakiuri/oss/commit/bc0a099bfd3b6331e06088fad170a09dbdebb57b) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Restore the saved Lane run, shots and original standalone clock deadline after a restart. Hold joined ordinary clocks for official adoption and resume, provide recovery and explicit finish paths, and reconnect and replay saved session data after startup readiness. Show retained interruption status in the Director lane table and document restart recovery.
+
+- [#273](https://github.com/sasakiuri/oss/pull/273) [`366f868`](https://github.com/sasakiuri/oss/commit/366f8680e8f79e5110f30c21d51fc230cb4afff1) Thanks [@sasakiuri](https://github.com/sasakiuri)! - List only the served sitemap in robots.txt, link and monitor the RSS feed at `/rss.xml` without a redirect, and remove the unused API client, rate limiting and their `UPSTASH_*` settings.
+
+- [#219](https://github.com/sasakiuri/oss/pull/219) [`02618e7`](https://github.com/sasakiuri/oss/commit/02618e79566e7a11d41a88baa7eba2acdf7ca4d6) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Handle completed-stage restarts without blocking Director finish, keep READY retries from restarting connections, and provide explicit recovery for unreadable runs and unknown saved types. Show unverified remaining time on the Lane screen, keep ERROR states inactive, preserve athlete mode selection and qualification recovery cancellation, and honor queued manual MQTT settings with visible replay errors.
+
+- [#218](https://github.com/sasakiuri/oss/pull/218) [`bf5067b`](https://github.com/sasakiuri/oss/commit/bf5067bc97512157db7332505931d1bc82d4aa7d) Thanks [@sasakiuri](https://github.com/sasakiuri)! - Show series totals in a two-row, three-column viewport with vertical scrolling and automatic tracking of the latest row. Remove the separate current-series label above the totals.
+
 ## 0.4.1
 
 ### Patch Changes
