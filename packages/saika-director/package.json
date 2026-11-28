@@ -47,10 +47,8 @@
     "license-artifacts:check": "node ../../scripts/verify-packaged-licenses.mjs --workspace=@sasakiuri/saika-director",
     "size-limit": "size-limit",
     "build:win": "npm run build && electron-builder --win --publish never && node ../../scripts/namespace-update-metadata.mjs director release",
-    "build:mac": "npm run build && electron-builder --mac --publish never && node ../../scripts/namespace-update-metadata.mjs director release",
     "build:linux": "npm run build && electron-builder --linux --publish never && node ../../scripts/namespace-update-metadata.mjs director release",
     "pack:win": "npm run build && electron-builder --win --dir --publish never",
-    "pack:mac": "npm run build && electron-builder --mac --dir --publish never",
     "pack:linux": "npm run build && electron-builder --linux --dir --publish never"
   },
   "dependencies": {

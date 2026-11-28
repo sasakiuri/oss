@@ -114,16 +114,13 @@ uses system-trusted server certificates, but custom CA and TLS client-certificat
 Release artifacts are prepared for:
 
 - Windows x64: NSIS installer and ZIP
-- macOS x64 and arm64: DMG and ZIP
 - Linux x64: AppImage and Debian package
 
-macOS releases can be built without a signing certificate and require manual
-updates in that case. Developer ID Application signing is optional; notarization
-is not configured in the release workflow. See the [release checks](../../.github/PRE_RELEASE_CHECKLIST.md#update-distribution)
-for signing configuration. Verify signing and first-launch behavior on each target
-OS before distribution.
+See the [release checks](../../.github/PRE_RELEASE_CHECKLIST.md#update-distribution)
+for update metadata requirements. Verify first-launch behavior on each target OS
+before distribution.
 
-Platform packages can be produced locally with `build:win`, `build:mac`, or
+Platform packages can be produced locally with `build:win` or
 `build:linux`; use the corresponding `pack:*` command for an unpacked smoke-test
 build. Electron Builder rebuilds `better-sqlite3` for the target Electron ABI.
 Before running Node.js-based tests after packaging, run `npm rebuild better-sqlite3`
@@ -138,9 +135,6 @@ and choose **Restart and install**. Save edits and finish range operations befor
 confirming the restart. Updates require administrator operator access when
 operator sign-in is enabled; development builds do not support updates. Normal
 shutdown does not install a pending update.
-
-On macOS, automatic updates require signed applications with a consistent signing
-identity. Replace an unsigned installation manually using the release DMG or ZIP.
 
 ## Documentation
 

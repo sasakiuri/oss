@@ -62,17 +62,6 @@
     "createDesktopShortcut": true,
     "createStartMenuShortcut": true
   },
-  "mac": {
-    "target": [
-      { "target": "dmg", "arch": ["x64", "arm64"] },
-      { "target": "zip", "arch": ["x64", "arm64"] }
-    ],
-    "artifactName": "Saika-Director-${version}-mac-${arch}.${ext}",
-    "category": "public.app-category.utilities"
-  },
-  "dmg": {
-    "title": "${productName} ${version}"
-  },
   "linux": {
     "executableName": "saika-director",
     "syncDesktopName": true,

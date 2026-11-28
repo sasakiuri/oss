@@ -80,8 +80,6 @@ jobs:
         include:
           - os: windows-latest
             platform: win
-          - os: macos-latest
-            platform: mac
           - os: ubuntu-latest
             platform: linux
 
@@ -100,19 +98,16 @@ jobs:
         run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-lane
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Build Saika Director artifacts
         run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-director
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Build Saika Vista artifacts
         run: npm run build:${{ matrix.platform }} --workspace=@sasakiuri/saika-vista
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Verify packaged legal notices
         run: |
@@ -127,7 +122,6 @@ jobs:
           path: |
             packages/saika-lane/release/*.exe
             packages/saika-lane/release/*.zip
-            packages/saika-lane/release/*.dmg
             packages/saika-lane/release/*.AppImage
             packages/saika-lane/release/*.deb
             packages/saika-lane/release/latest*.yml
@@ -142,7 +136,6 @@ jobs:
           path: |
             packages/saika-director/release/*.exe
             packages/saika-director/release/*.zip
-            packages/saika-director/release/*.dmg
             packages/saika-director/release/*.AppImage
             packages/saika-director/release/*.deb
           if-no-files-found: error
@@ -155,7 +148,6 @@ jobs:
           path: |
             packages/saika-vista/release/*.exe
             packages/saika-vista/release/*.zip
-            packages/saika-vista/release/*.dmg
             packages/saika-vista/release/*.AppImage
             packages/saika-vista/release/*.deb
           if-no-files-found: error
@@ -224,7 +216,6 @@ jobs:
           files: |
             artifacts/lane/*.exe
             artifacts/lane/*.zip
-            artifacts/lane/*.dmg
             artifacts/lane/*.AppImage
             artifacts/lane/*.deb
             artifacts/lane/latest*.yml
@@ -233,8 +224,6 @@ jobs:
             artifacts/vista/*.exe
             artifacts/director/*.zip
             artifacts/vista/*.zip
-            artifacts/director/*.dmg
-            artifacts/vista/*.dmg
             artifacts/director/*.AppImage
             artifacts/vista/*.AppImage
             artifacts/director/*.deb
